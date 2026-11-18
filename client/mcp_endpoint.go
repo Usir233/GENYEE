@@ -105,7 +105,8 @@ func (c *Client) CreateMCPEndpoint(ctx context.Context, req *MCPEndpointRequest)
 
 // GetMCPEndpoint returns one endpoint.
 func (c *Client) GetMCPEndpoint(ctx context.Context, endpointID string) (*MCPEndpoint, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-endpoints/%s", escapePathSegment(endpointID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-endpoints/%s", escapePathSegment(endpointID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +124,8 @@ func (c *Client) GetMCPEndpoint(ctx context.Context, endpointID string) (*MCPEnd
 func (c *Client) UpdateMCPEndpoint(
 	ctx context.Context, endpointID string, req *MCPEndpointRequest,
 ) (*MCPEndpoint, error) {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/mcp-endpoints/%s", escapePathSegment(endpointID)), req, nil)
+	path := fmt.Sprintf("/api/v1/mcp-endpoints/%s", escapePathSegment(endpointID))
+	resp, err := c.doRequest(ctx, http.MethodPut, path, req, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +141,8 @@ func (c *Client) UpdateMCPEndpoint(
 
 // DeleteMCPEndpoint deletes an endpoint; connected clients lose access immediately.
 func (c *Client) DeleteMCPEndpoint(ctx context.Context, endpointID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/mcp-endpoints/%s", escapePathSegment(endpointID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-endpoints/%s", escapePathSegment(endpointID))
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
 	}

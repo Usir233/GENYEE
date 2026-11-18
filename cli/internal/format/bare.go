@@ -1,3 +1,4 @@
+// Package format provides JSON, NDJSON, and human-readable output formatters.
 package format
 
 import (

@@ -44,7 +44,7 @@ func TestDownload_DefaultUsesServerFilename(t *testing.T) {
 	tmp := t.TempDir()
 	prevWD, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(prevWD)
+	defer func() { _ = os.Chdir(prevWD) }()
 
 	svc := &fakeDownloadSvc{content: "PDF-1.4 bytes", filename: "report.pdf"}
 	require.NoError(t, runDownload(context.Background(), &DownloadOptions{}, textFopts(), svc, "doc_abc"))
@@ -86,7 +86,13 @@ func TestDownload_NoFilenameFromServer_DefaultPath_Errors(t *testing.T) {
 func TestDownload_NotFound(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
 	svc := &fakeDownloadSvc{err: errors.New("HTTP error 404: not found")}
-	err := runDownload(context.Background(), &DownloadOptions{Output: filepath.Join(t.TempDir(), "x")}, textFopts(), svc, "doc_missing")
+	err := runDownload(
+		context.Background(),
+		&DownloadOptions{Output: filepath.Join(t.TempDir(), "x")},
+		textFopts(),
+		svc,
+		"doc_missing",
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -116,7 +122,7 @@ func TestDownload_RejectsServerPathTraversal(t *testing.T) {
 	tmp := t.TempDir()
 	prevWD, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(prevWD)
+	defer func() { _ = os.Chdir(prevWD) }()
 
 	// The server sends "../../etc/shadow" - we accept only "shadow" and
 	// write to cwd.
@@ -150,7 +156,10 @@ func TestDownload_ForceOverwrites(t *testing.T) {
 	require.NoError(t, os.WriteFile(dest, []byte("OLD"), 0o644))
 
 	svc := &fakeDownloadSvc{content: "NEW", filename: ""}
-	require.NoError(t, runDownload(context.Background(), &DownloadOptions{Output: dest, Clobber: true}, textFopts(), svc, "doc_abc"))
+	require.NoError(
+		t,
+		runDownload(context.Background(), &DownloadOptions{Output: dest, Clobber: true}, textFopts(), svc, "doc_abc"),
+	)
 	got, _ := os.ReadFile(dest)
 	assert.Equal(t, "NEW", string(got))
 }
@@ -179,7 +188,12 @@ func TestDownload_JSONEnvelope(t *testing.T) {
 			Filename string `json:"filename"`
 		} `json:"data"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(out.String()), &env), "expected valid JSON envelope, got %q", out.String())
+	require.NoError(
+		t,
+		json.Unmarshal(out.Bytes(), &env),
+		"expected valid JSON envelope, got %q",
+		out.String(),
+	)
 	assert.True(t, env.OK)
 	assert.Equal(t, dest, env.Data.Path)
 	assert.Equal(t, int64(len("PDF bytes here")), env.Data.Bytes)

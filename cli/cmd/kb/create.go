@@ -27,6 +27,7 @@ var kbCreateFields = []string{
 	"created_at", "updated_at",
 }
 
+// CreateOptions holds flags and arguments for the `kb create` command.
 type CreateOptions struct {
 	Name            string
 	Description     string
@@ -89,35 +90,67 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			// through; a name resolves among Embedding models). Configuring a
 			// KB's models fully is `genyee kb config set`; this just pre-sets the
 			// embedding model at creation.
-			if opts.EmbeddingModel, err = cmdutil.ResolveModelRef(c.Context(), cli, opts.EmbeddingModel, "Embedding"); err != nil {
+			if opts.EmbeddingModel, err = cmdutil.ResolveModelRef(
+				c.Context(),
+				cli,
+				opts.EmbeddingModel,
+				"Embedding",
+			); err != nil {
 				return err
 			}
 			// --chat-model (id or name) pre-sets the KB's LLM at creation, so a
 			// KB can be born retrieval-ready in one step. Full model config
 			// (rerank / multimodal) is still `genyee kb config set`.
-			if opts.ChatModel, err = cmdutil.ResolveModelRef(c.Context(), cli, opts.ChatModel, "KnowledgeQA"); err != nil {
+			if opts.ChatModel, err = cmdutil.ResolveModelRef(
+				c.Context(),
+				cli,
+				opts.ChatModel,
+				"KnowledgeQA",
+			); err != nil {
 				return err
 			}
 			return runCreate(c.Context(), opts, fopts, cli)
 		},
 	}
 	cmd.Flags().StringVar(&opts.Description, "description", "", "Knowledge base description (optional)")
-	cmd.Flags().StringVar(&opts.EmbeddingModel, "embedding-model", "", "Embedding model id or name (optional; makes the KB retrieval-ready at creation)")
-	cmd.Flags().StringVar(&opts.ChatModel, "chat-model", "", "Chat/LLM model id or name (optional; pre-set the KB's answer model at creation)")
-	cmd.Flags().StringVar(&opts.StorageProvider, "storage-provider", "",
-		"Storage provider for documents in this KB: "+strings.Join(storageProviderValues, " | ")+" (optional; server default when unset)")
+	cmd.Flags().StringVar(
+		&opts.EmbeddingModel,
+		"embedding-model",
+		"",
+		"Embedding model id or name (optional; makes the KB retrieval-ready at creation)",
+	)
+	cmd.Flags().StringVar(
+		&opts.ChatModel,
+		"chat-model",
+		"",
+		"Chat/LLM model id or name (optional; pre-set the KB's answer model at creation)",
+	)
+	cmd.Flags().StringVar(
+		&opts.StorageProvider,
+		"storage-provider",
+		"",
+		"Storage provider for documents in this KB: "+strings.Join(
+			storageProviderValues,
+			" | ",
+		)+" (optional; server default when unset)",
+	)
 	cmdutil.AddFormatFlag(cmd, kbCreateFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Create a new knowledge base with the given name. Emits the created KB object with its id.",
-		RequiredFlags: []string{"<name> (positional)"},
-		Examples: []string{
-			`genyee kb create "Eng Docs"`,
-			`genyee kb create "Eng Docs" --embedding-model text-embedding-3-small --chat-model gpt-4o-mini  # retrieval-ready in one step`,
-			`genyee kb create "Eng Docs" --jq .data.id   # capture id to chain into doc upload --kb`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "Create a new knowledge base with the given name. Emits the created KB object with its id.",
+			RequiredFlags: []string{"<name> (positional)"},
+			Examples: []string{
+				`genyee kb create "Eng Docs"`,
+				`genyee kb create "Eng Docs" --embedding-model text-embedding-3-small --chat-model gpt-4o-mini  # ` +
+					`retrieval-ready in one step`,
+				`genyee kb create "Eng Docs" --jq .data.id   # capture id to chain into doc upload --kb`,
+			},
+			Output: "envelope.data is the created KnowledgeBase object with id, name, type, embedding_model_id, " +
+				"summary_model_id",
 		},
-		Output: "envelope.data is the created KnowledgeBase object with id, name, type, embedding_model_id, summary_model_id",
-	})
+	)
 	return cmd
 }
 
@@ -159,15 +192,26 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	// the agent to discover a silent-draft KB via a later empty search.
 	var meta *output.Meta
 	if created.EmbeddingModelID == "" {
-		meta = &output.Meta{Hint: "retrieval_ready=false: no embedding model bound. Uploaded docs will not be searchable until you run `genyee kb config set " + text.SanitizeInline(created.ID) + " --embedding-model <id> --chat-model <id>` (create the KB with --embedding-model/--chat-model to skip this step)."}
+		meta = &output.Meta{
+			Hint: "retrieval_ready=false: no embedding model bound. Uploaded docs will not be searchable until you " +
+				"run `genyee kb config set " +
+				text.SanitizeInline(created.ID) +
+				" --embedding-model <id> --chat-model <id>` (create the KB with --embedding-model/--chat-model to " +
+				"skip this step).",
+		}
 	}
 
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, created, meta)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Created knowledge base %q (id: %s)\n", text.SanitizeInline(created.Name), text.SanitizeInline(created.ID))
+	_, _ = fmt.Fprintf(
+		iostreams.IO.Out,
+		"✓ Created knowledge base %q (id: %s)\n",
+		text.SanitizeInline(created.Name),
+		text.SanitizeInline(created.ID),
+	)
 	if meta != nil {
-		fmt.Fprintf(iostreams.IO.Out, "⚠ %s\n", meta.Hint)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "⚠ %s\n", meta.Hint)
 	}
 	return nil
 }

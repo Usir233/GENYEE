@@ -63,7 +63,12 @@ func TestW8_Chunk_ValidatesIDsConfirmationOrderNilViewAndSanitizesText(t *testin
 	require.Error(t, err)
 
 	// 3. chunk view must not panic on (nil, nil) response, and renderChunk must strip OSC 52.
-	err = runView(context.Background(), &ViewOptions{ChunkID: "chk_1"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, w8NilChunkViewSvc{})
+	err = runView(
+		context.Background(),
+		&ViewOptions{ChunkID: "chk_1"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		w8NilChunkViewSvc{},
+	)
 	require.Error(t, err)
 
 	out.Reset()

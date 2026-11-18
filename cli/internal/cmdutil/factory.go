@@ -62,6 +62,7 @@ type Factory struct {
 // ProfileSourceKind identifies which layer supplied the active profile.
 type ProfileSourceKind int
 
+// ProfileSourceKind values indicating how the active profile was selected.
 const (
 	ProfileSourceNone ProfileSourceKind = iota
 	ProfileSourceFlag
@@ -239,7 +240,8 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 		// an active profile) — an agent that execs retry_argv would loop. Point
 		// hint + retry_argv at the real first step: create a profile.
 		return nil, NewError(CodeAuthUnauthenticated, "no profile configured").
-			WithHint("add one first: `genyee profile add <name> --host <url> --use`, then `genyee auth login` (or set GENYEE_API_KEY + GENYEE_HOST for headless use)").
+			WithHint("add one first: `genyee profile add <name> --host <url> --use`, then `genyee auth login` (or " +
+				"set GENYEE_API_KEY + GENYEE_HOST for headless use)").
 			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
 	_, _, sourceKind, _ := f.resolveTransientProfile()
@@ -330,10 +332,10 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 }
 
 // EnvCredential reports whether stateless env credentials are in effect and
-// which kind. Used by `auth status` / `config view` so their host / profile
-// output reflects that the env credential (and GENYEE_HOST) — not the config
-// profile — is what actually authenticated the client. Mirrors buildClientFromEnv's
-// precedence (GENYEE_TOKEN wins over GENYEE_API_KEY).
+// which kind. Used by `auth status` / `config view` / `doctor` so their host /
+// profile output reflects that the env credential (and EnvHost()) — not the
+// config profile — is what actually authenticated the client. Mirrors
+// buildClientFromEnv's precedence (GENYEE_TOKEN wins over GENYEE_API_KEY).
 func EnvCredential() (active bool, kind string) {
 	if strings.TrimSpace(os.Getenv("GENYEE_TOKEN")) != "" {
 		return true, "GENYEE_TOKEN"
@@ -344,26 +346,65 @@ func EnvCredential() (active bool, kind string) {
 	return false, ""
 }
 
+// EnvHost returns the server base URL configured via environment variables,
+// applying canonical precedence: GENYEE_BASE_URL > GENYEE_HOST.
+func EnvHost() string {
+	if v := strings.TrimSpace(os.Getenv("GENYEE_BASE_URL")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("GENYEE_HOST"))
+}
+
+// ResolveHost returns the effective server base URL using canonical precedence:
+//  1. GENYEE_BASE_URL when stateless env credentials (EnvCredential) are active,
+//     or unconditionally when allowUnauthBaseURL is true (used by `genyee doctor`
+//     probe harnesses before credentials exist).
+//  2. GENYEE_HOST when stateless env credentials (GENYEE_TOKEN / GENYEE_API_KEY)
+//     are active.
+//  3. Active profile's host in cfg (resolved via --profile > GENYEE_PROFILE >
+//     .genyee/project.yaml > current_profile).
+func ResolveHost(cfg *config.Config, allowUnauthBaseURL bool) string {
+	host := ""
+	if cfg != nil {
+		if prof, ok := cfg.Profiles[cfg.CurrentProfile]; ok {
+			host = prof.Host
+		}
+	}
+	if envActive, _ := EnvCredential(); envActive {
+		if v := EnvHost(); v != "" {
+			return v
+		}
+	}
+	if allowUnauthBaseURL {
+		if v := strings.TrimSpace(os.Getenv("GENYEE_BASE_URL")); v != "" {
+			return v
+		}
+	}
+	return host
+}
+
 // buildClientFromEnv builds an ephemeral SDK client from GENYEE_TOKEN (bearer
 // JWT) or GENYEE_API_KEY when either is set, bypassing config.yaml + the
 // keyring entirely — the stateless path for headless / CI / agent use. Returns
 // handled=false (fall through to the profile path) when neither var is set.
 //
-// Host resolution: GENYEE_HOST, else the active profile's host (so env creds
-// can target an already-configured host without re-specifying it). When a token
-// is supplied, no 401→refresh transport is attached — env creds are ephemeral,
-// so a 401 propagates for the caller to supply a fresh token. GENYEE_TOKEN
-// wins over GENYEE_API_KEY if both are set.
+// Host resolution follows EnvHost() (GENYEE_BASE_URL > GENYEE_HOST), falling
+// back to the active profile's host so env creds can target an
+// already-configured host without re-specifying it. When a token is supplied,
+// no 401->refresh transport is attached — env creds are ephemeral, so a 401
+// propagates for the caller to supply a fresh token. GENYEE_TOKEN wins over
+// GENYEE_API_KEY if both are set.
 func buildClientFromEnv(f *Factory) (client *sdk.Client, handled bool, err error) {
 	token := strings.TrimSpace(os.Getenv("GENYEE_TOKEN"))
 	apiKey := strings.TrimSpace(os.Getenv("GENYEE_API_KEY"))
 	if token == "" && apiKey == "" {
 		return nil, false, nil
 	}
-	host := strings.TrimSpace(os.Getenv("GENYEE_HOST"))
+	host := EnvHost()
 	if host == "" {
 		// Best-effort fallback to the active profile's host; ignore config
-		// errors so env creds + GENYEE_HOST stay usable with no config at all.
+		// errors so env creds + GENYEE_HOST / GENYEE_BASE_URL stay usable with
+		// no config at all.
 		if cfg, cerr := f.Config(); cerr == nil && cfg != nil {
 			if prof, ok := cfg.Profiles[cfg.CurrentProfile]; ok {
 				host = prof.Host
@@ -373,7 +414,7 @@ func buildClientFromEnv(f *Factory) (client *sdk.Client, handled bool, err error
 	if host == "" {
 		return nil, true, NewError(CodeInputInvalidArgument,
 			"GENYEE_TOKEN / GENYEE_API_KEY is set but no host is available").
-			WithHint("set GENYEE_HOST (e.g. https://kb.example.com) or configure a profile host")
+			WithHint("set GENYEE_HOST (or GENYEE_BASE_URL, e.g. https://kb.example.com) or configure a profile host")
 	}
 	normalizedHost, err := NormalizeHost(host)
 	if err != nil {
@@ -399,7 +440,12 @@ func AddKBFlag(cmd *cobra.Command) {
 // carries it, and rejecting it with exit 2 is pure friction. Accepted and
 // ignored; declared here so schema still lists it truthfully.
 func AddIgnoredKBFlag(cmd *cobra.Command) {
-	cmd.Flags().String("kb", "", "Ignored — the id argument is globally unique; accepted for symmetry with `doc list`/`doc upload` so a carried-over --kb doesn't error")
+	cmd.Flags().String(
+		"kb",
+		"",
+		"Ignored — the id argument is globally unique; accepted for symmetry with `doc list`/`doc upload` so a "+
+			"carried-over --kb doesn't error",
+	)
 }
 
 // ResolveKB returns the active KB id for the running command, applying the
@@ -497,7 +543,10 @@ func ResolveSecretRef(store secrets.Store, profile, key, ref string) (string, er
 	if strings.HasPrefix(ref, "env:") {
 		envVar := strings.TrimSpace(strings.TrimPrefix(ref, "env:"))
 		if envVar == "" {
-			return "", NewError(CodeLocalConfigCorrupt, fmt.Sprintf("profile %q %s ref %q names no environment variable", profile, key, ref))
+			return "", NewError(
+				CodeLocalConfigCorrupt,
+				fmt.Sprintf("profile %q %s ref %q names no environment variable", profile, key, ref),
+			)
 		}
 		return strings.TrimSpace(os.Getenv(envVar)), nil
 	}

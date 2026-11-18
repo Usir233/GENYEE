@@ -27,14 +27,14 @@ type MentionedItem struct {
 type AgentQARequest struct {
 	Query            string            `json:"query"`                        // Required query text
 	KnowledgeBaseIDs []string          `json:"knowledge_base_ids,omitempty"` // Optional KBs for this query
-	KnowledgeIDs     []string          `json:"knowledge_ids,omitempty"`      // Optional specific knowledge IDs for this query
+	KnowledgeIDs     []string          `json:"knowledge_ids,omitempty"`      // Optional knowledge IDs
 	AgentEnabled     bool              `json:"agent_enabled"`                // Whether to run in agent mode
 	AgentID          string            `json:"agent_id,omitempty"`           // Optional custom agent ID
 	WebSearchEnabled bool              `json:"web_search_enabled"`           // Whether to enable web search
 	SummaryModelID   string            `json:"summary_model_id,omitempty"`   // Optional summary model override
 	MentionedItems   []MentionedItem   `json:"mentioned_items,omitempty"`    // @mentioned knowledge bases and files
 	DisableTitle     bool              `json:"disable_title,omitempty"`      // Whether to disable auto title generation
-	MCPServiceIDs    []string          `json:"mcp_service_ids,omitempty"`    // Optional MCP service allow list (deprecated)
+	MCPServiceIDs    []string          `json:"mcp_service_ids,omitempty"`    // Deprecated MCP service allow list
 	Images           []ImageAttachment `json:"images,omitempty"`             // Attached images for multimodal chat
 	Channel          string            `json:"channel,omitempty"`            // Source channel: "web", "api", "im", etc.
 	QuestionOrigin   *QuestionOrigin   `json:"question_origin,omitempty"`    // Source of a picked suggested question
@@ -81,6 +81,7 @@ type AgentStreamResponse struct {
 type AgentEventCallback func(*AgentStreamResponse) error
 
 // AgentQAStream performs agent-based Q&A with SSE streaming using default agent settings.
+//
 // Deprecated: prefer AgentQAStreamWithRequest to customize agent behavior.
 func (c *Client) AgentQAStream(ctx context.Context, sessionID string, query string, callback AgentEventCallback) error {
 	req := &AgentQARequest{
@@ -116,7 +117,7 @@ func (c *Client) AgentQAStreamWithRequest(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return newAPIError(resp.StatusCode, readErrorBody(resp.Body))

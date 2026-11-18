@@ -23,7 +23,9 @@ func (s *emptySessChatSvc) CreateSession(_ context.Context, _ *sdk.CreateSession
 
 func TestW8_MCP_BoundsValidationTerminalErrorAndRedaction(t *testing.T) {
 	// 1. Secret tokens in upstream errors must be redacted before surfacing to MCP clients.
-	resErr := toolErrorResult(errors.New("upstream failed with Authorization: Bearer secret_jwt_token and gy_live_secret123"))
+	resErr := toolErrorResult(
+		errors.New("upstream failed with Authorization: Bearer secret_jwt_token and gy_live_secret123"),
+	)
 	require.NotNil(t, resErr)
 	txt := resErr.Content[0].(*mcpsdk.TextContent).Text
 	if strings.Contains(txt, "secret_jwt_token") || strings.Contains(txt, "gy_live_secret123") {
@@ -68,7 +70,10 @@ func TestW8_MCP_BoundsValidationTerminalErrorAndRedaction(t *testing.T) {
 		{"doc_list", map[string]any{"kb_id": "kb_1", "page": -1}},
 		{"doc_list", map[string]any{"kb_id": "kb_1", "page_size": -10}},
 		{"doc_list", map[string]any{"kb_id": "kb_1", "status": "bogus_status"}},
-		{"doc_list", map[string]any{"kb_id": "kb_1", "start_time": "2026-06-01T00:00:00Z", "end_time": "2026-05-01T00:00:00Z"}},
+		{
+			"doc_list",
+			map[string]any{"kb_id": "kb_1", "start_time": "2026-06-01T00:00:00Z", "end_time": "2026-05-01T00:00:00Z"},
+		},
 	}
 	for _, bc := range badCalls {
 		res, err := cVal.CallTool(ctx, &mcpsdk.CallToolParams{Name: bc.tool, Arguments: bc.args})

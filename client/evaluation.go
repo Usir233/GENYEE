@@ -15,6 +15,7 @@ import (
 // EvaluationStatus matches the numeric task status returned by the server.
 type EvaluationStatus int
 
+// EvaluationStatus values reported by the evaluation service.
 const (
 	EvaluationStatusPending EvaluationStatus = iota
 	EvaluationStatusRunning
@@ -43,11 +44,13 @@ type EvaluationResult struct {
 	Metric *EvaluationMetricResult `json:"metric,omitempty"`
 }
 
+// EvaluationMetricResult aggregates retrieval and generation metrics for an evaluation task.
 type EvaluationMetricResult struct {
 	RetrievalMetrics  EvaluationRetrievalMetrics  `json:"retrieval_metrics"`
 	GenerationMetrics EvaluationGenerationMetrics `json:"generation_metrics"`
 }
 
+// EvaluationRetrievalMetrics holds IR evaluation metrics.
 type EvaluationRetrievalMetrics struct {
 	Precision float64 `json:"precision"`
 	Recall    float64 `json:"recall"`
@@ -57,6 +60,7 @@ type EvaluationRetrievalMetrics struct {
 	MAP       float64 `json:"map"`
 }
 
+// EvaluationGenerationMetrics holds text generation evaluation metrics.
 type EvaluationGenerationMetrics struct {
 	BLEU1  float64 `json:"bleu1"`
 	BLEU2  float64 `json:"bleu2"`

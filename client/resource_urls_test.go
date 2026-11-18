@@ -38,14 +38,21 @@ func TestExplicitHandleModeOverridesPublicServerDefault(t *testing.T) {
 			content = "resource://private-file"
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": []map[string]string{{"id": "message", "content": content}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"success": true,
+			"data":    []map[string]string{{"id": "message", "content": content}},
+		})
 	}))
 	defer s.Close()
 	c := NewClient(s.URL)
 	for _, tc := range []struct {
 		mode ResourceURLMode
 		want string
-	}{{ResourceURLModeHandle, "resource://private-file"}, {ResourceURLModePublic, "https://example.invalid/public-token"}, {"", "https://example.invalid/public-token"}} {
+	}{
+		{ResourceURLModeHandle, "resource://private-file"},
+		{ResourceURLModePublic, "https://example.invalid/public-token"},
+		{"", "https://example.invalid/public-token"},
+	} {
 		rows, err := c.LoadMessages(context.Background(), "session", 10, nil, ResourceURLOptions{ResourceURLs: tc.mode})
 		if err != nil {
 			t.Fatal(err)

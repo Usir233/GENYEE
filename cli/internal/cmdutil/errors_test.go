@@ -70,7 +70,8 @@ func TestClassifyHTTPError_500GenericCode_StaysServerError(t *testing.T) {
 		},
 		{
 			name: "code 1007 with SQLSTATE",
-			body: `HTTP error 500: {"error":{"code":1007,"message":"value too long for type character varying(255) (SQLSTATE 22001)"},"success":false}`,
+			body: `HTTP error 500: {"error":{"code":1007,"message":"value too long for type character varying(255) ` +
+				`(SQLSTATE 22001)"},"success":false}`,
 		},
 	}
 	for _, tc := range cases {

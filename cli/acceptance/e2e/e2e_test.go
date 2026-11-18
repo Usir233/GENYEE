@@ -108,7 +108,21 @@ func TestRAGFullLoop(t *testing.T) {
 		OK   bool             `json:"ok"`
 		Data []map[string]any `json:"data"`
 	}
-	runJSONInto(t, bin, env, &searchResp, "search", "chunks", "sample", "--kb", created.Data.ID, "--limit", "5", "--format", "json")
+	runJSONInto(
+		t,
+		bin,
+		env,
+		&searchResp,
+		"search",
+		"chunks",
+		"sample",
+		"--kb",
+		created.Data.ID,
+		"--limit",
+		"5",
+		"--format",
+		"json",
+	)
 	results := searchResp.Data
 	if len(results) == 0 {
 		t.Fatalf("search returned no results")
@@ -129,7 +143,19 @@ func TestRAGFullLoop(t *testing.T) {
 			SessionID string `json:"session_id"`
 		} `json:"data"`
 	}
-	runJSONInto(t, bin, env, &chatEnv, "chat", "summarize the document briefly", "--kb", created.Data.ID, "--format", "json", "--reference")
+	runJSONInto(
+		t,
+		bin,
+		env,
+		&chatEnv,
+		"chat",
+		"summarize the document briefly",
+		"--kb",
+		created.Data.ID,
+		"--format",
+		"json",
+		"--reference",
+	)
 	if !chatEnv.OK {
 		t.Fatal("chat ok=false")
 	}
@@ -259,7 +285,13 @@ func run(bin string, env []string, args ...string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return stdout.Bytes(), fmt.Errorf("%s %s: %v\nstderr:\n%s", filepath.Base(bin), strings.Join(args, " "), err, stderr.String())
+		return stdout.Bytes(), fmt.Errorf(
+			"%s %s: %v\nstderr:\n%s",
+			filepath.Base(bin),
+			strings.Join(args, " "),
+			err,
+			stderr.String(),
+		)
 	}
 	return stdout.Bytes(), nil
 }

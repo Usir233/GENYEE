@@ -78,19 +78,40 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 			return runList(c.Context(), opts, fopts, cli)
 		},
 	}
-	cmd.Flags().StringVar(&opts.Type, "type", "", "Only show models of this type (Embedding, Rerank, KnowledgeQA, VLLM, ASR)")
-	cmd.Flags().StringVar(&opts.Source, "source", "", "Only show models from this provider (local, remote, openai, aliyun, …)")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)")
+	cmd.Flags().StringVar(
+		&opts.Type,
+		"type",
+		"",
+		"Only show models of this type (Embedding, Rerank, KnowledgeQA, VLLM, ASR)",
+	)
+	cmd.Flags().StringVar(
+		&opts.Source,
+		"source",
+		"",
+		"Only show models from this provider (local, remote, openai, aliyun, …)",
+	)
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		30,
+		"Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)",
+	)
 	cmdutil.AddFormatFlag(cmd, modelListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "discover model ids for `agent create --model` and a KB's embedding/summary model",
-		Examples: []string{
-			"genyee model list",
-			"genyee model list --type KnowledgeQA --format json",
-			"genyee model list --source local",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "discover model ids for `agent create --model` and a KB's embedding/summary model",
+			Examples: []string{
+				"genyee model list",
+				"genyee model list --type KnowledgeQA --format json",
+				"genyee model list --source local",
+			},
+			Output: "envelope.data is an array of Model objects (id, name, display_name, type, source, is_default); " +
+				"narrow it with --type / --source; meta.count is the returned count, meta.total_count is the full " +
+				"set and meta.has_more=true means --limit truncated it",
 		},
-		Output: "envelope.data is an array of Model objects (id, name, display_name, type, source, is_default); narrow it with --type / --source; meta.count is the returned count, meta.total_count is the full set and meta.has_more=true means --limit truncated it",
-	})
+	)
 	return cmd
 }
 
@@ -167,22 +188,29 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 
 	if len(items) == 0 {
 		if hasFilter {
-			fmt.Fprintln(iostreams.IO.Out, "(no models match the filter)")
+			_, _ = fmt.Fprintln(iostreams.IO.Out, "(no models match the filter)")
 			return nil
 		}
-		fmt.Fprintln(iostreams.IO.Out, "(no models)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no models)")
 		return nil
 	}
 
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tTYPE\tSOURCE\tDEFAULT")
+	_, _ = fmt.Fprintln(tw, "ID\tNAME\tTYPE\tSOURCE\tDEFAULT")
 	for _, m := range items {
 		def := ""
 		if m.IsDefault {
 			def = "default"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-			text.SanitizeInline(m.ID), text.OneLine(40, modelLabel(m)), text.SanitizeInline(string(m.Type)), text.SanitizeInline(string(m.Source)), def)
+		_, _ = fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\t%s\t%s\n",
+			text.SanitizeInline(m.ID),
+			text.OneLine(40, modelLabel(m)),
+			text.SanitizeInline(string(m.Type)),
+			text.SanitizeInline(string(m.Source)),
+			def,
+		)
 	}
 	return tw.Flush()
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/output"
 )
 
+// ListOptions holds flags and arguments for the `auth list` command.
 type ListOptions struct{}
 
 // authListFields enumerates the fields surfaced for `--format json` discovery on
@@ -36,8 +37,9 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List configured authentication profiles",
-		Long:  `Show every configured profile (name, host, user, mode, current). Read-only; no network or keyring access.`,
-		Args:  cobra.NoArgs,
+		Long: `Show every configured profile (name, host, user, mode, current). Read-only; no network or keyring ` +
+			`access.`,
+		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
@@ -78,17 +80,17 @@ func runList(fopts *cmdutil.FormatOptions, f *cmdutil.Factory) error {
 		return fopts.Emit(iostreams.IO.Out, entries, meta)
 	}
 	if len(entries) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "No profiles configured. Run `genyee auth login` to create one.")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "No profiles configured. Run `genyee auth login` to create one.")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "  NAME\tHOST\tUSER\tMODE")
+	_, _ = fmt.Fprintln(tw, "  NAME\tHOST\tUSER\tMODE")
 	for _, e := range entries {
 		marker := "  "
 		if e.Current {
 			marker = "* "
 		}
-		fmt.Fprintf(tw, "%s%s\t%s\t%s\t%s\n", marker, e.Name, e.Host, format.DashIfEmpty(e.User), e.Mode)
+		_, _ = fmt.Fprintf(tw, "%s%s\t%s\t%s\t%s\n", marker, e.Name, e.Host, format.DashIfEmpty(e.User), e.Mode)
 	}
 	return tw.Flush()
 }

@@ -15,6 +15,7 @@ import (
 // `unlink`. Tracks the small unlinkResult struct.
 var unlinkFields = []string{"project_link_path"}
 
+// UnlinkOptions holds flags and arguments for the `link unlink` command.
 type UnlinkOptions struct {
 	DryRun bool
 }
@@ -60,9 +61,14 @@ is present anywhere in the parent chain.`,
 			}
 			if !found {
 				return &cmdutil.Error{
-					Code:    cmdutil.CodeInputInvalidArgument,
-					Message: fmt.Sprintf("no %s/%s found at or above %s", projectlink.DirName, projectlink.FileName, cwd),
-					Hint:    "run `genyee link --kb <id>` first, or check you're in the right directory",
+					Code: cmdutil.CodeInputInvalidArgument,
+					Message: fmt.Sprintf(
+						"no %s/%s found at or above %s",
+						projectlink.DirName,
+						projectlink.FileName,
+						cwd,
+					),
+					Hint: "run `genyee link --kb <id>` first, or check you're in the right directory",
 				}
 			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
@@ -76,17 +82,21 @@ is present anywhere in the parent chain.`,
 	}
 	cmdutil.AddFormatFlag(cmd, unlinkFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "Remove the .genyee/project.yaml KB binding from the current directory tree. No flags required; walks up from cwd to find the link.",
-		Output:  "envelope.data has project_link_path of the removed file",
-		Examples: []string{
-			"genyee unlink",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Remove the .genyee/project.yaml KB binding from the current directory tree. No flags required; " +
+				"walks up from cwd to find the link.",
+			Output: "envelope.data has project_link_path of the removed file",
+			Examples: []string{
+				"genyee unlink",
+			},
 		},
-	})
+	)
 	return cmd
 }
 
-func runUnlink(opts *UnlinkOptions, fopts *cmdutil.FormatOptions) error {
+func runUnlink(_ *UnlinkOptions, fopts *cmdutil.FormatOptions) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "get cwd")
@@ -108,6 +118,6 @@ func runUnlink(opts *UnlinkOptions, fopts *cmdutil.FormatOptions) error {
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, unlinkResult{ProjectLinkPath: linkPath}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Unlinked %s\n", linkPath)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Unlinked %s\n", linkPath)
 	return nil
 }

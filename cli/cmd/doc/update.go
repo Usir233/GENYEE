@@ -89,8 +89,23 @@ to the user first.`,
 			}
 			// Build a retry command from the flags the user actually passed so
 			// agents can re-invoke with -y after explicit human approval.
-			retryCmd := cmdutil.BuildRetryArgv(c, []string{"genyee", "doc", "update", id}, "title", "description", "format")
-			if err := cmdutil.ConfirmWrite(f.Prompter(), opts.Yes, fopts.WantsJSON(), "update", "document", id, "doc.update", retryCmd); err != nil {
+			retryCmd := cmdutil.BuildRetryArgv(
+				c,
+				[]string{"genyee", "doc", "update", id},
+				"title",
+				"description",
+				"format",
+			)
+			if err := cmdutil.ConfirmWrite(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"update",
+				"document",
+				id,
+				"doc.update",
+				retryCmd,
+			); err != nil {
 				return err
 			}
 			return runUpdate(c.Context(), opts, fopts, cli, id)
@@ -125,7 +140,13 @@ func errNoUpdateFlag() error {
 	}
 }
 
-func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOptions, svc UpdateService, id string) error {
+func runUpdate(
+	ctx context.Context,
+	opts *UpdateOptions,
+	fopts *cmdutil.FormatOptions,
+	svc UpdateService,
+	id string,
+) error {
 	if opts.Title == nil && opts.Description == nil {
 		return errNoUpdateFlag()
 	}
@@ -148,6 +169,6 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, current, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Updated document %s\n", id)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Updated document %s\n", id)
 	return nil
 }

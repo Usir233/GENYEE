@@ -40,14 +40,15 @@ type fakeServices struct {
 	systemInfoHits atomic.Int32 // count GetSystemInfo invocations
 }
 
-func (f *fakeServices) GetSystemInfo(ctx context.Context) (*sdk.SystemInfo, error) {
+func (f *fakeServices) GetSystemInfo(_ context.Context) (*sdk.SystemInfo, error) {
 	f.systemInfoHits.Add(1)
 	return f.systemInfo, f.systemErr
 }
-func (f *fakeServices) GetCurrentUser(ctx context.Context) (*sdk.CurrentUserResponse, error) {
+
+func (f *fakeServices) GetCurrentUser(_ context.Context) (*sdk.CurrentUserResponse, error) {
 	return f.userResp, f.userErr
 }
-func (f *fakeServices) PingBaseURL(ctx context.Context) error { return f.pingErr }
+func (f *fakeServices) PingBaseURL(_ context.Context) error { return f.pingErr }
 
 func goodUserResp() *sdk.CurrentUserResponse {
 	r := &sdk.CurrentUserResponse{}
@@ -78,7 +79,9 @@ func TestDoctor_AllOK(t *testing.T) {
 	if r.Summary.Failed != 0 || r.Summary.Skipped != 0 {
 		t.Errorf("expected 0 fail / 0 skip, got %+v", r.Summary)
 	}
-	emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r)
+	if err := emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
 	if !strings.Contains(out.String(), `"all_passed":true`) {
 		t.Errorf("bare output should embed all_passed=true, got %q", out.String())
 	}
@@ -282,7 +285,9 @@ func TestDoctor_VersionSkewWarns(t *testing.T) {
 
 	// Wire shape: warn-only run has envelope wrapper with ok:true.
 	out, _ := iostreams.SetForTest(t)
-	emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r)
+	if err := emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
 	body := out.String()
 	if !strings.Contains(body, `"ok":true`) {
 		t.Errorf("doctor output must carry envelope ok:true, got %q", body)
@@ -387,7 +392,9 @@ func TestDoctor_BareJSON_WarnDoesNotSignalFail(t *testing.T) {
 			{Name: "credential_storage", Status: StatusOK},
 		},
 	}
-	emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r)
+	if err := emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
 	got := out.String()
 	if !strings.Contains(got, `"failed":0`) {
 		t.Errorf("warn-only result must have summary.failed=0 (exit-0 signal), got %q", got)
@@ -411,7 +418,9 @@ func TestDoctor_BareJSON_FailRaisesSummary(t *testing.T) {
 			{Name: "credential_storage", Status: StatusOK},
 		},
 	}
-	emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r)
+	if err := emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
 	got := out.String()
 	if !strings.Contains(got, `"failed":1`) {
 		t.Errorf("fail must surface in summary.failed, got %q", got)
@@ -429,7 +438,9 @@ func TestDoctor_TextMarker_Warn(t *testing.T) {
 			{Name: "server_version", Status: StatusWarn, Details: "older"},
 		},
 	}
-	emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatText}, r)
+	if err := emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatText}, r); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
 	got := out.String()
 	if !strings.Contains(got, "⚠") {
 		t.Errorf("text output should contain ⚠ glyph for warn, got %q", got)
@@ -454,7 +465,9 @@ func TestDoctor_WarnedField_OmittedAtZero(t *testing.T) {
 			{Name: "credential_storage", Status: StatusOK},
 		},
 	}
-	emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r)
+	if err := emit(&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, r); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
 	got := out.String()
 	if strings.Contains(got, `"warned"`) {
 		t.Errorf("output should omit `warned` field when zero, got %q", got)
@@ -487,8 +500,8 @@ func TestDoctor_RunE_FailReturnsSilentError(t *testing.T) {
 	cmd.SetArgs([]string{"--format", "json"})
 	cmd.SetContext(context.Background())
 	err := cmd.Execute()
-	if !errors.Is(err, cmdutil.SilentError) {
-		t.Errorf("RunE on fail must return SilentError, got %v", err)
+	if !errors.Is(err, cmdutil.ErrSilent) {
+		t.Errorf("RunE on fail must return ErrSilent, got %v", err)
 	}
 }
 

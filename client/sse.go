@@ -50,10 +50,6 @@ func isDefaultSSEEvent(eventType string) bool {
 	return eventType == "" || eventType == "message"
 }
 
-func appendSSEDataLine(buffer, line string) string {
-	return buffer + strings.TrimPrefix(line[5:], " ") + "\n"
-}
-
 func completeSSEData(buffer string) string {
 	return strings.TrimSuffix(buffer, "\n")
 }

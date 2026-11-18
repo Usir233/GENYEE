@@ -19,13 +19,18 @@ type fakeListSvc struct {
 	err   error
 }
 
-func (f *fakeListSvc) ListKnowledgeBases(ctx context.Context) ([]sdk.KnowledgeBase, error) {
+func (f *fakeListSvc) ListKnowledgeBases(_ context.Context) ([]sdk.KnowledgeBase, error) {
 	return f.items, f.err
 }
 
 func TestList_Empty_Text(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: []sdk.KnowledgeBase{}}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: []sdk.KnowledgeBase{}},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if !strings.Contains(out.String(), "(no knowledge bases)") {
@@ -36,7 +41,12 @@ func TestList_Empty_Text(t *testing.T) {
 func TestList_Empty_JSON(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
 	fopts := &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, fopts, &fakeListSvc{items: []sdk.KnowledgeBase{}}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		fopts,
+		&fakeListSvc{items: []sdk.KnowledgeBase{}},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	var env struct {
@@ -61,11 +71,27 @@ func TestList_NonEmpty_Text_RenderColumns(t *testing.T) {
 		{ID: "kb1", Name: "Marketing", KnowledgeCount: 5, UpdatedAt: now.Add(-3 * time.Hour)},
 		{ID: "kb2", Name: "Engineering", KnowledgeCount: 1, UpdatedAt: now.Add(-2 * 24 * time.Hour)},
 	}
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: items}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: items},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"ID", "NAME", "DOCS", "UPDATED", "kb1", "Marketing", "5 docs", "kb2", "Engineering", "1 doc"} {
+	for _, want := range []string{
+		"ID",
+		"NAME",
+		"DOCS",
+		"UPDATED",
+		"kb1",
+		"Marketing",
+		"5 docs",
+		"kb2",
+		"Engineering",
+		"1 doc",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q in:\n%s", want, got)
 		}
@@ -120,7 +146,12 @@ func TestList_PinnedFilter(t *testing.T) {
 		{ID: "kb2", Name: "Engineering", IsPinned: false, UpdatedAt: now.Add(-time.Hour)},
 		{ID: "kb3", Name: "Finance", IsPinned: true, UpdatedAt: now.Add(-2 * time.Hour)},
 	}
-	if err := runList(context.Background(), &ListOptions{Pinned: true, Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: items}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Pinned: true, Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: items},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	got := out.String()
@@ -137,7 +168,12 @@ func TestList_PinnedFilter_NoPinned_TextMessage(t *testing.T) {
 	items := []sdk.KnowledgeBase{
 		{ID: "kb1", Name: "Marketing", IsPinned: false, UpdatedAt: time.Now()},
 	}
-	if err := runList(context.Background(), &ListOptions{Pinned: true, Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: items}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Pinned: true, Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: items},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if !strings.Contains(out.String(), "(no pinned knowledge bases)") {
@@ -228,7 +264,12 @@ func TestList_Limit_Zero_Rejected(t *testing.T) {
 
 func TestList_Limit_Negative_Rejected(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
-	err := runList(context.Background(), &ListOptions{Limit: -1}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: makeKBs(3)})
+	err := runList(
+		context.Background(),
+		&ListOptions{Limit: -1},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: makeKBs(3)},
+	)
 	if err == nil {
 		t.Fatal("expected error for negative --limit")
 	}

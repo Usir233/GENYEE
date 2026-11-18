@@ -22,6 +22,7 @@ var messageListFields = []string{
 	"is_completed", "channel", "created_at", "updated_at",
 }
 
+// ListOptions holds flags and arguments for the `message list` command.
 type ListOptions struct {
 	SessionID string
 	Limit     int
@@ -34,7 +35,13 @@ type ListOptions struct {
 
 // ListService is the narrow SDK surface this command depends on.
 type ListService interface {
-	LoadMessages(ctx context.Context, sessionID string, limit int, beforeTime *time.Time, opts ...sdk.ResourceURLOptions) ([]sdk.Message, error)
+	LoadMessages(
+		ctx context.Context,
+		sessionID string,
+		limit int,
+		beforeTime *time.Time,
+		opts ...sdk.ResourceURLOptions,
+	) ([]sdk.Message, error)
 }
 
 // NewCmdList builds `genyee message list --session <id>`.
@@ -65,17 +72,28 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&opts.SessionID, "session", "", "Session id to load messages from")
 	_ = cmd.MarkFlagRequired("session")
 	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum messages to return — server-side page size (1..1000)")
-	cmd.Flags().StringVar(&opts.Before, "before", "", "Only messages created before this RFC3339 timestamp (time-cursor pagination)")
+	cmd.Flags().StringVar(
+		&opts.Before,
+		"before",
+		"",
+		"Only messages created before this RFC3339 timestamp (time-cursor pagination)",
+	)
 	cmdutil.AddFormatFlag(cmd, messageListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "List messages in a session. Use the assistant message id from the latest turn to chain follow-ups (session ask), or --before <oldest created_at> to page further back.",
-		RequiredFlags: []string{"--session <session-id>"},
-		Examples: []string{
-			"genyee message list --session sess_abc",
-			"genyee message list --session sess_abc --limit 100 --before 2026-06-01T00:00:00Z",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "List messages in a session. Use the assistant message id from the latest turn to chain " +
+				"follow-ups (session ask), or --before <oldest created_at> to page further back.",
+			RequiredFlags: []string{"--session <session-id>"},
+			Examples: []string{
+				"genyee message list --session sess_abc",
+				"genyee message list --session sess_abc --limit 100 --before 2026-06-01T00:00:00Z",
+			},
+			Output: "envelope.data is an array of Message objects (id, session_id, role, content, is_completed, " +
+				"created_at); meta.count is the number returned. To page further back, re-run with --before <oldest " +
+				"created_at>; a batch shorter than --limit means the start of history was reached",
 		},
-		Output: "envelope.data is an array of Message objects (id, session_id, role, content, is_completed, created_at); meta.count is the number returned. To page further back, re-run with --before <oldest created_at>; a batch shorter than --limit means the start of history was reached",
-	})
+	)
 	return cmd
 }
 
@@ -125,14 +143,21 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 		return fopts.Emit(iostreams.IO.Out, items, meta)
 	}
 	if len(items) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no messages)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no messages)")
 		return nil
 	}
 	now := time.Now()
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tROLE\tCONTENT\tCREATED")
+	_, _ = fmt.Fprintln(tw, "ID\tROLE\tCONTENT\tCREATED")
 	for _, m := range items {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(m.ID), text.SanitizeInline(m.Role), text.OneLine(60, m.Content), text.FuzzyAgo(now, m.CreatedAt))
+		_, _ = fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\t%s\n",
+			text.SanitizeInline(m.ID),
+			text.SanitizeInline(m.Role),
+			text.OneLine(60, m.Content),
+			text.FuzzyAgo(now, m.CreatedAt),
+		)
 	}
 	return tw.Flush()
 }

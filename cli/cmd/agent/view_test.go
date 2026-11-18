@@ -41,11 +41,31 @@ func TestView_Text_RendersMetadataAndConfig(t *testing.T) {
 			WebSearchEnabled: true,
 		},
 	}}
-	if err := runView(context.Background(), &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "ag_abc"); err != nil {
+	if err := runView(
+		context.Background(),
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+		"ag_abc",
+	); err != nil {
 		t.Fatalf("runView: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"ag_abc", "Research", "deep-dive helper", "Builtin:", "Identity", "LLM", "KB attachment", "Tools", "smart-reasoning", "model_42", "selected", "kb_x", "knowledge_search", "Web search"} {
+	for _, want := range []string{
+		"ag_abc",
+		"Research",
+		"deep-dive helper",
+		"Builtin:",
+		"Identity",
+		"LLM",
+		"KB attachment",
+		"Tools",
+		"smart-reasoning",
+		"model_42",
+		"selected",
+		"kb_x",
+		"knowledge_search",
+		"Web search",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
@@ -63,7 +83,11 @@ func TestAgentViewFields_TopLevelOnly(t *testing.T) {
 	}
 	for _, dotted := range []string{"config.system_prompt", "config.model_id", "config.fallback_strategy"} {
 		if slices.Contains(agentViewFields, dotted) {
-			t.Errorf("agentViewFields must not list dotted nested key %q (the --jq projection path handles nesting directly)", dotted)
+			t.Errorf(
+				"agentViewFields must not list dotted nested key %q (the --jq projection path handles nesting "+
+					"directly)",
+				dotted,
+			)
 		}
 	}
 }
@@ -126,7 +150,12 @@ func TestView_Text_OmitsEmptyFields(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}}
-	if err := runView(context.Background(), &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "ag_min"); err != nil {
+	if err := runView(
+		context.Background(),
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+		"ag_min",
+	); err != nil {
 		t.Fatalf("runView: %v", err)
 	}
 	got := out.String()
@@ -137,7 +166,18 @@ func TestView_Text_OmitsEmptyFields(t *testing.T) {
 		t.Errorf("non-builtin should not render Builtin: line, got:\n%s", got)
 	}
 	// With Config==nil none of the grouped config sections should appear.
-	for _, label := range []string{"LLM:", "KB attachment:", "Retrieval:", "Query rewrite:", "Tools:", "FAQ:", "Web search:", "Multi-turn:", "Fallback:", "Templates:"} {
+	for _, label := range []string{
+		"LLM:",
+		"KB attachment:",
+		"Retrieval:",
+		"Query rewrite:",
+		"Tools:",
+		"FAQ:",
+		"Web search:",
+		"Multi-turn:",
+		"Fallback:",
+		"Templates:",
+	} {
 		if strings.Contains(got, label) {
 			t.Errorf("nil Config should not render %q, got:\n%s", label, got)
 		}
@@ -147,7 +187,12 @@ func TestView_Text_OmitsEmptyFields(t *testing.T) {
 func TestView_JSON_BareObject(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
 	svc := &fakeViewSvc{resp: &sdk.Agent{ID: "ag_json", Name: "JSONy"}}
-	if err := runView(context.Background(), &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "ag_json"); err != nil {
+	if err := runView(
+		context.Background(),
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		svc,
+		"ag_json",
+	); err != nil {
 		t.Fatalf("runView: %v", err)
 	}
 	var env struct {

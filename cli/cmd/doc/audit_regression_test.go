@@ -10,7 +10,12 @@ import (
 
 func TestWaitStopsForCancelledDocument(t *testing.T) {
 	svc := newFakeKBSvc(map[string][]string{"cancelled-doc": {"cancelled"}})
-	res, err := waitForDocs(context.Background(), []string{"cancelled-doc"}, svc, WaitOptions{Timeout: 30 * time.Millisecond, Interval: time.Second})
+	res, err := waitForDocs(
+		context.Background(),
+		[]string{"cancelled-doc"},
+		svc,
+		WaitOptions{Timeout: 30 * time.Millisecond, Interval: time.Second},
+	)
 	require.NoError(t, err)
 	require.Empty(t, res.Timeout)
 	require.Len(t, res.Failed, 1)

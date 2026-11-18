@@ -77,12 +77,18 @@ For full metadata (config / pinned / tenant), use 'genyee kb view <id>'.`,
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, kbStatusFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "shallow health probe of a knowledge base (one HTTP call): reachability, no failed-doc aggregation",
-		RequiredFlags: []string{"<kb-id> (positional)"},
-		Examples:      []string{"genyee kb status kb_abc"},
-		Output:        "envelope.data is {id, reachable, retrieval_ready, ...}; retrieval_ready=false means no embedding model is bound (run `kb config set`), so the KB cannot index/retrieve; use `kb check` for deep failed-doc aggregation",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "shallow health probe of a knowledge base (one HTTP call): reachability, no failed-doc " +
+				"aggregation",
+			RequiredFlags: []string{"<kb-id> (positional)"},
+			Examples:      []string{"genyee kb status kb_abc"},
+			Output: "envelope.data is {id, reachable, retrieval_ready, ...}; retrieval_ready=false means no " +
+				"embedding model is bound (run `kb config set`), so the KB cannot index/retrieve; use `kb check` for " +
+				"deep failed-doc aggregation",
+		},
+	)
 	return cmd
 }
 
@@ -122,15 +128,15 @@ func emitStatus(res *StatusResult, fopts *cmdutil.FormatOptions, w io.Writer) er
 }
 
 func writeStatusText(w io.Writer, res *StatusResult) error {
-	fmt.Fprintf(w, "ID:           %s\n", text.SanitizeInline(res.ID))
-	fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
+	_, _ = fmt.Fprintf(w, "ID:           %s\n", text.SanitizeInline(res.ID))
+	_, _ = fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
 	if !res.Reachable {
 		return nil
 	}
-	fmt.Fprintf(w, "Retrieval:    %v%s\n", res.RetrievalReady, retrievalHint(res.RetrievalReady))
-	fmt.Fprintf(w, "Knowledge:    %d\n", res.KnowledgeCount)
-	fmt.Fprintf(w, "Chunks:       %d\n", res.ChunkCount)
-	fmt.Fprintf(w, "Processing:   %v (%d active)\n", res.IsProcessing, res.ProcessingCount)
+	_, _ = fmt.Fprintf(w, "Retrieval:    %v%s\n", res.RetrievalReady, retrievalHint(res.RetrievalReady))
+	_, _ = fmt.Fprintf(w, "Knowledge:    %d\n", res.KnowledgeCount)
+	_, _ = fmt.Fprintf(w, "Chunks:       %d\n", res.ChunkCount)
+	_, _ = fmt.Fprintf(w, "Processing:   %v (%d active)\n", res.IsProcessing, res.ProcessingCount)
 	return nil
 }
 

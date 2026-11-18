@@ -20,7 +20,9 @@ func TestSetAgentHelp_EmitsJSONWhenEnvSet(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
-	cmd.Help()
+	if err := cmd.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
 
 	var got AgentHelp
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
@@ -45,7 +47,9 @@ func TestSetAgentHelp_FallsThroughToHumanHelp(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
-	cmd.Help()
+	if err := cmd.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
 
 	// Should NOT be JSON (human help is text)
 	if json.Valid(buf.Bytes()) {

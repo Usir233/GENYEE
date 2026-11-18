@@ -36,7 +36,11 @@ type modelUpdateFlags struct{ displayName, description, baseURL, def bool }
 type UpdateService interface {
 	GetModel(ctx context.Context, id string) (*sdk.Model, error)
 	UpdateModel(ctx context.Context, id string, req *sdk.UpdateModelRequest) (*sdk.Model, error)
-	UpdateModelCredentials(ctx context.Context, id string, req *sdk.ModelCredentialsRequest) (*sdk.CredentialsResponse, error)
+	UpdateModelCredentials(
+		ctx context.Context,
+		id string,
+		req *sdk.ModelCredentialsRequest,
+	) (*sdk.CredentialsResponse, error)
 	GetDefaultSettings(ctx context.Context) (*sdk.DefaultSettings, error)
 	UpdateDefaultSettings(ctx context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error)
 }
@@ -87,10 +91,21 @@ Reversible write: without -y/--yes in a non-TTY / JSON context it exits 10
 			if err != nil {
 				return err
 			}
-			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
-				Action: "model.update",
-				Args:   map[string]any{"model": id, "display_name": opts.DisplayName, "base_url": opts.BaseURL, "default": opts.Default, "rotate_api_key": opts.APIKeyStdin, "param_count": len(params)},
-			}); handled {
+			if handled, err := cmdutil.HandleDryRun(
+				c,
+				opts.DryRun,
+				cmdutil.DryRunPlan{
+					Action: "model.update",
+					Args: map[string]any{
+						"model":          id,
+						"display_name":   opts.DisplayName,
+						"base_url":       opts.BaseURL,
+						"default":        opts.Default,
+						"rotate_api_key": opts.APIKeyStdin,
+						"param_count":    len(params),
+					},
+				},
+			); handled {
 				return err
 			}
 			yes, _ := c.Flags().GetBool("yes")
@@ -98,7 +113,16 @@ Reversible write: without -y/--yes in a non-TTY / JSON context it exits 10
 			// the secret from stdin until execution is approved.
 			retry := cmdutil.BuildRetryArgv(c, []string{"genyee", "model", "update", id},
 				"display-name", "description", "base-url", "default", "api-key-stdin", "param", "format")
-			if err := cmdutil.ConfirmWrite(f.Prompter(), yes, fopts.WantsJSON(), "update", "model", id, "model.update", retry); err != nil {
+			if err := cmdutil.ConfirmWrite(
+				f.Prompter(),
+				yes,
+				fopts.WantsJSON(),
+				"update",
+				"model",
+				id,
+				"model.update",
+				retry,
+			); err != nil {
 				return err
 			}
 			if opts.StdinReader == nil {
@@ -114,26 +138,47 @@ Reversible write: without -y/--yes in a non-TTY / JSON context it exits 10
 	cmd.Flags().StringVar(&opts.DisplayName, "display-name", "", "New human-friendly name")
 	cmd.Flags().StringVar(&opts.Description, "description", "", "New description")
 	cmd.Flags().StringVar(&opts.BaseURL, "base-url", "", "New model API base URL")
-	cmd.Flags().BoolVar(&opts.APIKeyStdin, "api-key-stdin", false, "Rotate the provider API key, read from stdin (kept out of argv / history)")
-	cmd.Flags().StringArrayVar(&opts.Params, "param", nil, "Set an extra provider parameter as key=value, repeatable (value parsed as JSON)")
-	cmd.Flags().BoolVar(&opts.Default, "default", false, "Mark this the default model for its type (--default=false to unset)")
+	cmd.Flags().BoolVar(
+		&opts.APIKeyStdin,
+		"api-key-stdin",
+		false,
+		"Rotate the provider API key, read from stdin (kept out of argv / history)",
+	)
+	cmd.Flags().StringArrayVar(
+		&opts.Params,
+		"param",
+		nil,
+		"Set an extra provider parameter as key=value, repeatable (value parsed as JSON)",
+	)
+	cmd.Flags().BoolVar(
+		&opts.Default,
+		"default",
+		false,
+		"Mark this the default model for its type (--default=false to unset)",
+	)
 	cmdutil.AddFormatFlag(cmd, modelListFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetWriteRisk(cmd, "model.update")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "update a registered model IN PLACE (id preserved, so KB/agent references keep working): rotate --api-key-stdin, change --base-url / --display-name / --description / --param, or set --default. Type and source are immutable.",
-		RequiredFlags: []string{"<model-id> (positional)", "at least one update flag"},
-		Examples: []string{
-			`printf '%s' "$NEW_KEY" | genyee model update mdl_abc --api-key-stdin -y`,
-			`genyee model update mdl_abc --base-url https://api.example.com/v1 -y`,
-			`genyee model update mdl_abc --default -y`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "update a registered model IN PLACE (id preserved, so KB/agent references keep working): " +
+				"rotate --api-key-stdin, change --base-url / --display-name / --description / --param, or set --" +
+				"default. Type and source are immutable.",
+			RequiredFlags: []string{"<model-id> (positional)", "at least one update flag"},
+			Examples: []string{
+				`printf '%s' "$NEW_KEY" | genyee model update mdl_abc --api-key-stdin -y`,
+				`genyee model update mdl_abc --base-url https://api.example.com/v1 -y`,
+				`genyee model update mdl_abc --default -y`,
+			},
+			Output: "envelope.data is the updated Model object (id preserved; provider api key never echoed)",
+			Warnings: []string{
+				"Reversible write: requires explicit approval (exit 10 / input.confirmation_required) unless -y; " +
+					"never auto-add -y.",
+				"Server-side this is an admin operation; a non-admin credential gets auth.forbidden (exit 3).",
+			},
 		},
-		Output: "envelope.data is the updated Model object (id preserved; provider api key never echoed)",
-		Warnings: []string{
-			"Reversible write: requires explicit approval (exit 10 / input.confirmation_required) unless -y; never auto-add -y.",
-			"Server-side this is an admin operation; a non-admin credential gets auth.forbidden (exit 3).",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -142,7 +187,14 @@ func modelUpdateHasFlag(o *UpdateOptions) bool {
 		o.APIKeyStdin || len(o.Params) > 0
 }
 
-func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOptions, svc UpdateService, id string, params map[string]any) error {
+func runUpdate(
+	ctx context.Context,
+	opts *UpdateOptions,
+	fopts *cmdutil.FormatOptions,
+	svc UpdateService,
+	id string,
+	params map[string]any,
+) error {
 	if err := cmdutil.ValidateResourceID("model-id", id); err != nil {
 		return err
 	}
@@ -221,7 +273,11 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 	}
 
 	if opts.APIKeyStdin {
-		if _, err := svc.UpdateModelCredentials(ctx, id, &sdk.ModelCredentialsRequest{APIKey: &rotatedKey}); err != nil {
+		if _, err := svc.UpdateModelCredentials(
+			ctx,
+			id,
+			&sdk.ModelCredentialsRequest{APIKey: &rotatedKey},
+		); err != nil {
 			return cmdutil.WrapHTTP(err, "rotate credentials for model %s", id)
 		}
 	}
@@ -241,7 +297,12 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, updated, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Updated model %q (id: %s)\n", text.SanitizeInline(updated.Name), text.SanitizeInline(updated.ID))
+	_, _ = fmt.Fprintf(
+		iostreams.IO.Out,
+		"✓ Updated model %q (id: %s)\n",
+		text.SanitizeInline(updated.Name),
+		text.SanitizeInline(updated.ID),
+	)
 	return nil
 }
 

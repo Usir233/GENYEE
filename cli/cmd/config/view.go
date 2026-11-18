@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -76,15 +75,22 @@ even when no profile or KB is configured (sources report "(none)" /
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, viewFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "inspect the resolved CLI config and resolution chain (active profile, host, kb, log level, default format, file paths) without mutating or hitting the network",
-		Examples: []string{
-			"genyee config view",
-			"genyee config view --format json",
-			"genyee config view --jq '.data.active_profile'",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "inspect the resolved CLI config and resolution chain (active profile, host, kb, log level, " +
+				"default format, file paths) without mutating or hitting the network",
+			Examples: []string{
+				"genyee config view",
+				"genyee config view --format json",
+				"genyee config view --jq '.data.active_profile'",
+			},
+			Output: "envelope.data is {active_profile, profile_source, auth_source, host, kb_id, kb_source, " +
+				"log_level, log_level_source, format_default, config_file, cache_dir, secrets, project_link}. " +
+				"auth_source reports whether the active credential is the profile+keyring or a stateless " +
+				"GENYEE_TOKEN/GENYEE_API_KEY env override.",
 		},
-		Output: "envelope.data is {active_profile, profile_source, auth_source, host, kb_id, kb_source, log_level, log_level_source, format_default, config_file, cache_dir, secrets, project_link}. auth_source reports whether the active credential is the profile+keyring or a stateless GENYEE_TOKEN/GENYEE_API_KEY env override.",
-	})
+	)
 	return cmd
 }
 
@@ -96,7 +102,7 @@ func runView(cmd *cobra.Command, f *cmdutil.Factory, fopts *cmdutil.FormatOption
 	}
 
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	row := func(k, v string) { fmt.Fprintf(tw, "%s\t%s\n", k, format.DashIfEmpty(v)) }
+	row := func(k, v string) { _, _ = fmt.Fprintf(tw, "%s\t%s\n", k, format.DashIfEmpty(v)) }
 	row("active_profile", d.ActiveProfile)
 	row("profile_source", d.ProfileSource)
 	row("auth_source", d.AuthSource)
@@ -138,7 +144,7 @@ func resolveView(cmd *cobra.Command, f *cmdutil.Factory) viewData {
 	// authenticates against.
 	if active, kind := cmdutil.EnvCredential(); active {
 		d.AuthSource = kind + " env (stateless; bypasses profile + keyring)"
-		if h := strings.TrimSpace(os.Getenv("GENYEE_HOST")); h != "" {
+		if h := cmdutil.EnvHost(); h != "" {
 			d.Host = redactHostUserInfo(h)
 		}
 	} else if d.ActiveProfile != "" {
@@ -204,7 +210,9 @@ func resolveKB(cmd *cobra.Command, f *cmdutil.Factory) (id, source string) {
 func resolveLogLevel(cmd *cobra.Command) (level, source string) {
 	level, _ = cmdutil.ResolveLogLevel(cmd, iostreams.IO.Err)
 	if cmd != nil {
-		if fl := cmd.Flags().Lookup("log-level"); fl != nil && fl.Changed && cmdutil.IsValidLogLevel(fl.Value.String()) {
+		if fl := cmd.Flags().Lookup("log-level"); fl != nil &&
+			fl.Changed &&
+			cmdutil.IsValidLogLevel(fl.Value.String()) {
 			return level, "--log-level flag"
 		}
 	}

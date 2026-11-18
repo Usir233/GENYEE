@@ -27,7 +27,12 @@ type scriptedResumeSvc struct {
 	}
 }
 
-func (s *scriptedResumeSvc) ContinueStream(_ context.Context, sessionID, messageID string, cb func(*sdk.StreamResponse) error, opts ...sdk.ResourceURLOptions) error {
+func (s *scriptedResumeSvc) ContinueStream(
+	_ context.Context,
+	sessionID, messageID string,
+	cb func(*sdk.StreamResponse) error,
+	_ ...sdk.ResourceURLOptions,
+) error {
 	s.got.sessionID = sessionID
 	s.got.messageID = messageID
 	for _, e := range s.events {
@@ -41,6 +46,7 @@ func (s *scriptedResumeSvc) ContinueStream(_ context.Context, sessionID, message
 func contStreamAnswer(content string) *sdk.StreamResponse {
 	return &sdk.StreamResponse{ResponseType: sdk.ResponseTypeAnswer, Content: content}
 }
+
 func contStreamComplete() *sdk.StreamResponse {
 	return &sdk.StreamResponse{ResponseType: sdk.ResponseTypeComplete, Done: true}
 }

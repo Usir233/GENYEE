@@ -22,6 +22,7 @@ var docViewFields = []string{
 	"created_at", "updated_at", "processed_at", "error_message",
 }
 
+// ViewOptions holds flags and arguments for the `doc view` command.
 type ViewOptions struct{}
 
 // ViewService is the narrow SDK surface this command depends on.
@@ -62,7 +63,7 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOptions, svc ViewService, id string) error {
+func runView(ctx context.Context, _ *ViewOptions, fopts *cmdutil.FormatOptions, svc ViewService, id string) error {
 	doc, err := svc.GetKnowledge(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "get document %q", id)
@@ -71,50 +72,50 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 		return fopts.Emit(iostreams.IO.Out, doc, nil)
 	}
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:        %s\n", doc.ID)
-	fmt.Fprintf(w, "NAME:      %s\n", text.KnowledgeDisplayName(doc.FileName, doc.Title, doc.ID))
+	_, _ = fmt.Fprintf(w, "ID:        %s\n", doc.ID)
+	_, _ = fmt.Fprintf(w, "NAME:      %s\n", text.KnowledgeDisplayName(doc.FileName, doc.Title, doc.ID))
 	// Title is rendered as a separate line only when it adds info over
 	// NAME (i.e. FileName is set AND differs from Title). When FileName
 	// is empty, KnowledgeDisplayName already used Title for NAME so a
 	// duplicate TITLE line would be noise.
 	if doc.Title != "" && doc.FileName != "" && doc.Title != doc.FileName {
-		fmt.Fprintf(w, "TITLE:     %s\n", doc.Title)
+		_, _ = fmt.Fprintf(w, "TITLE:     %s\n", doc.Title)
 	}
 	if doc.KnowledgeBaseID != "" {
-		fmt.Fprintf(w, "KB:        %s\n", doc.KnowledgeBaseID)
+		_, _ = fmt.Fprintf(w, "KB:        %s\n", doc.KnowledgeBaseID)
 	}
 	if doc.TagID != "" {
-		fmt.Fprintf(w, "TAG:       %s\n", doc.TagID)
+		_, _ = fmt.Fprintf(w, "TAG:       %s\n", doc.TagID)
 	}
 	if doc.Description != "" {
-		fmt.Fprintf(w, "DESC:      %s\n", doc.Description)
+		_, _ = fmt.Fprintf(w, "DESC:      %s\n", doc.Description)
 	}
 	if doc.FileType != "" {
-		fmt.Fprintf(w, "TYPE:      %s\n", doc.FileType)
+		_, _ = fmt.Fprintf(w, "TYPE:      %s\n", doc.FileType)
 	}
 	if doc.Source != "" {
-		fmt.Fprintf(w, "SOURCE:    %s\n", doc.Source)
+		_, _ = fmt.Fprintf(w, "SOURCE:    %s\n", doc.Source)
 	}
 	if doc.Channel != "" {
-		fmt.Fprintf(w, "CHANNEL:   %s\n", doc.Channel)
+		_, _ = fmt.Fprintf(w, "CHANNEL:   %s\n", doc.Channel)
 	}
 	if doc.FileSize > 0 {
-		fmt.Fprintf(w, "SIZE:      %s\n", formatSize(doc.FileSize))
+		_, _ = fmt.Fprintf(w, "SIZE:      %s\n", formatSize(doc.FileSize))
 	}
 	if doc.StorageSize > 0 {
-		fmt.Fprintf(w, "STORAGE:   %s\n", formatSize(doc.StorageSize))
+		_, _ = fmt.Fprintf(w, "STORAGE:   %s\n", formatSize(doc.StorageSize))
 	}
 	if doc.ParseStatus != "" {
-		fmt.Fprintf(w, "STATUS:    %s\n", doc.ParseStatus)
+		_, _ = fmt.Fprintf(w, "STATUS:    %s\n", doc.ParseStatus)
 	}
 	if doc.SummaryStatus != "" {
-		fmt.Fprintf(w, "SUMMARY:   %s\n", doc.SummaryStatus)
+		_, _ = fmt.Fprintf(w, "SUMMARY:   %s\n", doc.SummaryStatus)
 	}
 	if doc.EnableStatus != "" {
-		fmt.Fprintf(w, "ENABLED:   %s\n", doc.EnableStatus)
+		_, _ = fmt.Fprintf(w, "ENABLED:   %s\n", doc.EnableStatus)
 	}
 	if doc.EmbeddingModelID != "" {
-		fmt.Fprintf(w, "EMBEDDING: %s\n", doc.EmbeddingModelID)
+		_, _ = fmt.Fprintf(w, "EMBEDDING: %s\n", doc.EmbeddingModelID)
 	}
 	if doc.FileHash != "" {
 		// Git-SHA-style 12-char prefix is enough for de-duplication
@@ -123,19 +124,19 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 		if len(h) > 12 {
 			h = h[:12]
 		}
-		fmt.Fprintf(w, "HASH:      %s\n", h)
+		_, _ = fmt.Fprintf(w, "HASH:      %s\n", h)
 	}
 	if !doc.CreatedAt.IsZero() {
-		fmt.Fprintf(w, "CREATED:   %s\n", doc.CreatedAt.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "CREATED:   %s\n", doc.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
 	if !doc.UpdatedAt.IsZero() {
-		fmt.Fprintf(w, "UPDATED:   %s\n", doc.UpdatedAt.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "UPDATED:   %s\n", doc.UpdatedAt.Format("2006-01-02 15:04:05"))
 	}
 	if doc.ProcessedAt != nil && !doc.ProcessedAt.IsZero() {
-		fmt.Fprintf(w, "PROCESSED: %s\n", doc.ProcessedAt.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "PROCESSED: %s\n", doc.ProcessedAt.Format("2006-01-02 15:04:05"))
 	}
 	if doc.ErrorMessage != "" {
-		fmt.Fprintf(w, "ERROR:     %s\n", doc.ErrorMessage)
+		_, _ = fmt.Fprintf(w, "ERROR:     %s\n", doc.ErrorMessage)
 	}
 	return nil
 }

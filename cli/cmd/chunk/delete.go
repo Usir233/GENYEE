@@ -16,6 +16,7 @@ import (
 // Tracks the single-id result struct; multi-id mode emits batch envelope.
 var chunkDeleteFields = []string{"id", "deleted"}
 
+// DeleteOptions holds flags and arguments for the `chunk delete` command.
 type DeleteOptions struct {
 	ChunkID string // single-id path
 	DocID   string // required: SDK DeleteChunk takes both ids in the route
@@ -103,7 +104,16 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			}
 			if len(args) == 1 {
 				opts.ChunkID = args[0]
-				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "chunk", opts.ChunkID, "chunk.delete", []string{"genyee", "chunk", "delete", opts.ChunkID, "--doc", opts.DocID, "-y"}); err != nil {
+				if err := cmdutil.ConfirmDestructive(
+					f.Prompter(),
+					opts.Yes,
+					fopts.WantsJSON(),
+					"delete",
+					"chunk",
+					opts.ChunkID,
+					"chunk.delete",
+					[]string{"genyee", "chunk", "delete", opts.ChunkID, "--doc", opts.DocID, "-y"},
+				); err != nil {
 					return err
 				}
 				opts.Yes = true
@@ -115,7 +125,16 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			}
 			batchRetry := append([]string{"genyee", "chunk", "delete"}, args...)
 			batchRetry = append(batchRetry, "--doc", opts.DocID, "-y")
-			if err := cmdutil.ConfirmDestructiveBatch(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "chunk", len(args), "chunk.delete", batchRetry); err != nil {
+			if err := cmdutil.ConfirmDestructiveBatch(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"delete",
+				"chunk",
+				len(args),
+				"chunk.delete",
+				batchRetry,
+			); err != nil {
 				return err
 			}
 			cli, err := f.Client()
@@ -132,7 +151,12 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			// (e.g. confirmation_required) must leave stdout empty per the
 			// wire contract in README.md.
 			if len(outcomes) > 0 {
-				if emitErr := cmdutil.EmitBatch(outcomes, fopts, iostreams.IO.Out, cmdutil.DeletedAtNow); emitErr != nil {
+				if emitErr := cmdutil.EmitBatch(
+					outcomes,
+					fopts,
+					iostreams.IO.Out,
+					cmdutil.DeletedAtNow,
+				); emitErr != nil {
 					return emitErr
 				}
 			}
@@ -145,31 +169,52 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 	cmdutil.AddFormatFlag(cmd, chunkDeleteFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, "chunk.delete")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "permanently delete one or more chunks from a document",
-		RequiredFlags: []string{"<chunk-id>... (positional, at least one)", "--doc <doc-id>"},
-		Examples: []string{
-			"genyee chunk delete chunk_abc --doc doc_xyz -y",
-			"genyee chunk delete c1 c2 c3 --doc doc_xyz -y",
-			"genyee chunk delete chunk_abc --doc doc_xyz -y --format json",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "permanently delete one or more chunks from a document",
+			RequiredFlags: []string{"<chunk-id>... (positional, at least one)", "--doc <doc-id>"},
+			Examples: []string{
+				"genyee chunk delete chunk_abc --doc doc_xyz -y",
+				"genyee chunk delete c1 c2 c3 --doc doc_xyz -y",
+				"genyee chunk delete chunk_abc --doc doc_xyz -y --format json",
+			},
+			Output: "envelope.data shape depends on the form: a single chunk id -> {id, deleted:true}; multiple ids -" +
+				"> batch envelope (top-level status success|partial|error, ok=(failures==0), data per-item [{id, ok, " +
+				"error?}], meta.successes/failures — read data[].ok per id).",
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"chunk delete is irreversible; loses the chunk + breaks RAG retrieval coherence for downstream " +
+					"queries.",
+			},
 		},
-		Output: "envelope.data shape depends on the form: a single chunk id -> {id, deleted:true}; multiple ids -> batch envelope (top-level status success|partial|error, ok=(failures==0), data per-item [{id, ok, error?}], meta.successes/failures — read data[].ok per id).",
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"chunk delete is irreversible; loses the chunk + breaks RAG retrieval coherence for downstream queries.",
-		},
-	})
+	)
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter) error {
+func runDelete(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DeleteService,
+	p prompt.Prompter,
+) error {
 	if err := cmdutil.ValidateResourceID("doc", opts.DocID); err != nil {
 		return err
 	}
 	if err := cmdutil.ValidateResourceID("chunk-id", opts.ChunkID); err != nil {
 		return err
 	}
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "chunk", opts.ChunkID, "chunk.delete", []string{"genyee", "chunk", "delete", opts.ChunkID, "--doc", opts.DocID, "-y"}); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"chunk",
+		opts.ChunkID,
+		"chunk.delete",
+		[]string{"genyee", "chunk", "delete", opts.ChunkID, "--doc", opts.DocID, "-y"},
+	); err != nil {
 		return err
 	}
 	if err := svc.DeleteChunk(ctx, opts.DocID, opts.ChunkID); err != nil {
@@ -178,6 +223,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: opts.ChunkID, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted chunk %s\n", text.SanitizeInline(opts.ChunkID))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted chunk %s\n", text.SanitizeInline(opts.ChunkID))
 	return nil
 }

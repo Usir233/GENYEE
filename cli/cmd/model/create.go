@@ -45,6 +45,7 @@ func canonicalModelType(t string) string {
 	return t
 }
 
+// CreateOptions holds flags and arguments for the `model create` command.
 type CreateOptions struct {
 	Name        string
 	DisplayName string
@@ -163,7 +164,13 @@ else goes through repeatable --param key=value.`,
 				Action: "model.create",
 				// Never echo the API key into the plan (it is read from stdin
 				// precisely so it never lands in argv / history / dry-run output).
-				Args: map[string]any{"name": opts.Name, "type": opts.Type, "source": opts.Source, "provider": opts.Provider, "default": opts.Default},
+				Args: map[string]any{
+					"name":     opts.Name,
+					"type":     opts.Type,
+					"source":   opts.Source,
+					"provider": opts.Provider,
+					"default":  opts.Default,
+				},
 			}); handled {
 				return err
 			}
@@ -177,34 +184,75 @@ else goes through repeatable --param key=value.`,
 			return runCreate(c.Context(), opts, fopts, cli, params)
 		},
 	}
-	cmd.Flags().StringVar(&opts.Type, "type", "", "Model type: "+strings.Join(modelTypeValues, " | ")+" (required; \"chat\" is accepted for KnowledgeQA)")
-	cmd.Flags().StringVar(&opts.Source, "source", "", "Where the model runs: "+strings.Join(createSourceValues, " | ")+" (required; local=Ollama, remote=provider API)")
-	cmd.Flags().StringVar(&opts.Provider, "provider", "", "Remote provider id, required+validated with --source remote (see `genyee api /api/v1/models/providers`)")
+	cmd.Flags().StringVar(
+		&opts.Type,
+		"type",
+		"",
+		"Model type: "+strings.Join(modelTypeValues, " | ")+" (required; \"chat\" is accepted for KnowledgeQA)",
+	)
+	cmd.Flags().StringVar(
+		&opts.Source,
+		"source",
+		"",
+		"Where the model runs: "+strings.Join(
+			createSourceValues,
+			" | ",
+		)+" (required; local=Ollama, remote=provider API)",
+	)
+	cmd.Flags().StringVar(
+		&opts.Provider,
+		"provider",
+		"",
+		"Remote provider id, required+validated with --source remote (see `genyee api /api/v1/models/providers`)",
+	)
 	cmd.Flags().StringVar(&opts.DisplayName, "display-name", "", "Human-friendly name (optional)")
 	cmd.Flags().StringVar(&opts.Description, "description", "", "Description (optional)")
 	cmd.Flags().StringVar(&opts.BaseURL, "base-url", "", "Model API base URL (e.g. http://localhost:11434 for Ollama)")
-	cmd.Flags().BoolVar(&opts.APIKeyStdin, "api-key-stdin", false, "Read the provider API key from stdin (kept out of argv / history)")
+	cmd.Flags().BoolVar(
+		&opts.APIKeyStdin,
+		"api-key-stdin",
+		false,
+		"Read the provider API key from stdin (kept out of argv / history)",
+	)
 	cmd.Flags().IntVar(&opts.Dimension, "dimension", 0, "Embedding dimension (Embedding models only)")
 	cmd.Flags().BoolVar(&opts.Default, "default", false, "Mark this the default model for its type")
-	cmd.Flags().StringArrayVar(&opts.Params, "param", nil, "Extra provider parameter as key=value, repeatable (value parsed as JSON: true/42/text)")
+	cmd.Flags().StringArrayVar(
+		&opts.Params,
+		"param",
+		nil,
+		"Extra provider parameter as key=value, repeatable (value parsed as JSON: true/42/text)",
+	)
 	_ = cmd.MarkFlagRequired("type")
 	_ = cmd.MarkFlagRequired("source")
 	cmdutil.AddFormatFlag(cmd, modelCreateFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "register a model (embedding/rerank/chat/VLLM/ASR) so a KB or agent can use it; capture .data.id to pass to `genyee kb config set` / `agent create --model`.",
-		RequiredFlags: []string{"<name> (positional)", "--type", "--source (local|remote)", "--provider (when --source remote)"},
-		Examples: []string{
-			`genyee model create nomic-embed-text --type Embedding --source local --dimension 768   # Ollama (server pulls it)`,
-			`printf '%s' "$OPENAI_KEY" | genyee model create text-embedding-3-small --type Embedding --source remote --provider openai --dimension 1536 --api-key-stdin`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "register a model (embedding/rerank/chat/VLLM/ASR) so a KB or agent can use it; capture " +
+				".data.id to pass to `genyee kb config set` / `agent create --model`.",
+			RequiredFlags: []string{
+				"<name> (positional)",
+				"--type",
+				"--source (local|remote)",
+				"--provider (when --source remote)",
+			},
+			Examples: []string{
+				`genyee model create nomic-embed-text --type Embedding --source local --dimension 768   # Ollama ` +
+					`(server pulls it)`,
+				`printf '%s' "$OPENAI_KEY" | genyee model create text-embedding-3-small --type Embedding --source ` +
+					`remote --provider openai --dimension 1536 --api-key-stdin`,
+			},
+			Output: "envelope.data is the created Model object with id, name, type, source, parameters",
+			Warnings: []string{
+				"Two modes: --source local (Ollama pulls <name>, async) vs --source remote --provider <id> (provider " +
+					"API). A provider name is NOT a --source value.",
+				"Pass the API key via --api-key-stdin (piped), never as a flag — flag values leak into ps/history.",
+				"A local model starts in a 'downloading' state and is unusable until the pull finishes; the " +
+					"embedding/chat call fails until then.",
+			},
 		},
-		Output: "envelope.data is the created Model object with id, name, type, source, parameters",
-		Warnings: []string{
-			"Two modes: --source local (Ollama pulls <name>, async) vs --source remote --provider <id> (provider API). A provider name is NOT a --source value.",
-			"Pass the API key via --api-key-stdin (piped), never as a flag — flag values leak into ps/history.",
-			"A local model starts in a 'downloading' state and is unusable until the pull finishes; the embedding/chat call fails until then.",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -233,7 +281,13 @@ func parseParams(kvs []string) (map[string]any, error) {
 	return out, nil
 }
 
-func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOptions, svc CreateService, params map[string]any) error {
+func runCreate(
+	ctx context.Context,
+	opts *CreateOptions,
+	fopts *cmdutil.FormatOptions,
+	svc CreateService,
+	params map[string]any,
+) error {
 	if opts.Dimension < 0 {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--dimension must be >= 0")
 	}
@@ -313,7 +367,13 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, created, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Created model %q (id: %s, type: %s)\n", text.SanitizeInline(created.Name), text.SanitizeInline(created.ID), text.SanitizeInline(string(created.Type)))
+	_, _ = fmt.Fprintf(
+		iostreams.IO.Out,
+		"✓ Created model %q (id: %s, type: %s)\n",
+		text.SanitizeInline(created.Name),
+		text.SanitizeInline(created.ID),
+		text.SanitizeInline(string(created.Type)),
+	)
 	return nil
 }
 
@@ -322,7 +382,13 @@ type defaultSettingsService interface {
 	UpdateDefaultSettings(ctx context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error)
 }
 
-func applyWorkspaceDefaultModel(ctx context.Context, svc defaultSettingsService, mt sdk.ModelType, modelID string, makeDefault bool) error {
+func applyWorkspaceDefaultModel(
+	ctx context.Context,
+	svc defaultSettingsService,
+	mt sdk.ModelType,
+	modelID string,
+	makeDefault bool,
+) error {
 	probe := &sdk.DefaultSettings{}
 	if !probe.SetSlotModelID(mt, modelID) {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,

@@ -3,8 +3,6 @@ package auth
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -56,7 +54,7 @@ Exits with auth.unauthenticated when the token is invalid or missing - run
 For JWT profiles the SDK transparently refreshes on 401, so this command
 usually only surfaces a hard auth failure.`,
 		Args: cobra.NoArgs,
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
 				return err
@@ -70,11 +68,16 @@ usually only surfaces a hard auth failure.`,
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, authStatusFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "show the active profile, the authenticated principal, and token state",
-		Examples: []string{"genyee auth status", "genyee auth status --jq .data.tenant_id"},
-		Output:   "envelope.data is {profile, host, auth_source, user_id, username, email, tenant_id, tenant_name, ...}; auth_source is 'profile + keyring' or a stateless env credential; exit 3 if unauthenticated",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:  "show the active profile, the authenticated principal, and token state",
+			Examples: []string{"genyee auth status", "genyee auth status --jq .data.tenant_id"},
+			Output: "envelope.data is {profile, host, auth_source, user_id, username, email, tenant_id, " +
+				"tenant_name, ...}; auth_source is 'profile + keyring' or a stateless env credential; exit 3 if " +
+				"unauthenticated",
+		},
+	)
 	return cmd
 }
 
@@ -90,7 +93,7 @@ func runStatus(ctx context.Context, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 	tenant := resp.Data.Tenant
 
 	envActive, envKind := cmdutil.EnvCredential()
-	envHost := strings.TrimSpace(os.Getenv("GENYEE_HOST"))
+	envHost := cmdutil.EnvHost()
 	cfg := &config.Config{CurrentProfile: "(env)"}
 	if !envActive || envHost == "" {
 		cfg, err = f.Config()
@@ -131,16 +134,16 @@ func runStatus(ctx context.Context, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 		return fopts.Emit(iostreams.IO.Out, result, nil)
 	}
 
-	fmt.Fprintf(iostreams.IO.Out, "profile:     %s\n", cfg.CurrentProfile)
-	fmt.Fprintf(iostreams.IO.Out, "auth_source: %s\n", authSource)
-	fmt.Fprintf(iostreams.IO.Out, "host:        %s\n", host)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "profile:     %s\n", cfg.CurrentProfile)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "auth_source: %s\n", authSource)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "host:        %s\n", host)
 	if user != nil {
-		fmt.Fprintf(iostreams.IO.Out, "user:    %s (%s)\n", user.Email, user.ID)
-		fmt.Fprintf(iostreams.IO.Out, "tenant:  %d", user.TenantID)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "user:    %s (%s)\n", user.Email, user.ID)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "tenant:  %d", user.TenantID)
 		if tenant != nil {
-			fmt.Fprintf(iostreams.IO.Out, " (%s)", tenant.Name)
+			_, _ = fmt.Fprintf(iostreams.IO.Out, " (%s)", tenant.Name)
 		}
-		fmt.Fprintln(iostreams.IO.Out)
+		_, _ = fmt.Fprintln(iostreams.IO.Out)
 	}
 	return nil
 }

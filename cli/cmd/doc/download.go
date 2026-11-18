@@ -27,6 +27,7 @@ type downloadResult struct {
 	Filename string `json:"filename"`
 }
 
+// DownloadOptions holds flags and arguments for the `doc download` command.
 type DownloadOptions struct {
 	Output  string // --output / -O: target path, "-" for stdout, "" for server-suggested filename
 	Clobber bool   // --clobber: allow overwrite of an existing file
@@ -78,28 +79,44 @@ stdout.`,
 			return runDownload(c.Context(), opts, fopts, cli, args[0])
 		},
 	}
-	cmd.Flags().StringVarP(&opts.Output, "output", "O", "", `Output path; "-" for stdout. Defaults to the server-suggested filename.`)
+	cmd.Flags().StringVarP(
+		&opts.Output,
+		"output",
+		"O",
+		"",
+		`Output path; "-" for stdout. Defaults to the server-suggested filename.`,
+	)
 	cmd.Flags().BoolVar(&opts.Clobber, "clobber", false, "Overwrite the output file if it already exists")
 	cmdutil.AddIgnoredKBFlag(cmd)
 	cmdutil.AddFormatFlag(cmd, downloadFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Download a document's bytes by id. Writes a file (or stdout with --output -).",
-		RequiredFlags: []string{"<doc-id> (positional)"},
-		Output:        "with --format json (file output): envelope.data has path, bytes, filename; suppressed with --output - (raw bytes to stdout)",
-		Examples: []string{
-			"genyee doc download doc_abc --output ./manual.pdf",
-			"genyee doc download doc_abc --output - > manual.pdf",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "Download a document's bytes by id. Writes a file (or stdout with --output -).",
+			RequiredFlags: []string{"<doc-id> (positional)"},
+			Output: "with --format json (file output): envelope.data has path, bytes, filename; suppressed " +
+				"with --output - (raw bytes to stdout)",
+			Examples: []string{
+				"genyee doc download doc_abc --output ./manual.pdf",
+				"genyee doc download doc_abc --output - > manual.pdf",
+			},
 		},
-	})
+	)
 	return cmd
 }
 
-func runDownload(ctx context.Context, opts *DownloadOptions, fopts *cmdutil.FormatOptions, svc DownloadService, id string) error {
+func runDownload(
+	ctx context.Context,
+	opts *DownloadOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DownloadService,
+	id string,
+) error {
 	suggested, body, err := svc.OpenKnowledgeFile(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "download %s", id)
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	if opts.Output == "-" {
 		// Raw bytes go to stdout — suppress any JSON envelope regardless of
@@ -236,7 +253,7 @@ func streamToFile(body io.Reader, path string, fopts *cmdutil.FormatOptions) err
 			Filename: filepath.Base(path),
 		}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Err, "✓ Saved %s\n", path)
+	_, _ = fmt.Fprintf(iostreams.IO.Err, "✓ Saved %s\n", path)
 	return nil
 }
 

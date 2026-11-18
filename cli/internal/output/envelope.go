@@ -52,8 +52,9 @@ type Meta struct {
 	Hint string `json:"hint,omitempty"`
 	// Dry-run preview fields. Populated by EmitDryRun (cmdutil/dryrun.go)
 	// when --dry-run is set on a mutation command; omitted otherwise.
-	DryRun bool           `json:"dry_run,omitempty"` // true when --dry-run; omitted otherwise
-	Plan   map[string]any `json:"plan,omitempty"`    // would-call shape; open map (action required, other fields command-specific)
+	DryRun bool `json:"dry_run,omitempty"` // true when --dry-run; omitted otherwise
+	// would-call shape; open map (action required, other fields command-specific)
+	Plan map[string]any `json:"plan,omitempty"`
 }
 
 // ErrDetail describes a structured error. Embedded in ErrorEnvelope.Error

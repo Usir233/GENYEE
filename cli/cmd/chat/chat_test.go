@@ -13,7 +13,7 @@ import (
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
-// fakeChatService implements ChatService for unit tests. Tests configure the
+// fakeChatService implements Service for unit tests. Tests configure the
 // callback driver via streamEvents (delivered in order) and observe captured
 // inputs through the exported fields.
 type fakeChatService struct {
@@ -42,7 +42,13 @@ func (f *fakeChatService) CreateSession(_ context.Context, req *sdk.CreateSessio
 	return &sdk.Session{ID: "sess_auto", Title: req.Title}, nil
 }
 
-func (f *fakeChatService) KnowledgeQAStream(ctx context.Context, sessionID string, req *sdk.KnowledgeQARequest, cb func(*sdk.StreamResponse) error, opts ...sdk.ResourceURLOptions) error {
+func (f *fakeChatService) KnowledgeQAStream(
+	_ context.Context,
+	sessionID string,
+	req *sdk.KnowledgeQARequest,
+	cb func(*sdk.StreamResponse) error,
+	_ ...sdk.ResourceURLOptions,
+) error {
 	f.streamCalled = true
 	f.gotSessionID = sessionID
 	f.gotRequest = req
@@ -57,9 +63,9 @@ func (f *fakeChatService) KnowledgeQAStream(ctx context.Context, sessionID strin
 	return f.streamErr
 }
 
-// Sanity: fakeChatService must satisfy ChatService. Mirrors the production
-// var _ ChatService = (*sdk.Client)(nil) check at the bottom of chat.go.
-var _ ChatService = (*fakeChatService)(nil)
+// Sanity: fakeChatService must satisfy Service. Mirrors the production
+// var _ Service = (*sdk.Client)(nil) check at the bottom of chat.go.
+var _ Service = (*fakeChatService)(nil)
 
 // textOpts returns a FormatOptions configured for the text render path —
 // the most common shape under test.
@@ -522,9 +528,18 @@ func TestChat_FormatJSON_ReferenceAddsIndexes(t *testing.T) {
 	svc := &fakeChatService{
 		streamEvents: []*sdk.StreamResponse{
 			{ResponseType: sdk.ResponseTypeAnswer, Content: "the answer"},
-			{ResponseType: sdk.ResponseTypeReferences, KnowledgeReferences: []*sdk.SearchResult{
-				{ID: "c1", Content: "BULKY FULL CHUNK CONTENT", ParentChunkID: "p1", KnowledgeTitle: "Doc One", Score: 0.5},
-			}},
+			{
+				ResponseType: sdk.ResponseTypeReferences,
+				KnowledgeReferences: []*sdk.SearchResult{
+					{
+						ID:             "c1",
+						Content:        "BULKY FULL CHUNK CONTENT",
+						ParentChunkID:  "p1",
+						KnowledgeTitle: "Doc One",
+						Score:          0.5,
+					},
+				},
+			},
 			{ResponseType: sdk.ResponseTypeComplete, Done: true, SessionID: "sess_auto"},
 		},
 	}

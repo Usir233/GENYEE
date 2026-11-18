@@ -13,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/output"
 )
 
+// ListOptions holds flags and arguments for the `profile list` command.
 type ListOptions struct{}
 
 // profileListFields enumerates the fields surfaced for `--format json` discovery on
@@ -30,7 +31,7 @@ type listEntry struct {
 
 // NewCmdList builds `genyee profile list`. Per-host enumeration with an
 // active marker. Reads only config.yaml - no network, no keyring touch.
-func NewCmdList(f *cmdutil.Factory) *cobra.Command {
+func NewCmdList(_ *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List configured profiles",
@@ -81,17 +82,20 @@ func runList(fopts *cmdutil.FormatOptions) error {
 		return fopts.Emit(iostreams.IO.Out, entries, meta)
 	}
 	if len(entries) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "No profiles configured. Run `genyee auth login` (or `genyee profile add`) to create one.")
+		_, _ = fmt.Fprintln(
+			iostreams.IO.Out,
+			"No profiles configured. Run `genyee auth login` (or `genyee profile add`) to create one.",
+		)
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "  NAME\tHOST\tUSER")
+	_, _ = fmt.Fprintln(tw, "  NAME\tHOST\tUSER")
 	for _, e := range entries {
 		marker := "  "
 		if e.Current {
 			marker = "* "
 		}
-		fmt.Fprintf(tw, "%s%s\t%s\t%s\n", marker, e.Name, e.Host, format.DashIfEmpty(e.User))
+		_, _ = fmt.Fprintf(tw, "%s%s\t%s\t%s\n", marker, e.Name, e.Host, format.DashIfEmpty(e.User))
 	}
 	return tw.Flush()
 }

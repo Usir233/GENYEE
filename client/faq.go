@@ -38,7 +38,8 @@ type FAQEntry struct {
 
 // FAQEntryPayload is used to create or update a FAQ entry.
 type FAQEntryPayload struct {
-	// ID is optional, used for data migration to specify seq_id (must be less than auto-increment start value 100000000)
+	// ID is optional, used for data migration to specify seq_id
+	// (must be less than auto-increment start value 100000000).
 	ID                *int64   `json:"id,omitempty"`
 	StandardQuestion  string   `json:"standard_question"`
 	SimilarQuestions  []string `json:"similar_questions,omitempty"`
@@ -199,7 +200,7 @@ func (c *Client) ListFAQEntries(ctx context.Context,
 func (c *Client) UpsertFAQEntries(ctx context.Context,
 	knowledgeBaseID string, payload *FAQBatchUpsertPayload,
 ) (string, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/entries", escapePathSegment(knowledgeBaseID))
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/entries/batch", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, payload, nil)
 	if err != nil {
 		return "", err
@@ -219,7 +220,7 @@ func (c *Client) UpsertFAQEntries(ctx context.Context,
 func (c *Client) CreateFAQEntry(ctx context.Context,
 	knowledgeBaseID string, payload *FAQEntryPayload,
 ) (*FAQEntry, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/entry", escapePathSegment(knowledgeBaseID))
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/entries", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, payload, nil)
 	if err != nil {
 		return nil, err
@@ -276,7 +277,11 @@ type AddSimilarQuestionsPayload struct {
 func (c *Client) AddSimilarQuestions(ctx context.Context,
 	knowledgeBaseID string, entrySeqID int64, payload *AddSimilarQuestionsPayload,
 ) (*FAQEntry, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/entries/%d/similar-questions", escapePathSegment(knowledgeBaseID), entrySeqID)
+	path := fmt.Sprintf(
+		"/api/v1/knowledge-bases/%s/faq/entries/%d/similar-questions",
+		escapePathSegment(knowledgeBaseID),
+		entrySeqID,
+	)
 	resp, err := c.doRequest(ctx, http.MethodPost, path, payload, nil)
 	if err != nil {
 		return nil, err
@@ -294,11 +299,16 @@ func (c *Client) AddSimilarQuestions(ctx context.Context,
 // Supports two modes:
 //   - byID: update by entry seq_id, key is entry seq_id
 //   - byTag: update all entries under a tag, key is tag seq_id (0 for uncategorized)
-func (c *Client) UpdateFAQEntryFieldsBatch(ctx context.Context,
-	knowledgeBaseID string, byID map[int64]FAQEntryFieldsUpdate, byTag map[int64]FAQEntryFieldsUpdate, excludeIDs []int64,
+func (c *Client) UpdateFAQEntryFieldsBatch(
+	ctx context.Context,
+	knowledgeBaseID string,
+	byID map[int64]FAQEntryFieldsUpdate,
+	byTag map[int64]FAQEntryFieldsUpdate,
+	excludeIDs []int64,
 ) error {
 	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/entries/fields", escapePathSegment(knowledgeBaseID))
-	resp, err := c.doRequest(ctx, http.MethodPut, path, &FAQEntryFieldsBatchRequest{ByID: byID, ByTag: byTag, ExcludeIDs: excludeIDs}, nil)
+	reqBody := &FAQEntryFieldsBatchRequest{ByID: byID, ByTag: byTag, ExcludeIDs: excludeIDs}
+	resp, err := c.doRequest(ctx, http.MethodPut, path, reqBody, nil)
 	if err != nil {
 		return err
 	}
@@ -365,7 +375,7 @@ func (c *Client) ExportFAQEntries(ctx context.Context, knowledgeBaseID string) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, newAPIError(resp.StatusCode, readErrorBody(resp.Body))
@@ -406,20 +416,22 @@ type FAQSuccessEntry struct {
 }
 
 // FAQImportProgress represents the progress of an async FAQ import task.
-// When Status is "completed", the result fields (SkippedCount, ImportMode, ImportedAt, DisplayStatus, ProcessingTime) are populated.
+// When Status is "completed", the result fields (SkippedCount, ImportMode,
+// ImportedAt, DisplayStatus, ProcessingTime) are populated.
 type FAQImportProgress struct {
-	TaskID           string            `json:"task_id"`
-	KBID             string            `json:"kb_id"`
-	KnowledgeID      string            `json:"knowledge_id"`
-	Status           string            `json:"status"`
-	Progress         int               `json:"progress"`
-	Total            int               `json:"total"`
-	Processed        int               `json:"processed"`
-	SuccessCount     int               `json:"success_count"`
-	FailedCount      int               `json:"failed_count"`
-	SkippedCount     int               `json:"skipped_count,omitempty"`
-	FailedEntries    []FAQFailedEntry  `json:"failed_entries,omitempty"`
-	SuccessEntries   []FAQSuccessEntry `json:"success_entries,omitempty"`    // Successfully imported entries (when count is small)
+	TaskID        string           `json:"task_id"`
+	KBID          string           `json:"kb_id"`
+	KnowledgeID   string           `json:"knowledge_id"`
+	Status        string           `json:"status"`
+	Progress      int              `json:"progress"`
+	Total         int              `json:"total"`
+	Processed     int              `json:"processed"`
+	SuccessCount  int              `json:"success_count"`
+	FailedCount   int              `json:"failed_count"`
+	SkippedCount  int              `json:"skipped_count,omitempty"`
+	FailedEntries []FAQFailedEntry `json:"failed_entries,omitempty"`
+	// SuccessEntries holds successfully imported entries when the batch is small.
+	SuccessEntries   []FAQSuccessEntry `json:"success_entries,omitempty"`
 	FailedEntriesURL string            `json:"failed_entries_url,omitempty"` // CSV download URL when too many failures
 	Message          string            `json:"message"`
 	Error            string            `json:"error,omitempty"`
@@ -463,9 +475,14 @@ type updateLastFAQImportResultDisplayStatusRequest struct {
 }
 
 // UpdateLastFAQImportResultDisplayStatus updates the display status (open/close) of the last FAQ import result.
-func (c *Client) UpdateLastFAQImportResultDisplayStatus(ctx context.Context, knowledgeBaseID string, displayStatus string) error {
+func (c *Client) UpdateLastFAQImportResultDisplayStatus(
+	ctx context.Context,
+	knowledgeBaseID string,
+	displayStatus string,
+) error {
 	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/faq/import/last-result/display", escapePathSegment(knowledgeBaseID))
-	resp, err := c.doRequest(ctx, http.MethodPut, path, &updateLastFAQImportResultDisplayStatusRequest{DisplayStatus: displayStatus}, nil)
+	reqBody := &updateLastFAQImportResultDisplayStatusRequest{DisplayStatus: displayStatus}
+	resp, err := c.doRequest(ctx, http.MethodPut, path, reqBody, nil)
 	if err != nil {
 		return err
 	}

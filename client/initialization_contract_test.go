@@ -16,41 +16,67 @@ func TestInitializationReadWireContracts(t *testing.T) {
 		name, path, response string
 		call                 func(*Client) error
 	}{
-		{"ollama list", "/api/v1/initialization/ollama/models", `{"success":true,"data":{"models":[{"name":"local-model","size":42,"modified_at":"2026-11-13T00:00:00Z"}]}}`, func(c *Client) error {
-			got, err := c.ListOllamaModels(context.Background())
-			if err == nil && (len(got) != 1 || got[0].Name != "local-model") {
-				t.Errorf("lost model list: %+v", got)
-			}
-			return err
-		}},
-		{"ollama check", "/api/v1/initialization/ollama/models/check", `{"success":true,"data":{"models":{"present":true,"absent":false}}}`, func(c *Client) error {
-			got, err := c.CheckOllamaModels(context.Background(), []string{"present", "absent"})
-			if err == nil && (len(got) != 2 || !got["present"] || got["absent"]) {
-				t.Errorf("lost model availability: %+v", got)
-			}
-			return err
-		}},
-		{"remote check", "/api/v1/initialization/remote/check", `{"success":true,"data":{"available":true,"message":"connected"}}`, func(c *Client) error {
-			got, err := c.CheckRemoteModel(context.Background(), nil)
-			if err == nil && (got == nil || !got.Success) {
-				t.Errorf("available model reported failure: %+v", got)
-			}
-			return err
-		}},
-		{"embedding test", "/api/v1/initialization/embedding/test", `{"success":true,"data":{"available":true,"dimension":1024,"message":"connected"}}`, func(c *Client) error {
-			got, err := c.TestEmbeddingModel(context.Background(), nil)
-			if err == nil && (got == nil || !got.Success) {
-				t.Errorf("available embedding reported failure: %+v", got)
-			}
-			return err
-		}},
-		{"rerank check", "/api/v1/initialization/rerank/check", `{"success":true,"data":{"available":true,"message":"connected"}}`, func(c *Client) error {
-			got, err := c.CheckRerankModel(context.Background(), nil)
-			if err == nil && (got == nil || !got.Success) {
-				t.Errorf("available reranker reported failure: %+v", got)
-			}
-			return err
-		}},
+		{
+			"ollama list",
+			"/api/v1/initialization/ollama/models",
+			`{"success":true,"data":{"models":[{"name":"local-model",` +
+				`"size":42,"modified_at":"2026-11-13T00:00:00Z"}]}}`,
+			func(c *Client) error {
+				got, err := c.ListOllamaModels(context.Background())
+				if err == nil && (len(got) != 1 || got[0].Name != "local-model") {
+					t.Errorf("lost model list: %+v", got)
+				}
+				return err
+			},
+		},
+		{
+			"ollama check",
+			"/api/v1/initialization/ollama/models/check",
+			`{"success":true,"data":{"models":{"present":true,"absent":false}}}`,
+			func(c *Client) error {
+				got, err := c.CheckOllamaModels(context.Background(), []string{"present", "absent"})
+				if err == nil && (len(got) != 2 || !got["present"] || got["absent"]) {
+					t.Errorf("lost model availability: %+v", got)
+				}
+				return err
+			},
+		},
+		{
+			"remote check",
+			"/api/v1/initialization/remote/check",
+			`{"success":true,"data":{"available":true,"message":"connected"}}`,
+			func(c *Client) error {
+				got, err := c.CheckRemoteModel(context.Background(), nil)
+				if err == nil && (got == nil || !got.Success) {
+					t.Errorf("available model reported failure: %+v", got)
+				}
+				return err
+			},
+		},
+		{
+			"embedding test",
+			"/api/v1/initialization/embedding/test",
+			`{"success":true,"data":{"available":true,"dimension":1024,"message":"connected"}}`,
+			func(c *Client) error {
+				got, err := c.TestEmbeddingModel(context.Background(), nil)
+				if err == nil && (got == nil || !got.Success) {
+					t.Errorf("available embedding reported failure: %+v", got)
+				}
+				return err
+			},
+		},
+		{
+			"rerank check",
+			"/api/v1/initialization/rerank/check",
+			`{"success":true,"data":{"available":true,"message":"connected"}}`,
+			func(c *Client) error {
+				got, err := c.CheckRerankModel(context.Background(), nil)
+				if err == nil && (got == nil || !got.Success) {
+					t.Errorf("available reranker reported failure: %+v", got)
+				}
+				return err
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,19 +100,23 @@ func TestOllamaDownloadWireContract(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
 			t.Error(err)
 		}
-		if got["modelName"] != "local-model" {
-			t.Errorf("modelName = %q; handler requires it", got["modelName"])
+		if got["model_name"] != "local-model" {
+			t.Errorf("model_name = %q; handler requires snake_case", got["model_name"])
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"success":true,"data":{"taskId":"download-1","modelName":"local-model","status":"pending","progress":0}}`)
+		_, _ = io.WriteString(
+			w,
+			`{"success":true,"data":{"task_id":"download-1",`+
+				`"model_name":"local-model","status":"pending","progress":0}}`,
+		)
 	}))
 	defer s.Close()
 	got, err := NewClient(s.URL).DownloadOllamaModel(context.Background(), "local-model")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got == nil || got.ID != "download-1" {
-		t.Errorf("lost polling task ID: %+v", got)
+	if got == nil || got.ID != "download-1" || got.ModelName != "local-model" {
+		t.Errorf("lost polling task ID or model_name: %+v", got)
 	}
 }
 
@@ -99,12 +129,12 @@ func TestInitializationWriteWireContracts(t *testing.T) {
 					t.Error(err)
 				}
 				if initialize {
-					for _, key := range []string{"llm", "embedding", "documentSplitting"} {
+					for _, key := range []string{"llm", "embedding", "document_splitting"} {
 						if got[key] == nil {
 							t.Errorf("missing required initialization object %s: %+v", key, got)
 						}
 					}
-				} else if got["llmModelId"] != "chat" || got["embeddingModelId"] != "embedding" {
+				} else if got["llm_model_id"] != "chat" || got["embedding_model_id"] != "embedding" {
 					t.Errorf("wrong model binding payload: %+v", got)
 				}
 				w.Header().Set("Content-Type", "application/json")
@@ -115,17 +145,49 @@ func TestInitializationWriteWireContracts(t *testing.T) {
 			var err error
 			if initialize {
 				var config InitializationConfig
-				if err := json.Unmarshal([]byte(`{"llm":{"source":"remote","modelName":"chat"},"embedding":{"source":"remote","modelName":"embed"},"documentSplitting":{"chunkSize":512,"separators":["\n"]}}`), &config); err != nil {
+				raw := `{"llm":{"source":"remote","model_name":"chat"},` +
+					`"embedding":{"source":"remote","model_name":"embed"},` +
+					`"document_splitting":{"chunk_size":512,"separators":["\n"]}}`
+				if err := json.Unmarshal([]byte(raw), &config); err != nil {
 					t.Fatal(err)
 				}
 				err = c.InitializeByKB(context.Background(), "kb", &config)
 			} else {
-				err = c.UpdateKBConfig(context.Background(), "kb", &InitializationConfig{ChatModelID: "chat", EmbeddingModelID: "embedding"})
+				err = c.UpdateKBConfig(
+					context.Background(),
+					"kb",
+					&InitializationConfig{ChatModelID: "chat", EmbeddingModelID: "embedding"},
+				)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestGetInitializationConfigSnakeCaseWireContract(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/initialization/config/kb-1" {
+			t.Errorf("path = %s, want /api/v1/initialization/config/kb-1", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"success":true,"data":{`+
+			`"has_files":true,`+
+			`"embedding":{"source":"remote","model_name":"embed-v1","dimension":1536,"api_key":"secret"},`+
+			`"llm":{"source":"remote","model_name":"chat-v1","api_key":"secret"},`+
+			`"rerank":{"enabled":true,"model_name":"rerank-v1"},`+
+			`"multimodal":{"enabled":true}}}`)
+	}))
+	defer s.Close()
+
+	got, err := NewClient(s.URL).GetInitializationConfig(context.Background(), "kb-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.RetrievalReady || got.Embedding.ModelName != "embed-v1" ||
+		got.LLM.ModelName != "chat-v1" || got.Rerank.ModelName != "rerank-v1" || !got.Multimodal.Enabled {
+		t.Fatalf("unexpected KBModelConfigView: %+v", got)
 	}
 }
 
@@ -148,7 +210,10 @@ func TestMultimodalRequiresImageBeforeRequest(t *testing.T) {
 		_, _ = io.WriteString(w, `{"success":true,"data":{"success":true}}`)
 	}))
 	defer s.Close()
-	_, err := NewClient(s.URL).TestMultimodalFunction(context.Background(), map[string]string{"vlm_model": "test-model"})
+	_, err := NewClient(s.URL).TestMultimodalFunction(
+		context.Background(),
+		map[string]string{"vlm_model": "test-model"},
+	)
 	if err == nil || called {
 		t.Fatalf("image-less request must fail before HTTP, got err=%v called=%v", err, called)
 	}
@@ -167,13 +232,13 @@ func TestMultimodalUploadWireContract(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		defer r.MultipartForm.RemoveAll()
+		defer func() { _ = r.MultipartForm.RemoveAll() }()
 		image, header, err := r.FormFile("image")
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		defer image.Close()
+		defer func() { _ = image.Close() }()
 		if ct := header.Header.Get("Content-Type"); ct != "image/png" {
 			t.Errorf("part Content-Type = %q, want image/png", ct)
 		}
@@ -185,10 +250,16 @@ func TestMultimodalUploadWireContract(t *testing.T) {
 			t.Error("model/storage fields not sent as form data")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"success":true,"data":{"success":true,"caption":"caption","ocr":"text","processing_time":19}}`)
+		_, _ = io.WriteString(w, `{"success":true,"data":{"success":true,`+
+			`"caption":"caption","ocr":"text","processing_time":19}}`)
 	}))
 	defer s.Close()
-	got, err := NewClient(s.URL, WithAPIKey("test-api-key"), WithTenantID(7)).TestMultimodalFunction(context.Background(), map[string]string{"vlm_model": "test-model", "storage_type": "minio"}, path)
+	c := NewClient(s.URL, WithAPIKey("test-api-key"), WithTenantID(7))
+	got, err := c.TestMultimodalFunction(
+		context.Background(),
+		map[string]string{"vlm_model": "test-model", "storage_type": "minio"},
+		path,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,13 +311,13 @@ func TestMultimodalUploadDetectsMagicBytesAndEscapesFilenameQuotes(t *testing.T)
 			t.Errorf("parse multipart failed: %v", err)
 			return
 		}
-		defer r.MultipartForm.RemoveAll()
+		defer func() { _ = r.MultipartForm.RemoveAll() }()
 		f, header, err := r.FormFile("image")
 		if err != nil {
 			t.Errorf("FormFile(image) failed: %v", err)
 			return
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		if ct := header.Header.Get("Content-Type"); ct != "image/jpeg" {
 			t.Errorf("Content-Type = %q, want image/jpeg", ct)
 		}
@@ -262,7 +333,11 @@ func TestMultimodalUploadDetectsMagicBytesAndEscapesFilenameQuotes(t *testing.T)
 	}))
 	defer s.Close()
 
-	got, err := NewClient(s.URL).TestMultimodalFunction(context.Background(), map[string]string{"vlm_model": "vlm"}, path)
+	got, err := NewClient(s.URL).TestMultimodalFunction(
+		context.Background(),
+		map[string]string{"vlm_model": "vlm"},
+		path,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

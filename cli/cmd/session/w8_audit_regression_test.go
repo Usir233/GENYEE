@@ -17,7 +17,13 @@ import (
 
 type w8SessionStub struct{}
 
-func (w8SessionStub) ContinueStream(context.Context, string, string, func(*sdk.StreamResponse) error, ...sdk.ResourceURLOptions) error {
+func (w8SessionStub) ContinueStream(
+	context.Context,
+	string,
+	string,
+	func(*sdk.StreamResponse) error,
+	...sdk.ResourceURLOptions,
+) error {
 	return nil
 }
 
@@ -25,7 +31,13 @@ func (w8SessionStub) GetSession(context.Context, string) (*sdk.Session, error) {
 	return nil, nil
 }
 
-func (w8SessionStub) LoadMessages(context.Context, string, int, *interface{}, ...sdk.ResourceURLOptions) ([]sdk.Message, error) {
+func (w8SessionStub) LoadMessages(
+	context.Context,
+	string,
+	int,
+	*interface{},
+	...sdk.ResourceURLOptions,
+) ([]sdk.Message, error) {
 	return nil, nil
 }
 
@@ -43,7 +55,12 @@ func TestW8_Session_ValidatesIDsSinceOverflowConfirmOrderAndResumeCleanStdout(t 
 
 	// 2. session resume with unsafe IDs must fail BEFORE writing the NDJSON init line to stdout.
 	out.Reset()
-	err := runResume(context.Background(), &ResumeOptions{SessionID: "../bad", MessageID: "msg_1"}, nil, w8SessionStub{})
+	err := runResume(
+		context.Background(),
+		&ResumeOptions{SessionID: "../bad", MessageID: "msg_1"},
+		nil,
+		w8SessionStub{},
+	)
 	require.Error(t, err)
 	assert.Empty(t, out.String(), "stdout must stay empty when session resume rejects invalid IDs")
 

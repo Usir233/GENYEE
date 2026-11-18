@@ -13,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/secrets"
 )
 
+// LogoutOptions holds flags and arguments for the `auth logout` command.
 type LogoutOptions struct {
 	All    bool // --all: clear every profile
 	Yes    bool // sourced from the global -y/--yes persistent flag
@@ -64,8 +65,14 @@ accepted until it expires.`,
 			}
 			if len(cfg.Profiles) == 0 {
 				if active, kind := cmdutil.EnvCredential(); active {
-					return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
-						"authenticated via "+kind+" (stateless env credential) — nothing is stored to log out; unset "+kind+" to drop it")
+					return cmdutil.NewError(
+						cmdutil.CodeAuthUnauthenticated,
+						"authenticated via "+
+							kind+
+							" (stateless env credential) — nothing is stored to log out; unset "+
+							kind+
+							" to drop it",
+					)
 				}
 				return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated, "no profiles configured; nothing to log out")
 			}
@@ -91,19 +98,24 @@ accepted until it expires.`,
 	cmdutil.AddFormatFlag(cmd, authLogoutFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, "auth.logout")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "clear stored credentials for the active profile (or --all); the profile itself stays registered (host preserved) so `auth login` can re-auth it — use `profile remove` to delete the profile entirely",
-		Examples: []string{
-			"genyee auth logout",
-			"genyee --profile staging auth logout",
-			"genyee auth logout --all",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "clear stored credentials for the active profile (or --all); the profile itself stays " +
+				"registered (host preserved) so `auth login` can re-auth it — use `profile remove` to delete the " +
+				"profile entirely",
+			Examples: []string{
+				"genyee auth logout",
+				"genyee --profile staging auth logout",
+				"genyee auth logout --all",
+			},
+			Output: "envelope.data is {removed: [profile names cleared]}",
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"auth logout clears local credentials for this profile; server-side session continues until expiry.",
+			},
 		},
-		Output: "envelope.data is {removed: [profile names cleared]}",
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"auth logout clears local credentials for this profile; server-side session continues until expiry.",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -114,8 +126,14 @@ func runLogout(opts *LogoutOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 	}
 	if len(cfg.Profiles) == 0 {
 		if active, kind := cmdutil.EnvCredential(); active {
-			return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
-				"authenticated via "+kind+" (stateless env credential) — nothing is stored to log out; unset "+kind+" to drop it")
+			return cmdutil.NewError(
+				cmdutil.CodeAuthUnauthenticated,
+				"authenticated via "+
+					kind+
+					" (stateless env credential) — nothing is stored to log out; unset "+
+					kind+
+					" to drop it",
+			)
 		}
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated, "no profiles configured; nothing to log out")
 	}
@@ -131,7 +149,16 @@ func runLogout(opts *LogoutOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 	if opts.All {
 		retryCmd = []string{"genyee", "auth", "logout", "--all", "-y"}
 	}
-	if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "auth credentials", scope, "auth.logout", retryCmd); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		f.Prompter(),
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"auth credentials",
+		scope,
+		"auth.logout",
+		retryCmd,
+	); err != nil {
 		return err
 	}
 
@@ -162,7 +189,12 @@ func runLogout(opts *LogoutOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, logoutResult{Removed: targets}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Logged out of %d profile(s): %s\n", len(targets), strings.Join(targets, ", "))
+	_, _ = fmt.Fprintf(
+		iostreams.IO.Out,
+		"✓ Logged out of %d profile(s): %s\n",
+		len(targets),
+		strings.Join(targets, ", "),
+	)
 	return nil
 }
 
@@ -199,12 +231,22 @@ func pickLogoutTargets(opts *LogoutOptions, cfg *config.Config) ([]string, error
 // an external `env:` reference are skipped; empty refs still call Delete so
 // orphaned secrets left behind by manual edits or partial switches are purged.
 func clearProfileSecrets(store secrets.Store, c config.Profile, name string) error {
-	for _, slot := range []struct{ key, ref string }{{"access", c.TokenRef}, {"refresh", c.RefreshRef}, {"api_key", c.APIKeyRef}} {
+	for _, slot := range []struct{ key, ref string }{
+		{"access", c.TokenRef},
+		{"refresh", c.RefreshRef},
+		{"api_key", c.APIKeyRef},
+	} {
 		if strings.HasPrefix(slot.ref, "env:") {
 			continue
 		}
 		if err := store.Delete(name, slot.key); err != nil {
-			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
+			return cmdutil.Wrapf(
+				cmdutil.CodeLocalKeychainDenied,
+				err,
+				"delete %s credential for profile %q",
+				slot.key,
+				name,
+			)
 		}
 	}
 	return nil

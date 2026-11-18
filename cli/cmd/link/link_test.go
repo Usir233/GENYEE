@@ -31,7 +31,7 @@ func chdir(t *testing.T, dir string) {
 func fakeKBServer(t *testing.T, kbs []sdk.KnowledgeBase) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/knowledge-bases", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/knowledge-bases", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(sdk.KnowledgeBaseListResponse{Success: true, Data: kbs})
 	})

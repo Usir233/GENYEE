@@ -22,9 +22,8 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -42,6 +41,7 @@ import (
 // `doctor`. Items here refer to data.checks[*] entries (Check struct).
 var doctorFields = []string{"name", "status", "details", "hint"}
 
+// Options holds flags and arguments for the `doctor` command.
 type Options struct {
 	NoCache bool
 	Offline bool
@@ -52,6 +52,7 @@ type Options struct {
 // "ok"/"fail"/"skip" string literals.
 type Status string
 
+// Status values reported by individual doctor checks.
 const (
 	StatusOK   Status = "ok"
 	StatusWarn Status = "warn"
@@ -120,27 +121,41 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			// Exit-code policy: fail → exit 1; warn / ok / skip → exit 0.
-			// SilentError suppresses both the human "error: ..." line and
+			// ErrSilent suppresses both the human "error: ..." line and
 			// the stderr error formatter, so the JSON already written by
 			// emit() is the only stdout content.
 			if r.Summary.Failed > 0 {
-				return cmdutil.SilentError
+				return cmdutil.ErrSilent
 			}
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&opts.NoCache, "no-cache", false, "Bypass server-info cache (located at $XDG_CACHE_HOME/genyee/server-info.yaml); force re-probe")
-	cmd.Flags().BoolVar(&opts.Offline, "offline", false, "Skip network checks; only verify local keyring/file storage (credential_storage check still runs)")
+	cmd.Flags().BoolVar(
+		&opts.NoCache,
+		"no-cache",
+		false,
+		"Bypass server-info cache (located at $XDG_CACHE_HOME/genyee/server-info.yaml); force re-probe",
+	)
+	cmd.Flags().BoolVar(
+		&opts.Offline,
+		"offline",
+		false,
+		"Skip network checks; only verify local keyring/file storage (credential_storage check still runs)",
+	)
 	cmdutil.AddFormatFlag(cmd, doctorFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "run self-checks: base-url reachability, auth credential, server version, credential storage",
-		Examples: []string{
-			"genyee doctor",
-			"genyee doctor --offline",
-			"genyee doctor --no-cache --format json",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "run self-checks: base-url reachability, auth credential, server version, credential storage",
+			Examples: []string{
+				"genyee doctor",
+				"genyee doctor --offline",
+				"genyee doctor --no-cache --format json",
+			},
+			Output: "envelope.data is {summary:{all_passed,passed,warned,failed,skipped}, checks:[{name,status," +
+				"details,hint?}]}",
 		},
-		Output: "envelope.data is {summary:{all_passed,passed,warned,failed,skipped}, checks:[{name,status,details,hint?}]}",
-	})
+	)
 	return cmd
 }
 
@@ -180,7 +195,8 @@ func runChecks(ctx context.Context, opts *Options, svc Services, cliVer string) 
 		t0 := time.Now()
 		if err := svc.PingBaseURL(ctx); err != nil {
 			checks[0].Status = StatusFail
-			checks[0].Hint = "verify the host configured for the active profile (run `genyee profile list` / `genyee profile add <n> --host=...`) and network reachability"
+			checks[0].Hint = "verify the host configured for the active profile (run `genyee profile list` / `genyee " +
+				"profile add <n> --host=...`) and network reachability"
 			checks[0].Details = err.Error()
 		} else {
 			checks[0].Status = StatusOK
@@ -262,7 +278,7 @@ func fillVersionCheck(c *Check, info *compat.Info, cliVer string, fromCache bool
 // keyring success, file-store fallback, or hard failure - without touching
 // the lazy-resolve buildServices contract (round-4 fix). Production stays
 // at secrets.NewBestEffortStore.
-var credStoreFactory = func() (secrets.Store, error) { return secrets.NewBestEffortStore() }
+var credStoreFactory = secrets.NewBestEffortStore
 
 // SetCredStoreFactoryForTest overrides the credential-storage factory used by
 // runChecks and returns a cleanup function that restores the previous value.
@@ -306,7 +322,8 @@ func fillCredentialStorageCheck(c *Check) {
 	if _, isFile := store.(*secrets.FileStore); isFile {
 		c.Status = StatusWarn
 		c.Details = "falling back to file store: keychain unavailable"
-		c.Hint = "secrets persist at 0600 under $XDG_CONFIG_HOME/genyee/secrets/; install / unlock keyring for OS-backed storage"
+		c.Hint = "secrets persist at 0600 under $XDG_CONFIG_HOME/genyee/secrets/; install / unlock keyring for OS-" +
+			"backed storage"
 		return
 	}
 	c.Status = StatusOK
@@ -317,7 +334,11 @@ func fillCredentialStorageCheck(c *Check) {
 // else call compat.Probe (which wraps svc.GetSystemInfo) and persist. Cache
 // write is best-effort. Returns fromCache so the caller can render the
 // "cached" presentation hint without a brittle ProbedAt heuristic.
-func loadOrProbeServerInfo(ctx context.Context, opts *Options, svc Services) (info *compat.Info, fromCache bool, err error) {
+func loadOrProbeServerInfo(
+	ctx context.Context,
+	opts *Options,
+	svc Services,
+) (info *compat.Info, fromCache bool, err error) {
 	var host string
 	if source, ok := svc.(interface{ CacheKey() string }); ok {
 		host = source.CacheKey()
@@ -369,12 +390,12 @@ func emit(fopts *cmdutil.FormatOptions, r Result) error {
 		if c.Details != "" {
 			line += "  (" + c.Details + ")"
 		}
-		fmt.Fprintln(iostreams.IO.Out, line)
+		_, _ = fmt.Fprintln(iostreams.IO.Out, line)
 		if c.Hint != "" {
-			fmt.Fprintf(iostreams.IO.Out, "    hint: %s\n", c.Hint)
+			_, _ = fmt.Fprintf(iostreams.IO.Out, "    hint: %s\n", c.Hint)
 		}
 	}
-	fmt.Fprintf(iostreams.IO.Out, "\nsummary: %d passed, %d warned, %d failed, %d skipped\n",
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "\nsummary: %d passed, %d warned, %d failed, %d skipped\n",
 		r.Summary.Passed, r.Summary.Warned, r.Summary.Failed, r.Summary.Skipped)
 	return nil
 }
@@ -408,7 +429,7 @@ func marker(s Status) string {
 // contradicting the docs. Instead, GetCurrentUser / GetSystemInfo lazily
 // resolve and surface their own failure as a per-check StatusFail.
 func buildServices(f *cmdutil.Factory) (Services, error) {
-	if active, _ := cmdutil.EnvCredential(); active && strings.TrimSpace(os.Getenv("GENYEE_HOST")) != "" {
+	if active, _ := cmdutil.EnvCredential(); active && cmdutil.EnvHost() != "" {
 		return &realServices{f: f, host: resolveDoctorHost(&config.Config{})}, nil
 	}
 	cfg, err := f.Config()
@@ -418,35 +439,14 @@ func buildServices(f *cmdutil.Factory) (Services, error) {
 	return &realServices{f: f, host: resolveDoctorHost(cfg)}, nil
 }
 
-// resolveDoctorHost picks the host base_url_reachable probes. Tiers 2 and 3
-// mirror the client builder (buildClientFromEnv) so doctor probes the host the
-// real commands actually connect to; tier 1 is a doctor-local test/dev knob:
-//
-//  1. GENYEE_BASE_URL — doctor-only probe override (used by tests); NOT read
-//     by the client builder, so setting it points doctor at a host no real
-//     command uses. Kept for test/dev harnesses; leave unset in normal use.
+// resolveDoctorHost picks the host base_url_reachable probes, delegating to
+// cmdutil.ResolveHost with allowUnauthBaseURL=true:
+//  1. GENYEE_BASE_URL — explicit base-URL / probe override.
 //  2. GENYEE_HOST — when stateless env credentials (GENYEE_TOKEN /
-//     GENYEE_API_KEY) are in effect, i.e. the headless agent path. Without
-//     this, `GENYEE_API_KEY=… GENYEE_HOST=… genyee doctor` falsely reported
-//     "no host configured" and exited 1 while every other command worked.
+//     GENYEE_API_KEY) are in effect.
 //  3. active profile host — the configured default.
 func resolveDoctorHost(cfg *config.Config) string {
-	host := ""
-	if ctx, ok := cfg.Profiles[cfg.CurrentProfile]; ok {
-		host = ctx.Host
-	}
-	// Env credentials authenticate via GENYEE_HOST, bypassing the profile.
-	// Honor it only when such creds are actually set, matching the client
-	// builder (a bare GENYEE_HOST without creds is ignored there too).
-	if envActive, _ := cmdutil.EnvCredential(); envActive {
-		if v := strings.TrimSpace(os.Getenv("GENYEE_HOST")); v != "" {
-			host = v
-		}
-	}
-	if v := os.Getenv("GENYEE_BASE_URL"); v != "" {
-		host = v
-	}
-	return host
+	return cmdutil.ResolveHost(cfg, true)
 }
 
 type realServices struct {
@@ -486,7 +486,10 @@ func (s *realServices) PingBaseURL(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("server returned %d", resp.StatusCode)
 	}

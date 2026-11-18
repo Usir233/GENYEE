@@ -61,7 +61,8 @@ type createFlagSet struct {
 }
 
 const agentCreateExample = `  genyee agent create "Support Bot" --model <model-id>
-  genyee agent create "Code Reviewer" --model <model-id> --system-prompt-file ./prompt.md --attach-kb kb_eng --attach-kb kb_arch
+  genyee agent create "Code Reviewer" --model <model-id> --system-prompt-file ./prompt.md --attach-kb kb_eng --` +
+	`attach-kb kb_arch
   genyee agent create "From Template" --model <model-id> --from ag_existing
   genyee agent create --generate-skeleton > my-agent.yaml
   genyee agent create "Tuned" --model <model-id> --config-file ./my-agent.yaml`
@@ -121,7 +122,8 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			}
 			opts.flags.descriptionSet = cmd.Flags().Changed("description")
 			opts.flags.agentModeSet = cmd.Flags().Changed("agent-mode")
-			opts.flags.systemPromptSet = cmd.Flags().Changed("system-prompt") || cmd.Flags().Changed("system-prompt-file")
+			opts.flags.systemPromptSet = cmd.Flags().Changed("system-prompt") ||
+				cmd.Flags().Changed("system-prompt-file")
 			opts.flags.rerankModelSet = cmd.Flags().Changed("rerank-model")
 			opts.flags.temperatureSet = cmd.Flags().Changed("temperature")
 			opts.flags.kbSelectionModeSet = cmd.Flags().Changed("kb-selection-mode")
@@ -130,7 +132,10 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			// --temperature is bounded 0.0..2.0. Reject out-of-range
 			// early with a typed input.invalid_argument so users don't
 			// burn a roundtrip on a value the server would also reject.
-			if opts.flags.temperatureSet && (math.IsNaN(opts.Temperature) || math.IsInf(opts.Temperature, 0) || opts.Temperature < 0.0 || opts.Temperature > 2.0) {
+			if opts.flags.temperatureSet && (math.IsNaN(opts.Temperature) || math.IsInf(
+				opts.Temperature,
+				0,
+			) || opts.Temperature < 0.0 || opts.Temperature > 2.0) {
 				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 					fmt.Sprintf("--temperature must be in 0.0..2.0, got %g", opts.Temperature))
 			}
@@ -142,7 +147,7 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(cmd)
 			if err != nil {
 				return err
@@ -164,11 +169,12 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			if systemPromptFile != "" {
 				r, oerr := cmdutil.OpenInput(systemPromptFile)
 				if oerr != nil {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file: %v", oerr))
+					return cmdutil.NewError(
+						cmdutil.CodeInputInvalidArgument,
+						fmt.Sprintf("--system-prompt-file: %v", oerr),
+					)
 				}
-				if c, ok := r.(io.Closer); ok {
-					defer c.Close()
-				}
+				defer func() { _ = r.Close() }()
 				opts.SystemPromptReader = r
 			}
 			if configFile != "" {
@@ -176,9 +182,7 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 				if oerr != nil {
 					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--config-file: %v", oerr))
 				}
-				if c, ok := r.(io.Closer); ok {
-					defer c.Close()
-				}
+				defer func() { _ = r.Close() }()
 				opts.ConfigFileBody = r
 				opts.ConfigFileKind = kind
 			}
@@ -193,7 +197,12 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			if opts.Model, err = cmdutil.ResolveModelRef(cmd.Context(), cli, opts.Model, "KnowledgeQA"); err != nil {
 				return err
 			}
-			if opts.RerankModel, err = cmdutil.ResolveModelRef(cmd.Context(), cli, opts.RerankModel, "Rerank"); err != nil {
+			if opts.RerankModel, err = cmdutil.ResolveModelRef(
+				cmd.Context(),
+				cli,
+				opts.RerankModel,
+				"Rerank",
+			); err != nil {
 				return err
 			}
 			// Resolve --attach-kb values (id or name) to canonical ids,
@@ -222,12 +231,32 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 
 	// Hot-path (8 flag names, 7 distinct config fields)
 	cmd.Flags().StringVar(&opts.Description, "description", "", "Agent description")
-	cmd.Flags().StringVar(&opts.SystemPrompt, "system-prompt", "", "System prompt text (mutex with --system-prompt-file)")
+	cmd.Flags().StringVar(
+		&opts.SystemPrompt,
+		"system-prompt",
+		"",
+		"System prompt text (mutex with --system-prompt-file)",
+	)
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "Read system prompt from FILE, or '-' for stdin")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
-	cmd.Flags().StringVar(&opts.AgentMode, "agent-mode", "", "Agent operating mode: "+strings.Join(agentModeValues, " | "))
-	cmd.Flags().StringSliceVar(&opts.KBs, "attach-kb", nil, "Attach a knowledge base id (repeatable); aligns with 'agent update --add-kb'")
-	cmd.Flags().StringVar(&opts.KBSelectionMode, "kb-selection-mode", "", "KB selection mode: "+strings.Join(kbSelectionModeValues, " | "))
+	cmd.Flags().StringVar(
+		&opts.AgentMode,
+		"agent-mode",
+		"",
+		"Agent operating mode: "+strings.Join(agentModeValues, " | "),
+	)
+	cmd.Flags().StringSliceVar(
+		&opts.KBs,
+		"attach-kb",
+		nil,
+		"Attach a knowledge base id (repeatable); aligns with 'agent update --add-kb'",
+	)
+	cmd.Flags().StringVar(
+		&opts.KBSelectionMode,
+		"kb-selection-mode",
+		"",
+		"KB selection mode: "+strings.Join(kbSelectionModeValues, " | "),
+	)
 	cmd.Flags().StringVar(&opts.RerankModel, "rerank-model", "", "Rerank model id or name")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0.0, "Generation temperature (0.0..2.0)")
 
@@ -235,20 +264,30 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&opts.From, "from", "", "Copy from existing agent id (then apply other flags)")
 	cmd.Flags().StringVar(&configFile, "config-file", "", "Full AgentConfig YAML or JSON (use '-' for stdin)")
 	cmd.MarkFlagsMutuallyExclusive("from", "config-file")
-	cmd.Flags().BoolVar(&opts.GenerateSkeleton, "generate-skeleton", false, "Emit blank AgentConfig YAML to stdout and exit")
+	cmd.Flags().BoolVar(
+		&opts.GenerateSkeleton,
+		"generate-skeleton",
+		false,
+		"Emit blank AgentConfig YAML to stdout and exit",
+	)
 
 	cmdutil.AddFormatFlag(cmd, agentViewFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Create a new custom agent. --model is required and accepts a model id or name; --attach-kb (repeatable) accepts KB ids or names. Emits the created Agent object.",
-		RequiredFlags: []string{"<name> (positional)", "--model"},
-		Examples: []string{
-			`genyee agent create "Support Bot" --model gpt-4o`,
-			`genyee agent create "Support Bot" --model gpt-4o --attach-kb kb_eng --system-prompt "You are a support assistant."`,
-			`genyee agent create --generate-skeleton   # print a blank config to fill in (no --model needed)`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Create a new custom agent. --model is required and accepts a model id or name; --attach-" +
+				"kb (repeatable) accepts KB ids or names. Emits the created Agent object.",
+			RequiredFlags: []string{"<name> (positional)", "--model"},
+			Examples: []string{
+				`genyee agent create "Support Bot" --model gpt-4o`,
+				`genyee agent create "Support Bot" --model gpt-4o --attach-kb kb_eng --system-prompt "You are a ` +
+					`support assistant."`,
+				`genyee agent create --generate-skeleton   # print a blank config to fill in (no --model needed)`,
+			},
+			Output: "envelope.data is the created Agent object with id, name, config",
 		},
-		Output: "envelope.data is the created Agent object with id, name, config",
-	})
+	)
 	return cmd
 }
 
@@ -277,7 +316,10 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file read: %v", err))
 		}
 		if len(body) > maxSystemPromptBytes {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file exceeds %d bytes", maxSystemPromptBytes))
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("--system-prompt-file exceeds %d bytes", maxSystemPromptBytes),
+			)
 		}
 		opts.SystemPrompt = strings.TrimSpace(string(body))
 	}
@@ -387,9 +429,9 @@ func applyCreateOverrides(base *sdk.AgentConfig, opts *CreateOptions) *sdk.Agent
 	return cfg
 }
 
-// openConfigFile returns a Reader, the detected kind ("yaml"/"json"), or
+// openConfigFile returns a ReadCloser, the detected kind ("yaml"/"json"), or
 // an error. Format is inferred from file extension; "-" defaults to YAML.
-func openConfigFile(path string) (io.Reader, string, error) {
+func openConfigFile(path string) (io.ReadCloser, string, error) {
 	r, err := cmdutil.OpenInput(path)
 	if err != nil {
 		return nil, "", err

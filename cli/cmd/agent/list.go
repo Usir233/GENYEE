@@ -63,13 +63,24 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 			return runList(c.Context(), opts, fopts, cli)
 		},
 	}
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		30,
+		"Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)",
+	)
 	cmdutil.AddFormatFlag(cmd, agentListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "List custom agents visible to the active tenant. The SDK returns all agents in one call (no server-side pagination); meta.count reflects the full tenant set, --limit caps client-side.",
-		Examples: []string{"genyee agent list --format json", "genyee agent list --limit 10 --format json"},
-		Output:   "envelope.data is an array of Agent objects with id, name, is_builtin; meta.total_count is the full tenant set and meta.has_more=true means --limit truncated it (raise --limit to get the rest)",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "List custom agents visible to the active tenant. The SDK returns all agents in one call (no " +
+				"server-side pagination); meta.count reflects the full tenant set, --limit caps client-side.",
+			Examples: []string{"genyee agent list --format json", "genyee agent list --limit 10 --format json"},
+			Output: "envelope.data is an array of Agent objects with id, name, is_builtin; meta.total_count is the " +
+				"full tenant set and meta.has_more=true means --limit truncated it (raise --limit to get the rest)",
+		},
+	)
 	return cmd
 }
 
@@ -126,12 +137,12 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	}
 
 	if len(items) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no agents)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no agents)")
 		return nil
 	}
 
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tBUILTIN\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "ID\tNAME\tBUILTIN\tUPDATED")
 	now := time.Now()
 	for _, a := range items {
 		name := text.Truncate(40, a.Name)
@@ -139,7 +150,7 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 		if a.IsBuiltin {
 			builtin = "yes"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", a.ID, name, builtin, text.FuzzyAgo(now, a.UpdatedAt))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", a.ID, name, builtin, text.FuzzyAgo(now, a.UpdatedAt))
 	}
 	return tw.Flush()
 }

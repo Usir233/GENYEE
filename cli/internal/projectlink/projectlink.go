@@ -50,7 +50,9 @@ func Discover(startDir string) (string, bool, error) {
 		linkDir := filepath.Join(dir, DirName)
 		if dirInfo, err := os.Lstat(linkDir); err == nil && dirInfo.Mode()&os.ModeSymlink == 0 && dirInfo.IsDir() {
 			candidate := filepath.Join(linkDir, FileName)
-			if info, err := os.Lstat(candidate); err == nil && info.Mode()&os.ModeSymlink == 0 && info.Mode().IsRegular() {
+			if info, err := os.Lstat(candidate); err == nil &&
+				info.Mode()&os.ModeSymlink == 0 &&
+				info.Mode().IsRegular() {
 				return candidate, true, nil
 			}
 		}

@@ -17,7 +17,7 @@ func TestExitCode(t *testing.T) {
 	}{
 		{"nil success", nil, 0},
 		{"flag error", NewFlagError(errors.New("bad flag")), 2},
-		{"silent", SilentError, 1},
+		{"silent", ErrSilent, 1},
 		{"auth.* prefix", NewError(CodeAuthUnauthenticated, "x"), 3},
 		{"auth.token_expired", NewError(CodeAuthTokenExpired, "x"), 3},
 		{"resource.not_found", NewError(CodeResourceNotFound, "x"), 4},
@@ -31,7 +31,11 @@ func TestExitCode(t *testing.T) {
 		{"local.* prefix", NewError(CodeLocalConfigCorrupt, "x"), 1},
 		{"operation.timeout", NewError(CodeOperationTimeout, "timed out"), 124},
 		{"operation.failed → 1 (fall-through bucket)", NewError(CodeOperationFailed, "failed"), 1},
-		{"operation.cancelled → 1 (main overrides to 130 on signal-cancelled ctx)", NewError(CodeOperationCancelled, "cancelled"), 1},
+		{
+			"operation.cancelled → 1 (main overrides to 130 on signal-cancelled ctx)",
+			NewError(CodeOperationCancelled, "cancelled"),
+			1,
+		},
 		{"server.session_create_failed → 1 (workflow, not transient)", NewError(CodeSessionCreateFailed, "x"), 1},
 	}
 	for _, tc := range cases {
@@ -47,9 +51,9 @@ func TestPrintError(t *testing.T) {
 		PrintError(&buf, nil)
 		assert.Empty(t, buf.String())
 	})
-	t.Run("SilentError is silent", func(t *testing.T) {
+	t.Run("ErrSilent is silent", func(t *testing.T) {
 		var buf bytes.Buffer
-		PrintError(&buf, SilentError)
+		PrintError(&buf, ErrSilent)
 		assert.Empty(t, buf.String())
 	})
 	t.Run("typed error prints message", func(t *testing.T) {

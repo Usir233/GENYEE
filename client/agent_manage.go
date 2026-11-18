@@ -142,11 +142,13 @@ type AgentConfig struct {
 	QuestionSuggestions         *QuestionSuggestionConfig `json:"question_suggestions,omitempty"`
 }
 
+// QuestionSuggestionConfig configures starter and follow-up question suggestions for an agent.
 type QuestionSuggestionConfig struct {
 	Starters  StarterSuggestionConfig  `json:"starters"`
 	FollowUps FollowUpSuggestionConfig `json:"follow_ups"`
 }
 
+// StarterSuggestionConfig configures initial conversation starter prompts.
 type StarterSuggestionConfig struct {
 	Enabled bool     `json:"enabled"`
 	Mode    string   `json:"mode"`
@@ -154,6 +156,7 @@ type StarterSuggestionConfig struct {
 	Count   int      `json:"count"`
 }
 
+// FollowUpSuggestionConfig configures post-answer follow-up question suggestions.
 type FollowUpSuggestionConfig struct {
 	Enabled                        bool     `json:"enabled"`
 	Mode                           string   `json:"mode"`
@@ -396,7 +399,11 @@ type SuggestedQuestionsResponse struct {
 // displayed as quick-start prompts in the chat UI.
 //
 // When request is nil, uses the agent's default knowledge base configuration.
-func (c *Client) GetSuggestedQuestions(ctx context.Context, agentID string, request *SuggestedQuestionsRequest) ([]SuggestedQuestion, error) {
+func (c *Client) GetSuggestedQuestions(
+	ctx context.Context,
+	agentID string,
+	request *SuggestedQuestionsRequest,
+) ([]SuggestedQuestion, error) {
 	path := fmt.Sprintf("/api/v1/agents/%s/suggested-questions", escapePathSegment(agentID))
 
 	query := url.Values{}

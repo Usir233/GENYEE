@@ -24,31 +24,32 @@ import (
 
 // Knowledge represents knowledge information
 type Knowledge struct {
-	ID               string          `json:"id"`
-	TenantID         uint64          `json:"tenant_id"`
-	KnowledgeBaseID  string          `json:"knowledge_base_id"`
-	TagID            string          `json:"tag_id"`
-	Type             string          `json:"type"`
-	Title            string          `json:"title"`
-	Description      string          `json:"description"`
-	Source           string          `json:"source"`
-	Channel          string          `json:"channel"`
-	ParseStatus      string          `json:"parse_status"`
-	SummaryStatus    string          `json:"summary_status"`
-	EnableStatus     string          `json:"enable_status"`
-	EmbeddingModelID string          `json:"embedding_model_id"`
-	FileName         string          `json:"file_name"`
-	FolderPath       string          `json:"folder_path"`
-	FileType         string          `json:"file_type"`
-	FileSize         int64           `json:"file_size"`
-	FileHash         string          `json:"file_hash"`
-	FilePath         string          `json:"file_path"`
-	StorageSize      int64           `json:"storage_size"`
-	Metadata         json.RawMessage `json:"metadata"` // Extensible metadata for storing machine information, paths, etc.
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
-	ProcessedAt      *time.Time      `json:"processed_at"`
-	ErrorMessage     string          `json:"error_message"`
+	ID               string `json:"id"`
+	TenantID         uint64 `json:"tenant_id"`
+	KnowledgeBaseID  string `json:"knowledge_base_id"`
+	TagID            string `json:"tag_id"`
+	Type             string `json:"type"`
+	Title            string `json:"title"`
+	Description      string `json:"description"`
+	Source           string `json:"source"`
+	Channel          string `json:"channel"`
+	ParseStatus      string `json:"parse_status"`
+	SummaryStatus    string `json:"summary_status"`
+	EnableStatus     string `json:"enable_status"`
+	EmbeddingModelID string `json:"embedding_model_id"`
+	FileName         string `json:"file_name"`
+	FolderPath       string `json:"folder_path"`
+	FileType         string `json:"file_type"`
+	FileSize         int64  `json:"file_size"`
+	FileHash         string `json:"file_hash"`
+	FilePath         string `json:"file_path"`
+	StorageSize      int64  `json:"storage_size"`
+	// Metadata holds extensible metadata for storing machine information, paths, etc.
+	Metadata     json.RawMessage `json:"metadata"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	ProcessedAt  *time.Time      `json:"processed_at"`
+	ErrorMessage string          `json:"error_message"`
 }
 
 // KnowledgeResponse represents the API response containing a single knowledge entry
@@ -91,7 +92,7 @@ var ErrDuplicateURL = errors.New("URL already exists")
 type KnowledgeProcessOverrides struct {
 	ParserEngineRules        []ParserEngineRule        `json:"parser_engine_rules,omitempty"`
 	ChunkingConfig           *ChunkingConfig           `json:"chunking_config,omitempty"`
-	EnableMultimodel         *bool                     `json:"enable_multimodel,omitempty"`
+	EnableMultimodal         *bool                     `json:"enable_multimodal,omitempty"`
 	VLMConfig                *VLMConfig                `json:"vlm_config,omitempty"`
 	ASRConfig                *ASRConfig                `json:"asr_config,omitempty"`
 	QuestionGenerationConfig *QuestionGenerationConfig `json:"question_generation_config,omitempty"`
@@ -104,12 +105,13 @@ type KnowledgeProcessOverrides struct {
 //   - knowledgeBaseID: The ID of the knowledge base
 //   - filePath: The local file path
 //   - metadata: Optional metadata for the knowledge entry
-//   - enableMultimodel: Optional flag to enable multimodal processing
+//   - enableMultimodal: Optional flag to enable multimodal processing
 //   - customFileName: Optional custom file name (useful for folder uploads with path)
 //   - channel: Optional ingestion channel (e.g. "web", "api", "wechat"); empty defaults to "web"
 //   - processConfig: Optional parse config overrides (serialized as process_config form field)
 func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
-	knowledgeBaseID string, filePath string, metadata map[string]string, enableMultimodel *bool, customFileName string, channel string,
+	knowledgeBaseID string, filePath string, metadata map[string]string,
+	enableMultimodal *bool, customFileName string, channel string,
 	processConfig *KnowledgeProcessOverrides,
 ) (*Knowledge, error) {
 	// Open the local file
@@ -117,7 +119,7 @@ func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Get file information
 	fileInfo, err := file.Stat()
@@ -139,10 +141,10 @@ func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
 		return nil, fmt.Errorf("failed to copy file content: %w", err)
 	}
 
-	// Add enable_multimodel field
-	if enableMultimodel != nil {
-		if err := writer.WriteField("enable_multimodel", strconv.FormatBool(*enableMultimodel)); err != nil {
-			return nil, fmt.Errorf("failed to write enable_multimodel field: %w", err)
+	// Add enable_multimodal field
+	if enableMultimodal != nil {
+		if err := writer.WriteField("enable_multimodal", strconv.FormatBool(*enableMultimodal)); err != nil {
+			return nil, fmt.Errorf("failed to write enable_multimodal field: %w", err)
 		}
 	}
 
@@ -159,8 +161,8 @@ func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
 
 	// Add custom file name if provided
 	if customFileName != "" {
-		if err := writer.WriteField("fileName", customFileName); err != nil {
-			return nil, fmt.Errorf("failed to write fileName field: %w", err)
+		if err := writer.WriteField("file_name", customFileName); err != nil {
+			return nil, fmt.Errorf("failed to write file_name field: %w", err)
 		}
 	}
 
@@ -196,6 +198,9 @@ func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	if err := c.validateBaseURL(req); err != nil {
+		return nil, err
+	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	c.applyAuthHeaders(ctx, req)
 
@@ -204,7 +209,7 @@ func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Parse the response
 	var response KnowledgeResponse
@@ -229,8 +234,8 @@ type CreateKnowledgeFromURLRequest struct {
 	FileName string `json:"file_name,omitempty"`
 	// FileType is the optional file type (e.g. "pdf"); used to hint file-download mode
 	FileType string `json:"file_type,omitempty"`
-	// EnableMultimodel is the optional flag to enable multimodal processing
-	EnableMultimodel *bool `json:"enable_multimodel,omitempty"`
+	// EnableMultimodal is the optional flag to enable multimodal processing
+	EnableMultimodal *bool `json:"enable_multimodal,omitempty"`
 	// Title is the optional title for the knowledge entry
 	Title string `json:"title,omitempty"`
 	// TagID is the optional tag ID to associate with the knowledge entry
@@ -443,7 +448,10 @@ type MoveKnowledgeToFolderResponse struct {
 
 // MoveKnowledgeToFolder updates folder_path for the given knowledge entries.
 // An empty FolderPath moves documents back to the knowledge base root.
-func (c *Client) MoveKnowledgeToFolder(ctx context.Context, req *MoveKnowledgeToFolderRequest) (*MoveKnowledgeToFolderResponse, error) {
+func (c *Client) MoveKnowledgeToFolder(
+	ctx context.Context,
+	req *MoveKnowledgeToFolderRequest,
+) (*MoveKnowledgeToFolderResponse, error) {
 	resp, err := c.doRequest(ctx, http.MethodPost, "/api/v1/knowledge/folder", req, nil)
 	if err != nil {
 		return nil, err
@@ -522,7 +530,7 @@ func (c *Client) DownloadKnowledgeFile(ctx context.Context, knowledgeID string, 
 	if err != nil {
 		return err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	return saveDownloadedFile(body, destPath)
 }
@@ -560,12 +568,14 @@ type BatchDownloadKnowledgeRequest struct {
 // DownloadKnowledgeFiles downloads a ZIP of original files for the given
 // knowledge IDs to destPath. Failed downloads preserve an existing file and
 // remove temporary data.
-func (c *Client) DownloadKnowledgeFiles(ctx context.Context, knowledgeBaseID string, ids []string, destPath string) error {
+func (c *Client) DownloadKnowledgeFiles(
+	ctx context.Context, knowledgeBaseID string, ids []string, destPath string,
+) error {
 	_, body, err := c.OpenKnowledgeFilesArchive(ctx, knowledgeBaseID, ids)
 	if err != nil {
 		return err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	return saveDownloadedFile(body, destPath)
 }
@@ -574,7 +584,11 @@ func (c *Client) DownloadKnowledgeFiles(ctx context.Context, knowledgeBaseID str
 // server-suggested ZIP filename and a streaming reader. Callers MUST Close
 // the returned reader. The request uses the streaming HTTP client so the
 // default 30s timeout does not cut off large archives.
-func (c *Client) OpenKnowledgeFilesArchive(ctx context.Context, knowledgeBaseID string, ids []string) (string, io.ReadCloser, error) {
+func (c *Client) OpenKnowledgeFilesArchive(
+	ctx context.Context,
+	knowledgeBaseID string,
+	ids []string,
+) (string, io.ReadCloser, error) {
 	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/batch-download", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequestStream(ctx, http.MethodPost, path, BatchDownloadKnowledgeRequest{IDs: ids}, nil)
 	if err != nil {
@@ -603,6 +617,7 @@ func filenameFromContentDisposition(h string) string {
 	return params["filename"]
 }
 
+// UpdateKnowledge updates an existing knowledge entry's metadata.
 func (c *Client) UpdateKnowledge(ctx context.Context, knowledge *Knowledge) error {
 	if knowledge == nil {
 		return fmt.Errorf("knowledge cannot be nil")
@@ -808,17 +823,7 @@ func (c *Client) GetKnowledgeProcessingSpans(
 	return &response.Data, nil
 }
 
-// UpdateChunk updates a chunk's information
-// Updates information for a specific chunk under a knowledge document
-// Parameters:
-//   - ctx: Context
-//   - knowledgeID: Knowledge ID
-//   - chunkID: Chunk ID
-//   - request: Update request
-//
-// Returns:
-//   - *Chunk: Updated chunk
-//   - error: Error information
+// UpdateImageInfo updates image metadata for a specific chunk under a knowledge document.
 func (c *Client) UpdateImageInfo(ctx context.Context,
 	knowledgeID string, chunkID string, request *UpdateImageInfoRequest,
 ) error {
@@ -862,7 +867,11 @@ type BatchUpdateKnowledgeTagsRequest struct {
 }
 
 // CreateManualKnowledge creates a knowledge entry from manual Markdown content.
-func (c *Client) CreateManualKnowledge(ctx context.Context, knowledgeBaseID string, request *CreateManualKnowledgeRequest) (*Knowledge, error) {
+func (c *Client) CreateManualKnowledge(
+	ctx context.Context,
+	knowledgeBaseID string,
+	request *CreateManualKnowledgeRequest,
+) (*Knowledge, error) {
 	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/manual", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, request, nil)
 	if err != nil {
@@ -878,7 +887,11 @@ func (c *Client) CreateManualKnowledge(ctx context.Context, knowledgeBaseID stri
 }
 
 // UpdateManualKnowledge updates a manual Markdown knowledge entry.
-func (c *Client) UpdateManualKnowledge(ctx context.Context, knowledgeID string, request *UpdateManualKnowledgeRequest) (*Knowledge, error) {
+func (c *Client) UpdateManualKnowledge(
+	ctx context.Context,
+	knowledgeID string,
+	request *UpdateManualKnowledgeRequest,
+) (*Knowledge, error) {
 	path := fmt.Sprintf("/api/v1/knowledge/manual/%s", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
@@ -901,7 +914,13 @@ type FilterKnowledgeResponse struct {
 }
 
 // FilterKnowledge searches/filters knowledge entries across knowledge bases
-func (c *Client) FilterKnowledge(ctx context.Context, keyword string, offset, limit int, fileTypes []string, agentID string) ([]Knowledge, bool, error) {
+func (c *Client) FilterKnowledge(
+	ctx context.Context,
+	keyword string,
+	offset, limit int,
+	fileTypes []string,
+	agentID string,
+) ([]Knowledge, bool, error) {
 	queryParams := url.Values{}
 	if keyword != "" {
 		queryParams.Set("keyword", keyword)
@@ -1043,8 +1062,17 @@ func saveDownloadedFile(body io.Reader, destPath string) error {
 	return os.Rename(tempPath, destination)
 }
 
+const maxDownloadSymlinkHops = 40
+
 // resolveDownloadPath follows destination links, including links to a new file.
 func resolveDownloadPath(path string) (string, error) {
+	return resolveDownloadPathDepth(path, 0)
+}
+
+func resolveDownloadPathDepth(path string, depth int) (string, error) {
+	if depth > maxDownloadSymlinkHops {
+		return "", fmt.Errorf("too many symlink levels resolving %q", path)
+	}
 	resolved, err := filepath.EvalSymlinks(path)
 	if err == nil {
 		return resolved, nil
@@ -1073,5 +1101,5 @@ func resolveDownloadPath(path string) (string, error) {
 	if !filepath.IsAbs(target) {
 		target = filepath.Join(parent, target)
 	}
-	return resolveDownloadPath(target)
+	return resolveDownloadPathDepth(target, depth+1)
 }

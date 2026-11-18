@@ -10,7 +10,11 @@ import (
 )
 
 func TestUpdateChunkPreservesOmittedFieldsAndRevision(t *testing.T) {
-	for _, body := range []string{`{"content":"edited","expected_revision":3}`, `{"is_enabled":false,"expected_revision":3}`} {
+	bodies := []string{
+		`{"content":"edited","expected_revision":3}`,
+		`{"is_enabled":false,"expected_revision":3}`,
+	}
+	for _, body := range bodies {
 		t.Run(body, func(t *testing.T) {
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var got, want map[string]any
@@ -31,7 +35,8 @@ func TestUpdateChunkPreservesOmittedFieldsAndRevision(t *testing.T) {
 					}
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = io.WriteString(w, `{"success":true,"data":{"id":"chunk","content":"edited","is_enabled":true,"content_revision":4}}`)
+				_, _ = io.WriteString(w, `{"success":true,"data":{"id":"chunk",`+
+					`"content":"edited","is_enabled":true,"content_revision":4}}`)
 			}))
 			defer s.Close()
 			var req UpdateChunkRequest

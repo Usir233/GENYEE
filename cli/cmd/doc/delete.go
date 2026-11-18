@@ -17,6 +17,7 @@ import (
 // on `doc delete`. The result payload is a small {id, deleted} object.
 var docDeleteFields = []string{"id", "deleted"}
 
+// DeleteOptions holds flags and arguments for the `doc delete` command.
 type DeleteOptions struct {
 	Yes    bool   // sourced from the global -y/--yes persistent flag (see cli/cmd/root.go)
 	All    bool   // delete all docs in --kb
@@ -139,7 +140,16 @@ without the user's explicit go-ahead.`,
 			}
 			batchRetry := append([]string{"genyee", "doc", "delete"}, args...)
 			batchRetry = append(batchRetry, "-y")
-			if err := cmdutil.ConfirmDestructiveBatch(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "document", len(args), "doc.delete", batchRetry); err != nil {
+			if err := cmdutil.ConfirmDestructiveBatch(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"delete",
+				"document",
+				len(args),
+				"doc.delete",
+				batchRetry,
+			); err != nil {
 				return err
 			}
 			outcomes, runErr := cmdutil.RunBatch(c.Context(), args, func(ctx context.Context, id string) error {
@@ -152,7 +162,12 @@ without the user's explicit go-ahead.`,
 			// (e.g. confirmation_required) must leave stdout empty per the
 			// wire contract in README.md.
 			if len(outcomes) > 0 {
-				if emitErr := cmdutil.EmitBatch(outcomes, fopts, iostreams.IO.Out, cmdutil.DeletedAtNow); emitErr != nil {
+				if emitErr := cmdutil.EmitBatch(
+					outcomes,
+					fopts,
+					iostreams.IO.Out,
+					cmdutil.DeletedAtNow,
+				); emitErr != nil {
 					return emitErr
 				}
 			}
@@ -164,26 +179,48 @@ without the user's explicit go-ahead.`,
 	cmdutil.AddFormatFlag(cmd, docDeleteFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, "doc.delete")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "permanently delete one or more documents from a knowledge base",
-		RequiredFlags: []string{"<doc-id>... (positional) | --all --kb=<uuid-or-name>"},
-		Examples: []string{
-			"genyee doc delete doc_abc -y",
-			"genyee doc delete doc_a doc_b doc_c -y",
-			"genyee doc delete --all --kb=kb_x -y --format json",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "permanently delete one or more documents from a knowledge base",
+			RequiredFlags: []string{"<doc-id>... (positional) | --all --kb=<uuid-or-name>"},
+			Examples: []string{
+				"genyee doc delete doc_abc -y",
+				"genyee doc delete doc_a doc_b doc_c -y",
+				"genyee doc delete --all --kb=kb_x -y --format json",
+			},
+			Output: "envelope.data shape depends on the form: a single doc id -> {id, deleted:true}; multiple doc " +
+				"ids -> batch envelope (top-level status success|partial|error, ok=(failures==0), data per-item [{id," +
+				" ok, error?}], meta.successes/failures — read data[].ok per id, ok:true overall does not survive a " +
+				"partial failure / exit 1); --all --kb -> {kb_id, deleted_count}.",
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"doc delete is irreversible; loses the document + its chunks + embeddings.",
+				"--all empties the entire KB; thousands of documents may be lost in one operation.",
+			},
 		},
-		Output: "envelope.data shape depends on the form: a single doc id -> {id, deleted:true}; multiple doc ids -> batch envelope (top-level status success|partial|error, ok=(failures==0), data per-item [{id, ok, error?}], meta.successes/failures — read data[].ok per id, ok:true overall does not survive a partial failure / exit 1); --all --kb -> {kb_id, deleted_count}.",
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"doc delete is irreversible; loses the document + its chunks + embeddings.",
-			"--all empties the entire KB; thousands of documents may be lost in one operation.",
-		},
-	})
+	)
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter, id string) error {
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "document", id, "doc.delete", []string{"genyee", "doc", "delete", id, "-y"}); err != nil {
+func runDelete(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DeleteService,
+	p prompt.Prompter,
+	id string,
+) error {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"document",
+		id,
+		"doc.delete",
+		[]string{"genyee", "doc", "delete", id, "-y"},
+	); err != nil {
 		return err
 	}
 
@@ -194,7 +231,7 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: id, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted document %s\n", id)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted document %s\n", id)
 	return nil
 }
 
@@ -202,8 +239,23 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 // ClearKnowledgeBaseContents call. Non-TTY/JSON mode without -y returns
 // CodeInputConfirmationRequired (exit 10) with risk metadata so agents can
 // surface the risk to the user before re-invoking with -y.
-func runDeleteAll(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc AllService, p prompt.Prompter) error {
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "all docs in KB", opts.KB, "doc.delete_all", []string{"genyee", "doc", "delete", "--all", "--kb=" + opts.KB, "-y"}); err != nil {
+func runDeleteAll(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc AllService,
+	p prompt.Prompter,
+) error {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"all docs in KB",
+		opts.KB,
+		"doc.delete_all",
+		[]string{"genyee", "doc", "delete", "--all", "--kb=" + opts.KB, "-y"},
+	); err != nil {
 		return err
 	}
 
@@ -217,7 +269,7 @@ func runDeleteAll(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.Forma
 	}
 
 	if !fopts.WantsJSON() {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Deleted %d document(s) from KB %s\n", deleted, opts.KB)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted %d document(s) from KB %s\n", deleted, opts.KB)
 		return nil
 	}
 	return fopts.Emit(iostreams.IO.Out, map[string]any{

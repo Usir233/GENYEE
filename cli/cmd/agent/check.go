@@ -18,10 +18,11 @@ import (
 // `agent status`: status reads existing state cheaply, check actively
 // verifies dependencies.
 type AgentCheckResult struct {
-	ID                  string `json:"id"`
-	Reachable           bool   `json:"reachable"`
-	ModelID             string `json:"model_id,omitempty"`
-	KBScopeAllReachable *bool  `json:"kb_scope_all_reachable,omitempty"` // pointer so we can distinguish "not applicable" (e.g. agent unreachable) from "false"
+	ID        string `json:"id"`
+	Reachable bool   `json:"reachable"`
+	ModelID   string `json:"model_id,omitempty"`
+	// pointer so we can distinguish "not applicable" (e.g. agent unreachable) from "false"
+	KBScopeAllReachable *bool `json:"kb_scope_all_reachable,omitempty"`
 }
 
 // AgentCheckService is the narrow SDK surface needed for agent check.
@@ -119,16 +120,16 @@ func emitAgentCheck(res *AgentCheckResult, fopts *cmdutil.FormatOptions, w io.Wr
 }
 
 func writeAgentCheckText(w io.Writer, res *AgentCheckResult) error {
-	fmt.Fprintf(w, "ID:           %s\n", res.ID)
-	fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
+	_, _ = fmt.Fprintf(w, "ID:           %s\n", res.ID)
+	_, _ = fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
 	if !res.Reachable {
 		return nil
 	}
 	if res.ModelID != "" {
-		fmt.Fprintf(w, "Model:        %s\n", res.ModelID)
+		_, _ = fmt.Fprintf(w, "Model:        %s\n", res.ModelID)
 	}
 	if res.KBScopeAllReachable != nil {
-		fmt.Fprintf(w, "KB scope OK:  %v\n", *res.KBScopeAllReachable)
+		_, _ = fmt.Fprintf(w, "KB scope OK:  %v\n", *res.KBScopeAllReachable)
 	}
 	return nil
 }

@@ -8,8 +8,10 @@ import (
 
 func TestSetForTest(t *testing.T) {
 	out, errBuf := SetForTest(t)
-	IO.Out.Write([]byte("stdout"))
-	IO.Err.Write([]byte("stderr"))
+	_, err := IO.Out.Write([]byte("stdout"))
+	assert.NoError(t, err)
+	_, err = IO.Err.Write([]byte("stderr"))
+	assert.NoError(t, err)
 	assert.Equal(t, "stdout", out.String())
 	assert.Equal(t, "stderr", errBuf.String())
 }

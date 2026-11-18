@@ -74,16 +74,24 @@ var dryRunExpectation = map[string]bool{
 func TestIdAddressedCommandsTolerateKB(t *testing.T) {
 	root := NewRootCmd(cmdutil.New())
 	for _, path := range [][]string{
-		{"doc", "view"}, {"doc", "wait"}, {"doc", "download"},
-		{"doc", "reparse"}, {"doc", "update"},
-		{"chunk", "list"}, {"chunk", "view"}, {"chunk", "delete"},
+		{"doc", "view"},
+		{"doc", "wait"},
+		{"doc", "download"},
+		{"doc", "reparse"},
+		{"doc", "update"},
+		{"chunk", "list"},
+		{"chunk", "view"},
+		{"chunk", "delete"},
 	} {
 		c, _, err := root.Find(path)
 		if err != nil {
 			t.Fatalf("find %v: %v", path, err)
 		}
 		if c.Flags().Lookup("kb") == nil {
-			t.Errorf("`%s` must accept a --kb flag (ignored) so a carried-over --kb doesn't error", strings.Join(path, " "))
+			t.Errorf(
+				"`%s` must accept a --kb flag (ignored) so a carried-over --kb doesn't error",
+				strings.Join(path, " "),
+			)
 		}
 	}
 }

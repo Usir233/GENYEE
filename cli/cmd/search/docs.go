@@ -35,6 +35,7 @@ var docsFields = []string{
 	"created_at", "updated_at", "processed_at", "error_message",
 }
 
+// DocsSearchOptions holds flags and arguments for the `search docs` command.
 type DocsSearchOptions struct {
 	Query string
 	KB    string // raw --kb (UUID or name)
@@ -56,7 +57,12 @@ type DocsSearchOptions struct {
 // ?keyword= query param, so the CLI just forwards opts.Query as
 // filter.Keyword and accumulates the (already-filtered) pages.
 type DocsSearchService interface {
-	ListKnowledgeWithFilter(ctx context.Context, kbID string, page, pageSize int, filter sdk.KnowledgeListFilter) ([]sdk.Knowledge, int64, error)
+	ListKnowledgeWithFilter(
+		ctx context.Context,
+		kbID string,
+		page, pageSize int,
+		filter sdk.KnowledgeListFilter,
+	) ([]sdk.Knowledge, int64, error)
 }
 
 // NewCmdDocs builds `genyee search docs "<query>" --kb <id-or-name>`.
@@ -121,16 +127,28 @@ reached or the KB is exhausted. Pass --all-pages=false to stop after one page.`,
 	cmd.Flags().IntVar(&opts.PageSize, "page-size", docsPageSize, "Items per server batch (1..1000)")
 	cmd.Flags().BoolVar(&opts.AllPages, "all-pages", true, "Walk every server page until exhausted or --limit hit")
 	cmdutil.AddFormatFlag(cmd, docsFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Find documents in a knowledge base by keyword (server-side LIKE filter on title/file_name). The KB comes from --kb (id or name), else GENYEE_KB_ID, else the linked directory. Results come with meta.count; use --limit to cap and --all-pages=false to stop after one page.",
-		RequiredFlags: []string{"<query> (positional)", "--kb (or GENYEE_KB_ID / linked directory)"},
-		Examples:      []string{`genyee search docs "spec" --kb engineering --format json`},
-		Output:        "envelope.data is an array of Knowledge objects with id, title, file_name, parse_status; meta.count is the returned count, meta.total_count the server's full match count, meta.has_more=true if more matched than --limit",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Find documents in a knowledge base by keyword (server-side LIKE filter on title/" +
+				"file_name). The KB comes from --kb (id or name), else GENYEE_KB_ID, else the linked directory. " +
+				"Results come with meta.count; use --limit to cap and --all-pages=false to stop after one page.",
+			RequiredFlags: []string{"<query> (positional)", "--kb (or GENYEE_KB_ID / linked directory)"},
+			Examples:      []string{`genyee search docs "spec" --kb engineering --format json`},
+			Output: "envelope.data is an array of Knowledge objects with id, title, file_name, parse_status; " +
+				"meta.count is the returned count, meta.total_count the server's full match count, meta.has_more=" +
+				"true if more matched than --limit",
+		},
+	)
 	return cmd
 }
 
-func runDocsSearch(ctx context.Context, opts *DocsSearchOptions, fopts *cmdutil.FormatOptions, svc DocsSearchService) error {
+func runDocsSearch(
+	ctx context.Context,
+	opts *DocsSearchOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DocsSearchService,
+) error {
 	if opts.PageSize < 1 || opts.PageSize > docsMaxPageSize {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 			fmt.Sprintf("--page-size must be in 1..%d, got %d", docsMaxPageSize, opts.PageSize))
@@ -184,18 +202,30 @@ done:
 		if matches == nil {
 			matches = []sdk.Knowledge{}
 		}
-		meta := &output.Meta{Count: output.IntPtr(len(matches)), TotalCount: output.IntPtr(int(serverTotal)), HasMore: truncated, Hint: emptyContentSearchHint(len(matches))}
+		meta := &output.Meta{
+			Count:      output.IntPtr(len(matches)),
+			TotalCount: output.IntPtr(int(serverTotal)),
+			HasMore:    truncated,
+			Hint:       emptyContentSearchHint(len(matches)),
+		}
 		return fopts.Emit(iostreams.IO.Out, matches, meta)
 	}
 	if len(matches) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no matches)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no matches)")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tFILE\tTYPE\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "ID\tFILE\tTYPE\tUPDATED")
 	for _, k := range matches {
 		name := text.Truncate(50, text.KnowledgeDisplayName(k.FileName, k.Title, k.ID))
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(k.ID), name, text.SanitizeInline(k.FileType), k.UpdatedAt.Format("2006-01-02"))
+		_, _ = fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\t%s\n",
+			text.SanitizeInline(k.ID),
+			name,
+			text.SanitizeInline(k.FileType),
+			k.UpdatedAt.Format("2006-01-02"),
+		)
 	}
 	return tw.Flush()
 }

@@ -11,6 +11,7 @@ import (
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
+// RefreshOptions holds flags and arguments for the `auth refresh` command.
 type RefreshOptions struct {
 	DryRun bool
 }
@@ -63,8 +64,13 @@ refresh semantic. Rotate the key in the server UI instead.`,
 			name := cfg.CurrentProfile
 			if name == "" {
 				if active, kind := cmdutil.EnvCredential(); active {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
-						"authenticated via "+kind+" (stateless env credential): there is no stored JWT to refresh — env credentials are supplied fresh each call, so no refresh is needed")
+					return cmdutil.NewError(
+						cmdutil.CodeInputInvalidArgument,
+						"authenticated via "+
+							kind+
+							" (stateless env credential): there is no stored JWT to refresh — env credentials are "+
+							"supplied fresh each call, so no refresh is needed",
+					)
 				}
 				return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 					"no active profile configured; run `genyee auth login` to set one up")
@@ -85,7 +91,8 @@ refresh semantic. Rotate the key in the server UI instead.`,
 				return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "profile %q has invalid host", name)
 			}
 			if prof.RefreshRef == "" {
-				hint := "api-key profiles can't be refreshed - rotate the key in the server UI and run `genyee auth login --with-token`"
+				hint := "api-key profiles can't be refreshed - rotate the key in the server UI and run `genyee auth " +
+					"login --with-token`"
 				if prof.APIKeyRef == "" {
 					hint = "no refresh token stored - run `genyee auth login` to authenticate"
 				}
@@ -106,14 +113,18 @@ refresh semantic. Rotate the key in the server UI instead.`,
 	}
 	cmdutil.AddFormatFlag(cmd, authRefreshFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "Renew the JWT access token for the active profile (override with the global --profile) using the stored refresh token. API-key profiles are rejected.",
-		Output:  "envelope.data has profile name that was refreshed",
-		Examples: []string{
-			"genyee auth refresh",
-			"genyee --profile staging auth refresh",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Renew the JWT access token for the active profile (override with the global --profile) using " +
+				"the stored refresh token. API-key profiles are rejected.",
+			Output: "envelope.data has profile name that was refreshed",
+			Examples: []string{
+				"genyee auth refresh",
+				"genyee --profile staging auth refresh",
+			},
 		},
-	})
+	)
 	return cmd
 }
 
@@ -124,7 +135,13 @@ func defaultRefresher(host string) cmdutil.Refresher {
 	return sdk.NewClient(host)
 }
 
-func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Factory, refresherFor func(host string) cmdutil.Refresher) error {
+func runRefresh(
+	ctx context.Context,
+	_ *RefreshOptions,
+	fopts *cmdutil.FormatOptions,
+	f *cmdutil.Factory,
+	refresherFor func(host string) cmdutil.Refresher,
+) error {
 	cfg, err := f.Config()
 	if err != nil {
 		return err
@@ -132,8 +149,13 @@ func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.Format
 	name := cfg.CurrentProfile
 	if name == "" {
 		if active, kind := cmdutil.EnvCredential(); active {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
-				"authenticated via "+kind+" (stateless env credential): there is no stored JWT to refresh — env credentials are supplied fresh each call, so no refresh is needed")
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				"authenticated via "+
+					kind+
+					" (stateless env credential): there is no stored JWT to refresh — env credentials are supplied "+
+					"fresh each call, so no refresh is needed",
+			)
 		}
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 			"no active profile configured; run `genyee auth login` to set one up")
@@ -155,7 +177,8 @@ func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.Format
 		return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "profile %q has invalid host", name)
 	}
 	if c.RefreshRef == "" {
-		hint := "api-key profiles can't be refreshed - rotate the key in the server UI and run `genyee auth login --with-token`"
+		hint := "api-key profiles can't be refreshed - rotate the key in the server UI and run `genyee auth login --" +
+			"with-token`"
 		if c.APIKeyRef == "" {
 			hint = "no refresh token stored - run `genyee auth login` to authenticate"
 		}
@@ -177,6 +200,6 @@ func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.Format
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, refreshResult{Profile: name}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Refreshed access token for profile %s\n", name)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Refreshed access token for profile %s\n", name)
 	return nil
 }

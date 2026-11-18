@@ -31,7 +31,7 @@ type FetchOptions struct {
 	FileType         string // --file-type: extension hint for extension-less URLs
 	TagID            string // --tag-id: associate the new entry with a tag
 	Channel          string // --channel: ingestion-channel tag (default "api")
-	EnableMultimodel *bool  // tri-state: nil = server default
+	EnableMultimodal *bool  // tri-state: nil = server default
 	DryRun           bool
 }
 
@@ -68,13 +68,13 @@ Server-side ingestion knobs:
   --file-type <ext>        Explicit file-type hint (e.g. "pdf") for URLs
                            without an extension.
   --tag-id <id>            Associate the new entry with a tag.
-  --enable-multimodel      Toggle multimodal extraction (image-in-PDF → text).
+  --enable-multimodal      Toggle multimodal extraction (image-in-PDF → text).
                            Unset ⇒ server default; pass true or false to override.
   --channel <name>         Override the ingestion-channel tag (default "api").`,
 		Example: `  genyee doc fetch https://example.com/whitepaper.pdf
   genyee doc fetch https://example.com/no-ext --file-type pdf --title "Whitepaper"
   genyee doc fetch https://example.com/article.html --name "Q3 Article" --tag-id tag_abc
-  genyee doc fetch https://example.com/report.pdf --kb my-kb --enable-multimodel`,
+  genyee doc fetch https://example.com/report.pdf --kb my-kb --enable-multimodal`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts.URL = args[0]
@@ -85,13 +85,13 @@ Server-side ingestion knobs:
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			// Pure-local validation runs before the dry-run gate so --dry-run
 			// rejects identically to the live path.
-			if c.Flags().Changed("enable-multimodel") {
-				raw, _ := c.Flags().GetString("enable-multimodel")
+			if c.Flags().Changed("enable-multimodal") {
+				raw, _ := c.Flags().GetString("enable-multimodal")
 				v, perr := parseTriBool(raw)
 				if perr != nil {
 					return perr
 				}
-				opts.EnableMultimodel = &v
+				opts.EnableMultimodal = &v
 			}
 			if err := cmdutil.ValidateHTTPURL("<url>", opts.URL); err != nil {
 				return err
@@ -125,33 +125,53 @@ Server-side ingestion knobs:
 		},
 	}
 	cmdutil.AddKBFlag(cmd)
-	cmd.Flags().StringVar(&opts.Name, "name", "", "File name hint (also used as file-type hint when extension is recognisable)")
+	cmd.Flags().StringVar(
+		&opts.Name,
+		"name",
+		"",
+		"File name hint (also used as file-type hint when extension is recognisable)",
+	)
 	cmd.Flags().StringVar(&opts.Title, "title", "", "Display title for the new entry")
-	cmd.Flags().StringVar(&opts.FileType, "file-type", "", "File-type hint such as \"pdf\" when the URL has no extension")
+	cmd.Flags().StringVar(
+		&opts.FileType,
+		"file-type",
+		"",
+		"File-type hint such as \"pdf\" when the URL has no extension",
+	)
 	cmd.Flags().StringVar(&opts.TagID, "tag-id", "", "Tag id to associate with the new entry")
 	cmd.Flags().StringVar(&opts.Channel, "channel", "", "Ingestion-channel tag recorded server-side (default \"api\")")
-	cmd.Flags().String("enable-multimodel", "", "Toggle multimodal extraction (true|false); unset ⇒ server default")
-	cmd.Flags().Lookup("enable-multimodel").NoOptDefVal = "true"
+	cmd.Flags().String("enable-multimodal", "", "Toggle multimodal extraction (true|false); unset ⇒ server default")
+	cmd.Flags().Lookup("enable-multimodal").NoOptDefVal = "true"
 	cmdutil.AddFormatFlag(cmd, docFetchFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Ingest a remote URL into the resolved knowledge base. KB resolved via --kb flag, GENYEE_KB_ID env, or project link. Emits the created Knowledge object with its id.",
-		RequiredFlags: []string{"<url> (positional)", "--kb (or GENYEE_KB_ID / project link)"},
-		Examples: []string{
-			`genyee doc fetch https://example.com/whitepaper.pdf --kb kb_eng`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Ingest a remote URL into the resolved knowledge base. KB resolved via --kb flag, " +
+				"GENYEE_KB_ID env, or project link. Emits the created Knowledge object with its id.",
+			RequiredFlags: []string{"<url> (positional)", "--kb (or GENYEE_KB_ID / project link)"},
+			Examples: []string{
+				`genyee doc fetch https://example.com/whitepaper.pdf --kb kb_eng`,
+			},
+			Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, source, parse_status",
 		},
-		Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, source, parse_status",
-	})
+	)
 	return cmd
 }
 
 // runFetch ingests a remote URL via SDK CreateKnowledgeFromURL.
-func runFetch(ctx context.Context, opts *FetchOptions, fopts *cmdutil.FormatOptions, svc FetchService, kbID string) error {
+func runFetch(
+	ctx context.Context,
+	opts *FetchOptions,
+	fopts *cmdutil.FormatOptions,
+	svc FetchService,
+	kbID string,
+) error {
 	req := sdk.CreateKnowledgeFromURLRequest{
 		URL:              opts.URL,
 		FileName:         opts.Name,
 		FileType:         opts.FileType,
-		EnableMultimodel: opts.EnableMultimodel,
+		EnableMultimodal: opts.EnableMultimodal,
 		Title:            opts.Title,
 		TagID:            opts.TagID,
 		Channel:          cmp.Or(opts.Channel, uploadChannel),

@@ -171,7 +171,10 @@ type UserInfo struct {
 // --- Organization CRUD ---
 
 // CreateOrganization creates a new organization
-func (c *Client) CreateOrganization(ctx context.Context, req *CreateOrganizationRequest) (*OrganizationResponse, error) {
+func (c *Client) CreateOrganization(
+	ctx context.Context,
+	req *CreateOrganizationRequest,
+) (*OrganizationResponse, error) {
 	resp, err := c.doRequest(ctx, http.MethodPost, "/api/v1/organizations", req, nil)
 	if err != nil {
 		return nil, err
@@ -206,7 +209,8 @@ func (c *Client) ListMyOrganizations(ctx context.Context) ([]OrganizationRespons
 
 // GetOrganization gets an organization by ID
 func (c *Client) GetOrganization(ctx context.Context, orgID string) (*OrganizationResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -221,8 +225,13 @@ func (c *Client) GetOrganization(ctx context.Context, orgID string) (*Organizati
 }
 
 // UpdateOrganization updates an organization
-func (c *Client) UpdateOrganization(ctx context.Context, orgID string, req *UpdateOrganizationRequest) (*OrganizationResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/organizations/%s", escapePathSegment(orgID)), req, nil)
+func (c *Client) UpdateOrganization(
+	ctx context.Context,
+	orgID string,
+	req *UpdateOrganizationRequest,
+) (*OrganizationResponse, error) {
+	path := fmt.Sprintf("/api/v1/organizations/%s", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodPut, path, req, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +247,8 @@ func (c *Client) UpdateOrganization(ctx context.Context, orgID string, req *Upda
 
 // DeleteOrganization deletes an organization
 func (c *Client) DeleteOrganization(ctx context.Context, orgID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/organizations/%s", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -272,7 +282,11 @@ func (c *Client) SubmitJoinRequest(ctx context.Context, inviteCode, message, rol
 }
 
 // SearchOrganizations searches for discoverable organizations
-func (c *Client) SearchOrganizations(ctx context.Context, keyword string, page, pageSize int) ([]OrganizationResponse, error) {
+func (c *Client) SearchOrganizations(
+	ctx context.Context,
+	keyword string,
+	page, pageSize int,
+) ([]OrganizationResponse, error) {
 	q := url.Values{}
 	if keyword != "" {
 		q.Set("keyword", keyword)
@@ -315,7 +329,8 @@ func (c *Client) JoinByOrganizationID(ctx context.Context, orgID, message, role 
 
 // PreviewOrganizationByInviteCode previews an organization before joining
 func (c *Client) PreviewOrganizationByInviteCode(ctx context.Context, code string) (*OrganizationResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/preview/%s", escapePathSegment(code)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/preview/%s", escapePathSegment(code))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +346,8 @@ func (c *Client) PreviewOrganizationByInviteCode(ctx context.Context, code strin
 
 // LeaveOrganization leaves an organization
 func (c *Client) LeaveOrganization(ctx context.Context, orgID string) error {
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/organizations/%s/leave", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/leave", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -344,7 +360,8 @@ func (c *Client) RequestRoleUpgrade(ctx context.Context, orgID, requestedRole, m
 		"requested_role": requestedRole,
 		"message":        message,
 	}
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/organizations/%s/request-upgrade", escapePathSegment(orgID)), req, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/request-upgrade", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return err
 	}
@@ -353,7 +370,8 @@ func (c *Client) RequestRoleUpgrade(ctx context.Context, orgID, requestedRole, m
 
 // GenerateInviteCode generates a new invite code for an organization
 func (c *Client) GenerateInviteCode(ctx context.Context, orgID string) (string, error) {
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/organizations/%s/invite-code", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/invite-code", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -377,12 +395,17 @@ type TenantInviteCandidate struct {
 
 // SearchTenantsForInvite resolves an exact workspace ID the caller administers.
 // It does not search user identities or workspace names.
-func (c *Client) SearchTenantsForInvite(ctx context.Context, orgID string, tenantID uint64) ([]TenantInviteCandidate, error) {
+func (c *Client) SearchTenantsForInvite(
+	ctx context.Context,
+	orgID string,
+	tenantID uint64,
+) ([]TenantInviteCandidate, error) {
 	if tenantID == 0 {
 		return nil, fmt.Errorf("workspace ID must be nonzero")
 	}
 	q := url.Values{"q": {strconv.FormatUint(tenantID, 10)}}
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/search-tenants", escapePathSegment(orgID)), nil, q)
+	path := fmt.Sprintf("/api/v1/organizations/%s/search-tenants", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, q)
 	if err != nil {
 		return nil, err
 	}
@@ -396,9 +419,12 @@ func (c *Client) SearchTenantsForInvite(ctx context.Context, orgID string, tenan
 }
 
 // SearchUsersForInvite no longer sends a request because organization membership is workspace-based.
+//
 // Deprecated: use SearchTenantsForInvite with an explicit workspace ID.
-func (c *Client) SearchUsersForInvite(ctx context.Context, orgID, keyword string) ([]UserInfo, error) {
-	return nil, fmt.Errorf("user invitation search is no longer supported; use SearchTenantsForInvite with a workspace ID")
+func (c *Client) SearchUsersForInvite(_ context.Context, _, _ string) ([]UserInfo, error) {
+	return nil, fmt.Errorf(
+		"user invitation search is no longer supported; use SearchTenantsForInvite with a workspace ID",
+	)
 }
 
 // InviteTenantMember enrolls a workspace the caller administers into an organization.
@@ -410,7 +436,8 @@ func (c *Client) InviteTenantMember(ctx context.Context, orgID string, tenantID 
 		TenantID uint64 `json:"tenant_id"`
 		Role     string `json:"role"`
 	}{tenantID, role}
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/organizations/%s/invite", escapePathSegment(orgID)), req, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/invite", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return err
 	}
@@ -419,22 +446,25 @@ func (c *Client) InviteTenantMember(ctx context.Context, orgID string, tenantID 
 
 // InviteMember uses the legacy server lookup to enroll the workspace belonging to userID.
 // The caller must administer that workspace; the user is not added as a representative.
+//
 // Deprecated: use InviteTenantMember with an explicit workspace ID.
 func (c *Client) InviteMember(ctx context.Context, orgID, userID, role string) error {
 	req := map[string]string{
 		"user_id": userID,
 		"role":    role,
 	}
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/organizations/%s/invite", escapePathSegment(orgID)), req, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/invite", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return err
 	}
 	return parseResponse(resp, nil)
 }
 
-// ListMembers lists members of an organization
+// ListOrgMembers lists members of an organization.
 func (c *Client) ListOrgMembers(ctx context.Context, orgID string) ([]OrganizationMemberResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/members", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/members", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +486,8 @@ func (c *Client) UpdateTenantMemberRole(ctx context.Context, orgID string, tenan
 		return fmt.Errorf("workspace ID must be nonzero")
 	}
 	req := map[string]string{"role": role}
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/organizations/%s/members/%d", escapePathSegment(orgID), tenantID), req, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/members/%d", escapePathSegment(orgID), tenantID)
+	resp, err := c.doRequest(ctx, http.MethodPut, path, req, nil)
 	if err != nil {
 		return err
 	}
@@ -464,9 +495,12 @@ func (c *Client) UpdateTenantMemberRole(ctx context.Context, orgID string, tenan
 }
 
 // UpdateMemberRole refuses to reinterpret a user ID as a workspace ID.
+//
 // Deprecated: use UpdateTenantMemberRole with an explicit workspace ID.
-func (c *Client) UpdateMemberRole(ctx context.Context, orgID, userID, role string) error {
-	return fmt.Errorf("user-based organization roles are no longer supported; use UpdateTenantMemberRole with a workspace ID")
+func (c *Client) UpdateMemberRole(_ context.Context, _, _, _ string) error {
+	return fmt.Errorf(
+		"user-based organization roles are no longer supported; use UpdateTenantMemberRole with a workspace ID",
+	)
 }
 
 // RemoveTenantMember removes a workspace from an organization.
@@ -474,7 +508,8 @@ func (c *Client) RemoveTenantMember(ctx context.Context, orgID string, tenantID 
 	if tenantID == 0 {
 		return fmt.Errorf("workspace ID must be nonzero")
 	}
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/organizations/%s/members/%d", escapePathSegment(orgID), tenantID), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/members/%d", escapePathSegment(orgID), tenantID)
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -482,16 +517,20 @@ func (c *Client) RemoveTenantMember(ctx context.Context, orgID string, tenantID 
 }
 
 // RemoveMember refuses to reinterpret a user ID as a workspace ID.
+//
 // Deprecated: use RemoveTenantMember with an explicit workspace ID.
-func (c *Client) RemoveMember(ctx context.Context, orgID, userID string) error {
-	return fmt.Errorf("user-based organization membership is no longer supported; use RemoveTenantMember with a workspace ID")
+func (c *Client) RemoveMember(_ context.Context, _, _ string) error {
+	return fmt.Errorf(
+		"user-based organization membership is no longer supported; use RemoveTenantMember with a workspace ID",
+	)
 }
 
 // --- Join request management ---
 
 // ListJoinRequests lists pending join requests (admin only)
 func (c *Client) ListJoinRequests(ctx context.Context, orgID string) ([]JoinRequestResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/join-requests", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/join-requests", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -508,13 +547,23 @@ func (c *Client) ListJoinRequests(ctx context.Context, orgID string) ([]JoinRequ
 }
 
 // ReviewJoinRequest reviews a join request (approve/reject)
-func (c *Client) ReviewJoinRequest(ctx context.Context, orgID, requestID string, approved bool, message, role string) error {
+func (c *Client) ReviewJoinRequest(
+	ctx context.Context,
+	orgID, requestID string,
+	approved bool,
+	message, role string,
+) error {
 	req := map[string]any{
 		"approved": approved,
 		"message":  message,
 		"role":     role,
 	}
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/organizations/%s/join-requests/%s/review", escapePathSegment(orgID), escapePathSegment(requestID)), req, nil)
+	path := fmt.Sprintf(
+		"/api/v1/organizations/%s/join-requests/%s/review",
+		escapePathSegment(orgID),
+		escapePathSegment(requestID),
+	)
+	resp, err := c.doRequest(ctx, http.MethodPut, path, req, nil)
 	if err != nil {
 		return err
 	}
@@ -524,12 +573,16 @@ func (c *Client) ReviewJoinRequest(ctx context.Context, orgID, requestID string,
 // --- Knowledge base sharing ---
 
 // ShareKnowledgeBase shares a knowledge base with an organization
-func (c *Client) ShareKnowledgeBase(ctx context.Context, kbID, orgID, permission string) (*KnowledgeBaseShareResponse, error) {
+func (c *Client) ShareKnowledgeBase(
+	ctx context.Context,
+	kbID, orgID, permission string,
+) (*KnowledgeBaseShareResponse, error) {
 	req := map[string]string{
 		"organization_id": orgID,
 		"permission":      permission,
 	}
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/knowledge-bases/%s/shares", escapePathSegment(kbID)), req, nil)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/shares", escapePathSegment(kbID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -545,7 +598,8 @@ func (c *Client) ShareKnowledgeBase(ctx context.Context, kbID, orgID, permission
 
 // ListKBShares lists shares of a knowledge base
 func (c *Client) ListKBShares(ctx context.Context, kbID string) ([]KnowledgeBaseShareResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/knowledge-bases/%s/shares", escapePathSegment(kbID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/shares", escapePathSegment(kbID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -564,7 +618,12 @@ func (c *Client) ListKBShares(ctx context.Context, kbID string) ([]KnowledgeBase
 // UpdateSharePermission updates a KB share's permission
 func (c *Client) UpdateSharePermission(ctx context.Context, kbID, shareID, permission string) error {
 	req := map[string]string{"permission": permission}
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/knowledge-bases/%s/shares/%s", escapePathSegment(kbID), escapePathSegment(shareID)), req, nil)
+	path := fmt.Sprintf(
+		"/api/v1/knowledge-bases/%s/shares/%s",
+		escapePathSegment(kbID),
+		escapePathSegment(shareID),
+	)
+	resp, err := c.doRequest(ctx, http.MethodPut, path, req, nil)
 	if err != nil {
 		return err
 	}
@@ -573,7 +632,12 @@ func (c *Client) UpdateSharePermission(ctx context.Context, kbID, shareID, permi
 
 // RemoveKBShare removes a KB share
 func (c *Client) RemoveKBShare(ctx context.Context, kbID, shareID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/knowledge-bases/%s/shares/%s", escapePathSegment(kbID), escapePathSegment(shareID)), nil, nil)
+	path := fmt.Sprintf(
+		"/api/v1/knowledge-bases/%s/shares/%s",
+		escapePathSegment(kbID),
+		escapePathSegment(shareID),
+	)
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -588,7 +652,8 @@ func (c *Client) ShareAgent(ctx context.Context, agentID, orgID, permission stri
 		"organization_id": orgID,
 		"permission":      permission,
 	}
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/agents/%s/shares", escapePathSegment(agentID)), req, nil)
+	path := fmt.Sprintf("/api/v1/agents/%s/shares", escapePathSegment(agentID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -604,7 +669,8 @@ func (c *Client) ShareAgent(ctx context.Context, agentID, orgID, permission stri
 
 // ListAgentShares lists shares of an agent
 func (c *Client) ListAgentShares(ctx context.Context, agentID string) ([]AgentShareResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/agents/%s/shares", escapePathSegment(agentID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/agents/%s/shares", escapePathSegment(agentID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -622,7 +688,12 @@ func (c *Client) ListAgentShares(ctx context.Context, agentID string) ([]AgentSh
 
 // RemoveAgentShare removes an agent share
 func (c *Client) RemoveAgentShare(ctx context.Context, agentID, shareID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/agents/%s/shares/%s", escapePathSegment(agentID), escapePathSegment(shareID)), nil, nil)
+	path := fmt.Sprintf(
+		"/api/v1/agents/%s/shares/%s",
+		escapePathSegment(agentID),
+		escapePathSegment(shareID),
+	)
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -633,7 +704,8 @@ func (c *Client) RemoveAgentShare(ctx context.Context, agentID, shareID string) 
 
 // ListOrgShares lists knowledge bases shared to an organization
 func (c *Client) ListOrgShares(ctx context.Context, orgID string) ([]KnowledgeBaseShareResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/shares", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/shares", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -651,7 +723,8 @@ func (c *Client) ListOrgShares(ctx context.Context, orgID string) ([]KnowledgeBa
 
 // ListOrgAgentShares lists agents shared to an organization
 func (c *Client) ListOrgAgentShares(ctx context.Context, orgID string) ([]AgentShareResponse, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/agent-shares", escapePathSegment(orgID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/organizations/%s/agent-shares", escapePathSegment(orgID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}

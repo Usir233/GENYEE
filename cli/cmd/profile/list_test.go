@@ -50,7 +50,7 @@ func TestList_MultipleSorted(t *testing.T) {
 	iAlpha := strings.Index(got, "alpha")
 	iProd := strings.Index(got, "production")
 	iStg := strings.Index(got, "staging")
-	if !(iAlpha < iProd && iProd < iStg) {
+	if iAlpha >= iProd || iProd >= iStg {
 		t.Errorf("rows must be alphabetical, got order alpha=%d prod=%d staging=%d in %q", iAlpha, iProd, iStg, got)
 	}
 	// active marker on staging row

@@ -17,9 +17,15 @@ import (
 
 type w8NilItemSearchSvc struct{}
 
-func (w8NilItemSearchSvc) SearchMessages(context.Context, *sdk.SearchMessagesRequest) (*sdk.MessageSearchResult, error) {
+func (w8NilItemSearchSvc) SearchMessages(
+	context.Context,
+	*sdk.SearchMessagesRequest,
+) (*sdk.MessageSearchResult, error) {
 	return &sdk.MessageSearchResult{
-		Items: []*sdk.MessageSearchGroupItem{nil, {SessionID: "sess_1", QueryContent: "q", AnswerContent: "a", Score: 0.9}},
+		Items: []*sdk.MessageSearchGroupItem{
+			nil,
+			{SessionID: "sess_1", QueryContent: "q", AnswerContent: "a", Score: 0.9},
+		},
 		Total: 1,
 	}, nil
 }
@@ -76,5 +82,13 @@ func TestW8_Message_ValidatesIDsConfirmOrderBeforeFlagAndNilSearchItems(t *testi
 	require.True(t, errors.As(err, &ce))
 	assert.Equal(t, cmdutil.CodeInputInvalidArgument, ce.Code)
 
-	require.NoError(t, runSearch(context.Background(), &SearchOptions{Query: "deploy", Limit: 10}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, w8NilItemSearchSvc{}))
+	require.NoError(
+		t,
+		runSearch(
+			context.Background(),
+			&SearchOptions{Query: "deploy", Limit: 10},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			w8NilItemSearchSvc{},
+		),
+	)
 }

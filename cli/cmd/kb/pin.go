@@ -17,6 +17,7 @@ import (
 // relevant fields here are the id and the new pin state.
 var kbPinFields = []string{"id", "is_pinned"}
 
+// PinOptions holds flags and arguments for the `kb pin` command.
 type PinOptions struct {
 	DryRun bool
 }
@@ -47,8 +48,10 @@ func newPinCmd(f *cmdutil.Factory, use string, want bool, short string) *cobra.C
 	cmd := &cobra.Command{
 		Use:   use + " <kb-id>",
 		Short: short,
-		Long:  short + ". Idempotent: reads the current pin state and toggles only if different, so re-running on a KB already in the target state is a no-op.",
-		Args:  cobra.ExactArgs(1),
+		Long: short +
+			". Idempotent: reads the current pin state and toggles only if different, so re-running on a KB already " +
+			"in the target state is a no-op.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
@@ -86,7 +89,14 @@ func newPinCmd(f *cmdutil.Factory, use string, want bool, short string) *cobra.C
 	return cmd
 }
 
-func runPin(ctx context.Context, opts *PinOptions, fopts *cmdutil.FormatOptions, svc PinService, id string, want bool) error {
+func runPin(
+	ctx context.Context,
+	_ *PinOptions,
+	fopts *cmdutil.FormatOptions,
+	svc PinService,
+	id string,
+	want bool,
+) error {
 	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
 		return err
 	}
@@ -124,7 +134,7 @@ func runPin(ctx context.Context, opts *PinOptions, fopts *cmdutil.FormatOptions,
 		if fopts.WantsJSON() {
 			return fopts.Emit(iostreams.IO.Out, current, nil)
 		}
-		fmt.Fprintf(iostreams.IO.Out, "✓ %s is already %s\n", text.SanitizeInline(id), state)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ %s is already %s\n", text.SanitizeInline(id), state)
 		return nil
 	}
 
@@ -142,6 +152,6 @@ func runPin(ctx context.Context, opts *PinOptions, fopts *cmdutil.FormatOptions,
 	if !updated.IsPinned {
 		state = "unpinned"
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ %s %s\n", text.SanitizeInline(id), state)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ %s %s\n", text.SanitizeInline(id), state)
 	return nil
 }

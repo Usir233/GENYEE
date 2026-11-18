@@ -30,6 +30,7 @@ type ViewService interface {
 	GetChunkByIDOnly(ctx context.Context, chunkID string) (*sdk.Chunk, error)
 }
 
+// ViewOptions holds flags and arguments for the `chunk view` command.
 type ViewOptions struct {
 	ChunkID string
 }
@@ -125,48 +126,48 @@ func renderChunk(w io.Writer, c *sdk.Chunk) {
 	if c == nil {
 		return
 	}
-	fmt.Fprintf(w, "id:           %s\n", text.SanitizeInline(c.ID))
+	_, _ = fmt.Fprintf(w, "id:           %s\n", text.SanitizeInline(c.ID))
 	if c.SeqID != 0 {
-		fmt.Fprintf(w, "seq_id:       %d\n", c.SeqID)
+		_, _ = fmt.Fprintf(w, "seq_id:       %d\n", c.SeqID)
 	}
-	fmt.Fprintf(w, "chunk_index:  %d\n", c.ChunkIndex)
+	_, _ = fmt.Fprintf(w, "chunk_index:  %d\n", c.ChunkIndex)
 	if c.KnowledgeID != "" {
-		fmt.Fprintf(w, "doc_id:       %s\n", text.SanitizeInline(c.KnowledgeID))
+		_, _ = fmt.Fprintf(w, "doc_id:       %s\n", text.SanitizeInline(c.KnowledgeID))
 	}
 	if c.KnowledgeBaseID != "" {
-		fmt.Fprintf(w, "kb_id:        %s\n", text.SanitizeInline(c.KnowledgeBaseID))
+		_, _ = fmt.Fprintf(w, "kb_id:        %s\n", text.SanitizeInline(c.KnowledgeBaseID))
 	}
 	if c.ChunkType != "" {
-		fmt.Fprintf(w, "type:         %s\n", text.SanitizeInline(c.ChunkType))
+		_, _ = fmt.Fprintf(w, "type:         %s\n", text.SanitizeInline(c.ChunkType))
 	}
 	enabled := "no"
 	if c.IsEnabled {
 		enabled = "yes"
 	}
-	fmt.Fprintf(w, "enabled:      %s\n", enabled)
+	_, _ = fmt.Fprintf(w, "enabled:      %s\n", enabled)
 	if c.Status != 0 {
-		fmt.Fprintf(w, "status:       %d\n", c.Status)
+		_, _ = fmt.Fprintf(w, "status:       %d\n", c.Status)
 	}
 	if c.StartAt != 0 {
-		fmt.Fprintf(w, "start_at:     %d\n", c.StartAt)
+		_, _ = fmt.Fprintf(w, "start_at:     %d\n", c.StartAt)
 	}
 	if c.EndAt != 0 {
-		fmt.Fprintf(w, "end_at:       %d\n", c.EndAt)
+		_, _ = fmt.Fprintf(w, "end_at:       %d\n", c.EndAt)
 	}
 	if c.TagID != "" {
-		fmt.Fprintf(w, "tag_id:       %s\n", text.SanitizeInline(c.TagID))
+		_, _ = fmt.Fprintf(w, "tag_id:       %s\n", text.SanitizeInline(c.TagID))
 	}
 	if c.ImageInfo != "" {
-		fmt.Fprintf(w, "image_info:   %s\n", text.SanitizeInline(c.ImageInfo))
+		_, _ = fmt.Fprintf(w, "image_info:   %s\n", text.SanitizeInline(c.ImageInfo))
 	}
 	if c.CreatedAt != "" {
-		fmt.Fprintf(w, "created_at:   %s\n", text.SanitizeInline(c.CreatedAt))
+		_, _ = fmt.Fprintf(w, "created_at:   %s\n", text.SanitizeInline(c.CreatedAt))
 	}
 	if c.UpdatedAt != "" {
-		fmt.Fprintf(w, "updated_at:   %s\n", text.SanitizeInline(c.UpdatedAt))
+		_, _ = fmt.Fprintf(w, "updated_at:   %s\n", text.SanitizeInline(c.UpdatedAt))
 	}
 	// Content rendered verbatim (with terminal escape sanitization), last entry, no truncation.
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "content:")
-	fmt.Fprintln(w, text.SanitizeTerminal(c.Content))
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "content:")
+	_, _ = fmt.Fprintln(w, text.SanitizeTerminal(c.Content))
 }

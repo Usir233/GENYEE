@@ -226,7 +226,12 @@ type TenantSearchResponse struct {
 }
 
 // SearchTenants searches tenants with pagination (requires cross-tenant access)
-func (c *Client) SearchTenants(ctx context.Context, keyword string, tenantID uint64, page, pageSize int) ([]Tenant, int64, error) {
+func (c *Client) SearchTenants(
+	ctx context.Context,
+	keyword string,
+	tenantID uint64,
+	page, pageSize int,
+) ([]Tenant, int64, error) {
 	queryParams := url.Values{}
 	if keyword != "" {
 		queryParams.Set("keyword", keyword)
@@ -449,6 +454,7 @@ func (c *Client) UpdateDefaultSettings(ctx context.Context, settings *DefaultSet
 // APIPrincipalMode controls how X-API-Key requests map to terminal principals.
 type APIPrincipalMode string
 
+// APIPrincipalMode values supported by tenant API-key principal configuration.
 const (
 	APIPrincipalModeTenant      APIPrincipalMode = "tenant"
 	APIPrincipalModeDirect      APIPrincipalMode = "direct_header"

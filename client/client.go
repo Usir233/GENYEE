@@ -36,8 +36,13 @@ type Client struct {
 	tenantID      *uint64
 }
 
-// ClientOption defines client configuration options
+// ClientOption defines client configuration options.
+//
+//nolint:revive // Public Go SDK option type name preserved for SDK compatibility.
 type ClientOption func(*Client)
+
+// Option is the non-stuttering alias for ClientOption.
+type Option = ClientOption
 
 // WithTimeout sets the timeout for ordinary and streaming HTTP requests.
 // Streaming requests have no timeout by default; callers that set this option
@@ -254,13 +259,25 @@ func (c *Client) buildRequest(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	if req.URL == nil || (req.URL.Scheme != "http" && req.URL.Scheme != "https") || req.URL.Host == "" {
-		return nil, fmt.Errorf("invalid client base URL %q: must include http or https scheme and host", c.baseURL)
+	if err := c.validateBaseURL(req); err != nil {
+		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	c.applyAuthHeaders(ctx, req)
 	return req, nil
+}
+
+func (c *Client) validateBaseURL(req *http.Request) error {
+	if req == nil || req.URL == nil ||
+		(req.URL.Scheme != "http" && req.URL.Scheme != "https") ||
+		req.URL.Host == "" {
+		return fmt.Errorf(
+			"invalid client base URL %q: must include http or https scheme and host",
+			c.baseURL,
+		)
+	}
+	return nil
 }
 
 // doRequest executes an HTTP request subject to the client's blanket Timeout
@@ -460,20 +477,42 @@ func decodeResponseBody(r io.Reader, target interface{}) error {
 }
 
 // extractServerCode pulls the server's structured error code from a JSON error
-// body ({"code":1003,...}). Returns 0 when the body isn't JSON or carries no code.
+// body — preferring the canonical AppError envelope ({"error":{"code":N,...}})
+// and falling back to top-level {"code":N}. Returns 0 when absent or non-JSON.
 func extractServerCode(body []byte) int {
 	var env struct {
+		Code  int `json:"code"`
+		Error struct {
+			Code int `json:"code"`
+		} `json:"error"`
+	}
+	if len(body) == 0 {
+		return 0
+	}
+	// Unmarshal into separate structs if "error" is a plain string so a string
+	// "error" field does not prevent reading a top-level "code".
+	if err := json.Unmarshal(body, &env); err == nil {
+		if env.Error.Code != 0 {
+			return env.Error.Code
+		}
+		return env.Code
+	}
+	var flat struct {
 		Code int `json:"code"`
 	}
-	if json.Unmarshal(body, &env) == nil {
-		return env.Code
+	if json.Unmarshal(body, &flat) == nil {
+		return flat.Code
 	}
 	return 0
 }
 
+func closeBody(body io.Closer) {
+	_ = body.Close()
+}
+
 // parseResponse parses an HTTP response
 func parseResponse(resp *http.Response, target interface{}) error {
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return newAPIError(resp.StatusCode, readErrorBody(resp.Body))

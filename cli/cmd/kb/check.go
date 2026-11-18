@@ -34,7 +34,12 @@ type CheckResult struct {
 // CheckService is the narrow SDK surface needed for kb check.
 type CheckService interface {
 	GetKnowledgeBase(ctx context.Context, id string) (*sdk.KnowledgeBase, error)
-	ListKnowledgeWithFilter(ctx context.Context, kbID string, page, pageSize int, filter sdk.KnowledgeListFilter) ([]sdk.Knowledge, int64, error)
+	ListKnowledgeWithFilter(
+		ctx context.Context,
+		kbID string,
+		page, pageSize int,
+		filter sdk.KnowledgeListFilter,
+	) ([]sdk.Knowledge, int64, error)
 }
 
 var kbCheckFields = []string{
@@ -80,12 +85,16 @@ verification including failed-doc aggregation.`,
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, kbCheckFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "verify a knowledge base end-to-end: status plus failed-doc aggregation",
-		RequiredFlags: []string{"<kb-id> (positional)"},
-		Examples:      []string{"genyee kb check kb_abc"},
-		Output:        "envelope.data is {id, reachable, retrieval_ready, failed_count, ...}; retrieval_ready=false means no embedding model is bound (run `kb config set`); deeper than `kb status`",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "verify a knowledge base end-to-end: status plus failed-doc aggregation",
+			RequiredFlags: []string{"<kb-id> (positional)"},
+			Examples:      []string{"genyee kb check kb_abc"},
+			Output: "envelope.data is {id, reachable, retrieval_ready, failed_count, ...}; retrieval_ready=" +
+				"false means no embedding model is bound (run `kb config set`); deeper than `kb status`",
+		},
+	)
 	return cmd
 }
 
@@ -129,9 +138,18 @@ func aggregateFailedCount(ctx context.Context, svc CheckService, kbID string) (i
 	page := 1
 	for {
 		if page > maxPages {
-			return total, cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("failed-doc aggregation exceeded %d-page safety limit", maxPages))
+			return total, cmdutil.NewError(
+				cmdutil.CodeServerError,
+				fmt.Sprintf("failed-doc aggregation exceeded %d-page safety limit", maxPages),
+			)
 		}
-		docs, totalAvailable, err := svc.ListKnowledgeWithFilter(ctx, kbID, page, pageSize, sdk.KnowledgeListFilter{ParseStatus: "failed"})
+		docs, totalAvailable, err := svc.ListKnowledgeWithFilter(
+			ctx,
+			kbID,
+			page,
+			pageSize,
+			sdk.KnowledgeListFilter{ParseStatus: "failed"},
+		)
 		if err != nil {
 			return total, err
 		}
@@ -157,16 +175,16 @@ func emitCheck(res *CheckResult, fopts *cmdutil.FormatOptions, w io.Writer) erro
 }
 
 func writeCheckText(w io.Writer, res *CheckResult) error {
-	fmt.Fprintf(w, "ID:           %s\n", text.SanitizeInline(res.ID))
-	fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
+	_, _ = fmt.Fprintf(w, "ID:           %s\n", text.SanitizeInline(res.ID))
+	_, _ = fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
 	if !res.Reachable {
 		return nil
 	}
-	fmt.Fprintf(w, "Retrieval:    %v%s\n", res.RetrievalReady, retrievalHint(res.RetrievalReady))
-	fmt.Fprintf(w, "Knowledge:    %d\n", res.KnowledgeCount)
-	fmt.Fprintf(w, "Chunks:       %d\n", res.ChunkCount)
-	fmt.Fprintf(w, "Processing:   %v (%d active)\n", res.IsProcessing, res.ProcessingCount)
-	fmt.Fprintf(w, "Failed:       %d\n", res.FailedCount)
+	_, _ = fmt.Fprintf(w, "Retrieval:    %v%s\n", res.RetrievalReady, retrievalHint(res.RetrievalReady))
+	_, _ = fmt.Fprintf(w, "Knowledge:    %d\n", res.KnowledgeCount)
+	_, _ = fmt.Fprintf(w, "Chunks:       %d\n", res.ChunkCount)
+	_, _ = fmt.Fprintf(w, "Processing:   %v (%d active)\n", res.IsProcessing, res.ProcessingCount)
+	_, _ = fmt.Fprintf(w, "Failed:       %d\n", res.FailedCount)
 	return nil
 }
 

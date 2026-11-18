@@ -30,7 +30,8 @@ func TestClientEscapesPathSegmentsAndBlocksTraversal(t *testing.T) {
 	}
 
 	// Raw dot-segment traversal must be rejected locally.
-	if _, err := c.Raw(ctx, http.MethodGet, "/api/v1/knowledge/../tenants/1/api-keys", nil); err == nil {
+	if resp, err := c.Raw(ctx, http.MethodGet, "/api/v1/knowledge/../tenants/1/api-keys", nil); err == nil {
+		_ = resp.Body.Close()
 		t.Fatal("expected dot-segment traversal in Raw path to be rejected")
 	}
 

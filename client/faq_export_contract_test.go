@@ -10,9 +10,15 @@ import (
 )
 
 func TestFAQExportPreservesHTTPFailures(t *testing.T) {
-	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError} {
+	statuses := []int{
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	}
+	for _, status := range statuses {
 		t.Run(http.StatusText(status), func(t *testing.T) {
-			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(status)
 				_, _ = io.WriteString(w, `{"code":1002,"message":"export refused"}`)
@@ -29,7 +35,7 @@ func TestFAQExportPreservesHTTPFailures(t *testing.T) {
 
 func TestFAQExportPreservesCSVBytes(t *testing.T) {
 	const body = "\xef\xbb\xbfQuestion,Answer\nquestion,answer\n"
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		_, _ = io.WriteString(w, body)
 	}))

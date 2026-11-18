@@ -106,6 +106,7 @@ func checkNoDirSymlinks(dirs ...string) error {
 	return nil
 }
 
+// Get reads the secret stored for (profile, key) from the 0600 file store.
 func (f *FileStore) Get(profile, key string) (string, error) {
 	p, err := f.safePath(profile, key)
 	if err != nil {
@@ -133,7 +134,7 @@ func (f *FileStore) Get(profile, key string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read secret: %w", err)
 	}
-	defer fd.Close()
+	defer func() { _ = fd.Close() }()
 	finfo, err := fd.Stat()
 	if err != nil {
 		return "", fmt.Errorf("stat open secret: %w", err)
@@ -148,6 +149,7 @@ func (f *FileStore) Get(profile, key string) (string, error) {
 	return string(data), nil
 }
 
+// Set atomically writes value under (profile, key) in the 0600 file store.
 func (f *FileStore) Set(profile, key, value string) error {
 	p, err := f.safePath(profile, key)
 	if err != nil {
@@ -193,6 +195,7 @@ func (f *FileStore) Set(profile, key, value string) error {
 	return nil
 }
 
+// Delete removes any secret file stored for (profile, key).
 func (f *FileStore) Delete(profile, key string) error {
 	p, err := f.safePath(profile, key)
 	if err != nil {
@@ -237,6 +240,7 @@ func NewMemStore() *MemStore { return &MemStore{m: map[string]string{}} }
 
 func (m *MemStore) k(c, key string) string { return c + ":" + key }
 
+// Get returns the in-memory secret for (c, key) or ErrNotFound.
 func (m *MemStore) Get(c, key string) (string, error) {
 	v, ok := m.m[m.k(c, key)]
 	if !ok {
@@ -245,8 +249,10 @@ func (m *MemStore) Get(c, key string) (string, error) {
 	return v, nil
 }
 
+// Set stores value under (c, key) in memory.
 func (m *MemStore) Set(c, key, value string) error { m.m[m.k(c, key)] = value; return nil }
 
+// Delete deletes any in-memory secret stored under (c, key).
 func (m *MemStore) Delete(c, key string) error { delete(m.m, m.k(c, key)); return nil }
 
 // Ref returns a mem:// URI; meaningful only inside tests.

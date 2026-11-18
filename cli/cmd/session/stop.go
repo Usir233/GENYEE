@@ -1,3 +1,5 @@
+// Package sessioncmd implements `genyee session` subcommands.
+//
 // stop.go implements `genyee session stop` — cancel server-side generation
 // for a specific assistant message under a known session.
 //
@@ -87,12 +89,19 @@ Symmetric with 'session resume': both key on (session_id, message_id).`,
 	_ = cmd.MarkFlagRequired("message")
 	cmdutil.AddFormatFlag(cmd, stopFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Stop server-side generation for an in-flight assistant message (counterpart to resume). The message_id comes from the init event of the chat / session ask / resume stream you're stopping.",
-		RequiredFlags: []string{"<session-id> (positional)", "--message (message_id from the init event of the stream you're stopping)"},
-		Examples:      []string{"genyee session stop sess_xyz --message msg_abc"},
-		Output:        "envelope {session_id, message_id, stopped:true}",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Stop server-side generation for an in-flight assistant message (counterpart to resume). The " +
+				"message_id comes from the init event of the chat / session ask / resume stream you're stopping.",
+			RequiredFlags: []string{
+				"<session-id> (positional)",
+				"--message (message_id from the init event of the stream you're stopping)",
+			},
+			Examples: []string{"genyee session stop sess_xyz --message msg_abc"},
+			Output:   "envelope {session_id, message_id, stopped:true}",
+		},
+	)
 	return cmd
 }
 
@@ -121,9 +130,13 @@ func runStop(ctx context.Context, opts *StopOptions, fopts *cmdutil.FormatOption
 		return cmdutil.WrapHTTP(err, "stop session")
 	}
 	if fopts.WantsJSON() {
-		return fopts.Emit(iostreams.IO.Out, stopResult{SessionID: opts.SessionID, MessageID: opts.MessageID, Stopped: true}, nil)
+		return fopts.Emit(
+			iostreams.IO.Out,
+			stopResult{SessionID: opts.SessionID, MessageID: opts.MessageID, Stopped: true},
+			nil,
+		)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Stopped generation for message %s\n", text.SanitizeInline(opts.MessageID))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Stopped generation for message %s\n", text.SanitizeInline(opts.MessageID))
 	return nil
 }
 

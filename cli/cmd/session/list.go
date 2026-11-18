@@ -29,6 +29,7 @@ var sessionListFields = []string{
 	"id", "tenant_id", "title", "description", "created_at", "updated_at",
 }
 
+// ListOptions holds flags and arguments for the `session list` command.
 type ListOptions struct {
 	PageSize int    // Items per server batch (default 50).
 	Since    string // --since: filter to sessions updated within the past duration
@@ -74,15 +75,30 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&opts.PageSize, "page-size", defaultPageSize, "Items per server batch (1..1000)")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		30,
+		"Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)",
+	)
 	cmd.Flags().BoolVar(&opts.AllPages, "all-pages", false, "Walk all server pages until exhausted (or --limit hit)")
 	cmd.Flags().StringVar(&opts.Since, "since", "", "Only show sessions updated within `duration` (e.g. 7d, 24h, 30m)")
 	cmdutil.AddFormatFlag(cmd, sessionListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "List chat sessions for the active profile. Results come with meta.count; use --limit to cap, --all-pages to walk every server page, --since to filter by recency (e.g. 7d).",
-		Examples: []string{"genyee session list --format json", "genyee session list --all-pages --since 7d --format json"},
-		Output:   "envelope.data is an array of Session objects with id, title, updated_at; meta.count is the returned count; meta.total_count is the server-side total before --since filtering; meta.has_more=true when --limit truncated",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "List chat sessions for the active profile. Results come with meta.count; use --limit to cap, --" +
+				"all-pages to walk every server page, --since to filter by recency (e.g. 7d).",
+			Examples: []string{
+				"genyee session list --format json",
+				"genyee session list --all-pages --since 7d --format json",
+			},
+			Output: "envelope.data is an array of Session objects with id, title, updated_at; meta.count is the " +
+				"returned count; meta.total_count is the server-side total before --since filtering; meta.has_more=" +
+				"true when --limit truncated",
+		},
+	)
 	return cmd
 }
 
@@ -181,23 +197,27 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	}
 
 	if fopts.WantsJSON() {
-		meta := &output.Meta{Count: output.IntPtr(len(items)), HasMore: truncated, TotalCount: output.IntPtr(serverTotal)}
+		meta := &output.Meta{
+			Count:      output.IntPtr(len(items)),
+			HasMore:    truncated,
+			TotalCount: output.IntPtr(serverTotal),
+		}
 		return fopts.Emit(iostreams.IO.Out, items, meta)
 	}
 
 	if len(items) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no sessions)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no sessions)")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tTITLE\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "ID\tTITLE\tUPDATED")
 	now := time.Now()
 	for _, s := range items {
 		title := text.OneLine(50, s.Title)
 		if title == "" {
 			title = "-"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(s.ID), title, text.FuzzyAgoStr(now, s.UpdatedAt))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(s.ID), title, text.FuzzyAgoStr(now, s.UpdatedAt))
 	}
 	return tw.Flush()
 }

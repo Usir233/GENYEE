@@ -26,6 +26,7 @@ var sessionViewFields = []string{
 	"messages",
 }
 
+// ViewOptions holds flags and arguments for the `session view` command.
 type ViewOptions struct {
 	// Full instructs runView to fetch chat history via LoadMessages and
 	// render it after the session metadata.
@@ -44,7 +45,13 @@ type ViewOptions struct {
 // dependency surface stays minimal.
 type ViewService interface {
 	GetSession(ctx context.Context, id string) (*sdk.Session, error)
-	LoadMessages(ctx context.Context, sessionID string, limit int, beforeTime *time.Time, opts ...sdk.ResourceURLOptions) ([]sdk.Message, error)
+	LoadMessages(
+		ctx context.Context,
+		sessionID string,
+		limit int,
+		beforeTime *time.Time,
+		opts ...sdk.ResourceURLOptions,
+	) ([]sdk.Message, error)
 }
 
 // NewCmdView builds `genyee session view <id>`. Renders session metadata
@@ -87,7 +94,13 @@ Pass --full to also load the chat history (LoadMessages SDK call). Use
 		},
 	}
 	cmd.Flags().BoolVar(&opts.Full, "full", false, "Also load chat history via LoadMessages")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", defaultFullLimit, "Max messages to load when --full is set (1..1000)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		defaultFullLimit,
+		"Max messages to load when --full is set (1..1000)",
+	)
 	cmdutil.AddFormatFlag(cmd, sessionViewFields...)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor:       "fetch one chat session by id; --full also loads its message history",
@@ -161,36 +174,36 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 	}
 
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:        %s\n", text.SanitizeInline(s.ID))
+	_, _ = fmt.Fprintf(w, "ID:        %s\n", text.SanitizeInline(s.ID))
 	if s.Title != "" {
-		fmt.Fprintf(w, "TITLE:     %s\n", text.SanitizeInline(s.Title))
+		_, _ = fmt.Fprintf(w, "TITLE:     %s\n", text.SanitizeInline(s.Title))
 	}
 	if s.Description != "" {
-		fmt.Fprintf(w, "DESC:      %s\n", text.SanitizeTerminal(s.Description))
+		_, _ = fmt.Fprintf(w, "DESC:      %s\n", text.SanitizeTerminal(s.Description))
 	}
 	if t, ok := parseTS(s.CreatedAt); ok {
-		fmt.Fprintf(w, "CREATED:   %s\n", t.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "CREATED:   %s\n", t.Format("2006-01-02 15:04:05"))
 	} else if s.CreatedAt != "" {
-		fmt.Fprintf(w, "CREATED:   %s\n", text.SanitizeInline(s.CreatedAt))
+		_, _ = fmt.Fprintf(w, "CREATED:   %s\n", text.SanitizeInline(s.CreatedAt))
 	}
 	if t, ok := parseTS(s.UpdatedAt); ok {
-		fmt.Fprintf(w, "UPDATED:   %s\n", t.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "UPDATED:   %s\n", t.Format("2006-01-02 15:04:05"))
 	} else if s.UpdatedAt != "" {
-		fmt.Fprintf(w, "UPDATED:   %s\n", text.SanitizeInline(s.UpdatedAt))
+		_, _ = fmt.Fprintf(w, "UPDATED:   %s\n", text.SanitizeInline(s.UpdatedAt))
 	}
 
 	if opts.Full {
-		fmt.Fprintln(w)
-		fmt.Fprintf(w, "Messages (%d):\n", len(msgs))
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintf(w, "Messages (%d):\n", len(msgs))
 		for _, m := range msgs {
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 			ts := ""
 			if !m.CreatedAt.IsZero() {
 				ts = " " + m.CreatedAt.Format("2006-01-02 15:04:05")
 			}
-			fmt.Fprintf(w, "[%s]%s\n", text.SanitizeInline(m.Role), ts)
+			_, _ = fmt.Fprintf(w, "[%s]%s\n", text.SanitizeInline(m.Role), ts)
 			if m.Content != "" {
-				fmt.Fprintln(w, text.SanitizeTerminal(m.Content))
+				_, _ = fmt.Fprintln(w, text.SanitizeTerminal(m.Content))
 			}
 		}
 	}

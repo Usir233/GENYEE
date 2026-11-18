@@ -17,7 +17,7 @@ type fakeStatusSvc struct {
 	getErr error
 }
 
-func (f *fakeStatusSvc) GetKnowledgeBase(_ context.Context, id string) (*sdk.KnowledgeBase, error) {
+func (f *fakeStatusSvc) GetKnowledgeBase(_ context.Context, _ string) (*sdk.KnowledgeBase, error) {
 	if f.getErr != nil {
 		return nil, f.getErr
 	}
@@ -97,7 +97,14 @@ func TestEmitStatus_JSON(t *testing.T) {
 
 func TestEmitStatus_Text(t *testing.T) {
 	var buf bytes.Buffer
-	res := &StatusResult{ID: "kb_x", Reachable: true, KnowledgeCount: 5, ChunkCount: 20, IsProcessing: true, ProcessingCount: 1}
+	res := &StatusResult{
+		ID:              "kb_x",
+		Reachable:       true,
+		KnowledgeCount:  5,
+		ChunkCount:      20,
+		IsProcessing:    true,
+		ProcessingCount: 1,
+	}
 	fopts := &cmdutil.FormatOptions{Mode: cmdutil.FormatText}
 	if err := emitStatus(res, fopts, &buf); err != nil {
 		t.Fatalf("emitStatus: %v", err)

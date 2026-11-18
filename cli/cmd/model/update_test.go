@@ -39,7 +39,11 @@ func (f *fakeUpdateSvc) UpdateModel(_ context.Context, id string, req *sdk.Updat
 	}, nil
 }
 
-func (f *fakeUpdateSvc) UpdateModelCredentials(_ context.Context, id string, req *sdk.ModelCredentialsRequest) (*sdk.CredentialsResponse, error) {
+func (f *fakeUpdateSvc) UpdateModelCredentials(
+	_ context.Context,
+	id string,
+	req *sdk.ModelCredentialsRequest,
+) (*sdk.CredentialsResponse, error) {
 	f.gotCredID = id
 	f.gotCreds = req
 	return &sdk.CredentialsResponse{Fields: map[string]sdk.CredentialFieldMetadata{"api_key": {Configured: true}}}, nil
@@ -50,7 +54,10 @@ func (f *fakeUpdateSvc) GetDefaultSettings(_ context.Context) (*sdk.DefaultSetti
 	return &cp, nil
 }
 
-func (f *fakeUpdateSvc) UpdateDefaultSettings(_ context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error) {
+func (f *fakeUpdateSvc) UpdateDefaultSettings(
+	_ context.Context,
+	settings *sdk.DefaultSettings,
+) (*sdk.DefaultSettings, error) {
 	cp := *settings
 	f.defaults = cp
 	f.gotDefaults = &cp
@@ -72,7 +79,10 @@ func TestModelUpdate_SurgicalOverlay(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
 	svc := &fakeUpdateSvc{cur: baseModel()}
 	opts := &UpdateOptions{DisplayName: "new-display", flags: modelUpdateFlags{displayName: true}}
-	require.NoError(t, runUpdate(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil))
+	require.NoError(
+		t,
+		runUpdate(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil),
+	)
 
 	require.NotNil(t, svc.gotReq)
 	assert.Equal(t, "mdl_x", svc.gotID, "id preserved (in-place update)")
@@ -93,7 +103,10 @@ func TestModelUpdate_RotateKeyAndBaseURL(t *testing.T) {
 		StdinReader: strings.NewReader("NEW-KEY\n"),
 		flags:       modelUpdateFlags{baseURL: true},
 	}
-	require.NoError(t, runUpdate(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil))
+	require.NoError(
+		t,
+		runUpdate(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil),
+	)
 	require.NotNil(t, svc.gotReq)
 	assert.Equal(t, "http://new", svc.gotReq.Parameters["base_url"])
 	assert.NotContains(t, svc.gotReq.Parameters, "api_key", "api_key must go to /credentials, not UpdateModel")
@@ -110,7 +123,10 @@ func TestModelUpdate_RotateKeyOnlySkipsMetadataPut(t *testing.T) {
 		APIKeyStdin: true,
 		StdinReader: strings.NewReader("  ONLY-KEY \n"),
 	}
-	require.NoError(t, runUpdate(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil))
+	require.NoError(
+		t,
+		runUpdate(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil),
+	)
 	assert.Nil(t, svc.gotReq, "credential-only rotation must not issue redundant PUT /models/{id}")
 	require.NotNil(t, svc.gotCreds)
 	require.NotNil(t, svc.gotCreds.APIKey)
@@ -126,7 +142,10 @@ func TestModelUpdate_DefaultSetAndUnsetUpdatesWorkspaceKV(t *testing.T) {
 
 	// Set --default -> binds chat_model_id while preserving other slots.
 	setOpts := &UpdateOptions{Default: true, flags: modelUpdateFlags{def: true}}
-	require.NoError(t, runUpdate(context.Background(), setOpts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil))
+	require.NoError(
+		t,
+		runUpdate(context.Background(), setOpts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil),
+	)
 	require.NotNil(t, svc.gotDefaults)
 	assert.Equal(t, "mdl_x", svc.gotDefaults.ChatModelID)
 	assert.Equal(t, "emb_keep", svc.gotDefaults.EmbeddingModelID)
@@ -134,7 +153,10 @@ func TestModelUpdate_DefaultSetAndUnsetUpdatesWorkspaceKV(t *testing.T) {
 	// Unset --default=false -> clears chat_model_id when pointing at mdl_x.
 	svc.gotDefaults = nil
 	unsetOpts := &UpdateOptions{Default: false, flags: modelUpdateFlags{def: true}}
-	require.NoError(t, runUpdate(context.Background(), unsetOpts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil))
+	require.NoError(
+		t,
+		runUpdate(context.Background(), unsetOpts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "mdl_x", nil),
+	)
 	require.NotNil(t, svc.gotDefaults)
 	assert.Equal(t, "", svc.gotDefaults.ChatModelID)
 	assert.Equal(t, "emb_keep", svc.gotDefaults.EmbeddingModelID)

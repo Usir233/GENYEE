@@ -69,7 +69,7 @@ func ReadSecureFile(p string, maxBytes int64) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", p, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	finfo, err := f.Stat()
 	if err != nil {

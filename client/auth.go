@@ -186,9 +186,9 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*CurrentUserResponse, erro
 // the secrets store directly — it stays a transport-only layer.
 func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*RefreshTokenResponse, error) {
 	body := struct {
-		RefreshToken string `json:"refreshToken"`
+		RefreshToken string `json:"refresh_token"`
 	}{RefreshToken: refreshToken}
-	resp, err := c.doRequest(ctx, http.MethodPost, "/api/v1/auth/refresh", body, nil)
+	resp, err := c.doRequest(ctx, http.MethodPost, PathAuthRefresh, body, nil)
 	if err != nil {
 		return nil, fmt.Errorf("refresh token: %w", err)
 	}

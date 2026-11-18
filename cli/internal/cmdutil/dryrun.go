@@ -1,4 +1,4 @@
-// Package-level note:
+// Package cmdutil provides shared CLI command plumbing.
 //
 // AddDryRunFlag + EmitDryRun + DryRunPlan + HandleDryRun support the
 // --dry-run contract for mutation commands:

@@ -53,6 +53,7 @@ func TestKBConfig_SecretFree(t *testing.T) {
 	assert.NotContains(t, out.String(), "apiKey")
 	assert.NotContains(t, out.String(), "api_key")
 	assert.NotContains(t, out.String(), "baseUrl")
+	assert.NotContains(t, out.String(), "base_url")
 }
 
 // TestKBConfig_NilConfig: a nil server config (KB not yet initialized) emits

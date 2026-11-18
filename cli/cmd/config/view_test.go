@@ -119,7 +119,12 @@ func TestConfigView_EnvCredentialSurfaced(t *testing.T) {
 
 	env := runViewJSON(t, networkFreeFactory(t))
 	assert.Contains(t, env.Data.AuthSource, "GENYEE_API_KEY env")
-	assert.Equal(t, "https://env-override.example.com", env.Data.Host, "host must be the env override, not the profile host")
+	assert.Equal(
+		t,
+		"https://env-override.example.com",
+		env.Data.Host,
+		"host must be the env override, not the profile host",
+	)
 }
 
 func TestConfigView_GenyeeProfileEnvAndProjectLinkSources(t *testing.T) {

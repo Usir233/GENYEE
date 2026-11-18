@@ -27,7 +27,12 @@ func TestW8_Link_RejectsNonexistentOrUnsafeProfile(t *testing.T) {
 			}, nil
 		},
 	}
-	err := runLink(context.Background(), &Options{KB: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, fGhost)
+	err := runLink(
+		context.Background(),
+		&Options{KB: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		fGhost,
+	)
 	require.Error(t, err)
 	var ce *cmdutil.Error
 	require.True(t, errors.As(err, &ce))
@@ -42,6 +47,11 @@ func TestW8_Link_RejectsNonexistentOrUnsafeProfile(t *testing.T) {
 			}, nil
 		},
 	}
-	err = runLink(context.Background(), &Options{KB: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, fUnsafe)
+	err = runLink(
+		context.Background(),
+		&Options{KB: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		fUnsafe,
+	)
 	require.Error(t, err)
 }

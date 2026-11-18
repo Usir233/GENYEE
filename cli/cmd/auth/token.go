@@ -77,18 +77,22 @@ to see which mode each profile uses, and construct the matching HTTP header:
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, authTokenFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "print the active profile's raw credential to stdout for shell capture",
-		Examples: []string{
-			"GENYEE_TOKEN=$(genyee auth token)",
-			"genyee auth token --profile staging",
-			"genyee auth token --format json",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "print the active profile's raw credential to stdout for shell capture",
+			Examples: []string{
+				"GENYEE_TOKEN=$(genyee auth token)",
+				"genyee auth token --profile staging",
+				"genyee auth token --format json",
+			},
+			Output: "raw token on stdout (no envelope, no trailing newline) by default; --format json emits {token, " +
+				"mode, profile}",
+			Warnings: []string{
+				"default output is the bare token, NOT the JSON envelope — it is a scripting helper for shell capture",
+			},
 		},
-		Output: "raw token on stdout (no envelope, no trailing newline) by default; --format json emits {token, mode, profile}",
-		Warnings: []string{
-			"default output is the bare token, NOT the JSON envelope — it is a scripting helper for shell capture",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -177,17 +181,26 @@ func emitToken(fopts *cmdutil.FormatOptions, token, mode, profile string) error 
 	}
 
 	// No trailing newline - clean $(genyee auth token) substitution.
-	fmt.Fprint(iostreams.IO.Out, token)
+	if _, err := fmt.Fprint(iostreams.IO.Out, token); err != nil {
+		return err
+	}
 	// Defensive hint to stderr when stdout is an interactive terminal:
 	// the user likely didn't mean to display the secret on screen.
 	// stderr-only so scripts (always non-TTY) are unaffected. Mode-specific
 	// because api-key tokens are long-lived and rotation is the only
 	// recourse on leak - bearer tokens self-expire via refresh.
 	if iostreams.IO.IsStdoutTTY() {
-		fmt.Fprintln(iostreams.IO.Err)
-		fmt.Fprintln(iostreams.IO.Err, "hint: pipe to $(genyee auth token) to capture; this terminal scrollback now contains the secret")
+		_, _ = fmt.Fprintln(iostreams.IO.Err)
+		_, _ = fmt.Fprintln(
+			iostreams.IO.Err,
+			"hint: pipe to $(genyee auth token) to capture; this terminal scrollback now contains the secret",
+		)
 		if mode == ModeAPIKey {
-			fmt.Fprintln(iostreams.IO.Err, "note: api-key credentials are long-lived - rotate via your auth provider if exposed (no `auth refresh` path)")
+			_, _ = fmt.Fprintln(
+				iostreams.IO.Err,
+				"note: api-key credentials are long-lived - rotate via your auth provider if exposed (no `auth "+
+					"refresh` path)",
+			)
 		}
 	}
 	return nil

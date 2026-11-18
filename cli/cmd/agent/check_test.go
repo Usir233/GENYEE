@@ -19,7 +19,7 @@ type fakeAgentCheckSvc struct {
 	kbErr     error           // applied for any KB id not in the map
 }
 
-func (f *fakeAgentCheckSvc) GetAgent(_ context.Context, id string) (*sdk.Agent, error) {
+func (f *fakeAgentCheckSvc) GetAgent(_ context.Context, _ string) (*sdk.Agent, error) {
 	if f.agentErr != nil {
 		return nil, f.agentErr
 	}

@@ -24,6 +24,7 @@ var kbViewFields = []string{
 	"created_at", "updated_at",
 }
 
+// ViewOptions holds flags and arguments for the `kb view` command.
 type ViewOptions struct{}
 
 // ViewService is the narrow SDK surface this command depends on.
@@ -40,8 +41,9 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "view <kb-id>",
 		Short: "Show a knowledge base by ID",
-		Long:  `Fetch a knowledge base's full configuration: chunking settings, embedding / summary model IDs, knowledge_count, chunk_count.`,
-		Args:  cobra.ExactArgs(1),
+		Long: `Fetch a knowledge base's full configuration: chunking settings, embedding / summary model IDs, ` +
+			`knowledge_count, chunk_count.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
@@ -59,19 +61,23 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, kbViewFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "fetch one knowledge base's full configuration by id",
-		RequiredFlags: []string{"<kb-id> (positional)"},
-		Examples: []string{
-			"genyee kb view kb_abc",
-			"genyee kb view kb_abc --jq .data.embedding_model_id",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "fetch one knowledge base's full configuration by id",
+			RequiredFlags: []string{"<kb-id> (positional)"},
+			Examples: []string{
+				"genyee kb view kb_abc",
+				"genyee kb view kb_abc --jq .data.embedding_model_id",
+			},
+			Output: "envelope.data is the KnowledgeBase object (id, name, type, embedding/summary model ids, " +
+				"chunk_count, ...)",
 		},
-		Output: "envelope.data is the KnowledgeBase object (id, name, type, embedding/summary model ids, chunk_count, ...)",
-	})
+	)
 	return cmd
 }
 
-func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOptions, svc ViewService, id string) error {
+func runView(ctx context.Context, _ *ViewOptions, fopts *cmdutil.FormatOptions, svc ViewService, id string) error {
 	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
 		return err
 	}
@@ -101,37 +107,37 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 	// vlm_config, etc.) are intentionally omitted from the text render —
 	// those are for `--format json | jq '.chunking_config'` workflows.
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:        %s\n", text.SanitizeInline(kb.ID))
-	fmt.Fprintf(w, "NAME:      %s\n", text.SanitizeInline(kb.Name))
+	_, _ = fmt.Fprintf(w, "ID:        %s\n", text.SanitizeInline(kb.ID))
+	_, _ = fmt.Fprintf(w, "NAME:      %s\n", text.SanitizeInline(kb.Name))
 	if kb.Type != "" {
-		fmt.Fprintf(w, "TYPE:      %s\n", text.SanitizeInline(kb.Type))
+		_, _ = fmt.Fprintf(w, "TYPE:      %s\n", text.SanitizeInline(kb.Type))
 	}
 	if kb.Description != "" {
-		fmt.Fprintf(w, "DESC:      %s\n", text.SanitizeTerminal(kb.Description))
+		_, _ = fmt.Fprintf(w, "DESC:      %s\n", text.SanitizeTerminal(kb.Description))
 	}
 	if kb.IsPinned {
-		fmt.Fprintf(w, "PINNED:    yes\n")
+		_, _ = fmt.Fprintf(w, "PINNED:    yes\n")
 	}
 	if kb.IsTemporary {
-		fmt.Fprintf(w, "TEMPORARY: yes\n")
+		_, _ = fmt.Fprintf(w, "TEMPORARY: yes\n")
 	}
-	fmt.Fprintf(w, "DOCS:      %s\n", text.Pluralize(int(kb.KnowledgeCount), "doc"))
-	fmt.Fprintf(w, "CHUNKS:    %s\n", text.Pluralize(int(kb.ChunkCount), "chunk"))
+	_, _ = fmt.Fprintf(w, "DOCS:      %s\n", text.Pluralize(int(kb.KnowledgeCount), "doc"))
+	_, _ = fmt.Fprintf(w, "CHUNKS:    %s\n", text.Pluralize(int(kb.ChunkCount), "chunk"))
 	if kb.IsProcessing {
-		fmt.Fprintf(w, "PROCESSING: %s\n", text.Pluralize(int(kb.ProcessingCount), "doc"))
+		_, _ = fmt.Fprintf(w, "PROCESSING: %s\n", text.Pluralize(int(kb.ProcessingCount), "doc"))
 	}
 	if kb.EmbeddingModelID != "" {
-		fmt.Fprintf(w, "EMBEDDING: %s\n", text.SanitizeInline(kb.EmbeddingModelID))
+		_, _ = fmt.Fprintf(w, "EMBEDDING: %s\n", text.SanitizeInline(kb.EmbeddingModelID))
 	}
 	if kb.SummaryModelID != "" {
-		fmt.Fprintf(w, "SUMMARY MODEL: %s\n", text.SanitizeInline(kb.SummaryModelID))
+		_, _ = fmt.Fprintf(w, "SUMMARY MODEL: %s\n", text.SanitizeInline(kb.SummaryModelID))
 	}
 	if !kb.CreatedAt.IsZero() {
-		fmt.Fprintf(w, "CREATED:   %s\n", kb.CreatedAt.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "CREATED:   %s\n", kb.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
 	if !kb.UpdatedAt.IsZero() {
 		// Detail page favors absolute time; FuzzyAgo is reserved for list views.
-		fmt.Fprintf(w, "UPDATED:   %s\n", kb.UpdatedAt.Format("2006-01-02 15:04:05"))
+		_, _ = fmt.Fprintf(w, "UPDATED:   %s\n", kb.UpdatedAt.Format("2006-01-02 15:04:05"))
 	}
 	return nil
 }

@@ -25,7 +25,12 @@ func (f *fakeListSvc) ListAgents(_ context.Context) ([]sdk.Agent, error) {
 
 func TestList_Empty_Text(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if !strings.Contains(out.String(), "(no agents)") {
@@ -35,7 +40,12 @@ func TestList_Empty_Text(t *testing.T) {
 
 func TestList_Empty_JSON(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	var env struct {
@@ -60,7 +70,12 @@ func TestList_NonEmpty_Text_RendersColumns(t *testing.T) {
 		{ID: "ag_a", Name: "Research", IsBuiltin: true, UpdatedAt: now.Add(-1 * time.Hour)},
 		{ID: "ag_b", Name: "Triage", UpdatedAt: now.Add(-3 * 24 * time.Hour)},
 	}
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: items}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: items},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	got := out.String()
@@ -79,7 +94,12 @@ func TestList_NonEmpty_JSON_SortsByUpdatedAtDesc(t *testing.T) {
 		{ID: "ag_new", Name: "new", UpdatedAt: now},
 		{ID: "ag_mid", Name: "mid", UpdatedAt: now.Add(-1 * time.Hour)},
 	}
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{items: items}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{items: items},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	var env struct {
@@ -136,7 +156,12 @@ func makeAgents(n int) []sdk.Agent {
 
 func TestList_Limit_CapsResults(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	if err := runList(context.Background(), &ListOptions{Limit: 5}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{items: makeAgents(20)}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 5},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{items: makeAgents(20)},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	got := strings.Count(out.String(), `"id":"ag_`)
@@ -150,7 +175,12 @@ func TestList_Limit_CapsResults(t *testing.T) {
 // Regression: agent list silently dropped agents past --limit with no signal.
 func TestList_Truncation_SignalsHasMoreAndTotal(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	if err := runList(context.Background(), &ListOptions{Limit: 5}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{items: makeAgents(20)}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 5},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{items: makeAgents(20)},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if !strings.Contains(out.String(), `"has_more":true`) {
@@ -163,7 +193,12 @@ func TestList_Truncation_SignalsHasMoreAndTotal(t *testing.T) {
 
 func TestList_NoTruncation_OmitsHasMore(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{items: makeAgents(3)}); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{items: makeAgents(3)},
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if strings.Contains(out.String(), `"has_more"`) {
@@ -176,7 +211,12 @@ func TestList_NoTruncation_OmitsHasMore(t *testing.T) {
 
 func TestList_Limit_Zero_Rejected(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
-	err := runList(context.Background(), &ListOptions{Limit: 0}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{items: makeAgents(7)})
+	err := runList(
+		context.Background(),
+		&ListOptions{Limit: 0},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{items: makeAgents(7)},
+	)
 	if err == nil {
 		t.Fatal("expected error for --limit 0")
 	}
@@ -191,7 +231,12 @@ func TestList_Limit_Zero_Rejected(t *testing.T) {
 
 func TestList_Limit_Negative_Rejected(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
-	err := runList(context.Background(), &ListOptions{Limit: -1}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeListSvc{items: makeAgents(2)})
+	err := runList(
+		context.Background(),
+		&ListOptions{Limit: -1},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeListSvc{items: makeAgents(2)},
+	)
 	if err == nil {
 		t.Fatal("expected error for negative --limit")
 	}

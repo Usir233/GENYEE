@@ -16,43 +16,51 @@ import (
 )
 
 func TestW7AuthLoginWithTokenBoundsAndControlCharsAndEnvRefsAndDeterministicLogout(t *testing.T) {
-	t.Run("auth login --with-token rejects embedded newline/control chars and oversized stdin", func(t *testing.T) {
-		_, _ = iostreams.SetForTest(t)
-		store := secrets.NewMemStore()
-		cfg := &config.Config{
-			CurrentProfile: "prod",
-			Profiles: map[string]config.Profile{
-				"prod": {Host: "http://127.0.0.1:8080/"},
-			},
-		}
-		f := &cmdutil.Factory{
-			Config:  func() (*config.Config, error) { return cfg, nil },
-			Secrets: func() (secrets.Store, error) { return store, nil },
-		}
+	t.Run(
+		"auth login --with-token rejects embedded newline/control chars and oversized stdin",
+		func(t *testing.T) {
+			_, _ = iostreams.SetForTest(t)
+			store := secrets.NewMemStore()
+			cfg := &config.Config{
+				CurrentProfile: "prod",
+				Profiles: map[string]config.Profile{
+					"prod": {Host: "http://127.0.0.1:8080/"},
+				},
+			}
+			f := &cmdutil.Factory{
+				Config:  func() (*config.Config, error) { return cfg, nil },
+				Secrets: func() (secrets.Store, error) { return store, nil },
+			}
 
-		err := runLogin(
-			context.Background(),
-			&LoginOptions{WithToken: true, StdinReader: strings.NewReader("gy_first_line\ngy_second_line\n")},
-			&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
-			f,
-			nil,
-		)
-		require.Error(t, err)
-		var ce *cmdutil.Error
-		require.ErrorAs(t, err, &ce)
-		assert.Equal(t, cmdutil.CodeInputInvalidArgument, ce.Code, "multi-line stdin token must fail as input.invalid_argument, not network.error")
+			err := runLogin(
+				context.Background(),
+				&LoginOptions{WithToken: true, StdinReader: strings.NewReader("gy_first_line\ngy_second_line\n")},
+				&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+				f,
+				nil,
+			)
+			require.Error(t, err)
+			var ce *cmdutil.Error
+			require.ErrorAs(t, err, &ce)
+			assert.Equal(
+				t,
+				cmdutil.CodeInputInvalidArgument,
+				ce.Code,
+				"multi-line stdin token must fail as input.invalid_argument, not network.error",
+			)
 
-		err = runLogin(
-			context.Background(),
-			&LoginOptions{WithToken: true, StdinReader: strings.NewReader(strings.Repeat("a", 32<<10))},
-			&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
-			f,
-			nil,
-		)
-		require.Error(t, err)
-		require.ErrorAs(t, err, &ce)
-		assert.Equal(t, cmdutil.CodeInputInvalidArgument, ce.Code)
-	})
+			err = runLogin(
+				context.Background(),
+				&LoginOptions{WithToken: true, StdinReader: strings.NewReader(strings.Repeat("a", 32<<10))},
+				&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+				f,
+				nil,
+			)
+			require.Error(t, err)
+			require.ErrorAs(t, err, &ce)
+			assert.Equal(t, cmdutil.CodeInputInvalidArgument, ce.Code)
+		},
+	)
 
 	t.Run("auth token honors env:<VAR> in APIKeyRef and TokenRef", func(t *testing.T) {
 		out, _ := iostreams.SetForTest(t)

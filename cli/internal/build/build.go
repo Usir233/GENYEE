@@ -4,6 +4,7 @@
 // the Makefile's `version` target wires them up.
 package build
 
+// Build-time metadata injected via -ldflags.
 var (
 	Version = "dev"
 	Commit  = "none"

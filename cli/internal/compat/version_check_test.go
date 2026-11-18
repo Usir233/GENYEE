@@ -14,7 +14,7 @@ type fakeProbeClient struct {
 	err  error
 }
 
-func (f *fakeProbeClient) GetSystemInfo(ctx context.Context) (*sdk.SystemInfo, error) {
+func (f *fakeProbeClient) GetSystemInfo(_ context.Context) (*sdk.SystemInfo, error) {
 	return f.info, f.err
 }
 

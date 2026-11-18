@@ -11,6 +11,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	// Wire SIGINT/SIGTERM into the root context so long-running commands
 	// (chat / agent invoke / doc wait) observe ctx.Done() and can run their
 	// cancellation cleanup paths (e.g., re-emit the auto-created session id
@@ -23,7 +27,7 @@ func main() {
 	rc := cmd.Execute(ctx)
 
 	if ctx.Err() == context.Canceled {
-		os.Exit(130)
+		return 130
 	}
-	os.Exit(rc)
+	return rc
 }

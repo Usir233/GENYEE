@@ -21,7 +21,13 @@ func (w8NilCheckSvc) GetKnowledgeBase(context.Context, string) (*sdk.KnowledgeBa
 	return nil, nil
 }
 
-func (w8NilCheckSvc) ListKnowledgeWithFilter(context.Context, string, int, int, sdk.KnowledgeListFilter) ([]sdk.Knowledge, int64, error) {
+func (w8NilCheckSvc) ListKnowledgeWithFilter(
+	context.Context,
+	string,
+	int,
+	int,
+	sdk.KnowledgeListFilter,
+) ([]sdk.Knowledge, int64, error) {
 	return nil, 0, nil
 }
 

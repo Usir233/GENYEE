@@ -13,6 +13,7 @@ import (
 // ModelType represents the type of AI model
 type ModelType string
 
+// ModelType values recognised by the server.
 const (
 	ModelTypeEmbedding   ModelType = "Embedding"   // Embedding model
 	ModelTypeRerank      ModelType = "Rerank"      // Rerank model
@@ -33,6 +34,7 @@ func AllModelTypes() []ModelType {
 // ModelSource represents the source of the model
 type ModelSource string
 
+// ModelSource values recognised by the server.
 const (
 	ModelSourceLocal       ModelSource = "local"        // Local model
 	ModelSourceRemote      ModelSource = "remote"       // Remote model
@@ -215,7 +217,11 @@ func (c *Client) DeleteModel(ctx context.Context, modelID string) error {
 
 // UpdateModelCredentials rotates write-only credentials for a model via
 // PUT /api/v1/models/{id}/credentials.
-func (c *Client) UpdateModelCredentials(ctx context.Context, modelID string, request *ModelCredentialsRequest) (*CredentialsResponse, error) {
+func (c *Client) UpdateModelCredentials(
+	ctx context.Context,
+	modelID string,
+	request *ModelCredentialsRequest,
+) (*CredentialsResponse, error) {
 	path := fmt.Sprintf("/api/v1/models/%s/credentials", escapePathSegment(modelID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
@@ -245,11 +251,12 @@ func (c *Client) DeleteModelCredential(ctx context.Context, modelID, field strin
 
 // ModelProvider represents a model provider with its supported types and default URLs
 type ModelProvider struct {
-	Value       string            `json:"value"`
-	Label       string            `json:"label"`
-	Description string            `json:"description"`
-	DefaultURLs map[string]string `json:"defaultUrls"`
-	ModelTypes  []string          `json:"modelTypes"`
+	Value        string            `json:"value"`
+	Label        string            `json:"label"`
+	Description  string            `json:"description"`
+	RequiresAuth bool              `json:"requires_auth,omitempty"`
+	DefaultURLs  map[string]string `json:"default_urls"`
+	ModelTypes   []string          `json:"model_types"`
 }
 
 // ModelProviderListResponse represents the API response for listing model providers

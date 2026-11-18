@@ -92,7 +92,14 @@ func titleFirst(s string) string {
 // retryArgv is the directly-executable retry argv array
 // (e.g. []string{"genyee","doc","delete","a","b","-y"}); pass nil when no
 // clean retry argv is available.
-func ConfirmDestructiveBatch(p prompt.Prompter, yes, jsonOut bool, verb, what string, n int, action string, retryArgv []string) error {
+func ConfirmDestructiveBatch(
+	p prompt.Prompter,
+	yes, jsonOut bool,
+	verb, what string,
+	n int,
+	action string,
+	retryArgv []string,
+) error {
 	if yes {
 		return nil
 	}
@@ -109,7 +116,7 @@ func ConfirmDestructiveBatch(p prompt.Prompter, yes, jsonOut bool, verb, what st
 		return Wrapf(CodeInputMissingFlag, err, "confirm batch delete")
 	}
 	if !ok {
-		fmt.Fprintln(iostreams.IO.Err, "Aborted.")
+		_, _ = fmt.Fprintln(iostreams.IO.Err, "Aborted.")
 		return NewError(CodeUserAborted, "delete aborted")
 	}
 	return nil
@@ -159,7 +166,12 @@ func ConfirmWrite(p prompt.Prompter, yes, jsonOut bool, verb, what, id, action s
 //	                      the human explicitly approves
 //	TTY + interactive   → prompt; user-yes proceeds, user-no returns CodeUserAborted
 //	prompter error      → CodeInputMissingFlag (rare; stdin closed mid-prompt)
-func confirmGated(p prompt.Prompter, yes, jsonOut bool, verb, what, id, action, level string, retryArgv []string) error {
+func confirmGated(
+	p prompt.Prompter,
+	yes, jsonOut bool,
+	verb, what, id, action, level string,
+	retryArgv []string,
+) error {
 	if yes {
 		return nil
 	}
@@ -176,7 +188,7 @@ func confirmGated(p prompt.Prompter, yes, jsonOut bool, verb, what, id, action, 
 		return Wrapf(CodeInputMissingFlag, err, "confirm %s", verb)
 	}
 	if !ok {
-		fmt.Fprintln(iostreams.IO.Err, "Aborted.")
+		_, _ = fmt.Fprintln(iostreams.IO.Err, "Aborted.")
 		return NewError(CodeUserAborted, fmt.Sprintf("%s aborted", verb))
 	}
 	return nil

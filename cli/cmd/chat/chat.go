@@ -17,7 +17,7 @@
 //
 // The SDK's KnowledgeQAStream callback contract is invoked sequentially on
 // one goroutine, so no mode needs locking. The runChat core takes a
-// ChatService interface so tests inject a fake without standing up a real
+// Service interface so tests inject a fake without standing up a real
 // SSE server.
 package chat
 
@@ -51,6 +51,7 @@ var chatFields = []string{
 	"type", "kb_id", "profile", "response_type", "content", "done", "knowledge_references", "data",
 }
 
+// Options configures `genyee chat`.
 type Options struct {
 	Query     string
 	KBID      string
@@ -63,12 +64,18 @@ type Options struct {
 	Verbose bool
 }
 
-// ChatService is the narrow SDK surface this command depends on. *sdk.Client
+// Service is the narrow SDK surface this command depends on. *sdk.Client
 // satisfies it; tests substitute a fake. Compile-time check is at the bottom
 // of this file.
-type ChatService interface {
+type Service interface {
 	CreateSession(ctx context.Context, req *sdk.CreateSessionRequest) (*sdk.Session, error)
-	KnowledgeQAStream(ctx context.Context, sessionID string, req *sdk.KnowledgeQARequest, cb func(*sdk.StreamResponse) error, opts ...sdk.ResourceURLOptions) error
+	KnowledgeQAStream(
+		ctx context.Context,
+		sessionID string,
+		req *sdk.KnowledgeQARequest,
+		cb func(*sdk.StreamResponse) error,
+		opts ...sdk.ResourceURLOptions,
+	) error
 }
 
 // NewCmd builds `genyee chat <text>`.
@@ -127,23 +134,34 @@ both flags for the complete projected stream.`,
 	cmdutil.AddKBFlag(cmd)
 	cmd.Flags().StringVar(&opts.SessionID, "session", "", "Continue an existing chat session (skip auto-create)")
 	cmd.Flags().BoolVar(&opts.Reference, "reference", false, "Include indexed references in JSON/text output")
-	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "Include reasoning, tools, and lifecycle events in JSON/text output")
+	cmd.Flags().BoolVar(
+		&opts.Verbose,
+		"verbose",
+		false,
+		"Include reasoning, tools, and lifecycle events in JSON/text output",
+	)
 	cmdutil.AddFormatFlag(cmd, chatFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Ask a RAG question against a knowledge base. Default JSON returns a bounded answer-event projection. --reference adds indexed citations; --verbose adds reasoning, tools, and lifecycle events. --format ndjson streams raw SDK events; --format text renders the selected events live.",
-		RequiredFlags: []string{"<text> (positional)", "--kb"},
-		Examples: []string{
-			`genyee chat "What is RRF?" --kb kb_abc`,
-			`genyee chat "What is RRF?" --kb kb_abc --jq '[.data.events[].content] | join("")'`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Ask a RAG question against a knowledge base. Default JSON returns a bounded answer-event " +
+				"projection. --reference adds indexed citations; --verbose adds reasoning, tools, and lifecycle " +
+				"events. --format ndjson streams raw SDK events; --format text renders the selected events live.",
+			RequiredFlags: []string{"<text> (positional)", "--kb"},
+			Examples: []string{
+				`genyee chat "What is RRF?" --kb kb_abc`,
+				`genyee chat "What is RRF?" --kb kb_abc --jq '[.data.events[].content] | join("")'`,
+			},
+			Output: "Default --format json: {ok,data:{events:[answer...],session_id,kb_id,query}}. --reference adds " +
+				"kb_id/chunk_id reference events; --verbose adds execution events. --format ndjson remains raw.",
 		},
-		Output: "Default --format json: {ok,data:{events:[answer...],session_id,kb_id,query}}. --reference adds kb_id/chunk_id reference events; --verbose adds execution events. --format ndjson remains raw.",
-	})
+	)
 	return cmd
 }
 
 // runChat is the testable core: validate, ensure a session, dispatch the
 // stream, and route output. Returns a typed error.
-func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, svc ChatService) error {
+func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, svc Service) error {
 	if opts.Query == "" {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "query argument cannot be empty")
 	}
@@ -203,7 +221,11 @@ func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, s
 	// mid-stream still has the pointer to resume - no need to scroll back
 	// past tokens. Skipped in json/ndjson mode (session_id is in the output).
 	if autoCreated {
-		fmt.Fprintf(iostreams.IO.Err, "session: %s (use --session to continue)\n", text.SanitizeInline(sessionID))
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Err,
+			"session: %s (use --session to continue)\n",
+			text.SanitizeInline(sessionID),
+		)
 	}
 
 	return runChatText(ctx, opts, sessionID, autoCreated, svc)
@@ -212,7 +234,7 @@ func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, s
 // runChatNDJSON handles the --format ndjson path: emits a CLI init event at
 // stream head, then passes every SDK event through verbatim as NDJSON lines.
 // No buffering — callers parse the stream incrementally.
-func runChatNDJSON(ctx context.Context, opts *Options, sessionID string, svc ChatService) error {
+func runChatNDJSON(ctx context.Context, opts *Options, sessionID string, svc Service) error {
 	w := iostreams.IO.Out
 
 	// 1. Inject the CLI-managed init event at the head of the stream.
@@ -251,7 +273,7 @@ func runChatNDJSON(ctx context.Context, opts *Options, sessionID string, svc Cha
 
 // runChatText handles the --format text path. It renders the same
 // projection as JSON immediately for both terminals and pipes.
-func runChatText(ctx context.Context, opts *Options, sessionID string, autoCreated bool, svc ChatService) error {
+func runChatText(ctx context.Context, opts *Options, sessionID string, autoCreated bool, svc Service) error {
 	req := &sdk.KnowledgeQARequest{
 		Query:            opts.Query,
 		KnowledgeBaseIDs: []string{opts.KBID},
@@ -278,7 +300,7 @@ func runChatText(ctx context.Context, opts *Options, sessionID string, autoCreat
 		// tokens, especially on ^C) can still recover with --session.
 		if autoCreated {
 			safeSess := text.SanitizeInline(sessionID)
-			fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", safeSess, safeSess)
+			_, _ = fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", safeSess, safeSess)
 		}
 		// Context cancelled (Ctrl-C) → user-aborted, exit 130 lineage.
 		if cmdutil.IsCancelled(ctx, streamErr) {
@@ -306,7 +328,13 @@ func runChatText(ctx context.Context, opts *Options, sessionID string, autoCreat
 
 // runChatJSON handles the --format json path (the default): collect the
 // projection and emit it in one normal success envelope.
-func runChatJSON(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, sessionID string, svc ChatService) error {
+func runChatJSON(
+	ctx context.Context,
+	opts *Options,
+	fopts *cmdutil.FormatOptions,
+	sessionID string,
+	svc Service,
+) error {
 	req := &sdk.KnowledgeQARequest{
 		Query:            opts.Query,
 		KnowledgeBaseIDs: []string{opts.KBID},
@@ -335,9 +363,17 @@ func runChatJSON(ctx context.Context, opts *Options, fopts *cmdutil.FormatOption
 			return chatStreamError(ce, sessionID, projector.AssistantMessageID())
 		}
 		if cmdutil.IsCancelled(ctx, err) {
-			return chatStreamError(cmdutil.Wrapf(cmdutil.CodeOperationCancelled, err, "chat cancelled"), sessionID, projector.AssistantMessageID())
+			return chatStreamError(
+				cmdutil.Wrapf(cmdutil.CodeOperationCancelled, err, "chat cancelled"),
+				sessionID,
+				projector.AssistantMessageID(),
+			)
 		}
-		return chatStreamError(cmdutil.WrapStream(err, "knowledge qa stream"), sessionID, projector.AssistantMessageID())
+		return chatStreamError(
+			cmdutil.WrapStream(err, "knowledge qa stream"),
+			sessionID,
+			projector.AssistantMessageID(),
+		)
 	}
 	if errMsg, hasErr := projector.TerminalError(); hasErr {
 		return chatStreamError(
@@ -394,5 +430,5 @@ type chatResult struct {
 	Query              string               `json:"query"`
 }
 
-// compile-time check: the production SDK client implements ChatService.
-var _ ChatService = (*sdk.Client)(nil)
+// compile-time check: the production SDK client implements Service.
+var _ Service = (*sdk.Client)(nil)

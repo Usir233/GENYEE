@@ -60,19 +60,29 @@ keeps its id; parsing restarts asynchronously, so follow with
 	cmdutil.AddIgnoredKBFlag(cmd)
 	cmdutil.AddFormatFlag(cmd, docReparseFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "re-run parsing on a document (recovery after parse_status=failed, or a changed source)",
-		RequiredFlags: []string{"<doc-id> (positional)"},
-		Examples: []string{
-			"genyee doc reparse doc_abc",
-			"genyee doc reparse doc_abc --format json",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "re-run parsing on a document (recovery after parse_status=failed, or a changed source)",
+			RequiredFlags: []string{"<doc-id> (positional)"},
+			Examples: []string{
+				"genyee doc reparse doc_abc",
+				"genyee doc reparse doc_abc --format json",
+			},
+			Output: "envelope.data is the Knowledge object with parse_status reset to the re-processing state; poll " +
+				"`genyee doc wait <doc-id>` for completion",
 		},
-		Output: "envelope.data is the Knowledge object with parse_status reset to the re-processing state; poll `genyee doc wait <doc-id>` for completion",
-	})
+	)
 	return cmd
 }
 
-func runReparse(ctx context.Context, opts *ReparseOptions, fopts *cmdutil.FormatOptions, svc ReparseService, id string) error {
+func runReparse(
+	ctx context.Context,
+	_ *ReparseOptions,
+	fopts *cmdutil.FormatOptions,
+	svc ReparseService,
+	id string,
+) error {
 	k, err := svc.ReparseKnowledge(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "reparse document %s", id)
@@ -83,14 +93,14 @@ func runReparse(ctx context.Context, opts *ReparseOptions, fopts *cmdutil.Format
 	// fileName → title, with no id fallback (empty means "skip the suffix").
 	name := text.KnowledgeDisplayName(k.FileName, k.Title, "")
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "✓ reparse triggered for %s", id)
+	_, _ = fmt.Fprintf(w, "✓ reparse triggered for %s", id)
 	if name != "" {
-		fmt.Fprintf(w, " (%s)", name)
+		_, _ = fmt.Fprintf(w, " (%s)", name)
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	if k.ParseStatus != "" {
-		fmt.Fprintf(w, "  parse_status: %s\n", k.ParseStatus)
+		_, _ = fmt.Fprintf(w, "  parse_status: %s\n", k.ParseStatus)
 	}
-	fmt.Fprintf(w, "  next: genyee doc wait %s\n", id)
+	_, _ = fmt.Fprintf(w, "  next: genyee doc wait %s\n", id)
 	return nil
 }

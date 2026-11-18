@@ -60,7 +60,8 @@ type ChunkListResponse struct {
 // UpdateChunkRequest represents the request structure for updating a chunk
 // Used for requesting chunk information updates
 type UpdateChunkRequest struct {
-	Content          *string `json:"content,omitempty"`           // Complete replacement content; nil keeps existing content
+	// Complete replacement content; nil keeps existing content.
+	Content          *string `json:"content,omitempty"`
 	IsEnabled        *bool   `json:"is_enabled,omitempty"`        // Nil keeps the current enabled state
 	ExpectedRevision *int    `json:"expected_revision,omitempty"` // content_revision returned by a prior read
 }

@@ -1,4 +1,4 @@
-// Package-level note:
+// Package cmdutil provides shared CLI command plumbing.
 //
 // SetAgentHelp wires structured agent-targeted help onto a cobra command.
 // Current coverage: chat, kb list, and destructive commands. Adding it to
@@ -66,15 +66,15 @@ func SetAgentHelp(cmd *cobra.Command, ah AgentHelp) {
 		// JSON branch above already carries warnings[]. Skip silently if
 		// the command has no risk annotations.
 		if level, action, ok := GetRisk(c); ok {
-			fmt.Fprintf(c.OutOrStdout(), "Risk: %s (%s)\n\n", action, level)
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "Risk: %s (%s)\n\n", action, level)
 		}
 		origHelp(c, args)
 		if len(ah.Warnings) > 0 {
 			w := c.OutOrStdout()
-			fmt.Fprintln(w)
-			fmt.Fprintln(w, "AI agents:")
+			_, _ = fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w, "AI agents:")
 			for _, msg := range ah.Warnings {
-				fmt.Fprintln(w, "- "+msg)
+				_, _ = fmt.Fprintln(w, "- "+msg)
 			}
 		}
 	})

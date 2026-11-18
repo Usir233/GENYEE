@@ -28,7 +28,9 @@ func TestEveryLeafCommandHasAgentHelp(t *testing.T) {
 		// Invoke the leaf's help func with the agent env set and require JSON.
 		var buf bytes.Buffer
 		c.SetOut(&buf)
-		c.Help()
+		if err := c.Help(); err != nil {
+			t.Errorf("%s: Help() returned error: %v", c.CommandPath(), err)
+		}
 		var ah struct {
 			UsedFor string `json:"used_for"`
 		}
@@ -54,7 +56,9 @@ func renderAgentHelp(t *testing.T, c *cobra.Command) struct {
 	t.Helper()
 	var buf bytes.Buffer
 	c.SetOut(&buf)
-	c.Help()
+	if err := c.Help(); err != nil {
+		t.Fatalf("%s: Help() returned error: %v", c.CommandPath(), err)
+	}
 	var ah struct {
 		UsedFor  string   `json:"used_for"`
 		Output   string   `json:"output"`

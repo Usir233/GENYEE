@@ -67,7 +67,10 @@ var defaultAPIKeyValidator apiKeyValidator = func(ctx context.Context, host, api
 
 // NewCmdLogin builds the `genyee auth login` command. runF is the testable
 // entrypoint (left nil for production; see cli/cmd/auth/login_test.go).
-func NewCmdLogin(f *cmdutil.Factory, runF func(context.Context, *LoginOptions, *cmdutil.FormatOptions, *cmdutil.Factory, LoginService) error) *cobra.Command {
+func NewCmdLogin(
+	f *cmdutil.Factory,
+	runF func(context.Context, *LoginOptions, *cmdutil.FormatOptions, *cmdutil.Factory, LoginService) error,
+) *cobra.Command {
 	opts := &LoginOptions{}
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -82,7 +85,7 @@ pipe an API key with --with-token.
 Credentials are persisted to the OS keyring when available; otherwise to a
 0600 file under $XDG_CONFIG_HOME/genyee/secrets.`,
 		Args: cobra.NoArgs,
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
 				return err
@@ -99,7 +102,12 @@ Credentials are persisted to the OS keyring when available; otherwise to a
 			return runLogin(c.Context(), opts, fopts, f, nil)
 		},
 	}
-	cmd.Flags().BoolVar(&opts.WithToken, "with-token", false, "Read an API key from stdin instead of prompting for password")
+	cmd.Flags().BoolVar(
+		&opts.WithToken,
+		"with-token",
+		false,
+		"Read an API key from stdin instead of prompting for password",
+	)
 	cmdutil.AddFormatFlag(cmd, authLoginFields...)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor:  "authenticate the active profile; --with-token reads an API key from stdin (non-interactive)",
@@ -131,7 +139,8 @@ func resolveActiveProfile(f *cmdutil.Factory) (name, host string, err error) {
 		msg := "no active profile; run `genyee profile add <name> --host <h> --use` first"
 		if envActive, kind := cmdutil.EnvCredential(); envActive {
 			msg = "no active profile to log in — you are already authenticated this session via " + kind +
-				"; `auth login` only persists a named profile, so run `genyee profile add <name> --host <h> --use` first if you want one"
+				"; `auth login` only persists a named profile, so run `genyee profile add <name> --host <h> --use` " +
+				"first if you want one"
 		}
 		return "", "", cmdutil.NewError(cmdutil.CodeAuthUnauthenticated, msg)
 	}
@@ -156,7 +165,13 @@ func loginServiceFor(host string) LoginService {
 	return sdk.NewClient(host)
 }
 
-func runLogin(ctx context.Context, opts *LoginOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Factory, svc LoginService) error {
+func runLogin(
+	ctx context.Context,
+	opts *LoginOptions,
+	fopts *cmdutil.FormatOptions,
+	f *cmdutil.Factory,
+	svc LoginService,
+) error {
 	// Resolve the target profile + host from the active profile in config.
 	// `auth login` no longer takes --host / --name; it authenticates the
 	// already-existing active profile (override via the global --profile).
@@ -355,7 +370,14 @@ type loginResult struct {
 // the credential refs + any server-returned user, so re-login never clobbers
 // the host or wipes an existing user. cfg.CurrentProfile is left untouched -
 // `auth login` authenticates the already-active profile, it doesn't switch.
-func saveProfileRef(opts *LoginOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Factory, mutate func(*config.Profile), mode string, user *sdk.AuthUser) error {
+func saveProfileRef(
+	opts *LoginOptions,
+	fopts *cmdutil.FormatOptions,
+	f *cmdutil.Factory,
+	mutate func(*config.Profile),
+	mode string,
+	user *sdk.AuthUser,
+) error {
 	cfg, err := f.Config()
 	if err != nil {
 		return err
@@ -385,7 +407,7 @@ func saveProfileRef(opts *LoginOptions, fopts *cmdutil.FormatOptions, f *cmdutil
 	if user != nil {
 		who = user.Email
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Logged in to %s as %s (profile=%s)\n", opts.Host, who, opts.Profile)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Logged in to %s as %s (profile=%s)\n", opts.Host, who, opts.Profile)
 	return nil
 }
 
@@ -406,8 +428,15 @@ func warnOnFileFallback(store secrets.Store) {
 	if _, isFile := store.(*secrets.FileStore); !isFile {
 		return
 	}
-	fmt.Fprintln(iostreams.IO.Err, "warning: OS keychain unavailable - credentials will be saved to a 0600 file under $XDG_CONFIG_HOME/genyee/secrets/.")
-	fmt.Fprintln(iostreams.IO.Err, "         install / unlock the keyring (or use `genyee doctor` to inspect) for OS-backed storage.")
+	_, _ = fmt.Fprintln(
+		iostreams.IO.Err,
+		"warning: OS keychain unavailable - credentials will be saved to a 0600 file under $XDG_CONFIG_HOME/genyee/"+
+			"secrets/.",
+	)
+	_, _ = fmt.Fprintln(
+		iostreams.IO.Err,
+		"         install / unlock the keyring (or use `genyee doctor` to inspect) for OS-backed storage.",
+	)
 }
 
 const maxTokenStdinBytes = 16 << 10 // 16 KiB

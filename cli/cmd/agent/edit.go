@@ -122,7 +122,8 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 			opts.flags.nameSet = cmd.Flags().Changed("name")
 			opts.flags.descriptionSet = cmd.Flags().Changed("description")
 			opts.flags.modelSet = cmd.Flags().Changed("model")
-			opts.flags.systemPromptSet = cmd.Flags().Changed("system-prompt") || cmd.Flags().Changed("system-prompt-file")
+			opts.flags.systemPromptSet = cmd.Flags().Changed("system-prompt") ||
+				cmd.Flags().Changed("system-prompt-file")
 			opts.flags.agentModeSet = cmd.Flags().Changed("agent-mode")
 			opts.flags.rerankModelSet = cmd.Flags().Changed("rerank-model")
 			opts.flags.temperatureSet = cmd.Flags().Changed("temperature")
@@ -133,7 +134,10 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 
 			// --temperature is bounded 0.0..2.0. Reject out-of-range
 			// early with a typed input.invalid_argument.
-			if opts.flags.temperatureSet && (math.IsNaN(opts.Temperature) || math.IsInf(opts.Temperature, 0) || opts.Temperature < 0.0 || opts.Temperature > 2.0) {
+			if opts.flags.temperatureSet && (math.IsNaN(opts.Temperature) || math.IsInf(
+				opts.Temperature,
+				0,
+			) || opts.Temperature < 0.0 || opts.Temperature > 2.0) {
 				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 					fmt.Sprintf("--temperature must be in 0.0..2.0, got %g", opts.Temperature))
 			}
@@ -145,7 +149,7 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(cmd)
 			if err != nil {
 				return err
@@ -215,17 +219,27 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 				"name", "description", "model", "system-prompt", "system-prompt-file",
 				"agent-mode", "rerank-model", "temperature", "add-kb", "remove-kb",
 				"kb-selection-mode", "config-file", "format")
-			if err := cmdutil.ConfirmWrite(f.Prompter(), yes, fopts.WantsJSON(), "update", "agent", opts.AgentID, "agent.update", retryCmd); err != nil {
+			if err := cmdutil.ConfirmWrite(
+				f.Prompter(),
+				yes,
+				fopts.WantsJSON(),
+				"update",
+				"agent",
+				opts.AgentID,
+				"agent.update",
+				retryCmd,
+			); err != nil {
 				return err
 			}
 			if systemPromptFile != "" {
 				r, oerr := cmdutil.OpenInput(systemPromptFile)
 				if oerr != nil {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file: %v", oerr))
+					return cmdutil.NewError(
+						cmdutil.CodeInputInvalidArgument,
+						fmt.Sprintf("--system-prompt-file: %v", oerr),
+					)
 				}
-				if c, ok := r.(io.Closer); ok {
-					defer c.Close()
-				}
+				defer func() { _ = r.Close() }()
 				opts.SystemPromptReader = r
 			}
 			if configFile != "" {
@@ -233,9 +247,7 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 				if oerr != nil {
 					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--config-file: %v", oerr))
 				}
-				if c, ok := r.(io.Closer); ok {
-					defer c.Close()
-				}
+				defer func() { _ = r.Close() }()
 				opts.ConfigFileBody = r
 				opts.ConfigFileKind = kind
 			}
@@ -291,18 +303,38 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&opts.Name, "name", "", "New agent name")
 	cmd.Flags().StringVar(&opts.Description, "description", "", `New description (use "" to clear)`)
 	cmd.Flags().StringVar(&opts.Model, "model", "", "LLM model id")
-	cmd.Flags().StringVar(&opts.SystemPrompt, "system-prompt", "", "System prompt text (mutex with --system-prompt-file)")
+	cmd.Flags().StringVar(
+		&opts.SystemPrompt,
+		"system-prompt",
+		"",
+		"System prompt text (mutex with --system-prompt-file)",
+	)
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "Read system prompt from FILE, or '-' for stdin")
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
-	cmd.Flags().StringVar(&opts.AgentMode, "agent-mode", "", "Agent operating mode: "+strings.Join(agentModeValues, " | "))
+	cmd.Flags().StringVar(
+		&opts.AgentMode,
+		"agent-mode",
+		"",
+		"Agent operating mode: "+strings.Join(agentModeValues, " | "),
+	)
 	cmd.Flags().StringVar(&opts.RerankModel, "rerank-model", "", "Rerank model id")
 	cmd.Flags().Float64Var(&opts.Temperature, "temperature", 0.0, "Generation temperature (0.0..2.0)")
 	cmd.Flags().StringSliceVar(&opts.AddKBs, "add-kb", nil, "Attach knowledge base id (repeatable, idempotent)")
 	cmd.Flags().StringSliceVar(&opts.RemoveKBs, "remove-kb", nil, "Detach knowledge base id (repeatable, idempotent)")
-	cmd.Flags().StringVar(&opts.KBSelectionMode, "kb-selection-mode", "", "KB selection mode: "+strings.Join(kbSelectionModeValues, " | "))
+	cmd.Flags().StringVar(
+		&opts.KBSelectionMode,
+		"kb-selection-mode",
+		"",
+		"KB selection mode: "+strings.Join(kbSelectionModeValues, " | "),
+	)
 
 	// Full-replace
-	cmd.Flags().StringVar(&configFile, "config-file", "", "Full AgentConfig YAML or JSON (REPLACES current config baseline; surgical flags then apply on top)")
+	cmd.Flags().StringVar(
+		&configFile,
+		"config-file",
+		"",
+		"Full AgentConfig YAML or JSON (REPLACES current config baseline; surgical flags then apply on top)",
+	)
 
 	cmdutil.AddFormatFlag(cmd, agentViewFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
@@ -371,7 +403,10 @@ func runEdit(ctx context.Context, opts *EditOptions, fopts *cmdutil.FormatOption
 			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file read: %v", err))
 		}
 		if len(body) > maxSystemPromptBytes {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file exceeds %d bytes", maxSystemPromptBytes))
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("--system-prompt-file exceeds %d bytes", maxSystemPromptBytes),
+			)
 		}
 		opts.SystemPrompt = strings.TrimSpace(string(body))
 	}
@@ -455,7 +490,11 @@ func computeKBList(current, add, remove []string) []string {
 		}
 		// Sort for deterministic test output; map iteration is random.
 		sort.Strings(canceled)
-		fmt.Fprintf(iostreams.IO.Err, "warning: --add-kb and --remove-kb cancel out for: %s\n", strings.Join(canceled, ", "))
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Err,
+			"warning: --add-kb and --remove-kb cancel out for: %s\n",
+			strings.Join(canceled, ", "),
+		)
 	}
 
 	// Compute effective remove set (excluding canceled).

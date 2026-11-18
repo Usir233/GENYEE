@@ -67,12 +67,16 @@ Use --jq to project specific fields or reach into nested config.`,
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, agentViewFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "fetch one custom agent's full configuration by id",
-		RequiredFlags: []string{"<agent-id> (positional)"},
-		Examples:      []string{"genyee agent view agent_abc"},
-		Output:        "envelope.data is the custom agent (id, name, description, is_builtin, and a nested config object holding model/kb_scope/...)",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "fetch one custom agent's full configuration by id",
+			RequiredFlags: []string{"<agent-id> (positional)"},
+			Examples:      []string{"genyee agent view agent_abc"},
+			Output: "envelope.data is the custom agent (id, name, description, is_builtin, and a nested " +
+				"config object holding model/kb_scope/...)",
+		},
+	)
 	return cmd
 }
 
@@ -96,23 +100,23 @@ func runView(ctx context.Context, fopts *cmdutil.FormatOptions, svc ViewService,
 func renderAgent(w io.Writer, a *sdk.Agent) {
 	// Identity is always rendered — id/name/created_at/updated_at are
 	// never meaningfully empty for a fetched Agent.
-	fmt.Fprintln(w, "Identity:")
-	fmt.Fprintf(w, "  ID:           %s\n", a.ID)
-	fmt.Fprintf(w, "  Name:         %s\n", a.Name)
+	_, _ = fmt.Fprintln(w, "Identity:")
+	_, _ = fmt.Fprintf(w, "  ID:           %s\n", a.ID)
+	_, _ = fmt.Fprintf(w, "  Name:         %s\n", a.Name)
 	if a.Description != "" {
-		fmt.Fprintf(w, "  Description:  %s\n", a.Description)
+		_, _ = fmt.Fprintf(w, "  Description:  %s\n", a.Description)
 	}
 	if a.IsBuiltin {
-		fmt.Fprintln(w, "  Builtin:      yes")
+		_, _ = fmt.Fprintln(w, "  Builtin:      yes")
 	}
 	if a.CreatedBy != "" {
-		fmt.Fprintf(w, "  Created by:   %s\n", a.CreatedBy)
+		_, _ = fmt.Fprintf(w, "  Created by:   %s\n", a.CreatedBy)
 	}
 	if a.TenantID != 0 {
-		fmt.Fprintf(w, "  Tenant ID:    %d\n", a.TenantID)
+		_, _ = fmt.Fprintf(w, "  Tenant ID:    %d\n", a.TenantID)
 	}
-	fmt.Fprintf(w, "  Created at:   %s\n", a.CreatedAt.Format("2006-01-02 15:04:05"))
-	fmt.Fprintf(w, "  Updated at:   %s\n", a.UpdatedAt.Format("2006-01-02 15:04:05"))
+	_, _ = fmt.Fprintf(w, "  Created at:   %s\n", a.CreatedAt.Format("2006-01-02 15:04:05"))
+	_, _ = fmt.Fprintf(w, "  Updated at:   %s\n", a.UpdatedAt.Format("2006-01-02 15:04:05"))
 
 	if a.Config == nil {
 		return
@@ -128,10 +132,10 @@ func renderAgent(w io.Writer, a *sdk.Agent) {
 		if len(rows) == 0 {
 			return
 		}
-		fmt.Fprintln(w)
-		fmt.Fprintf(w, "%s:\n", label)
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintf(w, "%s:\n", label)
 		for _, r := range rows {
-			fmt.Fprintf(w, "  %-32s %s\n", r.k+":", r.v)
+			_, _ = fmt.Fprintf(w, "  %-32s %s\n", r.k+":", r.v)
 		}
 	}
 
@@ -272,14 +276,14 @@ func renderAgent(w io.Writer, a *sdk.Agent) {
 	// Templates — system_prompt and context_template can be multi-line;
 	// render headed blocks rather than KV rows for readability.
 	if c.SystemPrompt != "" || c.ContextTemplate != "" {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Templates:")
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w, "Templates:")
 		if c.SystemPrompt != "" {
-			fmt.Fprintln(w, "  System prompt:")
+			_, _ = fmt.Fprintln(w, "  System prompt:")
 			writeIndented(w, c.SystemPrompt, "    ")
 		}
 		if c.ContextTemplate != "" {
-			fmt.Fprintln(w, "  Context template:")
+			_, _ = fmt.Fprintln(w, "  Context template:")
 			writeIndented(w, c.ContextTemplate, "    ")
 		}
 	}
@@ -289,6 +293,6 @@ func renderAgent(w io.Writer, a *sdk.Agent) {
 // newline always added so the next section starts on its own line.
 func writeIndented(w io.Writer, s, prefix string) {
 	for _, line := range strings.Split(strings.TrimRight(s, "\n"), "\n") {
-		fmt.Fprintf(w, "%s%s\n", prefix, line)
+		_, _ = fmt.Fprintf(w, "%s%s\n", prefix, line)
 	}
 }

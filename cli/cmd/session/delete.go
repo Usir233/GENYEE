@@ -17,6 +17,7 @@ import (
 // multi-id mode emits the batch envelope.
 var sessionDeleteFields = []string{"id", "deleted"}
 
+// DeleteOptions holds flags and arguments for the `session delete` command.
 type DeleteOptions struct {
 	Yes    bool // sourced from the global -y/--yes persistent flag
 	DryRun bool
@@ -83,7 +84,16 @@ without the user's explicit go-ahead.`,
 			}
 			// Single-id uses the simpler code path (bare {id, deleted}).
 			if len(args) == 1 {
-				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "session", args[0], "session.delete", []string{"genyee", "session", "delete", args[0], "-y"}); err != nil {
+				if err := cmdutil.ConfirmDestructive(
+					f.Prompter(),
+					opts.Yes,
+					fopts.WantsJSON(),
+					"delete",
+					"session",
+					args[0],
+					"session.delete",
+					[]string{"genyee", "session", "delete", args[0], "-y"},
+				); err != nil {
 					return err
 				}
 				opts.Yes = true
@@ -95,7 +105,16 @@ without the user's explicit go-ahead.`,
 			}
 			batchRetry := append([]string{"genyee", "session", "delete"}, args...)
 			batchRetry = append(batchRetry, "-y")
-			if err := cmdutil.ConfirmDestructiveBatch(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "session", len(args), "session.delete", batchRetry); err != nil {
+			if err := cmdutil.ConfirmDestructiveBatch(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"delete",
+				"session",
+				len(args),
+				"session.delete",
+				batchRetry,
+			); err != nil {
 				return err
 			}
 			cli, err := f.Client()
@@ -112,7 +131,12 @@ without the user's explicit go-ahead.`,
 			// (e.g. confirmation_required) must leave stdout empty per the
 			// wire contract in README.md.
 			if len(outcomes) > 0 {
-				if emitErr := cmdutil.EmitBatch(outcomes, fopts, iostreams.IO.Out, cmdutil.DeletedAtNow); emitErr != nil {
+				if emitErr := cmdutil.EmitBatch(
+					outcomes,
+					fopts,
+					iostreams.IO.Out,
+					cmdutil.DeletedAtNow,
+				); emitErr != nil {
 					return emitErr
 				}
 			}
@@ -122,28 +146,49 @@ without the user's explicit go-ahead.`,
 	cmdutil.AddFormatFlag(cmd, sessionDeleteFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, "session.delete")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "permanently delete one or more chat sessions and their messages",
-		RequiredFlags: []string{"<session-id>... (positional, at least one)"},
-		Examples: []string{
-			"genyee session delete s_abc -y",
-			"genyee session delete s_a s_b s_c -y",
-			"genyee session delete s_abc -y --format json",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "permanently delete one or more chat sessions and their messages",
+			RequiredFlags: []string{"<session-id>... (positional, at least one)"},
+			Examples: []string{
+				"genyee session delete s_abc -y",
+				"genyee session delete s_a s_b s_c -y",
+				"genyee session delete s_abc -y --format json",
+			},
+			Output: "envelope.data shape depends on the form: a single session id -> {id, deleted:true}; multiple " +
+				"ids -> batch envelope (top-level status success|partial|error, ok=(failures==0), data per-item [{id," +
+				" ok, error?}], meta.successes/failures — read data[].ok per id).",
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"session delete is irreversible; loses the conversation + all messages + tool call history.",
+			},
 		},
-		Output: "envelope.data shape depends on the form: a single session id -> {id, deleted:true}; multiple ids -> batch envelope (top-level status success|partial|error, ok=(failures==0), data per-item [{id, ok, error?}], meta.successes/failures — read data[].ok per id).",
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"session delete is irreversible; loses the conversation + all messages + tool call history.",
-		},
-	})
+	)
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter, id string) error {
+func runDelete(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DeleteService,
+	p prompt.Prompter,
+	id string,
+) error {
 	if err := cmdutil.ValidateResourceID("session-id", id); err != nil {
 		return err
 	}
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "session", id, "session.delete", []string{"genyee", "session", "delete", id, "-y"}); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"session",
+		id,
+		"session.delete",
+		[]string{"genyee", "session", "delete", id, "-y"},
+	); err != nil {
 		return err
 	}
 
@@ -154,6 +199,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: id, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted session %s\n", text.SanitizeInline(id))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted session %s\n", text.SanitizeInline(id))
 	return nil
 }

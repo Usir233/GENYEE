@@ -33,6 +33,7 @@ type AgentStatusService interface {
 
 var agentStatusFields = []string{"id", "reachable", "model_id"}
 
+// NewCmdStatus builds `genyee agent status`.
 func NewCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status <agent-id>",
@@ -105,13 +106,13 @@ func emitAgentStatus(res *AgentStatusResult, fopts *cmdutil.FormatOptions, w io.
 }
 
 func writeAgentStatusText(w io.Writer, res *AgentStatusResult) error {
-	fmt.Fprintf(w, "ID:           %s\n", res.ID)
-	fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
+	_, _ = fmt.Fprintf(w, "ID:           %s\n", res.ID)
+	_, _ = fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
 	if !res.Reachable {
 		return nil
 	}
 	if res.ModelID != "" {
-		fmt.Fprintf(w, "Model:        %s\n", res.ModelID)
+		_, _ = fmt.Fprintf(w, "Model:        %s\n", res.ModelID)
 	}
 	return nil
 }

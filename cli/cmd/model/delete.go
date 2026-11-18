@@ -86,7 +86,7 @@ func runDelete(ctx context.Context, fopts *cmdutil.FormatOptions, svc DeleteServ
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, map[string]any{"id": id, "deleted": true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted model %s\n", text.SanitizeInline(id))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted model %s\n", text.SanitizeInline(id))
 	return nil
 }
 

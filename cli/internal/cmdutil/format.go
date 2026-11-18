@@ -19,6 +19,7 @@ import (
 // FormatMode is the resolved --format value (typed enum).
 type FormatMode string
 
+// Supported --format output modes.
 const (
 	FormatText   FormatMode = "text"
 	FormatJSON   FormatMode = "json"
@@ -54,7 +55,8 @@ func AddFormatFlag(cmd *cobra.Command, fieldHints ...string) {
 		// `--jq '.data[].<field>'` (list). A bare `--jq '.<field>'` matches the
 		// envelope top level and silently returns null — spell out the path so
 		// agents don't ship broken projections.
-		hdr := "\n\nJSON fields available under .data (project with --jq '.data.<field>', or '.data[].<field>' for lists):\n  " +
+		hdr := "\n\nJSON fields available under .data (project with --jq '.data.<field>', or '.data[].<field>' for " +
+			"lists):\n  " +
 			strings.Join(sorted, "\n  ")
 		if cmd.Long != "" {
 			cmd.Long += hdr
@@ -137,7 +139,8 @@ func (o *FormatOptions) Emit(w io.Writer, data any, meta *output.Meta) error {
 		}
 		return format.WriteNDJSON(w, data)
 	case FormatText:
-		return fmt.Errorf("FormatOptions.Emit: cannot emit text mode as JSON; caller must render human-readable separately")
+		return fmt.Errorf("FormatOptions.Emit: cannot emit text mode as JSON; caller must render human-readable " +
+			"separately")
 	default:
 		return fmt.Errorf("FormatOptions.Emit: unknown mode %q", o.Mode)
 	}
@@ -165,7 +168,9 @@ func mapJQError(err error) error {
 //  2. config.yaml defaults.format (if text | json | ndjson)
 //  3. DefaultFormatMode (json)
 func ResolveConfiguredFormat() FormatMode {
-	if v := strings.ToLower(strings.TrimSpace(os.Getenv("GENYEE_FORMAT"))); v == "text" || v == "json" || v == "ndjson" {
+	if v := strings.ToLower(
+		strings.TrimSpace(os.Getenv("GENYEE_FORMAT")),
+	); v == "text" || v == "json" || v == "ndjson" {
 		return FormatMode(v)
 	}
 	if cfg, err := config.Load(); err == nil && cfg != nil {

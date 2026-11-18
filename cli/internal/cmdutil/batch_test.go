@@ -14,7 +14,7 @@ import (
 // ordered and summaryErr is nil.
 func TestRunBatch_AllSuccess(t *testing.T) {
 	ids := []string{"a", "b", "c"}
-	op := func(_ context.Context, id string) error { return nil }
+	op := func(_ context.Context, _ string) error { return nil }
 
 	outcomes, err := RunBatch(context.Background(), ids, op)
 	if err != nil {
@@ -110,7 +110,7 @@ func TestRunBatch_ContextCancellation(t *testing.T) {
 
 	ids := []string{"first", "second", "third"}
 	opCalled := 0
-	op := func(ctx context.Context, id string) error {
+	op := func(_ context.Context, id string) error {
 		opCalled++
 		if id == "first" {
 			cancel() // cancel after the first item
@@ -155,7 +155,7 @@ func TestEmitBatch_JSON_Envelope(t *testing.T) {
 	fopts := &FormatOptions{Mode: FormatJSON, TTY: false}
 	var buf bytes.Buffer
 
-	err := EmitBatch(outcomes, fopts, &buf, func(id string) any {
+	err := EmitBatch(outcomes, fopts, &buf, func(_ string) any {
 		return map[string]any{"deleted_at": "2026-01-01T00:00:00Z"}
 	})
 	if err != nil {

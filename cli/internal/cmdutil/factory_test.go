@@ -300,7 +300,7 @@ func resolveKBChdir(t *testing.T, dir string) {
 func fakeKBServer(t *testing.T, kbs []sdk.KnowledgeBase) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/knowledge-bases", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/knowledge-bases", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(sdk.KnowledgeBaseListResponse{Success: true, Data: kbs})
 	})
@@ -338,7 +338,13 @@ func TestResolveKB_Chain(t *testing.T) {
 		dir := t.TempDir()
 		resolveKBChdir(t, dir)
 		// Drop a project link too - must be ignored.
-		require.NoError(t, projectlink.Save(filepath.Join(dir, ".genyee", "project.yaml"), &projectlink.Project{KBID: "kb_disk_should_lose"}))
+		require.NoError(
+			t,
+			projectlink.Save(
+				filepath.Join(dir, ".genyee", "project.yaml"),
+				&projectlink.Project{KBID: "kb_disk_should_lose"},
+			),
+		)
 
 		clientCalls := 0
 		f := &Factory{
@@ -385,7 +391,13 @@ func TestResolveKB_Chain(t *testing.T) {
 		t.Setenv("GENYEE_KB_ID", "kb_env")
 		dir := t.TempDir()
 		resolveKBChdir(t, dir)
-		require.NoError(t, projectlink.Save(filepath.Join(dir, ".genyee", "project.yaml"), &projectlink.Project{KBID: "kb_disk_should_lose"}))
+		require.NoError(
+			t,
+			projectlink.Save(
+				filepath.Join(dir, ".genyee", "project.yaml"),
+				&projectlink.Project{KBID: "kb_disk_should_lose"},
+			),
+		)
 
 		f := &Factory{}
 		got, err := f.ResolveKB(makeResolveKBCmd(t, ""))
@@ -396,7 +408,10 @@ func TestResolveKB_Chain(t *testing.T) {
 	t.Run("project_link_walk_up", func(t *testing.T) {
 		t.Setenv("GENYEE_KB_ID", "")
 		root := t.TempDir()
-		require.NoError(t, projectlink.Save(filepath.Join(root, ".genyee", "project.yaml"), &projectlink.Project{KBID: "kb_proj"}))
+		require.NoError(
+			t,
+			projectlink.Save(filepath.Join(root, ".genyee", "project.yaml"), &projectlink.Project{KBID: "kb_proj"}),
+		)
 		// Run from a deep child to exercise walk-up.
 		deep := filepath.Join(root, "a", "b", "c")
 		require.NoError(t, os.MkdirAll(deep, 0o755))
@@ -441,6 +456,7 @@ func TestBuildClientFromEnv(t *testing.T) {
 		t.Setenv("GENYEE_TOKEN", "")
 		t.Setenv("GENYEE_API_KEY", "sk-test")
 		t.Setenv("GENYEE_HOST", "https://kb.example.com")
+		t.Setenv("GENYEE_BASE_URL", "")
 		c, handled, err := buildClientFromEnv(emptyCfg)
 		assert.True(t, handled)
 		require.NoError(t, err)
@@ -451,6 +467,7 @@ func TestBuildClientFromEnv(t *testing.T) {
 		t.Setenv("GENYEE_API_KEY", "")
 		t.Setenv("GENYEE_TOKEN", "jwt-token")
 		t.Setenv("GENYEE_HOST", "")
+		t.Setenv("GENYEE_BASE_URL", "")
 		c, handled, err := buildClientFromEnv(emptyCfg)
 		assert.True(t, handled, "env creds set → handled even on host error")
 		assert.Nil(t, c)
@@ -463,6 +480,7 @@ func TestBuildClientFromEnv(t *testing.T) {
 		t.Setenv("GENYEE_API_KEY", "")
 		t.Setenv("GENYEE_TOKEN", "jwt-token")
 		t.Setenv("GENYEE_HOST", "")
+		t.Setenv("GENYEE_BASE_URL", "")
 		f := &Factory{Config: func() (*config.Config, error) {
 			return &config.Config{
 				CurrentProfile: "p",

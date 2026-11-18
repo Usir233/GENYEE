@@ -12,7 +12,9 @@ import (
 )
 
 func TestW7RootRejectsInvalidProfileOverrideAndSchemaHandlesEdgeCases(t *testing.T) {
-	t.Run("root PersistentPreRunE rejects shell-metacharacter --profile and GENYEE_PROFILE before execution", func(t *testing.T) {
+	t.Run("root PersistentPreRunE rejects shell-metacharacter --profile and GENYEE_PROFILE before execution", func(
+		t *testing.T,
+	) {
 		_, _ = iostreams.SetForTest(t)
 		root := NewRootCmd(cmdutil.New())
 		root.SetArgs([]string{"--profile", "prod; echo pwned", "version", "--format", "json"})
@@ -31,7 +33,9 @@ func TestW7RootRejectsInvalidProfileOverrideAndSchemaHandlesEdgeCases(t *testing
 		assert.Equal(t, cmdutil.CodeInputInvalidArgument, ce.Code)
 	})
 
-	t.Run("schema does not panic on Unicode-whitespace-only arg and rejects trailing tokens on leaf commands", func(t *testing.T) {
+	t.Run("schema does not panic on Unicode-whitespace-only arg and rejects trailing tokens on leaf commands", func(
+		t *testing.T,
+	) {
 		_, _ = iostreams.SetForTest(t)
 		_, err := resolveSchemaTarget(NewRootCmd(cmdutil.New()), []string{"\u3000"})
 		require.Error(t, err)

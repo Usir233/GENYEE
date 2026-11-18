@@ -74,14 +74,12 @@ func EnumStrings[T ~string](xs []T) []string {
 	return out
 }
 
-// OpenInput returns a reader for path. If path == "-", returns stdin
-// (iostreams.IO.In). Otherwise opens the file. Caller is responsible
-// for closing if needed — for typical "-input <file>"/"--input -" CLI
-// patterns the file is fully read before the command exits and OS
-// reclaims the FD, so closing is cosmetic.
-func OpenInput(path string) (io.Reader, error) {
+// OpenInput returns a ReadCloser for path. When path == "-", it wraps stdin
+// (iostreams.IO.In) in io.NopCloser so callers can unconditionally defer Close
+// without closing fd 0; otherwise it opens the regular file via os.Open.
+func OpenInput(path string) (io.ReadCloser, error) {
 	if path == "-" {
-		return iostreams.IO.In, nil
+		return io.NopCloser(iostreams.IO.In), nil
 	}
 	return os.Open(path)
 }

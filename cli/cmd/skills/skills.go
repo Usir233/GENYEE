@@ -23,7 +23,7 @@ import (
 )
 
 // NewCmd builds the `genyee skills` parent command.
-func NewCmd(f *cmdutil.Factory) *cobra.Command {
+func NewCmd(_ *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skills",
 		Short: "List and install the bundled Agent Skills",
@@ -54,19 +54,23 @@ func newCmdList() *cobra.Command {
 				return fopts.Emit(iostreams.IO.Out, skills, &output.Meta{Count: output.IntPtr(len(skills))})
 			}
 			tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(tw, "NAME\tFILES\tDESCRIPTION")
+			_, _ = fmt.Fprintln(tw, "NAME\tFILES\tDESCRIPTION")
 			for _, s := range skills {
-				fmt.Fprintf(tw, "%s\t%d\t%s\n", s.Name, len(s.Files), s.Description)
+				_, _ = fmt.Fprintf(tw, "%s\t%d\t%s\n", s.Name, len(s.Files), s.Description)
 			}
 			return tw.Flush()
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, skillsListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "list the Agent Skills bundled in this CLI binary (name, description, file count) — discover what `genyee skills install` would write",
-		Examples: []string{"genyee skills list --format json"},
-		Output:   "envelope.data is an array of {name, description, files[]}",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "list the Agent Skills bundled in this CLI binary (name, description, file count) — discover " +
+				"what `genyee skills install` would write",
+			Examples: []string{"genyee skills list --format json"},
+			Output:   "envelope.data is an array of {name, description, files[]}",
+		},
+	)
 	return cmd
 }
 
@@ -131,9 +135,9 @@ Existing files are left untouched unless --force is passed.`,
 			if fopts.WantsJSON() {
 				return fopts.Emit(iostreams.IO.Out, res, nil)
 			}
-			fmt.Fprintf(iostreams.IO.Out, "✓ Installed %d skill(s) to %s\n", len(names), target)
+			_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Installed %d skill(s) to %s\n", len(names), target)
 			for _, p := range installed {
-				fmt.Fprintf(iostreams.IO.Out, "  %s\n", p)
+				_, _ = fmt.Fprintf(iostreams.IO.Out, "  %s\n", p)
 			}
 			return nil
 		},
@@ -142,11 +146,18 @@ Existing files are left untouched unless --force is passed.`,
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing skill files")
 	cmdutil.AddFormatFlag(cmd, "dir", "installed", "skills")
 	cmdutil.AddDryRunFlag(cmd, &dryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "write the bundled Agent Skills to an agent's skills directory (default ~/.claude/skills) so the agent can load them; --dry-run previews the file list",
-		Examples: []string{"genyee skills install --dry-run --format json", "genyee skills install --dir ~/.claude/skills --force"},
-		Output:   "envelope.data is {dir, installed:[paths], skills:[names]}",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "write the bundled Agent Skills to an agent's skills directory (default ~/.claude/skills) so " +
+				"the agent can load them; --dry-run previews the file list",
+			Examples: []string{
+				"genyee skills install --dry-run --format json",
+				"genyee skills install --dir ~/.claude/skills --force",
+			},
+			Output: "envelope.data is {dir, installed:[paths], skills:[names]}",
+		},
+	)
 	return cmd
 }
 
@@ -236,7 +247,10 @@ func writeSkills(skills []skillsfs.Skill, target string, force bool) ([]string, 
 
 func sanitizeSkillRelPath(rel string) (string, error) {
 	cleanRel := filepath.Clean(filepath.FromSlash(rel))
-	if cleanRel == "." || cleanRel == ".." || filepath.IsAbs(cleanRel) || strings.HasPrefix(cleanRel, ".."+string(filepath.Separator)) {
+	if cleanRel == "." || cleanRel == ".." || filepath.IsAbs(cleanRel) || strings.HasPrefix(
+		cleanRel,
+		".."+string(filepath.Separator),
+	) {
 		return "", cmdutil.NewError(cmdutil.CodeInternalError, fmt.Sprintf("unsafe embedded skill path %q", rel))
 	}
 	return cleanRel, nil

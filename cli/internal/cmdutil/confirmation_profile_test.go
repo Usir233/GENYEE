@@ -1,10 +1,11 @@
 package cmdutil
 
 import (
+	"testing"
+
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/prompt"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestConfirmationRetryPinsResolvedProfile(t *testing.T) {
@@ -16,9 +17,27 @@ func TestConfirmationRetryPinsResolvedProfile(t *testing.T) {
 		original := []string{"genyee", "doc", "delete", "doc-1", "-y"}
 		var err error
 		if batch {
-			err = ConfirmDestructiveBatch(prompt.AgentPrompter{}, false, true, "delete", "document", 1, "doc.delete", original)
+			err = ConfirmDestructiveBatch(
+				prompt.AgentPrompter{},
+				false,
+				true,
+				"delete",
+				"document",
+				1,
+				"doc.delete",
+				original,
+			)
 		} else {
-			err = ConfirmDestructive(prompt.AgentPrompter{}, false, true, "delete", "document", "doc-1", "doc.delete", original)
+			err = ConfirmDestructive(
+				prompt.AgentPrompter{},
+				false,
+				true,
+				"delete",
+				"document",
+				"doc-1",
+				"doc.delete",
+				original,
+			)
 		}
 		var typed *Error
 		require.ErrorAs(t, err, &typed)

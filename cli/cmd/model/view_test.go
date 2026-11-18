@@ -31,7 +31,17 @@ func TestModelView_Text(t *testing.T) {
 		t.Fatalf("runView: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"ID:", "m1", "NAME:", "GPT-X", "TYPE:", "KnowledgeQA", "SOURCE:", "openai", "DEFAULT:"} {
+	for _, want := range []string{
+		"ID:",
+		"m1",
+		"NAME:",
+		"GPT-X",
+		"TYPE:",
+		"KnowledgeQA",
+		"SOURCE:",
+		"openai",
+		"DEFAULT:",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}

@@ -195,7 +195,7 @@ type StopSessionRequest struct {
 
 // GenerateTitle generates a session title
 func (c *Client) GenerateTitle(ctx context.Context, sessionID string, request *GenerateTitleRequest) (string, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s/generate_title", escapePathSegment(sessionID))
+	path := fmt.Sprintf("/api/v1/sessions/%s/generate-title", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, request, nil)
 	if err != nil {
 		return "", err
@@ -242,12 +242,12 @@ type PageContext struct {
 // KnowledgeQARequest knowledge Q&A request
 type KnowledgeQARequest struct {
 	Query            string            `json:"query"`                     // Query text for knowledge base search
-	KnowledgeBaseIDs []string          `json:"knowledge_base_ids"`        // Selected knowledge base IDs for this request
-	KnowledgeIDs     []string          `json:"knowledge_ids"`             // Selected knowledge IDs for this request
-	AgentEnabled     bool              `json:"agent_enabled"`             // Whether agent mode is enabled for this request
-	AgentID          string            `json:"agent_id"`                  // Selected custom agent ID for this request
-	WebSearchEnabled bool              `json:"web_search_enabled"`        // Whether web search is enabled for this request
-	SummaryModelID   string            `json:"summary_model_id"`          // Optional summary model ID (overrides session default)
+	KnowledgeBaseIDs []string          `json:"knowledge_base_ids"`        // Selected knowledge base IDs
+	KnowledgeIDs     []string          `json:"knowledge_ids"`             // Selected knowledge IDs
+	AgentEnabled     bool              `json:"agent_enabled"`             // Whether agent mode is enabled
+	AgentID          string            `json:"agent_id"`                  // Selected custom agent ID
+	WebSearchEnabled bool              `json:"web_search_enabled"`        // Whether web search is enabled
+	SummaryModelID   string            `json:"summary_model_id"`          // Optional summary model ID override
 	DisableTitle     bool              `json:"disable_title"`             // Whether to disable auto title generation
 	Images           []ImageAttachment `json:"images,omitempty"`          // Attached images for multimodal chat
 	Channel          string            `json:"channel,omitempty"`         // Source channel: "web", "api", "im", etc.
@@ -267,8 +267,10 @@ type FunctionCall struct {
 	Arguments string `json:"arguments"` // JSON string
 }
 
+// ResponseType classifies SSE events emitted by KnowledgeQAStream and ContinueStream.
 type ResponseType string
 
+// ResponseType values emitted on knowledge/continue SSE streams.
 const (
 	ResponseTypeAnswer       ResponseType = "answer"
 	ResponseTypeReferences   ResponseType = "references"
@@ -289,10 +291,10 @@ type StreamResponse struct {
 	Content             string                 `json:"content"`                        // Current content fragment
 	Done                bool                   `json:"done"`                           // Whether completed
 	KnowledgeReferences []*SearchResult        `json:"knowledge_references,omitempty"` // Knowledge references
-	SessionID           string                 `json:"session_id,omitempty"`           // Session ID (for agent_query event)
-	AssistantMessageID  string                 `json:"assistant_message_id,omitempty"` // Assistant Message ID (for agent_query event)
-	ToolCalls           []LLMToolCall          `json:"tool_calls,omitempty"`           // Tool calls for streaming (partial)
-	Data                map[string]interface{} `json:"data,omitempty"`                 // Additional metadata for enhanced display
+	SessionID           string                 `json:"session_id,omitempty"`           // Session ID (agent_query)
+	AssistantMessageID  string                 `json:"assistant_message_id,omitempty"` // Assistant message ID
+	ToolCalls           []LLMToolCall          `json:"tool_calls,omitempty"`           // Partial tool calls
+	Data                map[string]interface{} `json:"data,omitempty"`                 // Display metadata
 }
 
 // KnowledgeQAStream knowledge Q&A streaming API.
@@ -324,7 +326,7 @@ func (c *Client) KnowledgeQAStream(
 		debugLogger.Debug("request_failed", "error", err)
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		err := newAPIError(resp.StatusCode, readErrorBody(resp.Body))
@@ -429,7 +431,7 @@ func (c *Client) ContinueStream(
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return newAPIError(resp.StatusCode, readErrorBody(resp.Body))
@@ -516,7 +518,7 @@ func (c *Client) StopSession(ctx context.Context, sessionID string, messageID st
 // SearchKnowledgeRequest knowledge search request
 type SearchKnowledgeRequest struct {
 	Query            string          `json:"query"`                        // Query content
-	KnowledgeBaseID  string          `json:"knowledge_base_id,omitempty"`  // Single knowledge base ID (for backward compatibility)
+	KnowledgeBaseID  string          `json:"knowledge_base_id,omitempty"`  // Single KB ID (legacy compatibility)
 	KnowledgeBaseIDs []string        `json:"knowledge_base_ids,omitempty"` // Knowledge base IDs (multi-KB support)
 	KnowledgeIDs     []string        `json:"knowledge_ids,omitempty"`      // Specific knowledge (file) IDs
 	TagIDs           []string        `json:"tag_ids,omitempty"`            // Tag IDs for filtering within a single KB
@@ -579,7 +581,7 @@ func (c *Client) SearchKnowledgeDetailed(
 		debugLogger.Debug("request_failed", "error", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		err := newAPIError(resp.StatusCode, readErrorBody(resp.Body))

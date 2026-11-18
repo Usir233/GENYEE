@@ -88,16 +88,31 @@ human help prose.`,
 			return emitCommandSchema(target, fopts)
 		},
 	}
-	cmdutil.AddFormatFlag(cmd, "command", "used_for", "required_flags", "examples", "output", "warnings", "risk", "flags")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "introspect the CLI surface: list every command (no args) or print one command's contract (used_for, flags, examples, output, risk).",
-		Examples: []string{
-			"genyee schema",
-			"genyee schema kb create",
-			"genyee schema doc update --format json",
+	cmdutil.AddFormatFlag(
+		cmd,
+		"command",
+		"used_for",
+		"required_flags",
+		"examples",
+		"output",
+		"warnings",
+		"risk",
+		"flags",
+	)
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "introspect the CLI surface: list every command (no args) or print one command's contract " +
+				"(used_for, flags, examples, output, risk).",
+			Examples: []string{
+				"genyee schema",
+				"genyee schema kb create",
+				"genyee schema doc update --format json",
+			},
+			Output: "with no args, envelope.data is an array of {command, used_for}; with a command path, " +
+				"envelope.data is {command, used_for, required_flags, examples, output, warnings, risk, flags}",
 		},
-		Output: "with no args, envelope.data is an array of {command, used_for}; with a command path, envelope.data is {command, used_for, required_flags, examples, output, warnings, risk, flags}",
-	})
+	)
 	return cmd
 }
 
@@ -193,44 +208,51 @@ func buildCommandSchema(target *cobra.Command) commandSchema {
 // writeCommandSchemaText renders one command's contract as readable prose for
 // the human (--format text) path.
 func writeCommandSchemaText(w io.Writer, cs commandSchema) error {
-	fmt.Fprintf(w, "genyee %s\n", cs.Command)
+	_, _ = fmt.Fprintf(w, "genyee %s\n", cs.Command)
 	if cs.UsedFor != "" {
-		fmt.Fprintf(w, "\n%s\n", cs.UsedFor)
+		_, _ = fmt.Fprintf(w, "\n%s\n", cs.UsedFor)
 	}
 	if cs.Risk != nil {
-		fmt.Fprintf(w, "\nRisk: %s (%s) — confirmation-gated (exit 10) unless -y\n", cs.Risk.Action, cs.Risk.Level)
+		_, _ = fmt.Fprintf(
+			w,
+			"\nRisk: %s (%s) — confirmation-gated (exit 10) unless -y\n",
+			cs.Risk.Action,
+			cs.Risk.Level,
+		)
 	}
 	if len(cs.RequiredFlags) > 0 {
-		fmt.Fprintf(w, "\nRequired:\n")
+		_, _ = fmt.Fprintf(w, "\nRequired:\n")
 		for _, r := range cs.RequiredFlags {
-			fmt.Fprintf(w, "  - %s\n", r)
+			_, _ = fmt.Fprintf(w, "  - %s\n", r)
 		}
 	}
 	if len(cs.Flags) > 0 {
-		fmt.Fprintf(w, "\nFlags:\n")
+		_, _ = fmt.Fprintf(w, "\nFlags:\n")
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 		for _, f := range cs.Flags {
 			name := "--" + f.Name
 			if f.Shorthand != "" {
 				name += ", -" + f.Shorthand
 			}
-			fmt.Fprintf(tw, "  %s\t%s\t%s\n", name, f.Type, f.Usage)
+			_, _ = fmt.Fprintf(tw, "  %s\t%s\t%s\n", name, f.Type, f.Usage)
 		}
-		_ = tw.Flush()
+		if err := tw.Flush(); err != nil {
+			return err
+		}
 	}
 	if cs.Output != "" {
-		fmt.Fprintf(w, "\nOutput: %s\n", cs.Output)
+		_, _ = fmt.Fprintf(w, "\nOutput: %s\n", cs.Output)
 	}
 	if len(cs.Examples) > 0 {
-		fmt.Fprintf(w, "\nExamples:\n")
+		_, _ = fmt.Fprintf(w, "\nExamples:\n")
 		for _, e := range cs.Examples {
-			fmt.Fprintf(w, "  %s\n", e)
+			_, _ = fmt.Fprintf(w, "  %s\n", e)
 		}
 	}
 	if len(cs.Warnings) > 0 {
-		fmt.Fprintf(w, "\nAI agents:\n")
+		_, _ = fmt.Fprintf(w, "\nAI agents:\n")
 		for _, msg := range cs.Warnings {
-			fmt.Fprintf(w, "  - %s\n", msg)
+			_, _ = fmt.Fprintf(w, "  - %s\n", msg)
 		}
 	}
 	return nil
@@ -271,7 +293,7 @@ func emitSchemaIndex(root *cobra.Command, fopts *cmdutil.FormatOptions) error {
 		return fopts.Emit(iostreams.IO.Out, entries, &output.Meta{Count: output.IntPtr(len(entries))})
 	}
 	for _, e := range entries {
-		fmt.Fprintf(iostreams.IO.Out, "%-28s %s\n", e.Command, e.UsedFor)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "%-28s %s\n", e.Command, e.UsedFor)
 	}
 	return nil
 }

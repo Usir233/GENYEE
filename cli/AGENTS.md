@@ -123,9 +123,10 @@ Make errors structured, actionable, and specific.
 
 | Variable | Purpose |
 |---|---|
-| `GENYEE_API_KEY` | Stateless API-key credential (used with `GENYEE_HOST`); bypasses profile/keyring lookup. |
-| `GENYEE_TOKEN` | Stateless Bearer JWT credential (used with `GENYEE_HOST`); takes precedence over `GENYEE_API_KEY`. |
-| `GENYEE_HOST` | Server base URL when authenticating statelessly via `GENYEE_TOKEN` or `GENYEE_API_KEY`. |
+| `GENYEE_API_KEY` | Stateless API-key credential (used with `GENYEE_HOST` or `GENYEE_BASE_URL`); bypasses profile/keyring lookup. |
+| `GENYEE_TOKEN` | Stateless Bearer JWT credential (used with `GENYEE_HOST` or `GENYEE_BASE_URL`); takes precedence over `GENYEE_API_KEY`. |
+| `GENYEE_BASE_URL` | Explicit server base URL override (`GENYEE_BASE_URL` > `GENYEE_HOST` > active profile `host` when stateless env credentials are active; also honored by `genyee doctor` probes). |
+| `GENYEE_HOST` | Server base URL when authenticating statelessly via `GENYEE_TOKEN` or `GENYEE_API_KEY` (overridden by `GENYEE_BASE_URL` when both are set). |
 | `GENYEE_PROFILE` | Active profile name. Equivalent to the global `--profile <name>` flag; overridden by `--profile`. Useful in CI scripts that cannot pass global flags. |
 | `GENYEE_FORMAT` | Default `--format` value (`text \| json \| ndjson`). Overridden by explicit `--format`. Invalid values ignored silently. |
 | `GENYEE_KB_ID` | Default KB ID for commands that accept `--kb`. Overridden by `--kb`. |
@@ -351,7 +352,7 @@ Typed error helpers in `internal/cmdutil/errors.go`:
 - `cmdutil.WrapHTTP(err, format, args...)` — wrap an SDK error + classify from HTTP status (404 → `resource.not_found`, 401 → `auth.unauthenticated`, …). Use at every SDK call site.
 - `cmdutil.Wrapf(code, err, format, args...)` — explicit wrap with a chosen code
 - `cmdutil.NewFlagError(err)` — flag / argument problem → exit 2
-- `cmdutil.SilentError` — exit 1 without printing (when output already emitted)
+- `cmdutil.ErrSilent` — exit 1 without printing (when output already emitted)
 - `cmd.MarkFlagsMutuallyExclusive("a", "b")` — cobra-level mutex
 
 Errors print to STDERR via `cmdutil.PrintError(w, err)` as `code: msg\nhint: ...`. STDOUT stays bare JSON or empty on failure, so `--json | jq` pipelines never have to filter error shapes.
@@ -518,7 +519,7 @@ The dry-run path is **offline** — no SDK calls, no Factory.Client() init, no R
 `session ask` and `chat` do NOT support `--dry-run` (streaming and dry-run have a semantic mismatch). For prompt-formation preview, use:
 
 ```bash
-echo '{"query":"...","kb":"..."}' | genyee api -X POST /api/v1/sessions/<id>/agent-qa --input - --dry-run
+echo '{"query":"...","agent_enabled":true}' | genyee api -X POST /api/v1/agent-chat/<id> --input - --dry-run
 ```
 
 ## Risk metadata

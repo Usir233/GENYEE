@@ -41,11 +41,13 @@ const (
 // The marker shows up in --help so users can tell.
 var apiFields = []string{"<response-shape-varies>"}
 
+// Options holds flags and arguments for the `api` command.
 type Options struct {
-	Method      string
-	Input       string   // --input: file path, "-" for stdin
-	Data        string   // -d/--data: inline JSON body (mutually exclusive with --input)
-	Fields      []string // -F/--field: key=value pairs assembled into a JSON object body (mutually exclusive with -d/--input)
+	Method string
+	Input  string // --input: file path, "-" for stdin
+	Data   string // -d/--data: inline JSON body (mutually exclusive with --input)
+	// -F/--field: key=value pairs assembled into a JSON object body (mutually exclusive with -d/--input)
+	Fields      []string
 	Yes         bool
 	DryRun      bool
 	StdinReader io.Reader // overridden by tests; defaults to iostreams.IO.In
@@ -111,8 +113,11 @@ Examples:
 				// concrete repair. Use resolveMethod so --input auto-promotes
 				// GET → POST identically to the live path.
 				if method == http.MethodGet {
-					return cmdutil.NewFlagError(fmt.Errorf(
-						"--dry-run requires explicit -X POST/PUT/PATCH/DELETE; default GET is read-only with no side effect to preview"))
+					return cmdutil.NewFlagError(
+						fmt.Errorf(
+							"--dry-run requires explicit -X POST/PUT/PATCH/DELETE; default GET is read-only with no " +
+								"side effect to preview"),
+					)
 				}
 				var body any
 				if hasBody(opts) {
@@ -150,11 +155,29 @@ Examples:
 			// `create` (also ungated). GET/HEAD are reads.
 			switch method {
 			case http.MethodDelete:
-				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "endpoint", args[0], "api.delete", apiRetryArgv(opts, method, args[0])); err != nil {
+				if err := cmdutil.ConfirmDestructive(
+					f.Prompter(),
+					opts.Yes,
+					fopts.WantsJSON(),
+					"delete",
+					"endpoint",
+					args[0],
+					"api.delete",
+					apiRetryArgv(opts, method, args[0]),
+				); err != nil {
 					return err
 				}
 			case http.MethodPut, http.MethodPatch:
-				if err := cmdutil.ConfirmWrite(f.Prompter(), opts.Yes, fopts.WantsJSON(), "write", "endpoint", args[0], "api."+strings.ToLower(method), apiRetryArgv(opts, method, args[0])); err != nil {
+				if err := cmdutil.ConfirmWrite(
+					f.Prompter(),
+					opts.Yes,
+					fopts.WantsJSON(),
+					"write",
+					"endpoint",
+					args[0],
+					"api."+strings.ToLower(method),
+					apiRetryArgv(opts, method, args[0]),
+				); err != nil {
 					return err
 				}
 			}
@@ -166,35 +189,73 @@ Examples:
 			return runAPI(c.Context(), opts, fopts, cli, method, args[0], paginate)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.Method, "method", "X", "", "HTTP method (default: GET, or POST when a body is supplied via -d/--input). Any non-empty method is accepted.")
-	cmd.Flags().StringVarP(&opts.Data, "data", "d", "", "Inline JSON request body (e.g. -d '{\"name\":\"x\"}'). Mutually exclusive with --input.")
-	cmd.Flags().StringVar(&opts.Input, "input", "", "Read JSON request body from file (use `-` for stdin). Mutually exclusive with -d/--data.")
-	cmd.Flags().StringArrayVarP(&opts.Fields, "field", "F", nil, "Add a key=value to a JSON object body (repeatable; e.g. -F name=foo -F enabled=true). true/false/null and numbers are typed; everything else is a string. Flat keys only. Mutually exclusive with -d/--input.")
-	cmd.Flags().Bool("paginate", false, "Follow offset-based pagination (?page=N&page_size=M), merging all pages into a single {data, total} JSON response.")
+	cmd.Flags().StringVarP(
+		&opts.Method,
+		"method",
+		"X",
+		"",
+		"HTTP method (default: GET, or POST when a body is supplied via -d/--input). Any non-empty method is accepted.",
+	)
+	cmd.Flags().StringVarP(
+		&opts.Data,
+		"data",
+		"d",
+		"",
+		"Inline JSON request body (e.g. -d '{\"name\":\"x\"}'). Mutually exclusive with --input.",
+	)
+	cmd.Flags().StringVar(
+		&opts.Input,
+		"input",
+		"",
+		"Read JSON request body from file (use `-` for stdin). Mutually exclusive with -d/--data.",
+	)
+	cmd.Flags().StringArrayVarP(
+		&opts.Fields,
+		"field",
+		"F",
+		nil,
+		"Add a key=value to a JSON object body (repeatable; e.g. -F name=foo -F enabled=true). true/false/null and "+
+			"numbers are typed; everything else is a string. Flat keys only. Mutually exclusive with -d/--input.",
+	)
+	cmd.Flags().Bool(
+		"paginate",
+		false,
+		"Follow offset-based pagination (?page=N&page_size=M), merging all pages into a single {data, total} JSON "+
+			"response.",
+	)
 	cmdutil.AddFormatFlag(cmd, apiFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "raw HTTP passthrough to genyee-server API endpoints when typed subcommands are insufficient",
-		RequiredFlags: []string{"path (positional)"},
-		Examples: []string{
-			"genyee api /api/v1/knowledge-bases",
-			"genyee api /api/v1/knowledge-bases -d '{\"name\":\"foo\"}'",
-			"genyee api -X POST /api/v1/knowledge-bases -F name=\"Eng Docs\" -F enabled=true",
-			"genyee api -X DELETE /api/v1/knowledge-bases/kb_x -y",
-			"echo '{\"name\":\"foo\"}' | genyee api /api/v1/knowledge-bases --input -",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "raw HTTP passthrough to genyee-server API endpoints when typed subcommands are " +
+				"insufficient",
+			RequiredFlags: []string{"path (positional)"},
+			Examples: []string{
+				"genyee api /api/v1/knowledge-bases",
+				"genyee api /api/v1/knowledge-bases -d '{\"name\":\"foo\"}'",
+				"genyee api -X POST /api/v1/knowledge-bases -F name=\"Eng Docs\" -F enabled=true",
+				"genyee api -X DELETE /api/v1/knowledge-bases/kb_x -y",
+				"echo '{\"name\":\"foo\"}' | genyee api /api/v1/knowledge-bases --input -",
+			},
+			Output: "text mode: the raw server response body on stdout. " +
+				"json mode (default): the parsed server response is placed directly under envelope.data - " +
+				"project with --jq '.data...' at the server's own depth " +
+				"(e.g. '.data.data[]' for a list endpoint, '.data.data.id' for a created object). " +
+				"With --paginate, envelope.data is the merged {data, total}; " +
+				"text mode writes that merged JSON object with a trailing newline and no envelope.",
+			Warnings: []string{
+				"-X DELETE is destructive-gated and -X PUT/PATCH are write-gated (exit 10 / " +
+					"input.confirmation_required unless -y), matching typed delete/update. -X POST (create-shaped) " +
+					"and GET are unguarded — you own the safety of creates made through this escape hatch.",
+				"Raw passthrough: the typed error envelope does NOT fully apply. The server's own response goes " +
+					"under envelope.data at its native depth; a non-2xx HTTP status surfaces via the exit code, not " +
+					"a typed error.type/retry_argv. Do not rely on error.type/retryable for `api` the way you do for " +
+					"typed subcommands.",
+				"Raw HTTP passthrough; agents should prefer typed subcommands (kb/doc/session/...) when available.",
+			},
 		},
-		Output: "text mode: the raw server response body on stdout. " +
-			"json mode (default): the parsed server response is placed directly under envelope.data - " +
-			"project with --jq '.data...' at the server's own depth " +
-			"(e.g. '.data.data[]' for a list endpoint, '.data.data.id' for a created object). " +
-			"With --paginate, envelope.data is the merged {data, total}; " +
-			"text mode writes that merged JSON object with a trailing newline and no envelope.",
-		Warnings: []string{
-			"-X DELETE is destructive-gated and -X PUT/PATCH are write-gated (exit 10 / input.confirmation_required unless -y), matching typed delete/update. -X POST (create-shaped) and GET are unguarded — you own the safety of creates made through this escape hatch.",
-			"Raw passthrough: the typed error envelope does NOT fully apply. The server's own response goes under envelope.data at its native depth; a non-2xx HTTP status surfaces via the exit code, not a typed error.type/retry_argv. Do not rely on error.type/retryable for `api` the way you do for typed subcommands.",
-			"Raw HTTP passthrough; agents should prefer typed subcommands (kb/doc/session/...) when available.",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -228,7 +289,7 @@ func readInput(opts *Options) ([]byte, error) {
 		if err != nil {
 			return nil, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read input file %s", opts.Input)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		b, err = io.ReadAll(io.LimitReader(f, maxAPIInputBytes+1))
 		if err != nil {
 			return nil, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read input file %s", opts.Input)
@@ -370,39 +431,63 @@ func validateAPIPath(raw string) error {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must start with /: %s", raw))
 	}
 	if strings.HasPrefix(raw, "//") {
-		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must be a relative server path, not a protocol-relative URL: %s", raw))
+		return cmdutil.NewError(
+			cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("path must be a relative server path, not a protocol-relative URL: %s", raw),
+		)
 	}
 	for i := 0; i < len(raw); i++ {
 		if raw[i] < 0x20 || raw[i] == 0x7f || raw[i] == '\\' || raw[i] == '#' {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path contains disallowed character: %s", raw))
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("path contains disallowed character: %s", raw),
+			)
 		}
 	}
 	pathPart, _, _ := strings.Cut(raw, "?")
 	lowerPath := strings.ToLower(pathPart)
 	if strings.Contains(lowerPath, "%2f") || strings.Contains(lowerPath, "%5c") || strings.Contains(lowerPath, "%00") {
-		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must not contain percent-encoded separators or NUL bytes: %s", raw))
+		return cmdutil.NewError(
+			cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("path must not contain percent-encoded separators or NUL bytes: %s", raw),
+		)
 	}
 	for _, seg := range strings.Split(pathPart, "/") {
 		if seg == "." || seg == ".." {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must not contain dot traversal segments: %s", raw))
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("path must not contain dot traversal segments: %s", raw),
+			)
 		}
 	}
 	decoded, err := url.PathUnescape(pathPart)
 	if err != nil {
-		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("malformed percent-encoding in path: %s", raw))
+		return cmdutil.NewError(
+			cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("malformed percent-encoding in path: %s", raw),
+		)
 	}
 	for i := 0; i < len(decoded); i++ {
 		if decoded[i] < 0x20 || decoded[i] == 0x7f || decoded[i] == '\\' {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path contains disallowed percent-decoded character: %s", raw))
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("path contains disallowed percent-decoded character: %s", raw),
+			)
 		}
 	}
 	for _, seg := range strings.Split(decoded, "/") {
 		if seg == "." || seg == ".." {
-			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must not contain percent-encoded traversal segments: %s", raw))
+			return cmdutil.NewError(
+				cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("path must not contain percent-encoded traversal segments: %s", raw),
+			)
 		}
 	}
 	if u, err := url.Parse(raw); err != nil || u.Scheme != "" || u.Host != "" {
-		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must be a relative server path: %s", raw))
+		return cmdutil.NewError(
+			cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("path must be a relative server path: %s", raw),
+		)
 	}
 	return nil
 }
@@ -486,7 +571,14 @@ func apiRetryArgv(opts *Options, method, path string) []string {
 // When paginate is true and method is GET, all offset-based pages are
 // fetched and merged into a single {data, total} JSON response. For
 // non-GET methods paginate is silently ignored (no offset semantic).
-func runAPI(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, svc Service, method, path string, paginate bool) error {
+func runAPI(
+	ctx context.Context,
+	opts *Options,
+	fopts *cmdutil.FormatOptions,
+	svc Service,
+	method, path string,
+	paginate bool,
+) error {
 	if paginate && method == http.MethodGet {
 		return runAPIPaginated(ctx, opts, fopts, svc, path)
 	}
@@ -494,7 +586,13 @@ func runAPI(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, sv
 }
 
 // runAPISingle is the original single-call implementation of runAPI.
-func runAPISingle(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, svc Service, method, path string) error {
+func runAPISingle(
+	ctx context.Context,
+	opts *Options,
+	fopts *cmdutil.FormatOptions,
+	svc Service,
+	method, path string,
+) error {
 	if err := validateHTTPMethod(method); err != nil {
 		return err
 	}
@@ -523,7 +621,7 @@ func runAPISingle(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptio
 	if resp == nil || resp.Body == nil {
 		return cmdutil.NewError(cmdutil.CodeServerError, "empty HTTP response from server")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := readBoundedResponse(resp.Body)
 	if err != nil {
@@ -582,7 +680,7 @@ func emitRawBody(body []byte, fopts *cmdutil.FormatOptions) error {
 // response does not carry pagination metadata (total + page_size), the raw
 // response is passed through via passThroughFallback which respects the
 // --format envelope contract (same shape as runAPISingle's fallback path).
-func runAPIPaginated(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, svc Service, path string) error {
+func runAPIPaginated(ctx context.Context, _ *Options, fopts *cmdutil.FormatOptions, svc Service, path string) error {
 	if fopts.Mode == cmdutil.FormatText && fopts.JQ != "" {
 		return cmdutil.NewFlagError(fmt.Errorf("--jq requires --format json|ndjson"))
 	}
@@ -614,7 +712,7 @@ func runAPIPaginated(ctx context.Context, opts *Options, fopts *cmdutil.FormatOp
 			return cmdutil.NewError(cmdutil.CodeServerError, "empty HTTP response from server")
 		}
 		body, err := readBoundedResponse(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return err
 		}

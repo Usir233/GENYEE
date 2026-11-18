@@ -1,3 +1,5 @@
+// Package sessioncmd implements `genyee session` subcommands.
+//
 // resume.go implements `genyee session resume` —
 // re-attach to an SSE event buffer for an in-progress or already-completed
 // assistant message under a known session_id.
@@ -51,7 +53,9 @@ type ResumeOptions struct {
 // *sdk.Client satisfies it; tests substitute a fake. Compile-time check
 // at the bottom of this file.
 type ResumeService interface {
-	ContinueStream(ctx context.Context, sessionID, messageID string, cb func(*sdk.StreamResponse) error, opts ...sdk.ResourceURLOptions) error
+	ContinueStream(ctx context.Context, sessionID, messageID string, cb func(
+		*sdk.StreamResponse,
+	) error, opts ...sdk.ResourceURLOptions) error
 }
 
 // NewCmdResume builds `genyee session resume <session-id> --message <id>`.
@@ -117,20 +121,33 @@ silently treated as NDJSON.`,
 		"Assistant message ID to resume (from the init or agent_query event of the original stream)")
 	_ = cmd.MarkFlagRequired("message")
 	cmdutil.AddFormatFlag(cmd, resumeFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Resume an SSE event stream for an in-progress or completed assistant message. Produces an NDJSON event stream: init line (session_id, message_id) then raw SDK StreamResponse events.",
-		RequiredFlags: []string{"<session-id> (positional)", "--message (persisted assistant message id — get it from `genyee message list --session <id>`; a live stream's assistant_message_id is not resumable once the message persists)"},
-		Examples: []string{
-			"genyee session resume sess_xyz --message msg_abc --format json",
-			"# Get the message id from: genyee message list --session <session-id> (the persisted assistant message)",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Resume an SSE event stream for an in-progress or completed assistant message. Produces an " +
+				"NDJSON event stream: init line (session_id, message_id) then raw SDK StreamResponse events.",
+			RequiredFlags: []string{
+				"<session-id> (positional)",
+				"--message (persisted assistant message id — get it from `genyee message list --session <id>`; a " +
+					"live stream's assistant_message_id is not resumable once the message persists)",
+			},
+			Examples: []string{
+				"genyee session resume sess_xyz --message msg_abc --format json",
+				"# Get the message id from: genyee message list --session <session-id> (the persisted assistant " +
+					"message)",
+			},
+			Output: "NDJSON stream: {type:init, session_id, message_id, profile} then SDK StreamResponse events " +
+				"(response_type, content, done, knowledge_references, assistant_message_id, ...)",
+			Warnings: []string{
+				"Server replays from event 0 (NOT cursor-from-disconnect). Agents that already consumed events on " +
+					"the original stream MUST dedupe by message_id + event hash to avoid double-processing.",
+				"Buffer TTL: redis mode 1h hardcoded; memory mode = process lifetime. After expiry the CLI returns " +
+					"local.sse_stream_aborted.",
+				"Output is always NDJSON (an event stream, not an envelope): --jq does not apply and --format text/" +
+					"json/ndjson behave identically here — parse the event lines yourself.",
+			},
 		},
-		Output: "NDJSON stream: {type:init, session_id, message_id, profile} then SDK StreamResponse events (response_type, content, done, knowledge_references, assistant_message_id, ...)",
-		Warnings: []string{
-			"Server replays from event 0 (NOT cursor-from-disconnect). Agents that already consumed events on the original stream MUST dedupe by message_id + event hash to avoid double-processing.",
-			"Buffer TTL: redis mode 1h hardcoded; memory mode = process lifetime. After expiry the CLI returns local.sse_stream_aborted.",
-			"Output is always NDJSON (an event stream, not an envelope): --jq does not apply and --format text/json/ndjson behave identically here — parse the event lines yourself.",
-		},
-	})
+	)
 	return cmd
 }
 

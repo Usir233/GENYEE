@@ -126,13 +126,13 @@ func TestDocUpload_DryRun_RejectsBadMetadata(t *testing.T) {
 	assert.Equal(t, cmdutil.CodeInputInvalidArgument, typed.Code)
 }
 
-// TestDocUpload_DryRun_RejectsBadEnableMultimodel: --enable-multimodel
+// TestDocUpload_DryRun_RejectsBadEnableMultimodal: --enable-multimodal
 // expects a parseable tri-bool; --dry-run must reject the same garbage
 // values the live path rejects.
-func TestDocUpload_DryRun_RejectsBadEnableMultimodel(t *testing.T) {
+func TestDocUpload_DryRun_RejectsBadEnableMultimodal(t *testing.T) {
 	iostreams.SetForTest(t)
 	root := withRootHarnessDoc(NewCmdUpload(docDryRunFactory(t)),
-		"./somefile", "--kb", "00000000-0000-0000-0000-000000000001", "--enable-multimodel=garbage",
+		"./somefile", "--kb", "00000000-0000-0000-0000-000000000001", "--enable-multimodal=garbage",
 		"--dry-run", "--format", "json")
 	err := root.Execute()
 	require.Error(t, err)

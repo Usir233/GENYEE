@@ -25,6 +25,7 @@ var chunksFields = []string{
 	"knowledge_channel", "matched_content",
 }
 
+// ChunksOptions holds flags and arguments for the `search chunks` command.
 type ChunksOptions struct {
 	Query            string
 	KB               string // raw --kb (UUID or name)
@@ -97,12 +98,19 @@ func NewCmdChunks(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	bindChunksFlags(cmd, opts)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Hybrid (vector + keyword) chunk retrieval against a knowledge base. The KB comes from --kb (id or name), else GENYEE_KB_ID, else the linked directory. Results come with meta.count; use --limit to cap (default 8, tuned for RAG context). Pass --no-vector or --no-keyword to disable one channel.",
-		RequiredFlags: []string{"<query> (positional)", "--kb (or GENYEE_KB_ID / linked directory)"},
-		Examples:      []string{`genyee search chunks "what is RAG?" --kb engineering --format json`},
-		Output:        "envelope.data is an array of SearchResult objects with id, content, score, knowledge_id; meta.count is the returned count; meta.has_more=true if more matched than --limit",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Hybrid (vector + keyword) chunk retrieval against a knowledge base. The KB comes from --" +
+				"kb (id or name), else GENYEE_KB_ID, else the linked directory. Results come with meta.count; use --" +
+				"limit to cap (default 8, tuned for RAG context). Pass --no-vector or --no-keyword to disable one " +
+				"channel.",
+			RequiredFlags: []string{"<query> (positional)", "--kb (or GENYEE_KB_ID / linked directory)"},
+			Examples:      []string{`genyee search chunks "what is RAG?" --kb engineering --format json`},
+			Output: "envelope.data is an array of SearchResult objects with id, content, score, knowledge_id; " +
+				"meta.count is the returned count; meta.has_more=true if more matched than --limit",
+		},
+	)
 	return cmd
 }
 
@@ -111,9 +119,25 @@ func NewCmdChunks(f *cmdutil.Factory) *cobra.Command {
 // GENYEE_KB_ID / the linked directory via Factory.ResolveKB.
 func bindChunksFlags(cmd *cobra.Command, opts *ChunksOptions) {
 	cmd.Flags().StringVar(&opts.KB, "kb", "", "Knowledge base UUID or name (overrides env / project link)")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 8, "Maximum results to return (default 8 - tuned for RAG context window; list commands default to 30)")
-	cmd.Flags().Float64Var(&opts.VectorThreshold, "vector-threshold", 0, "Vector retrieval similarity floor (per-channel, pre-fusion); 0 = no filter")
-	cmd.Flags().Float64Var(&opts.KeywordThreshold, "keyword-threshold", 0, "Keyword retrieval score floor (per-channel, pre-fusion); 0 = no filter")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		8,
+		"Maximum results to return (default 8 - tuned for RAG context window; list commands default to 30)",
+	)
+	cmd.Flags().Float64Var(
+		&opts.VectorThreshold,
+		"vector-threshold",
+		0,
+		"Vector retrieval similarity floor (per-channel, pre-fusion); 0 = no filter",
+	)
+	cmd.Flags().Float64Var(
+		&opts.KeywordThreshold,
+		"keyword-threshold",
+		0,
+		"Keyword retrieval score floor (per-channel, pre-fusion); 0 = no filter",
+	)
 	cmd.Flags().BoolVar(&opts.NoVector, "no-vector", false, "Disable the vector channel")
 	cmd.Flags().BoolVar(&opts.NoKeyword, "no-keyword", false, "Disable the keyword channel")
 	cmdutil.AddFormatFlag(cmd, chunksFields...)
@@ -129,10 +153,16 @@ func (o *ChunksOptions) validate() error {
 	if o.NoVector && o.NoKeyword {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--no-vector and --no-keyword cannot both be set")
 	}
-	if math.IsNaN(o.VectorThreshold) || math.IsInf(o.VectorThreshold, 0) || o.VectorThreshold < 0 || o.VectorThreshold > 1 {
+	if math.IsNaN(o.VectorThreshold) || math.IsInf(
+		o.VectorThreshold,
+		0,
+	) || o.VectorThreshold < 0 || o.VectorThreshold > 1 {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--vector-threshold must be in 0..1")
 	}
-	if math.IsNaN(o.KeywordThreshold) || math.IsInf(o.KeywordThreshold, 0) || o.KeywordThreshold < 0 || o.KeywordThreshold > 1 {
+	if math.IsNaN(o.KeywordThreshold) || math.IsInf(
+		o.KeywordThreshold,
+		0,
+	) || o.KeywordThreshold < 0 || o.KeywordThreshold > 1 {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--keyword-threshold must be in 0..1")
 	}
 	if o.KBID != "" {
@@ -181,7 +211,11 @@ func runChunks(ctx context.Context, opts *ChunksOptions, fopts *cmdutil.FormatOp
 	}
 
 	if fopts.WantsJSON() {
-		meta := &output.Meta{Count: output.IntPtr(len(results)), HasMore: truncated, Hint: emptyContentSearchHint(len(results))}
+		meta := &output.Meta{
+			Count:   output.IntPtr(len(results)),
+			HasMore: truncated,
+			Hint:    emptyContentSearchHint(len(results)),
+		}
 		return fopts.Emit(iostreams.IO.Out, results, meta)
 	}
 	return renderChunkResults(results, opts.KBID)
@@ -198,18 +232,18 @@ func renderChunkResults(results []*sdk.SearchResult, kbID string) error {
 		}
 	}
 	if len(clean) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no results)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no results)")
 		return nil
 	}
-	fmt.Fprintf(iostreams.IO.Out, "%d result(s) from kb=%s:\n\n", len(clean), text.SanitizeInline(kbID))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "%d result(s) from kb=%s:\n\n", len(clean), text.SanitizeInline(kbID))
 	for i, r := range clean {
-		fmt.Fprintf(iostreams.IO.Out, "[%d] score=%.3f", i+1, r.Score)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "[%d] score=%.3f", i+1, r.Score)
 		if r.KnowledgeID != "" {
-			fmt.Fprintf(iostreams.IO.Out, "  doc=%s", text.SanitizeInline(r.KnowledgeID))
+			_, _ = fmt.Fprintf(iostreams.IO.Out, "  doc=%s", text.SanitizeInline(r.KnowledgeID))
 		}
-		fmt.Fprintln(iostreams.IO.Out)
-		fmt.Fprintln(iostreams.IO.Out, indent(strings.TrimSpace(text.SanitizeTerminal(r.Content)), "    "))
-		fmt.Fprintln(iostreams.IO.Out)
+		_, _ = fmt.Fprintln(iostreams.IO.Out)
+		_, _ = fmt.Fprintln(iostreams.IO.Out, indent(strings.TrimSpace(text.SanitizeTerminal(r.Content)), "    "))
+		_, _ = fmt.Fprintln(iostreams.IO.Out)
 	}
 	return nil
 }

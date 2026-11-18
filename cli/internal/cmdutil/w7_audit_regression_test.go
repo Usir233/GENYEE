@@ -92,7 +92,9 @@ func TestW7AuthRetryTransportBoomerangAndPrefixedAuthAndBoundedDrain(t *testing.
 		}))
 		defer evilSrv.Close()
 
-		rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, originSrv.URL, "secret-jwt", func(context.Context) (string, error) {
+		rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, originSrv.URL, "secret-jwt", func(
+			context.Context,
+		) (string, error) {
 			return "refreshed", nil
 		})
 		hc := &http.Client{Transport: rt}
@@ -109,7 +111,9 @@ func TestW7AuthRetryTransportBoomerangAndPrefixedAuthAndBoundedDrain(t *testing.
 		}))
 		defer srv.Close()
 
-		rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, srv.URL+"/subpath", "stale-jwt", func(context.Context) (string, error) {
+		rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, srv.URL+"/subpath", "stale-jwt", func(
+			context.Context,
+		) (string, error) {
 			refreshCalls.Add(1)
 			return "new-jwt", nil
 		})

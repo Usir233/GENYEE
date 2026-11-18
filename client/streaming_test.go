@@ -22,7 +22,7 @@ func agentSSEEvent(t *testing.T, w io.Writer, resp AgentStreamResponse) {
 	if err != nil {
 		t.Fatalf("marshal agent event: %v", err)
 	}
-	fmt.Fprintf(w, "data: %s\n\n", b)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 }
 
 func knowledgeSSEEvent(t *testing.T, w io.Writer, resp StreamResponse, eventType string) {
@@ -32,9 +32,9 @@ func knowledgeSSEEvent(t *testing.T, w io.Writer, resp StreamResponse, eventType
 		t.Fatalf("marshal knowledge event: %v", err)
 	}
 	if eventType != "" {
-		fmt.Fprintf(w, "event:%s\n", eventType)
+		_, _ = fmt.Fprintf(w, "event:%s\n", eventType)
 	}
-	fmt.Fprintf(w, "data:%s\n\n", b)
+	_, _ = fmt.Fprintf(w, "data:%s\n\n", b)
 }
 
 func TestProcessAgentSSEStream_MultilineDataFrame(t *testing.T) {
@@ -290,7 +290,7 @@ func TestProcessAgentSSEStream_DataLineLimits(t *testing.T) {
 }
 
 func TestKnowledgeQAStream_LargeReferenceLineParses(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		knowledgeSSEEvent(t, w, StreamResponse{
 			ResponseType: ResponseTypeReferences,
@@ -318,7 +318,7 @@ func TestKnowledgeQAStream_LargeReferenceLineParses(t *testing.T) {
 }
 
 func TestContinueStream_LargeReferenceLineParses(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		knowledgeSSEEvent(t, w, StreamResponse{
 			ResponseType: ResponseTypeReferences,
@@ -349,7 +349,7 @@ func TestContinueStream_LargeReferenceLineParses(t *testing.T) {
 // must NOT apply to SSE streams. Shrink that default to 100ms in-package so the
 // test remains fast; the server completes at 300ms.
 func TestAgentQAStreamWithRequest_DefaultBlanketTimeoutDoesNotCutStream(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		time.Sleep(300 * time.Millisecond)
 		agentSSEEvent(t, w, AgentStreamResponse{ResponseType: AgentResponseTypeComplete, Done: true})
@@ -379,7 +379,7 @@ func TestAgentQAStreamWithRequest_DefaultBlanketTimeoutDoesNotCutStream(t *testi
 // public WithTimeout contract: callers that explicitly request an upper bound
 // get it for streaming calls as well as ordinary requests.
 func TestAgentQAStreamWithRequest_ExplicitTimeoutStillApplies(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		time.Sleep(300 * time.Millisecond)
 		agentSSEEvent(t, w, AgentStreamResponse{ResponseType: AgentResponseTypeComplete, Done: true})

@@ -189,7 +189,7 @@ a curated read-only MCP tool surface for AI agents.`,
 	// Wrap cobra's flag-parsing errors as FlagError so cmdutil.ExitCode maps
 	// them to exit 2. "unknown command" errors are detected by message prefix
 	// in Execute() since cobra emits them as plain errors.
-	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return cmdutil.NewFlagError(err)
 	})
 
@@ -246,12 +246,12 @@ var versionFields = []string{"version", "commit", "date"}
 
 // newVersionCmd is the only leaf command shipped in the foundation PR. It
 // doubles as the smoke test that proves Factory + iostreams + cobra wiring works.
-func newVersionCmd(f *cmdutil.Factory) *cobra.Command {
+func newVersionCmd(_ *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show CLI build metadata",
 		Args:  cobra.NoArgs,
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
 				return err
@@ -265,7 +265,7 @@ func newVersionCmd(f *cmdutil.Factory) *cobra.Command {
 					"date":    date,
 				}, nil)
 			}
-			fmt.Fprintf(c.OutOrStdout(), "genyee %s (commit %s, built %s)\n", v, commit, date)
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "genyee %s (commit %s, built %s)\n", v, commit, date)
 			return nil
 		},
 	}

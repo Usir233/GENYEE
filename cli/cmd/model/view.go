@@ -49,12 +49,16 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, modelViewFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "fetch one model's full record by id",
-		RequiredFlags: []string{"<model-id> (positional)"},
-		Examples:      []string{"genyee model view model_abc --jq .data.type"},
-		Output:        "envelope.data is the Model object (id, name, display_name, type, source, is_default, parameters)",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "fetch one model's full record by id",
+			RequiredFlags: []string{"<model-id> (positional)"},
+			Examples:      []string{"genyee model view model_abc --jq .data.type"},
+			Output: "envelope.data is the Model object (id, name, display_name, type, source, is_default, " +
+				"parameters)",
+		},
+	)
 	return cmd
 }
 
@@ -74,23 +78,23 @@ func runView(ctx context.Context, fopts *cmdutil.FormatOptions, svc ViewService,
 		return fopts.Emit(iostreams.IO.Out, m, nil)
 	}
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:          %s\n", text.SanitizeInline(m.ID))
+	_, _ = fmt.Fprintf(w, "ID:          %s\n", text.SanitizeInline(m.ID))
 	if label := text.SanitizeInline(modelLabel(*m)); label != "" {
-		fmt.Fprintf(w, "NAME:        %s\n", label)
+		_, _ = fmt.Fprintf(w, "NAME:        %s\n", label)
 	}
-	fmt.Fprintf(w, "TYPE:        %s\n", text.SanitizeInline(string(m.Type)))
-	fmt.Fprintf(w, "SOURCE:      %s\n", text.SanitizeInline(string(m.Source)))
+	_, _ = fmt.Fprintf(w, "TYPE:        %s\n", text.SanitizeInline(string(m.Type)))
+	_, _ = fmt.Fprintf(w, "SOURCE:      %s\n", text.SanitizeInline(string(m.Source)))
 	if m.IsDefault {
-		fmt.Fprintf(w, "DEFAULT:     yes\n")
+		_, _ = fmt.Fprintf(w, "DEFAULT:     yes\n")
 	}
 	if m.Description != "" {
-		fmt.Fprintf(w, "DESCRIPTION: %s\n", text.SanitizeTerminal(m.Description))
+		_, _ = fmt.Fprintf(w, "DESCRIPTION: %s\n", text.SanitizeTerminal(m.Description))
 	}
 	if m.CreatedAt != "" {
-		fmt.Fprintf(w, "CREATED:     %s\n", text.SanitizeInline(m.CreatedAt))
+		_, _ = fmt.Fprintf(w, "CREATED:     %s\n", text.SanitizeInline(m.CreatedAt))
 	}
 	if m.UpdatedAt != "" {
-		fmt.Fprintf(w, "UPDATED:     %s\n", text.SanitizeInline(m.UpdatedAt))
+		_, _ = fmt.Fprintf(w, "UPDATED:     %s\n", text.SanitizeInline(m.UpdatedAt))
 	}
 	return nil
 }

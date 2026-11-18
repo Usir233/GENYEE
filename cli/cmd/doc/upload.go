@@ -33,15 +33,16 @@ var docUploadFields = []string{
 	"created_at", "updated_at", "processed_at", "error_message",
 }
 
+// UploadOptions holds flags and arguments for the `doc upload` command.
 type UploadOptions struct {
 	Name      string
 	Recursive bool   // --recursive: positional arg is a directory; walk + upload each match
 	Glob      string // --glob: filename pattern under --recursive (default "*")
 
-	// EnableMultimodel toggles server-side multimodal extraction
+	// EnableMultimodal toggles server-side multimodal extraction
 	// (e.g. images-in-PDF → OCR'd text). nil means "server default" -
 	// the flag was not set. true/false explicitly override.
-	EnableMultimodel *bool
+	EnableMultimodal *bool
 
 	// Metadata is the raw --metadata key=value list. Parsed into a map
 	// at run-time; empty values allowed, duplicate keys last-wins.
@@ -61,7 +62,7 @@ type UploadService interface {
 		ctx context.Context,
 		kbID, filePath string,
 		metadata map[string]string,
-		enableMultimodel *bool,
+		enableMultimodal *bool,
 		customFileName, channel string,
 		processConfig *sdk.KnowledgeProcessOverrides,
 	) (*sdk.Knowledge, error)
@@ -91,7 +92,7 @@ to create an entry from inline text use "genyee doc create".
 
 Server-side ingestion knobs:
 
-  --enable-multimodel      Toggle multimodal extraction (image-in-PDF → text).
+  --enable-multimodal      Toggle multimodal extraction (image-in-PDF → text).
                            Unset ⇒ server default; pass true or false to override.
                            Applies to file / --recursive.
   --metadata key=value     Attach arbitrary key/value metadata. Repeatable.
@@ -104,7 +105,7 @@ Server-side ingestion knobs:
   genyee doc upload notes.md --kb a32a63ff-fb36-4874-bcaa-30f48570a694
   genyee doc upload notes.md --kb my-kb
   genyee doc upload q3.pdf --name "Q3 Marketing Report.pdf"
-  genyee doc upload report.pdf --enable-multimodel --metadata team=alpha --metadata sprint=Q4
+  genyee doc upload report.pdf --enable-multimodal --metadata team=alpha --metadata sprint=Q4
   genyee doc upload ./docs --recursive --glob '*.pdf' --metadata team=alpha`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -118,13 +119,13 @@ Server-side ingestion knobs:
 			// (validateUploadPath) and recursive directory enumeration are
 			// intentionally skipped under --dry-run — those are side-effect-ish
 			// reads the preview is allowed to defer.
-			if c.Flags().Changed("enable-multimodel") {
-				raw, _ := c.Flags().GetString("enable-multimodel")
+			if c.Flags().Changed("enable-multimodal") {
+				raw, _ := c.Flags().GetString("enable-multimodal")
 				v, perr := parseTriBool(raw)
 				if perr != nil {
 					return perr
 				}
-				opts.EnableMultimodel = &v
+				opts.EnableMultimodal = &v
 			}
 			if err := validateUploadFlags(opts, args); err != nil {
 				return err
@@ -185,29 +186,38 @@ Server-side ingestion knobs:
 	cmd.Flags().BoolVar(&opts.Recursive, "recursive", false, "Treat the positional argument as a directory to walk")
 	cmd.Flags().StringVar(&opts.Glob, "glob", "*", "Filename pattern to filter when --recursive (e.g. '*.pdf')")
 	// Tri-state flag: unset ⇒ server default, "true"/"false" override. The
-	// raw string is decoded into opts.EnableMultimodel in RunE.
-	cmd.Flags().String("enable-multimodel", "", "Toggle multimodal extraction (true|false); unset ⇒ server default")
-	cmd.Flags().Lookup("enable-multimodel").NoOptDefVal = "true"
-	cmd.Flags().StringSliceVar(&opts.Metadata, "metadata", nil, "Attach metadata `key=value` (repeatable; empty value allowed, last-wins on duplicate keys)")
+	// raw string is decoded into opts.EnableMultimodal in RunE.
+	cmd.Flags().String("enable-multimodal", "", "Toggle multimodal extraction (true|false); unset ⇒ server default")
+	cmd.Flags().Lookup("enable-multimodal").NoOptDefVal = "true"
+	cmd.Flags().StringSliceVar(
+		&opts.Metadata,
+		"metadata",
+		nil,
+		"Attach metadata `key=value` (repeatable; empty value allowed, last-wins on duplicate keys)",
+	)
 	cmd.Flags().StringVar(&opts.Channel, "channel", "", "Ingestion-channel tag recorded server-side (default \"api\")")
 	cmdutil.AddFormatFlag(cmd, docUploadFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Upload a local file to the resolved knowledge base. KB resolved via --kb flag, GENYEE_KB_ID env, or project link. Emits the created Knowledge object with its id.",
-		RequiredFlags: []string{"<file> (positional)", "--kb (or GENYEE_KB_ID / project link)"},
-		Examples: []string{
-			`genyee doc upload report.pdf --kb kb_eng`,
-			`genyee doc upload report.pdf --kb kb_eng --jq .data.id   # then: doc wait <id>`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Upload a local file to the resolved knowledge base. KB resolved via --kb flag, " +
+				"GENYEE_KB_ID env, or project link. Emits the created Knowledge object with its id.",
+			RequiredFlags: []string{"<file> (positional)", "--kb (or GENYEE_KB_ID / project link)"},
+			Examples: []string{
+				`genyee doc upload report.pdf --kb kb_eng`,
+				`genyee doc upload report.pdf --kb kb_eng --jq .data.id   # then: doc wait <id>`,
+			},
+			Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, file_name, parse_status",
 		},
-		Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, file_name, parse_status",
-	})
+	)
 	return cmd
 }
 
-// parseTriBool parses the raw --enable-multimodel string into a bool. Bare
-// --enable-multimodel (no value) is treated as "true" via NoOptDefVal at
+// parseTriBool parses the raw --enable-multimodal string into a bool. Bare
+// --enable-multimodal (no value) is treated as "true" via NoOptDefVal at
 // registration time; callers gate on Changed() so an unset flag never gets
-// here. An explicit empty string (e.g. --enable-multimodel="" from an
+// here. An explicit empty string (e.g. --enable-multimodal="" from an
 // uninterpolated shell variable) is rejected as input.invalid_argument
 // rather than silently coerced.
 func parseTriBool(raw string) (bool, error) {
@@ -218,7 +228,7 @@ func parseTriBool(raw string) (bool, error) {
 		return false, nil
 	default:
 		return false, cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
-			fmt.Sprintf("--enable-multimodel expects true|false, got %q", raw))
+			fmt.Sprintf("--enable-multimodal expects true|false, got %q", raw))
 	}
 }
 
@@ -278,7 +288,11 @@ func validateUploadFlags(opts *UploadOptions, args []string) error {
 // file upload and URL ingest; verb varies (uploaded/ingested) and
 // fallbackDisplay covers the case when the server-recorded file_name is
 // blank (URL ingest pre-redirect).
-func renderUploadSuccess(k *sdk.Knowledge, fopts *cmdutil.FormatOptions, verb, customName, fallbackDisplay string) error {
+func renderUploadSuccess(
+	k *sdk.Knowledge,
+	fopts *cmdutil.FormatOptions,
+	verb, customName, fallbackDisplay string,
+) error {
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, k, nil)
 	}
@@ -289,7 +303,7 @@ func renderUploadSuccess(k *sdk.Knowledge, fopts *cmdutil.FormatOptions, verb, c
 	if displayed == "" {
 		displayed = fallbackDisplay
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ %s %q (id: %s)\n", verb, displayed, k.ID)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ %s %q (id: %s)\n", verb, displayed, k.ID)
 	return nil
 }
 
@@ -314,12 +328,27 @@ func validateUploadPath(path string) error {
 	return nil
 }
 
-func runUpload(ctx context.Context, opts *UploadOptions, fopts *cmdutil.FormatOptions, svc UploadService, kbID, path string) error {
+func runUpload(
+	ctx context.Context,
+	opts *UploadOptions,
+	fopts *cmdutil.FormatOptions,
+	svc UploadService,
+	kbID, path string,
+) error {
 	meta, err := parseMetadataKV(opts.Metadata)
 	if err != nil {
 		return err
 	}
-	k, err := svc.CreateKnowledgeFromFile(ctx, kbID, path, meta, opts.EnableMultimodel, opts.Name, cmp.Or(opts.Channel, uploadChannel), nil)
+	k, err := svc.CreateKnowledgeFromFile(
+		ctx,
+		kbID,
+		path,
+		meta,
+		opts.EnableMultimodal,
+		opts.Name,
+		cmp.Or(opts.Channel, uploadChannel),
+		nil,
+	)
 	if err != nil {
 		if errors.Is(err, sdk.ErrDuplicateFile) {
 			// SDK returns sentinel without an "HTTP error <status>:" prefix

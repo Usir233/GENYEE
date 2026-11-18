@@ -16,7 +16,7 @@ import (
 var profileUseFields = []string{"current_profile", "previous_profile"}
 
 // NewCmdUse builds the `genyee profile use <name>` command.
-func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
+func NewCmdUse(_ *cmdutil.Factory) *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "use <name>",
@@ -94,9 +94,9 @@ func runUseWithConfig(name string, cfg *config.Config, fopts *cmdutil.FormatOpti
 		return fopts.Emit(iostreams.IO.Out, result, nil)
 	}
 	if prev != "" && prev != name {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Switched profile to %s (was %s)\n", name, prev)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Switched profile to %s (was %s)\n", name, prev)
 	} else {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Active profile: %s\n", name)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Active profile: %s\n", name)
 	}
 	return nil
 }

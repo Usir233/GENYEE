@@ -21,22 +21,50 @@ func TestLoginPreservesHTTPFailureClassification(t *testing.T) {
 			status int
 			code   cmdutil.ErrorCode
 		}{
-			{401, cmdutil.CodeAuthBadCredential}, {403, cmdutil.CodeAuthForbidden}, {429, cmdutil.CodeServerRateLimited}, {503, cmdutil.CodeServerError},
+			{401, cmdutil.CodeAuthBadCredential},
+			{403, cmdutil.CodeAuthForbidden},
+			{429, cmdutil.CodeServerRateLimited},
+			{503, cmdutil.CodeServerError},
 		} {
-			t.Run(fmt.Sprintf("api_key_%v_status_%d", apiKey, tc.status), func(t *testing.T) {
-				_, _ = iostreams.SetForTest(t)
-				f := &cmdutil.Factory{Config: func() (*config.Config, error) {
-					return &config.Config{CurrentProfile: "prod", Profiles: map[string]config.Profile{"prod": {Host: "https://fixture.invalid"}}}, nil
-				}}
-				failure := &sdk.APIError{StatusCode: tc.status, Body: "fixture failure"}
-				saved := defaultAPIKeyValidator
-				defaultAPIKeyValidator = func(context.Context, string, string) (*sdk.AuthUser, error) { return nil, failure }
-				t.Cleanup(func() { defaultAPIKeyValidator = saved })
-				err := runLogin(context.Background(), &LoginOptions{WithToken: apiKey, StdinReader: strings.NewReader("fixture-key"), Email: "fixture@example.invalid", Password: "fixture"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, f, &fakeLoginService{err: failure})
-				ce := cmdutil.AsError(err)
-				require.NotNil(t, ce)
-				require.Equal(t, tc.code, ce.Code)
-			})
+			t.Run(
+				fmt.Sprintf("api_key_%v_status_%d", apiKey, tc.status),
+				func(t *testing.T) {
+					_, _ = iostreams.SetForTest(t)
+					f := &cmdutil.Factory{
+						Config: func() (*config.Config, error) {
+							return &config.Config{
+								CurrentProfile: "prod",
+								Profiles:       map[string]config.Profile{"prod": {Host: "https://fixture.invalid"}},
+							}, nil
+						},
+					}
+					failure := &sdk.APIError{StatusCode: tc.status, Body: "fixture failure"}
+					saved := defaultAPIKeyValidator
+					defaultAPIKeyValidator = func(
+						context.Context,
+						string,
+						string,
+					) (*sdk.AuthUser, error) {
+						return nil, failure
+					}
+					t.Cleanup(func() { defaultAPIKeyValidator = saved })
+					err := runLogin(
+						context.Background(),
+						&LoginOptions{
+							WithToken:   apiKey,
+							StdinReader: strings.NewReader("fixture-key"),
+							Email:       "fixture@example.invalid",
+							Password:    "fixture",
+						},
+						&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+						f,
+						&fakeLoginService{err: failure},
+					)
+					ce := cmdutil.AsError(err)
+					require.NotNil(t, ce)
+					require.Equal(t, tc.code, ce.Code)
+				},
+			)
 		}
 	}
 }

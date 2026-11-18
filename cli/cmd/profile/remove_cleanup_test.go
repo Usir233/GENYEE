@@ -19,9 +19,20 @@ func (s *removeFailureStore) Delete(string, string) error { return errors.New("k
 func TestRemoveKeepsProfileWhenCredentialsCannotBeDeleted(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	out, _ := iostreams.SetForTest(t)
-	cfg := &config.Config{CurrentProfile: "prod", Profiles: map[string]config.Profile{"prod": {Host: "https://example.invalid", TokenRef: "mem://prod/access"}}}
+	cfg := &config.Config{
+		CurrentProfile: "prod",
+		Profiles: map[string]config.Profile{
+			"prod": {Host: "https://example.invalid", TokenRef: "mem://prod/access"},
+		},
+	}
 	require.NoError(t, config.Save(cfg))
-	err := runRemove(&RemoveOptions{Yes: true}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, "prod", &removeFailureStore{secrets.NewMemStore()}, &testutil.ConfirmPrompter{})
+	err := runRemove(
+		&RemoveOptions{Yes: true},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		"prod",
+		&removeFailureStore{secrets.NewMemStore()},
+		&testutil.ConfirmPrompter{},
+	)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
 	require.Equal(t, cmdutil.CodeLocalKeychainDenied, typed.Code)
@@ -48,7 +59,16 @@ func TestRemoveDeletesOrphanedSecretsWithEmptyRefsAndSkipsEnvRefs(t *testing.T) 
 	}
 	require.NoError(t, config.Save(cfg))
 
-	require.NoError(t, runRemove(&RemoveOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, "staging", store, &testutil.ConfirmPrompter{}))
+	require.NoError(
+		t,
+		runRemove(
+			&RemoveOptions{},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+			"staging",
+			store,
+			&testutil.ConfirmPrompter{},
+		),
+	)
 	_, err := store.Get("staging", "access")
 	require.ErrorIs(t, err, secrets.ErrNotFound)
 	_, err = store.Get("staging", "refresh")

@@ -54,12 +54,17 @@ Provider API keys are never shown.`,
 	// read/write pairing as mainstream config surfaces.
 	cmd.AddCommand(newKBModelWriteCmd(f, "set <kb-id>", []string{"genyee", "kb", "config", "set"}))
 	cmdutil.AddFormatFlag(cmd, kbConfigFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "show a KB's model config (embedding/llm/rerank/multimodal by name, secret-free). retrieval_ready=false => run `genyee kb config set`. Write config with `genyee kb config set`.",
-		RequiredFlags: []string{"<kb-id> (positional)"},
-		Examples:      []string{"genyee kb config kb_abc --jq .data.embedding_model_id"},
-		Output:        "envelope.data is {retrieval_ready, embedding{configured,model_name,source,dimension}, llm{...}, rerank{enabled,model_name}, multimodal{enabled}} — secret-free (no provider api keys)",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "show a KB's model config (embedding/llm/rerank/multimodal by name, secret-free). " +
+				"retrieval_ready=false => run `genyee kb config set`. Write config with `genyee kb config set`.",
+			RequiredFlags: []string{"<kb-id> (positional)"},
+			Examples:      []string{"genyee kb config kb_abc --jq .data.embedding_model_id"},
+			Output: "envelope.data is {retrieval_ready, embedding{configured,model_name,source,dimension}, " +
+				"llm{...}, rerank{enabled,model_name}, multimodal{enabled}} — secret-free (no provider api keys)",
+		},
+	)
 	return cmd
 }
 
@@ -78,13 +83,17 @@ func runConfig(ctx context.Context, fopts *cmdutil.FormatOptions, svc ConfigServ
 		return fopts.Emit(iostreams.IO.Out, cfg, nil)
 	}
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "%-13s %v\n", "RETRIEVAL:", readyLabel(cfg.RetrievalReady))
-	fmt.Fprintf(w, "%-13s %s\n", "EMBEDDING:", slotLabel(cfg.Embedding))
-	fmt.Fprintf(w, "%-13s %s\n", "CHAT (LLM):", slotLabel(cfg.LLM))
-	fmt.Fprintf(w, "%-13s %s\n", "RERANK:", rerankLabel(cfg.Rerank))
-	fmt.Fprintf(w, "%-13s %v\n", "MULTIMODAL:", cfg.Multimodal.Enabled)
+	_, _ = fmt.Fprintf(w, "%-13s %v\n", "RETRIEVAL:", readyLabel(cfg.RetrievalReady))
+	_, _ = fmt.Fprintf(w, "%-13s %s\n", "EMBEDDING:", slotLabel(cfg.Embedding))
+	_, _ = fmt.Fprintf(w, "%-13s %s\n", "CHAT (LLM):", slotLabel(cfg.LLM))
+	_, _ = fmt.Fprintf(w, "%-13s %s\n", "RERANK:", rerankLabel(cfg.Rerank))
+	_, _ = fmt.Fprintf(w, "%-13s %v\n", "MULTIMODAL:", cfg.Multimodal.Enabled)
 	if !cfg.RetrievalReady {
-		fmt.Fprintln(w, "\n(not retrieval-ready — no embedding model; run `genyee kb config set <kb-id> --chat-model <id> --embedding-model <id>`)")
+		_, _ = fmt.Fprintln(
+			w,
+			"\n(not retrieval-ready — no embedding model; run `genyee kb config set <kb-id> --chat-model <id> --"+
+				"embedding-model <id>`)",
+		)
 	}
 	return nil
 }

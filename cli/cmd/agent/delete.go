@@ -15,6 +15,7 @@ import (
 // Result payload is a tiny {id, deleted} object — mirrors `kb delete`.
 var agentDeleteFields = []string{"id", "deleted"}
 
+// DeleteOptions holds flags and arguments for the `agent delete` command.
 type DeleteOptions struct {
 	AgentID string
 	Yes     bool // sourced from the global -y/--yes persistent flag
@@ -109,11 +110,26 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter) error {
+func runDelete(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DeleteService,
+	p prompt.Prompter,
+) error {
 	if err := cmdutil.ValidateResourceID("agent-id", opts.AgentID); err != nil {
 		return err
 	}
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "agent", opts.AgentID, "agent.delete", []string{"genyee", "agent", "delete", opts.AgentID, "-y"}); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"agent",
+		opts.AgentID,
+		"agent.delete",
+		[]string{"genyee", "agent", "delete", opts.AgentID, "-y"},
+	); err != nil {
 		return err
 	}
 	if err := svc.DeleteAgent(ctx, opts.AgentID); err != nil {
@@ -122,6 +138,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: opts.AgentID, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted agent %s\n", opts.AgentID)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted agent %s\n", opts.AgentID)
 	return nil
 }

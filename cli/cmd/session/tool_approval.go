@@ -113,7 +113,16 @@ func newCmdResolve(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			decision := decisionOf(opts.Reject)
-			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), decision, "tool call", opts.PendingID, "session.tool_approval.resolve", buildResolveRetryArgv(opts)); err != nil {
+			if err := cmdutil.ConfirmDestructive(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				decision,
+				"tool call",
+				opts.PendingID,
+				"session.tool_approval.resolve",
+				buildResolveRetryArgv(opts),
+			); err != nil {
 				return err
 			}
 			opts.Yes = true
@@ -126,23 +135,32 @@ func newCmdResolve(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&opts.Reject, "reject", false, "Reject the pending tool call instead of approving")
 	cmd.Flags().StringVar(&opts.Reason, "reason", "", "Reason recorded with the decision")
-	cmd.Flags().StringVar(&opts.ModifiedArgs, "modified-args", "", "Replace tool call arguments on approve (JSON object; conflicts with --reject)")
+	cmd.Flags().StringVar(
+		&opts.ModifiedArgs,
+		"modified-args",
+		"",
+		"Replace tool call arguments on approve (JSON object; conflicts with --reject)",
+	)
 	cmdutil.AddFormatFlag(cmd, resolveFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, "session.tool_approval.resolve")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "approve or reject a pending tool call from an agent run; then resume with session resume",
-		RequiredFlags: []string{"<pending-id> (positional)"},
-		Examples: []string{
-			"genyee session tool-approval resolve pend_abc -y",
-			"genyee session tool-approval resolve pend_abc --reject -y",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "approve or reject a pending tool call from an agent run; then resume with session resume",
+			RequiredFlags: []string{"<pending-id> (positional)"},
+			Examples: []string{
+				"genyee session tool-approval resolve pend_abc -y",
+				"genyee session tool-approval resolve pend_abc --reject -y",
+			},
+			Output: "envelope.data is {pending_id, decision (approve|reject), resolved:true}",
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"Approving executes the blocked tool call with the user's authority — show the user what tool/args " +
+					"are pending before resolving.",
+			},
 		},
-		Output: "envelope.data is {pending_id, decision (approve|reject), resolved:true}",
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"Approving executes the blocked tool call with the user's authority — show the user what tool/args are pending before resolving.",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -195,15 +213,19 @@ func validateModifiedArgs(opts *ResolveOptions) (json.RawMessage, error) {
 	}
 	if len(probe) == 0 {
 		return nil, &cmdutil.Error{
-			Code:    cmdutil.CodeInputInvalidArgument,
-			Message: "--modified-args must not be an empty object (it would wipe the original tool arguments); omit the flag to keep them",
+			Code: cmdutil.CodeInputInvalidArgument,
+			Message: "--modified-args must not be an empty object (it would wipe the original tool arguments); omit " +
+				"the flag to keep them",
 		}
 	}
 	return json.RawMessage(opts.ModifiedArgs), nil
 }
 
 func buildResolveRetryArgv(opts *ResolveOptions) []string {
-	retryCmd := append([]string{"genyee", "session", "tool-approval", "resolve", opts.PendingID}, retryArgOf(opts.Reject)...)
+	retryCmd := append(
+		[]string{"genyee", "session", "tool-approval", "resolve", opts.PendingID},
+		retryArgOf(opts.Reject)...,
+	)
 	if opts.ModifiedArgs != "" {
 		retryCmd = append(retryCmd, "--modified-args", opts.ModifiedArgs)
 	}
@@ -213,7 +235,13 @@ func buildResolveRetryArgv(opts *ResolveOptions) []string {
 	return append(retryCmd, "-y")
 }
 
-func runResolve(ctx context.Context, opts *ResolveOptions, fopts *cmdutil.FormatOptions, svc ResolveService, p prompt.Prompter) error {
+func runResolve(
+	ctx context.Context,
+	opts *ResolveOptions,
+	fopts *cmdutil.FormatOptions,
+	svc ResolveService,
+	p prompt.Prompter,
+) error {
 	if err := cmdutil.ValidateResourceID("pending-id", opts.PendingID); err != nil {
 		return err
 	}
@@ -226,7 +254,16 @@ func runResolve(ctx context.Context, opts *ResolveOptions, fopts *cmdutil.Format
 	// contract): the decision-relevant flags belong in it, or the envelope
 	// advertises an approval of the original arguments.
 	retryCmd := buildResolveRetryArgv(opts)
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), decision, "tool call", opts.PendingID, "session.tool_approval.resolve", retryCmd); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		decision,
+		"tool call",
+		opts.PendingID,
+		"session.tool_approval.resolve",
+		retryCmd,
+	); err != nil {
 		return err
 	}
 	if err := svc.ResolveToolApproval(ctx, opts.PendingID, &sdk.ResolveToolApprovalRequest{
@@ -237,8 +274,17 @@ func runResolve(ctx context.Context, opts *ResolveOptions, fopts *cmdutil.Format
 		return cmdutil.WrapHTTP(err, "resolve tool approval %s", opts.PendingID)
 	}
 	if fopts.WantsJSON() {
-		return fopts.Emit(iostreams.IO.Out, resolveResult{PendingID: opts.PendingID, Decision: decision, Resolved: true}, nil)
+		return fopts.Emit(
+			iostreams.IO.Out,
+			resolveResult{PendingID: opts.PendingID, Decision: decision, Resolved: true},
+			nil,
+		)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ %s tool call %s\n", decisionPastTense(decision), text.SanitizeInline(opts.PendingID))
+	_, _ = fmt.Fprintf(
+		iostreams.IO.Out,
+		"✓ %s tool call %s\n",
+		decisionPastTense(decision),
+		text.SanitizeInline(opts.PendingID),
+	)
 	return nil
 }

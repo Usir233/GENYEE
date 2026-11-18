@@ -44,13 +44,21 @@ type Projector struct {
 	assistantMessageID string
 }
 
+// NewProjector constructs an SSE event projector.
 func NewProjector(verbose, reference bool, fallbackKBID string) *Projector {
 	return &Projector{verbose: verbose, reference: reference, fallbackKBID: fallbackKBID}
 }
 
-func (p *Projector) Seen() bool                 { return p.seen }
-func (p *Projector) Done() bool                 { return p.done }
-func (p *Projector) SessionID() string          { return p.sessionID }
+// Seen reports whether at least one stream frame has been processed.
+func (p *Projector) Seen() bool { return p.seen }
+
+// Done reports whether the stream reached a terminal completion frame.
+func (p *Projector) Done() bool { return p.done }
+
+// SessionID returns the session ID observed on the stream, if any.
+func (p *Projector) SessionID() string { return p.sessionID }
+
+// AssistantMessageID returns the assistant message ID observed on the stream, if any.
 func (p *Projector) AssistantMessageID() string { return p.assistantMessageID }
 
 // TerminalError reports whether the stream terminated via an error event
@@ -201,6 +209,7 @@ type TextRenderer struct {
 	utf8Len   int
 }
 
+// NewTextRenderer constructs a streaming human-readable text renderer.
 func NewTextRenderer(w io.Writer, verbose bool) *TextRenderer {
 	return &TextRenderer{w: w, verbose: verbose, atBOL: true}
 }
@@ -218,6 +227,7 @@ func (r *TextRenderer) Write(ev ProjectedEvent) error {
 	}
 }
 
+// Close flushes buffered partial UTF-8 bytes and ensures a trailing newline.
 func (r *TextRenderer) Close() error {
 	if err := r.flushStreamState(); err != nil {
 		return err
@@ -485,7 +495,14 @@ func (r *TextRenderer) consumeRune(out *strings.Builder, rn rune) {
 		out.WriteByte('\t')
 		return
 	}
-	if rn < 0x20 || rn == 0x7f || (rn >= 0x80 && rn <= 0x9f) || (rn >= 0x202a && rn <= 0x202e) || (rn >= 0x2066 && rn <= 0x2069) {
+	if rn < 0x20 ||
+		rn == 0x7f ||
+		(rn >= 0x80 &&
+			rn <= 0x9f) ||
+		(rn >= 0x202a &&
+			rn <= 0x202e) ||
+		(rn >= 0x2066 &&
+			rn <= 0x2069) {
 		return
 	}
 	out.WriteRune(rn)

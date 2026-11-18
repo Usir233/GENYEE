@@ -107,20 +107,30 @@ don't require a file upload or remote URL. KB resolution follows the standard
 	_ = cmd.MarkFlagRequired("text")
 	cmdutil.AddFormatFlag(cmd, docCreateFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Create a knowledge entry from inline Markdown text. KB resolved via --kb flag, GENYEE_KB_ID env, or project link. Emits the created Knowledge object with its id.",
-		RequiredFlags: []string{"--text", "--kb (or GENYEE_KB_ID / project link)"},
-		Examples: []string{
-			`genyee doc create --kb kb_eng --text "# Runbook\n\nRestart steps: ..."`,
-			`genyee doc create --kb kb_eng --text "$(cat notes.md)" --title "Sprint Notes"`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Create a knowledge entry from inline Markdown text. KB resolved via --kb flag, " +
+				"GENYEE_KB_ID env, or project link. Emits the created Knowledge object with its id.",
+			RequiredFlags: []string{"--text", "--kb (or GENYEE_KB_ID / project link)"},
+			Examples: []string{
+				`genyee doc create --kb kb_eng --text "# Runbook\n\nRestart steps: ..."`,
+				`genyee doc create --kb kb_eng --text "$(cat notes.md)" --title "Sprint Notes"`,
+			},
+			Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, title, parse_status",
 		},
-		Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, title, parse_status",
-	})
+	)
 	return cmd
 }
 
 // runCreate creates a manual knowledge entry via SDK CreateManualKnowledge.
-func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOptions, svc CreateService, kbID string) error {
+func runCreate(
+	ctx context.Context,
+	opts *CreateOptions,
+	fopts *cmdutil.FormatOptions,
+	svc CreateService,
+	kbID string,
+) error {
 	// Guard against empty text: cobra's MarkFlagRequired enforces this for
 	// normal CLI invocations; this check protects tests that call runCreate
 	// directly and any future callers that bypass cobra.
@@ -143,7 +153,11 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	// timeout or `search` into empty results.
 	var meta *output.Meta
 	if k.ParseStatus == "draft" {
-		meta = &output.Meta{Hint: "document created in parse_status=draft (not yet indexed) — run `genyee doc reparse " + k.ID + "` to parse & make it searchable"}
+		meta = &output.Meta{
+			Hint: "document created in parse_status=draft (not yet indexed) — run `genyee doc reparse " +
+				k.ID +
+				"` to parse & make it searchable",
+		}
 	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, k, meta)
@@ -155,9 +169,9 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	if displayed == "" {
 		displayed = k.ID
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Created %q (id: %s)\n", displayed, k.ID)
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Created %q (id: %s)\n", displayed, k.ID)
 	if meta != nil {
-		fmt.Fprintf(iostreams.IO.Out, "  ⚠ %s\n", meta.Hint)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "  ⚠ %s\n", meta.Hint)
 	}
 	return nil
 }

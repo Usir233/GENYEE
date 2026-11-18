@@ -21,6 +21,7 @@ func (f *fakeNilUserDoctorSvc) PingBaseURL(_ context.Context) error { return nil
 func (f *fakeNilUserDoctorSvc) GetCurrentUser(_ context.Context) (*sdk.CurrentUserResponse, error) {
 	return &sdk.CurrentUserResponse{Success: false}, nil
 }
+
 func (f *fakeNilUserDoctorSvc) GetSystemInfo(_ context.Context) (*sdk.SystemInfo, error) {
 	return &sdk.SystemInfo{Version: "0.10.0"}, nil
 }

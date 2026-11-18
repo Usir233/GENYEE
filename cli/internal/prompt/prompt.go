@@ -26,6 +26,11 @@ type Prompter interface {
 // closure result whenever agent mode is detected.
 type AgentPrompter struct{}
 
+// Input always fails with ErrAgentNoPrompt in non-interactive mode.
 func (AgentPrompter) Input(string, string) (string, error) { return "", ErrAgentNoPrompt }
-func (AgentPrompter) Password(string) (string, error)      { return "", ErrAgentNoPrompt }
-func (AgentPrompter) Confirm(string, bool) (bool, error)   { return false, ErrAgentNoPrompt }
+
+// Password always fails with ErrAgentNoPrompt in non-interactive mode.
+func (AgentPrompter) Password(string) (string, error) { return "", ErrAgentNoPrompt }
+
+// Confirm always fails with ErrAgentNoPrompt in non-interactive mode.
+func (AgentPrompter) Confirm(string, bool) (bool, error) { return false, ErrAgentNoPrompt }

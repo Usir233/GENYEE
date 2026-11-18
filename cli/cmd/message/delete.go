@@ -84,7 +84,16 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			}); handled {
 				return err
 			}
-			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "message", opts.MessageID, "message.delete", []string{"genyee", "message", "delete", opts.MessageID, "--session", opts.SessionID, "-y"}); err != nil {
+			if err := cmdutil.ConfirmDestructive(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"delete",
+				"message",
+				opts.MessageID,
+				"message.delete",
+				[]string{"genyee", "message", "delete", opts.MessageID, "--session", opts.SessionID, "-y"},
+			); err != nil {
 				return err
 			}
 			opts.Yes = true
@@ -113,14 +122,29 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter) error {
+func runDelete(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DeleteService,
+	p prompt.Prompter,
+) error {
 	if err := cmdutil.ValidateResourceID("message-id", opts.MessageID); err != nil {
 		return err
 	}
 	if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
 		return err
 	}
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "message", opts.MessageID, "message.delete", []string{"genyee", "message", "delete", opts.MessageID, "--session", opts.SessionID, "-y"}); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"message",
+		opts.MessageID,
+		"message.delete",
+		[]string{"genyee", "message", "delete", opts.MessageID, "--session", opts.SessionID, "-y"},
+	); err != nil {
 		return err
 	}
 	if err := svc.DeleteMessage(ctx, opts.SessionID, opts.MessageID); err != nil {
@@ -129,6 +153,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: opts.MessageID, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted message %s\n", text.SanitizeInline(opts.MessageID))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted message %s\n", text.SanitizeInline(opts.MessageID))
 	return nil
 }

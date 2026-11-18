@@ -10,6 +10,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
+// AddOptions holds flags and arguments for the `profile add` command.
 type AddOptions struct {
 	Host   string
 	User   string
@@ -37,7 +38,7 @@ type addResult struct {
 // `genyee auth login`, separating "where" the CLI talks to (the host) and
 // "how" it authenticates (the credential). Pass --use to switch to the new
 // profile immediately, then run `genyee auth login`.
-func NewCmdAdd(f *cmdutil.Factory) *cobra.Command {
+func NewCmdAdd(_ *cmdutil.Factory) *cobra.Command {
 	opts := &AddOptions{}
 	cmd := &cobra.Command{
 		Use:   "add <name>",
@@ -99,14 +100,19 @@ adds leave the current profile untouched unless --use is passed.`,
 	cmdutil.AddFormatFlag(cmd, profileAddFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	_ = cmd.MarkFlagRequired("host")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Register a new profile (connection target) with a name and host URL. Does not store credentials; make it active (--use, or `profile use <n>`) and run `auth login` afterwards to authenticate.",
-		RequiredFlags: []string{"<name> (positional)", "--host"},
-		Output:        "envelope.data has name, host, user, current",
-		Examples: []string{
-			"genyee profile add prod --host https://kb.example.com --use",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Register a new profile (connection target) with a name and host URL. Does not store " +
+				"credentials; make it active (--use, or `profile use <n>`) and run `auth login` afterwards to " +
+				"authenticate.",
+			RequiredFlags: []string{"<name> (positional)", "--host"},
+			Output:        "envelope.data has name, host, user, current",
+			Examples: []string{
+				"genyee profile add prod --host https://kb.example.com --use",
+			},
 		},
-	})
+	)
 	return cmd
 }
 
@@ -158,9 +164,18 @@ func runAddWithConfig(opts *AddOptions, fopts *cmdutil.FormatOptions, name, host
 		return fopts.Emit(iostreams.IO.Out, addResult{Name: name, Host: host, User: opts.User, Current: current}, nil)
 	}
 	if current {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Added profile %s (now current). Run `genyee auth login` to attach credentials.\n", name)
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Out,
+			"✓ Added profile %s (now current). Run `genyee auth login` to attach credentials.\n",
+			name,
+		)
 	} else {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Added profile %s. Run `genyee profile use %s` then `genyee auth login` to attach credentials.\n", name, name)
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Out,
+			"✓ Added profile %s. Run `genyee profile use %s` then `genyee auth login` to attach credentials.\n",
+			name,
+			name,
+		)
 	}
 	return nil
 }

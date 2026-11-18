@@ -30,7 +30,7 @@ type scriptedUploadSvc struct {
 	// Captures from the most-recent call (every recursive iteration writes
 	// these; tests that want all-rows can extend to slices later).
 	lastMetadata         map[string]string
-	lastEnableMultimodel *bool
+	lastEnableMultimodal *bool
 	lastChannel          string
 	// customFileName is the path-qualified name the CLI passes so the server
 	// can rebuild the directory tree. Recorded per-call, keyed by base name.
@@ -41,7 +41,7 @@ func (s *scriptedUploadSvc) CreateKnowledgeFromFile(
 	_ context.Context,
 	_, filePath string,
 	metadata map[string]string,
-	enableMultimodel *bool,
+	enableMultimodal *bool,
 	customFileName, channel string,
 	_ *sdk.KnowledgeProcessOverrides,
 ) (*sdk.Knowledge, error) {
@@ -52,7 +52,7 @@ func (s *scriptedUploadSvc) CreateKnowledgeFromFile(
 	}
 	s.customFileName[base] = customFileName
 	s.lastMetadata = metadata
-	s.lastEnableMultimodel = enableMultimodel
+	s.lastEnableMultimodal = enableMultimodal
 	s.lastChannel = channel
 	r, ok := s.results[base]
 	if !ok {
@@ -77,7 +77,17 @@ func TestUploadRecursive_WalksAllFiles(t *testing.T) {
 
 	svc := &scriptedUploadSvc{}
 	opts := &UploadOptions{Recursive: true, Glob: "*"}
-	require.NoError(t, runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir))
+	require.NoError(
+		t,
+		runUploadRecursive(
+			context.Background(),
+			opts,
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			svc,
+			"kb_xxx",
+			dir,
+		),
+	)
 
 	sort.Strings(svc.called)
 	assert.Equal(t, []string{"a.pdf", "b.pdf", "c.pdf"}, svc.called)
@@ -127,7 +137,17 @@ func TestUploadRecursive_GlobFilter(t *testing.T) {
 
 	svc := &scriptedUploadSvc{}
 	opts := &UploadOptions{Recursive: true, Glob: "*.pdf"}
-	require.NoError(t, runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir))
+	require.NoError(
+		t,
+		runUploadRecursive(
+			context.Background(),
+			opts,
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			svc,
+			"kb_xxx",
+			dir,
+		),
+	)
 
 	sort.Strings(svc.called)
 	assert.Equal(t, []string{"doc.pdf", "keep.pdf"}, svc.called)
@@ -145,7 +165,14 @@ func TestUploadRecursive_PartialFailure_Exits1(t *testing.T) {
 		"bad.pdf": {err: errors.New("HTTP error 500: internal")},
 	}}
 	opts := &UploadOptions{Recursive: true, Glob: "*"}
-	err := runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir)
+	err := runUploadRecursive(
+		context.Background(),
+		opts,
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+		"kb_xxx",
+		dir,
+	)
 	require.Error(t, err)
 
 	var typed *cmdutil.Error
@@ -171,7 +198,17 @@ func TestUploadRecursive_NoMatches(t *testing.T) {
 
 	svc := &scriptedUploadSvc{}
 	opts := &UploadOptions{Recursive: true, Glob: "*.pdf"}
-	require.NoError(t, runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir))
+	require.NoError(
+		t,
+		runUploadRecursive(
+			context.Background(),
+			opts,
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			svc,
+			"kb_xxx",
+			dir,
+		),
+	)
 	assert.Len(t, svc.called, 0)
 	assert.Contains(t, strings.ToLower(out.String()), "no files matched")
 }
@@ -180,7 +217,14 @@ func TestUploadRecursive_NotADirectory(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
 	path := writeTempFile(t, "single.pdf")
 	svc := &scriptedUploadSvc{}
-	err := runUploadRecursive(context.Background(), &UploadOptions{Recursive: true, Glob: "*"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", path)
+	err := runUploadRecursive(
+		context.Background(),
+		&UploadOptions{Recursive: true, Glob: "*"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+		"kb_xxx",
+		path,
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -194,7 +238,14 @@ func TestUploadRecursive_RejectsNameFlag(t *testing.T) {
 	mkTree(t, dir, "a.pdf")
 	svc := &scriptedUploadSvc{}
 	opts := &UploadOptions{Recursive: true, Glob: "*", Name: "single-name.pdf"}
-	err := runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir)
+	err := runUploadRecursive(
+		context.Background(),
+		opts,
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+		"kb_xxx",
+		dir,
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -202,7 +253,7 @@ func TestUploadRecursive_RejectsNameFlag(t *testing.T) {
 	assert.Contains(t, typed.Message, "--name")
 }
 
-func TestUploadRecursive_PropagatesMultimodelAndMetadata(t *testing.T) {
+func TestUploadRecursive_PropagatesMultimodalAndMetadata(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
 	dir := t.TempDir()
 	mkTree(t, dir, "a.pdf")
@@ -212,14 +263,24 @@ func TestUploadRecursive_PropagatesMultimodelAndMetadata(t *testing.T) {
 	opts := &UploadOptions{
 		Recursive:        true,
 		Glob:             "*",
-		EnableMultimodel: &mm,
+		EnableMultimodal: &mm,
 		Metadata:         []string{"team=alpha"},
 		Channel:          "browser_extension",
 	}
-	require.NoError(t, runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir))
+	require.NoError(
+		t,
+		runUploadRecursive(
+			context.Background(),
+			opts,
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			svc,
+			"kb_xxx",
+			dir,
+		),
+	)
 
-	require.NotNil(t, svc.lastEnableMultimodel)
-	assert.True(t, *svc.lastEnableMultimodel)
+	require.NotNil(t, svc.lastEnableMultimodal)
+	assert.True(t, *svc.lastEnableMultimodal)
 	assert.Equal(t, map[string]string{"team": "alpha"}, svc.lastMetadata)
 	assert.Equal(t, "browser_extension", svc.lastChannel)
 }
@@ -231,7 +292,14 @@ func TestUploadRecursive_MetadataInvalid_NoCalls(t *testing.T) {
 
 	svc := &scriptedUploadSvc{}
 	opts := &UploadOptions{Recursive: true, Glob: "*", Metadata: []string{"badformat"}}
-	err := runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, "kb_xxx", dir)
+	err := runUploadRecursive(
+		context.Background(),
+		opts,
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+		"kb_xxx",
+		dir,
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -254,7 +322,14 @@ func TestUploadRecursive_JSON_BatchEnvelope(t *testing.T) {
 		"bad.pdf": {err: errors.New("HTTP error 500: internal")},
 	}}
 	opts := &UploadOptions{Recursive: true, Glob: "*"}
-	err := runUploadRecursive(context.Background(), opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc, "kb_xxx", dir)
+	err := runUploadRecursive(
+		context.Background(),
+		opts,
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		svc,
+		"kb_xxx",
+		dir,
+	)
 	require.Error(t, err) // partial failure → typed error
 
 	var env struct {
@@ -287,8 +362,16 @@ func TestUploadRecursive_JSON_BatchEnvelope(t *testing.T) {
 
 	// File paths are used as batch item ids; verify both files appear.
 	ids := []string{env.Data[0].ID, env.Data[1].ID}
-	assert.True(t, strings.Contains(ids[0], "ok.pdf") || strings.Contains(ids[1], "ok.pdf"), "ok.pdf must appear in batch data")
-	assert.True(t, strings.Contains(ids[0], "bad.pdf") || strings.Contains(ids[1], "bad.pdf"), "bad.pdf must appear in batch data")
+	assert.True(
+		t,
+		strings.Contains(ids[0], "ok.pdf") || strings.Contains(ids[1], "ok.pdf"),
+		"ok.pdf must appear in batch data",
+	)
+	assert.True(
+		t,
+		strings.Contains(ids[0], "bad.pdf") || strings.Contains(ids[1], "bad.pdf"),
+		"bad.pdf must appear in batch data",
+	)
 
 	// The success item must have a result with server id/name.
 	for _, item := range env.Data {

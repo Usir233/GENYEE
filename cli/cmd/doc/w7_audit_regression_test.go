@@ -17,21 +17,30 @@ import (
 )
 
 func TestW7DownloadBlocksDanglingSymlinkOverwriteAndServerFilenameTricks(t *testing.T) {
-	t.Run("refuses dangling symlink destination without --clobber", func(t *testing.T) {
-		_, _ = iostreams.SetForTest(t)
-		dir := t.TempDir()
-		target := filepath.Join(dir, "created-via-dangling.txt")
-		link := filepath.Join(dir, "dangling.txt")
-		if err := os.Symlink(target, link); err != nil {
-			t.Skipf("symlink unavailable: %v", err)
-		}
+	t.Run(
+		"refuses dangling symlink destination without --clobber",
+		func(t *testing.T) {
+			_, _ = iostreams.SetForTest(t)
+			dir := t.TempDir()
+			target := filepath.Join(dir, "created-via-dangling.txt")
+			link := filepath.Join(dir, "dangling.txt")
+			if err := os.Symlink(target, link); err != nil {
+				t.Skipf("symlink unavailable: %v", err)
+			}
 
-		svc := &fakeDownloadSvc{content: "overwrite-attempt", filename: "dangling.txt"}
-		err := runDownload(context.Background(), &DownloadOptions{Output: link, Clobber: false}, textFopts(), svc, "doc_1")
-		require.Error(t, err, "dangling symlink must not be clobbered when --clobber is false")
-		_, statErr := os.Stat(target)
-		assert.True(t, os.IsNotExist(statErr), "target of dangling symlink must not be created")
-	})
+			svc := &fakeDownloadSvc{content: "overwrite-attempt", filename: "dangling.txt"}
+			err := runDownload(
+				context.Background(),
+				&DownloadOptions{Output: link, Clobber: false},
+				textFopts(),
+				svc,
+				"doc_1",
+			)
+			require.Error(t, err, "dangling symlink must not be clobbered when --clobber is false")
+			_, statErr := os.Stat(target)
+			assert.True(t, os.IsNotExist(statErr), "target of dangling symlink must not be created")
+		},
+	)
 
 	t.Run("rejects server-suggested '-' filename so server cannot hijack stdout", func(t *testing.T) {
 		out, _ := iostreams.SetForTest(t)
@@ -50,7 +59,9 @@ func TestW7DownloadBlocksDanglingSymlinkOverwriteAndServerFilenameTricks(t *test
 		require.Error(t, err)
 	})
 
-	t.Run("refuses writing server-suggested filename through existing CWD symlink even with --clobber", func(t *testing.T) {
+	t.Run("refuses writing server-suggested filename through existing CWD symlink even with --clobber", func(
+		t *testing.T,
+	) {
 		_, _ = iostreams.SetForTest(t)
 		cwd := t.TempDir()
 		outside := filepath.Join(t.TempDir(), "victim.txt")
@@ -128,12 +139,6 @@ func TestW7UploadRecursiveClassifiesDuplicateAndDryRunValidatesFlags(t *testing.
 		err = c2.Execute()
 		require.Error(t, err)
 	})
-}
-
-type fakePendingWaitSvc struct{}
-
-func (f *fakePendingWaitSvc) GetKnowledge(_ context.Context, id string) (*sdk.Knowledge, error) {
-	return &sdk.Knowledge{ID: id, ParseStatus: "processing"}, nil
 }
 
 func TestW7DocWaitCancelledContextAndInvalidIntervals(t *testing.T) {

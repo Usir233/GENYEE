@@ -44,7 +44,7 @@ func newTestFactoryWithConfig(t *testing.T, p prompt.Prompter) (*cmdutil.Factory
 	testutil.XDGTempDir(t)
 	store := secrets.NewMemStore()
 	return &cmdutil.Factory{
-		Config:   func() (*config.Config, error) { return config.Load() },
+		Config:   config.Load,
 		Client:   func() (*sdk.Client, error) { panic("client") },
 		Prompter: func() prompt.Prompter { return p },
 		Secrets:  func() (secrets.Store, error) { return store, nil },
@@ -73,7 +73,10 @@ func TestRunLogin_PasswordMode(t *testing.T) {
 		Token:   "jwt-access",
 		User:    &sdk.AuthUser{ID: "u1", Email: "a@b.c", TenantID: 7},
 	}}
-	require.NoError(t, runLogin(context.Background(), &LoginOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, svc))
+	require.NoError(
+		t,
+		runLogin(context.Background(), &LoginOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, svc),
+	)
 
 	assert.Equal(t, "a@b.c", svc.got.email)
 	assert.Equal(t, "secret", svc.got.password)
@@ -82,7 +85,12 @@ func TestRunLogin_PasswordMode(t *testing.T) {
 	assert.Equal(t, "jwt-access", got)
 
 	cfg, _ := f.Config()
-	assert.Equal(t, "https://kb.example.com", cfg.Profiles["prod"].Host, "host must be preserved from the seeded profile")
+	assert.Equal(
+		t,
+		"https://kb.example.com",
+		cfg.Profiles["prod"].Host,
+		"host must be preserved from the seeded profile",
+	)
 }
 
 func TestRunLogin_WithToken(t *testing.T) {

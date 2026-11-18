@@ -53,7 +53,13 @@ type AskOptions struct {
 // agent / KB-chat invocations.
 type AskService interface {
 	CreateSession(ctx context.Context, req *sdk.CreateSessionRequest) (*sdk.Session, error)
-	AgentQAStreamWithRequest(ctx context.Context, sessionID string, req *sdk.AgentQARequest, cb sdk.AgentEventCallback, opts ...sdk.ResourceURLOptions) error
+	AgentQAStreamWithRequest(
+		ctx context.Context,
+		sessionID string,
+		req *sdk.AgentQARequest,
+		cb sdk.AgentEventCallback,
+		opts ...sdk.ResourceURLOptions,
+	) error
 }
 
 // NewCmdAsk builds `genyee session ask --agent <agent-id> "<text>"`.
@@ -112,18 +118,29 @@ both flags for the complete projected stream.`,
 	_ = cmd.MarkFlagRequired("agent")
 	cmd.Flags().StringVar(&opts.SessionID, "session", "", "Continue an existing chat session (skip auto-create)")
 	cmd.Flags().BoolVar(&opts.Reference, "reference", false, "Include indexed references in JSON/text output")
-	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "Include reasoning, tools, and lifecycle events in JSON/text output")
+	cmd.Flags().BoolVar(
+		&opts.Verbose,
+		"verbose",
+		false,
+		"Include reasoning, tools, and lifecycle events in JSON/text output",
+	)
 	cmdutil.AddFormatFlag(cmd, sessionAskFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Invoke a custom agent in a session context. Default JSON returns a bounded answer-event projection. --reference adds indexed citations; --verbose adds reasoning, tools, and lifecycle events. --format ndjson streams raw SDK agent events; --format text renders the selected events live.",
-		RequiredFlags: []string{"<text> (positional)", "--agent"},
-		Examples: []string{
-			`genyee session ask --agent ag_x "Summarize Q3 sales"`,
-			`genyee session ask --agent ag_x "Summarize Q3 sales" --jq '[.data.events[].content] | join("")'`,
-			`genyee session ask --session sess_x --agent ag_x "Follow-up question"`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Invoke a custom agent in a session context. Default JSON returns a bounded answer-event " +
+				"projection. --reference adds indexed citations; --verbose adds reasoning, tools, and lifecycle " +
+				"events. --format ndjson streams raw SDK agent events; --format text renders the selected events live.",
+			RequiredFlags: []string{"<text> (positional)", "--agent"},
+			Examples: []string{
+				`genyee session ask --agent ag_x "Summarize Q3 sales"`,
+				`genyee session ask --agent ag_x "Summarize Q3 sales" --jq '[.data.events[].content] | join("")'`,
+				`genyee session ask --session sess_x --agent ag_x "Follow-up question"`,
+			},
+			Output: "Default --format json: {ok,data:{events:[answer...],session_id,agent_id,query}}. --reference " +
+				"adds kb_id/chunk_id reference events; --verbose adds execution events. --format ndjson remains raw.",
 		},
-		Output: "Default --format json: {ok,data:{events:[answer...],session_id,agent_id,query}}. --reference adds kb_id/chunk_id reference events; --verbose adds execution events. --format ndjson remains raw.",
-	})
+	)
 	return cmd
 }
 
@@ -180,7 +197,11 @@ func runAsk(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOptions,
 	// leaves a recoverable pointer. Skipped in json/ndjson mode (session_id
 	// is in the output).
 	if autoCreated {
-		fmt.Fprintf(iostreams.IO.Err, "session: %s (use --session to continue)\n", text.SanitizeInline(sessionID))
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Err,
+			"session: %s (use --session to continue)\n",
+			text.SanitizeInline(sessionID),
+		)
 	}
 
 	return runAskText(ctx, opts, sessionID, autoCreated, svc)
@@ -248,7 +269,7 @@ func runAskText(ctx context.Context, opts *AskOptions, sessionID string, autoCre
 	if streamErr != nil {
 		if autoCreated {
 			safeSess := text.SanitizeInline(sessionID)
-			fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", safeSess, safeSess)
+			_, _ = fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", safeSess, safeSess)
 		}
 		if cmdutil.IsCancelled(ctx, streamErr) {
 			return cmdutil.Wrapf(cmdutil.CodeOperationCancelled, streamErr, "session ask cancelled")
@@ -272,7 +293,13 @@ func runAskText(ctx context.Context, opts *AskOptions, sessionID string, autoCre
 
 // runAskJSON handles the --format json path (the default): collect the
 // projection and emit it in one normal success envelope.
-func runAskJSON(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOptions, sessionID string, svc AskService) error {
+func runAskJSON(
+	ctx context.Context,
+	opts *AskOptions,
+	fopts *cmdutil.FormatOptions,
+	sessionID string,
+	svc AskService,
+) error {
 	req := &sdk.AgentQARequest{
 		Query:        opts.Query,
 		AgentEnabled: true,
@@ -300,7 +327,10 @@ func runAskJSON(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOpti
 			return askStreamError(ce, sessionID)
 		}
 		if cmdutil.IsCancelled(ctx, err) {
-			return askStreamError(cmdutil.Wrapf(cmdutil.CodeOperationCancelled, err, "session ask cancelled"), sessionID)
+			return askStreamError(
+				cmdutil.Wrapf(cmdutil.CodeOperationCancelled, err, "session ask cancelled"),
+				sessionID,
+			)
 		}
 		return askStreamError(cmdutil.WrapStream(err, "agent-chat stream"), sessionID)
 	}

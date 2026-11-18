@@ -13,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/secrets"
 )
 
+// RemoveOptions holds flags and arguments for the `profile remove` command.
 type RemoveOptions struct {
 	Yes    bool // sourced from the global -y/--yes persistent flag (matches `kb delete`)
 	DryRun bool
@@ -88,23 +89,33 @@ in scripted / --format json invocations (exit code 10; see cli/README.md).`,
 	cmdutil.AddFormatFlag(cmd, profileRemoveFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, "profile.remove")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "remove a named profile and its stored credentials",
-		RequiredFlags: []string{"<name> (positional)"},
-		Output:        "envelope.data is {name, removed:true, was_current}",
-		Examples: []string{
-			"genyee profile remove staging",
-			"genyee profile remove production -y",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "remove a named profile and its stored credentials",
+			RequiredFlags: []string{"<name> (positional)"},
+			Output:        "envelope.data is {name, removed:true, was_current}",
+			Examples: []string{
+				"genyee profile remove staging",
+				"genyee profile remove production -y",
+			},
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"profile remove deletes local credentials + config; the server-side token is not revoked (use 'auth " +
+					"logout' on server instead).",
+			},
 		},
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"profile remove deletes local credentials + config; the server-side token is not revoked (use 'auth logout' on server instead).",
-		},
-	})
+	)
 	return cmd
 }
 
-func runRemove(opts *RemoveOptions, fopts *cmdutil.FormatOptions, name string, store secrets.Store, p prompt.Prompter) error {
+func runRemove(
+	opts *RemoveOptions,
+	fopts *cmdutil.FormatOptions,
+	name string,
+	store secrets.Store,
+	p prompt.Prompter,
+) error {
 	cfg, err := loadProfileConfig()
 	if err != nil {
 		return err
@@ -119,7 +130,16 @@ func runRemove(opts *RemoveOptions, fopts *cmdutil.FormatOptions, name string, s
 	// Confirmation only fires for removing the current profile - non-current
 	// remove uses the same low-friction policy as `auth logout`.
 	if wasCurrent {
-		if err := cmdutil.ConfirmDestructive(p, opts.Yes, jsonOut, "remove", "current profile", name, "profile.remove", []string{"genyee", "profile", "remove", name, "-y"}); err != nil {
+		if err := cmdutil.ConfirmDestructive(
+			p,
+			opts.Yes,
+			jsonOut,
+			"remove",
+			"current profile",
+			name,
+			"profile.remove",
+			[]string{"genyee", "profile", "remove", name, "-y"},
+		); err != nil {
 			return err
 		}
 	}
@@ -141,9 +161,13 @@ func runRemove(opts *RemoveOptions, fopts *cmdutil.FormatOptions, name string, s
 		return fopts.Emit(iostreams.IO.Out, result, nil)
 	}
 	if wasCurrent {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Removed profile %s (current profile cleared - run `genyee profile use <name>` to pick another)\n", name)
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Out,
+			"✓ Removed profile %s (current profile cleared - run `genyee profile use <name>` to pick another)\n",
+			name,
+		)
 	} else {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Removed profile %s\n", name)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Removed profile %s\n", name)
 	}
 	return nil
 }
@@ -153,12 +177,22 @@ func runRemove(opts *RemoveOptions, fopts *cmdutil.FormatOptions, name string, s
 // unconditionally even when their config ref is empty so orphaned secrets do
 // not survive profile removal.
 func clearProfileSecrets(store secrets.Store, c config.Profile, name string) error {
-	for _, slot := range []struct{ key, ref string }{{"access", c.TokenRef}, {"refresh", c.RefreshRef}, {"api_key", c.APIKeyRef}} {
+	for _, slot := range []struct{ key, ref string }{
+		{"access", c.TokenRef},
+		{"refresh", c.RefreshRef},
+		{"api_key", c.APIKeyRef},
+	} {
 		if strings.HasPrefix(slot.ref, "env:") {
 			continue
 		}
 		if err := store.Delete(name, slot.key); err != nil {
-			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
+			return cmdutil.Wrapf(
+				cmdutil.CodeLocalKeychainDenied,
+				err,
+				"delete %s credential for profile %q",
+				slot.key,
+				name,
+			)
 		}
 	}
 	return nil

@@ -14,7 +14,7 @@ output, not prose. Read this skill before any task-specific `genyee-*` skill.
 ## 1. Authenticate (do this first — order matters)
 
 **Agents usually skip profiles entirely:** set `GENYEE_API_KEY` (or
-`GENYEE_TOKEN`) + `GENYEE_HOST` and every command authenticates statelessly and
+`GENYEE_TOKEN`) + `GENYEE_BASE_URL` (or `GENYEE_HOST`) and every command authenticates statelessly and
 zero-disk — no `profile add` / `auth login` needed. `auth token` echoes that env
 credential; `auth status` / `doctor` confirm it. The steps below set up a
 **persistent named profile** instead (interactive / multi-environment use).

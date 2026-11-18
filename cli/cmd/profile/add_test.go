@@ -14,7 +14,11 @@ func TestAdd_HappyPath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	out, _ := iostreams.SetForTest(t)
 
-	if err := runAdd(&AddOptions{Host: "https://my.example.com", User: "alice@example.com"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, "staging"); err != nil {
+	if err := runAdd(
+		&AddOptions{Host: "https://my.example.com", User: "alice@example.com"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		"staging",
+	); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 
@@ -53,7 +57,11 @@ func TestAdd_DuplicateName(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	err := runAdd(&AddOptions{Host: "https://new.example.com"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, "staging")
+	err := runAdd(
+		&AddOptions{Host: "https://new.example.com"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		"staging",
+	)
 	if err == nil {
 		t.Fatal("expected error on duplicate name")
 	}
@@ -110,7 +118,11 @@ func TestAdd_SecondProfileDoesNotChangeCurrent(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	if err := runAdd(&AddOptions{Host: "https://stg.example.com"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, "staging"); err != nil {
+	if err := runAdd(
+		&AddOptions{Host: "https://stg.example.com"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		"staging",
+	); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 	got, _ := config.Load()
@@ -141,7 +153,13 @@ func TestAdd_UseSwitchesCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if err := runAddWithConfig(&AddOptions{Host: host, Use: true}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, "new", host, loaded); err != nil {
+	if err := runAddWithConfig(
+		&AddOptions{Host: host, Use: true},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		"new",
+		host,
+		loaded,
+	); err != nil {
 		t.Fatalf("runAddWithConfig: %v", err)
 	}
 
@@ -161,7 +179,11 @@ func TestAdd_JSON(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	out, _ := iostreams.SetForTest(t)
 
-	if err := runAdd(&AddOptions{Host: "https://my.example.com"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, "staging"); err != nil {
+	if err := runAdd(
+		&AddOptions{Host: "https://my.example.com"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		"staging",
+	); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 	var env struct {

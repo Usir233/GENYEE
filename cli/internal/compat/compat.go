@@ -11,6 +11,7 @@ import (
 // Level is the client-server version compat level.
 type Level int
 
+// Level values describing client-server version compatibility.
 const (
 	OK        Level = iota // compatible
 	SoftWarn               // server outdated; some new features may be unavailable
@@ -51,7 +52,11 @@ func Compat(serverVer, cliVer string) (Level, string) {
 		return HardError, fmt.Sprintf("incompatible: client %s vs server %s - upgrade required", safeCLI, safeServer)
 	}
 	if cMin > sMin {
-		return SoftWarn, fmt.Sprintf("server is older (server %s, client %s); some new features may be unavailable", safeServer, safeCLI)
+		return SoftWarn, fmt.Sprintf(
+			"server is older (server %s, client %s); some new features may be unavailable",
+			safeServer,
+			safeCLI,
+		)
 	}
 	return OK, ""
 }
@@ -91,9 +96,9 @@ func parseSemver(s string) (major, minor int, ok bool) {
 	if err != nil {
 		return 0, 0, false
 	}
-	min, err := strconv.Atoi(parts[1])
+	minVer, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return 0, 0, false
 	}
-	return maj, min, true
+	return maj, minVer, true
 }

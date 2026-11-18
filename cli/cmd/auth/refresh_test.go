@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -42,7 +45,7 @@ func newRefreshFactory(t *testing.T, cfg *config.Config, store *secrets.MemStore
 	testutil.XDGTempDir(t)
 	require.NoError(t, config.Save(cfg))
 	return &cmdutil.Factory{
-		Config:   func() (*config.Config, error) { return config.Load() },
+		Config:   config.Load,
 		Client:   func() (*sdk.Client, error) { panic("client") },
 		Prompter: func() prompt.Prompter { return prompt.AgentPrompter{} },
 		Secrets:  func() (secrets.Store, error) { return store, nil },
@@ -72,7 +75,16 @@ func TestRefresh_Happy(t *testing.T) {
 		AccessToken:  "new-access",
 		RefreshToken: "new-refresh",
 	}}
-	require.NoError(t, runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(svc)))
+	require.NoError(
+		t,
+		runRefresh(
+			context.Background(),
+			&RefreshOptions{},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			f,
+			stubSvc(svc),
+		),
+	)
 
 	assert.Equal(t, "old-refresh", svc.gotTok, "must pass stored refresh token to SDK")
 	gotAccess, _ := store.Get("prod", "access")
@@ -102,7 +114,16 @@ func TestRefresh_ActiveProfileViaOverride(t *testing.T) {
 	svc := &fakeRefreshService{resp: &sdk.RefreshTokenResponse{
 		Success: true, AccessToken: "new-stg-access", RefreshToken: "new-stg-refresh",
 	}}
-	require.NoError(t, runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(svc)))
+	require.NoError(
+		t,
+		runRefresh(
+			context.Background(),
+			&RefreshOptions{},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			f,
+			stubSvc(svc),
+		),
+	)
 
 	assert.Equal(t, "stg-refresh", svc.gotTok, "active profile staging must be refreshed")
 	// prod (non-active) is untouched
@@ -124,7 +145,13 @@ func TestRefresh_NoNameFlag(t *testing.T) {
 func TestRefresh_NoCurrentProfile(t *testing.T) {
 	iostreams.SetForTest(t)
 	f := newRefreshFactory(t, &config.Config{}, secrets.NewMemStore())
-	err := runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(&fakeRefreshService{}))
+	err := runRefresh(
+		context.Background(),
+		&RefreshOptions{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		f,
+		stubSvc(&fakeRefreshService{}),
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -140,7 +167,13 @@ func TestRefresh_APIKeyContext(t *testing.T) {
 		Profiles:       map[string]config.Profile{"ci": {Host: "https://kb", APIKeyRef: "mem://ci/api_key"}},
 	}
 	f := newRefreshFactory(t, cfg, store)
-	err := runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(&fakeRefreshService{}))
+	err := runRefresh(
+		context.Background(),
+		&RefreshOptions{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		f,
+		stubSvc(&fakeRefreshService{}),
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -158,7 +191,13 @@ func TestRefresh_NoRefreshTokenStored(t *testing.T) {
 	}
 	// MemStore is empty - RefreshRef points to a slot that doesn't exist.
 	f := newRefreshFactory(t, cfg, secrets.NewMemStore())
-	err := runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(&fakeRefreshService{}))
+	err := runRefresh(
+		context.Background(),
+		&RefreshOptions{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		f,
+		stubSvc(&fakeRefreshService{}),
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -172,11 +211,19 @@ func TestRefresh_ServerRefused(t *testing.T) {
 	require.NoError(t, store.Set("prod", "refresh", "stale-refresh"))
 	cfg := &config.Config{
 		CurrentProfile: "prod",
-		Profiles:       map[string]config.Profile{"prod": {Host: "https://kb", TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"}},
+		Profiles: map[string]config.Profile{
+			"prod": {Host: "https://kb", TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"},
+		},
 	}
 	f := newRefreshFactory(t, cfg, store)
 	svc := &fakeRefreshService{resp: &sdk.RefreshTokenResponse{Success: false, Message: "refresh token expired"}}
-	err := runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(svc))
+	err := runRefresh(
+		context.Background(),
+		&RefreshOptions{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		f,
+		stubSvc(svc),
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -195,11 +242,19 @@ func TestRefresh_TransportError(t *testing.T) {
 	require.NoError(t, store.Set("prod", "refresh", "ok-refresh"))
 	cfg := &config.Config{
 		CurrentProfile: "prod",
-		Profiles:       map[string]config.Profile{"prod": {Host: "https://kb", TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"}},
+		Profiles: map[string]config.Profile{
+			"prod": {Host: "https://kb", TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"},
+		},
 	}
 	f := newRefreshFactory(t, cfg, store)
 	svc := &fakeRefreshService{err: errors.New("connection reset")}
-	err := runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, f, stubSvc(svc))
+	err := runRefresh(
+		context.Background(),
+		&RefreshOptions{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		f,
+		stubSvc(svc),
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -215,11 +270,22 @@ func TestRefresh_JSONOutput(t *testing.T) {
 	require.NoError(t, store.Set("prod", "refresh", "ok-refresh"))
 	cfg := &config.Config{
 		CurrentProfile: "prod",
-		Profiles:       map[string]config.Profile{"prod": {Host: "https://kb", TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"}},
+		Profiles: map[string]config.Profile{
+			"prod": {Host: "https://kb", TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"},
+		},
 	}
 	f := newRefreshFactory(t, cfg, store)
 	svc := &fakeRefreshService{resp: &sdk.RefreshTokenResponse{Success: true, AccessToken: "a", RefreshToken: "r"}}
-	require.NoError(t, runRefresh(context.Background(), &RefreshOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, f, stubSvc(svc)))
+	require.NoError(
+		t,
+		runRefresh(
+			context.Background(),
+			&RefreshOptions{},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+			f,
+			stubSvc(svc),
+		),
+	)
 
 	body := out.String()
 	// payload must not leak the actual token values.
@@ -234,4 +300,40 @@ func TestRefresh_JSONOutput(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(body), &env))
 	assert.True(t, env.OK, "envelope.ok must be true")
+}
+
+func TestRefresh_WireSnakeCaseRefreshTokenPayload(t *testing.T) {
+	iostreams.SetForTest(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/v1/auth/refresh", r.URL.Path)
+		var got map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		assert.Equal(t, "wire-old-refresh", got["refresh_token"])
+		assert.NotContains(t, got, "refreshToken")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"success":true,"access_token":"wire-new-access","refresh_token":"wire-new-refresh"}`)
+	}))
+	defer srv.Close()
+
+	store := secrets.NewMemStore()
+	require.NoError(t, store.Set("prod", "refresh", "wire-old-refresh"))
+	cfg := &config.Config{
+		CurrentProfile: "prod",
+		Profiles: map[string]config.Profile{
+			"prod": {Host: srv.URL, TokenRef: "mem://prod/access", RefreshRef: "mem://prod/refresh"},
+		},
+	}
+	f := newRefreshFactory(t, cfg, store)
+	require.NoError(t, runRefresh(
+		context.Background(),
+		&RefreshOptions{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		f,
+		func(host string) cmdutil.Refresher { return sdk.NewClient(host) },
+	))
+	gotAccess, _ := store.Get("prod", "access")
+	gotRefresh, _ := store.Get("prod", "refresh")
+	assert.Equal(t, "wire-new-access", gotAccess)
+	assert.Equal(t, "wire-new-refresh", gotRefresh)
 }

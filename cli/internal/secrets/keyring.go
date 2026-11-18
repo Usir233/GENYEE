@@ -27,6 +27,7 @@ func (k *KeyringStore) service(profile string) string {
 	return keyringService + ":" + profile
 }
 
+// Get retrieves the secret stored for (profile, key) from the OS keyring.
 func (k *KeyringStore) Get(profile, key string) (string, error) {
 	if err := validateSecretSegment("profile", profile); err != nil {
 		return "", err
@@ -44,6 +45,7 @@ func (k *KeyringStore) Get(profile, key string) (string, error) {
 	return v, nil
 }
 
+// Set stores value under (profile, key) in the OS keyring.
 func (k *KeyringStore) Set(profile, key, value string) error {
 	if err := validateSecretSegment("profile", profile); err != nil {
 		return err
@@ -57,6 +59,7 @@ func (k *KeyringStore) Set(profile, key, value string) error {
 	return nil
 }
 
+// Delete removes any secret stored for (profile, key) from the OS keyring.
 func (k *KeyringStore) Delete(profile, key string) error {
 	if err := validateSecretSegment("profile", profile); err != nil {
 		return err

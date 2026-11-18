@@ -26,6 +26,7 @@ var docListFields = []string{
 	"created_at", "updated_at", "processed_at", "error_message",
 }
 
+// ListOptions holds flags and arguments for the `doc list` command.
 type ListOptions struct {
 	PageSize int // Items per server batch. With --all-pages, controls
 	// per-request load. Without, controls the single page size.
@@ -50,12 +51,26 @@ type ListOptions struct {
 // constants - these are the values the server accepts on the
 // ?parse_status= query. Kept in sync manually since the SDK doesn't
 // re-export the enum.
-var docListStatusValues = []string{"pending", "processing", "finalizing", "completed", "failed", "cancelled", "deleting", "draft"}
+var docListStatusValues = []string{
+	"pending",
+	"processing",
+	"finalizing",
+	"completed",
+	"failed",
+	"cancelled",
+	"deleting",
+	"draft",
+}
 
 // ListService is the narrow SDK surface this command depends on.
 // *sdk.Client satisfies it.
 type ListService interface {
-	ListKnowledgeWithFilter(ctx context.Context, kbID string, page, pageSize int, filter sdk.KnowledgeListFilter) ([]sdk.Knowledge, int64, error)
+	ListKnowledgeWithFilter(
+		ctx context.Context,
+		kbID string,
+		page, pageSize int,
+		filter sdk.KnowledgeListFilter,
+	) ([]sdk.Knowledge, int64, error)
 }
 
 // NewCmdList builds `genyee doc list`.
@@ -103,21 +118,56 @@ backend storage order is not guaranteed and varies between deployments.`,
 	}
 	cmdutil.AddKBFlag(cmd)
 	cmd.Flags().IntVar(&opts.PageSize, "page-size", 50, "Items per server batch (1..1000)")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		30,
+		"Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)",
+	)
 	cmd.Flags().BoolVar(&opts.AllPages, "all-pages", false, "Walk all server pages until exhausted (or --limit hit)")
-	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by parse status: pending | processing | finalizing | completed | failed | cancelled | deleting | draft")
-	cmd.Flags().StringVar(&opts.Keyword, "keyword", "", "Server-side substring match against title / file_name (case-insensitive)")
+	cmd.Flags().StringVar(
+		&opts.Status,
+		"status",
+		"",
+		"Filter by parse status: pending | processing | finalizing | completed | failed | cancelled | deleting | draft",
+	)
+	cmd.Flags().StringVar(
+		&opts.Keyword,
+		"keyword",
+		"",
+		"Server-side substring match against title / file_name (case-insensitive)",
+	)
 	cmd.Flags().StringVar(&opts.FileType, "file-type", "", `Filter by file extension (e.g. "pdf", "md")`)
 	cmd.Flags().StringVar(&opts.Source, "source", "", `Filter by ingestion source (e.g. "api", "web")`)
 	cmd.Flags().StringVar(&opts.TagID, "tag-id", "", "Filter by tag association")
-	cmd.Flags().StringVar(&opts.StartTime, "start-time", "", "Include docs with updated_at >= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)")
-	cmd.Flags().StringVar(&opts.EndTime, "end-time", "", "Include docs with updated_at <= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)")
+	cmd.Flags().StringVar(
+		&opts.StartTime,
+		"start-time",
+		"",
+		"Include docs with updated_at >= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)",
+	)
+	cmd.Flags().StringVar(
+		&opts.EndTime,
+		"end-time",
+		"",
+		"Include docs with updated_at <= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)",
+	)
 	cmdutil.AddFormatFlag(cmd, docListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "List documents in the resolved knowledge base. Results come with meta.count; use --limit to cap, --all-pages to walk every server page, --status/--keyword to filter server-side.",
-		Examples: []string{"genyee doc list --format json", "genyee doc list --all-pages --limit 200 --format json"},
-		Output:   "envelope.data is an array of Knowledge objects with id, title, file_name, parse_status; meta.count is the returned count; meta.total_count is the server-side total before client-side --limit truncation; meta.has_more=true when --limit truncated",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "List documents in the resolved knowledge base. Results come with meta.count; use --limit to " +
+				"cap, --all-pages to walk every server page, --status/--keyword to filter server-side.",
+			Examples: []string{
+				"genyee doc list --format json",
+				"genyee doc list --all-pages --limit 200 --format json",
+			},
+			Output: "envelope.data is an array of Knowledge objects with id, title, file_name, parse_status; " +
+				"meta.count is the returned count; meta.total_count is the server-side total before client-side --" +
+				"limit truncation; meta.has_more=true when --limit truncated",
+		},
+	)
 	return cmd
 }
 
@@ -227,22 +277,26 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	}
 
 	if fopts.WantsJSON() {
-		meta := &output.Meta{Count: output.IntPtr(len(items)), HasMore: truncated, TotalCount: output.IntPtr(int(serverTotal))}
+		meta := &output.Meta{
+			Count:      output.IntPtr(len(items)),
+			HasMore:    truncated,
+			TotalCount: output.IntPtr(int(serverTotal)),
+		}
 		return fopts.Emit(iostreams.IO.Out, items, meta)
 	}
 
 	if len(items) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no documents)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no documents)")
 		return nil
 	}
 
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tSTATUS\tSIZE\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "ID\tNAME\tSTATUS\tSIZE\tUPDATED")
 	now := time.Now()
 	for _, k := range items {
 		name := text.Truncate(40, text.KnowledgeDisplayName(k.FileName, k.Title, k.ID))
 		updated := text.FuzzyAgo(now, k.UpdatedAt)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", k.ID, name, k.ParseStatus, formatSize(k.FileSize), updated)
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", k.ID, name, k.ParseStatus, formatSize(k.FileSize), updated)
 	}
 	return tw.Flush()
 }

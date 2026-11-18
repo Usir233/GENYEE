@@ -126,7 +126,11 @@ func (c *Client) CreateTag(ctx context.Context,
 func (c *Client) UpdateTag(ctx context.Context,
 	knowledgeBaseID, tagID string, payload *UpdateTagPayload,
 ) (*Tag, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags/%s", escapePathSegment(knowledgeBaseID), escapePathSegment(tagID))
+	path := fmt.Sprintf(
+		"/api/v1/knowledge-bases/%s/tags/%s",
+		escapePathSegment(knowledgeBaseID),
+		escapePathSegment(tagID),
+	)
 	resp, err := c.doRequest(ctx, http.MethodPut, path, payload, nil)
 	if err != nil {
 		return nil, err
@@ -154,7 +158,11 @@ func (c *Client) UpdateTagBySeqID(ctx context.Context,
 func (c *Client) DeleteTag(ctx context.Context,
 	knowledgeBaseID, tagID string, force bool, contentOnly bool, excludeIDs []int64,
 ) error {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags/%s", escapePathSegment(knowledgeBaseID), escapePathSegment(tagID))
+	path := fmt.Sprintf(
+		"/api/v1/knowledge-bases/%s/tags/%s",
+		escapePathSegment(knowledgeBaseID),
+		escapePathSegment(tagID),
+	)
 	query := url.Values{}
 	if force {
 		query.Add("force", "true")

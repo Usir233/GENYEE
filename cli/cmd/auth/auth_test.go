@@ -39,7 +39,11 @@ func TestNewCmdLogin_FlagsRegistered(t *testing.T) {
 	assert.Nil(t, cmd.Flags().Lookup("name"), "auth login must not declare --name (v0.9)")
 	// --profile is the global persistent override; local registration would
 	// silently shadow it.
-	assert.Nil(t, cmd.Flags().Lookup("profile"), "auth login must not declare a local --profile flag (use the global --profile)")
+	assert.Nil(
+		t,
+		cmd.Flags().Lookup("profile"),
+		"auth login must not declare a local --profile flag (use the global --profile)",
+	)
 }
 
 func TestNewCmdLogin_InvokesRunF(t *testing.T) {
@@ -49,7 +53,13 @@ func TestNewCmdLogin_InvokesRunF(t *testing.T) {
 	f := &cmdutil.Factory{
 		Secrets: func() (secrets.Store, error) { return store, nil },
 	}
-	cmd := NewCmdLogin(f, func(_ context.Context, opts *LoginOptions, _ *cmdutil.FormatOptions, _ *cmdutil.Factory, _ LoginService) error {
+	cmd := NewCmdLogin(f, func(
+		_ context.Context,
+		opts *LoginOptions,
+		_ *cmdutil.FormatOptions,
+		_ *cmdutil.Factory,
+		_ LoginService,
+	) error {
 		called = true
 		// host/profile resolve inside runLogin from the active profile;
 		// the runF seam just receives the parsed flags.
@@ -71,7 +81,7 @@ func TestPersistAPIKey_WritesContext(t *testing.T) {
 	testutil.XDGTempDir(t)
 	store := secrets.NewMemStore()
 	f := &cmdutil.Factory{
-		Config:   func() (*config.Config, error) { return config.Load() },
+		Config:   config.Load,
 		Prompter: func() prompt.Prompter { return prompt.AgentPrompter{} },
 		Secrets:  func() (secrets.Store, error) { return store, nil },
 	}
@@ -101,7 +111,7 @@ func TestPersistJWT_StoresBothTokens(t *testing.T) {
 	testutil.XDGTempDir(t)
 	store := secrets.NewMemStore()
 	f := &cmdutil.Factory{
-		Config:   func() (*config.Config, error) { return config.Load() },
+		Config:   config.Load,
 		Prompter: func() prompt.Prompter { return prompt.AgentPrompter{} },
 		Secrets:  func() (secrets.Store, error) { return store, nil },
 	}

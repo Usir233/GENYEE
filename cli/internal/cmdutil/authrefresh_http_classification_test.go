@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,6 +23,10 @@ func TestRejectedAutomaticRefreshPreservesHTTPClassification(t *testing.T) {
 			require.NoError(t, store.Set("test", "refresh", "rejected-refresh"))
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/v1/auth/refresh" {
+					var reqBody map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&reqBody))
+					assert.Equal(t, "rejected-refresh", reqBody["refresh_token"])
+					assert.NotContains(t, reqBody, "refreshToken")
 					w.WriteHeader(status)
 					_, _ = w.Write([]byte(`{"message":"refresh rejected"}`))
 					return

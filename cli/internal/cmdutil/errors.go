@@ -19,8 +19,10 @@ import (
 // registry below; new codes are noted in release notes.
 type ErrorCode string
 
+// Stable ErrorCode constants emitted on stderr and in JSON error envelopes.
 const (
 	// auth.* - authentication / permission
+
 	CodeAuthUnauthenticated    ErrorCode = "auth.unauthenticated"
 	CodeAuthTokenExpired       ErrorCode = "auth.token_expired"
 	CodeAuthBadCredential      ErrorCode = "auth.bad_credential"
@@ -29,11 +31,13 @@ const (
 	CodeAuthTenantMismatch     ErrorCode = "auth.tenant_mismatch"
 
 	// resource.*
+
 	CodeResourceNotFound      ErrorCode = "resource.not_found"
 	CodeResourceAlreadyExists ErrorCode = "resource.already_exists"
 	CodeResourceLocked        ErrorCode = "resource.locked"
 
 	// input.* - flag and argument validation
+
 	CodeInputInvalidArgument ErrorCode = "input.invalid_argument"
 	CodeInputMissingFlag     ErrorCode = "input.missing_flag"
 	// CodeInputConfirmationRequired marks a high-risk write that has no
@@ -49,6 +53,7 @@ const (
 	CodeInputUnknownSubcommand ErrorCode = "input.unknown_subcommand"
 
 	// server.* / network.*
+
 	CodeServerError               ErrorCode = "server.error"
 	CodeServerTimeout             ErrorCode = "server.timeout"
 	CodeServerRateLimited         ErrorCode = "server.rate_limited"
@@ -60,6 +65,7 @@ const (
 	CodeSessionCreateFailed ErrorCode = "server.session_create_failed"
 
 	// operation.* - CLI-level wait/poll results
+
 	// CodeOperationTimeout marks a CLI-level wait/poll operation that exhausted
 	// its --timeout window. Distinct from CodeServerTimeout (HTTP 504). Mapped
 	// to exit 124 (matches the convention from GNU `timeout`).
@@ -85,12 +91,15 @@ const (
 	CodeInternalError ErrorCode = "internal.error"
 
 	// local.* - config / file / keychain on the user's machine
+
 	CodeLocalConfigCorrupt   ErrorCode = "local.config_corrupt"
 	CodeLocalKeychainDenied  ErrorCode = "local.keychain_denied"
 	CodeLocalFileIO          ErrorCode = "local.file_io"
 	CodeLocalUnimplemented   ErrorCode = "local.unimplemented"
 	CodeLocalProfileNotFound ErrorCode = "local.profile_not_found"
+
 	// KB-resolution chain and project-link codes.
+
 	CodeKBIDRequired       ErrorCode = "local.kb_id_required"
 	CodeKBNotFound         ErrorCode = "local.kb_not_found"
 	CodeProjectLinkCorrupt ErrorCode = "local.project_link_corrupt"
@@ -305,12 +314,12 @@ func (e *FlagError) Unwrap() error { return e.err }
 // NewFlagError wraps err as a FlagError.
 func NewFlagError(err error) error { return &FlagError{err: err} }
 
-// SilentError skips printing to stderr; useful when a command has already
+// ErrSilent skips printing to stderr; useful when a command has already
 // emitted a fully-formatted message and exits non-zero.
-var SilentError = errors.New("silent error (handled)")
+var ErrSilent = errors.New("silent error (handled)")
 
-// CancelError marks a user-cancelled operation (Ctrl-C / "no" at confirm).
-var CancelError = errors.New("operation cancelled")
+// ErrCancel marks a user-cancelled operation (Ctrl-C / "no" at confirm).
+var ErrCancel = errors.New("operation cancelled")
 
 // Typed predicates - use these instead of comparing ErrorCode strings.
 // They walk the error chain so wrapped errors still match.
@@ -358,7 +367,7 @@ func matchPrefix(err error, prefix string) bool {
 // resource.not_found, sending agents down the wrong recovery path.
 // Matching the structured "code":1003 anchor avoids the free-substring false
 // positive (e.g. a stack trace containing "config file not found").
-var serverNotFoundRE = regexp.MustCompile(`"code":1003\b`)
+var serverNotFoundRE = regexp.MustCompile(`"code"\s*:\s*1003\b`)
 
 // ClassifyHTTPStatus maps an HTTP status code to the canonical ErrorCode.
 // Single source of truth so error codes stay aligned whether the failure
@@ -423,7 +432,8 @@ func ClassifyHTTPError(err error) ErrorCode {
 	// 500 bodies that happen to contain "not found" (e.g. "config file not found
 	// in stack trace"). The free-substring match would over-match.
 	body := rest[end+1:]
-	if base == CodeServerError && serverNotFoundRE.MatchString(body) {
+	if base == CodeServerError &&
+		((apiErr != nil && apiErr.Code == sdk.ServerErrNotFound) || serverNotFoundRE.MatchString(body)) {
 		return CodeResourceNotFound
 	}
 	return base

@@ -31,6 +31,7 @@ var sessionsSearchFields = []string{
 	"id", "tenant_id", "title", "description", "created_at", "updated_at",
 }
 
+// SessionsSearchOptions holds flags and arguments for the `search sessions` command.
 type SessionsSearchOptions struct {
 	Query string
 	Limit int
@@ -98,16 +99,27 @@ to stop after one page.`,
 	cmd.Flags().IntVar(&opts.PageSize, "page-size", sessionsPageSize, "Items per server batch (1..1000)")
 	cmd.Flags().BoolVar(&opts.AllPages, "all-pages", true, "Walk every server page until exhausted or --limit hit")
 	cmdutil.AddFormatFlag(cmd, sessionsSearchFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Find chat sessions by title or description (client-side case-insensitive substring match). Results come with meta.count; use --limit to cap and --all-pages=false to stop after one page.",
-		RequiredFlags: []string{"<query> (positional)"},
-		Examples:      []string{`genyee search sessions "onboarding" --format json`},
-		Output:   "envelope.data is an array of Session objects with id, title, updated_at; meta.count is the returned count; meta.has_more=true if more matched than --limit",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Find chat sessions by title or description (client-side case-insensitive substring " +
+				"match). Results come with meta.count; use --limit to cap and --all-pages=false to stop after one " +
+				"page.",
+			RequiredFlags: []string{"<query> (positional)"},
+			Examples:      []string{`genyee search sessions "onboarding" --format json`},
+			Output: "envelope.data is an array of Session objects with id, title, updated_at; meta.count is " +
+				"the returned count; meta.has_more=true if more matched than --limit",
+		},
+	)
 	return cmd
 }
 
-func runSessionsSearch(ctx context.Context, opts *SessionsSearchOptions, fopts *cmdutil.FormatOptions, svc SessionsSearchService) error {
+func runSessionsSearch(
+	ctx context.Context,
+	opts *SessionsSearchOptions,
+	fopts *cmdutil.FormatOptions,
+	svc SessionsSearchService,
+) error {
 	if opts.PageSize < 1 || opts.PageSize > sessionsMaxPageSize {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 			fmt.Sprintf("--page-size must be in 1..%d, got %d", sessionsMaxPageSize, opts.PageSize))
@@ -160,18 +172,18 @@ done:
 		return fopts.Emit(iostreams.IO.Out, matches, meta)
 	}
 	if len(matches) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no matches)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no matches)")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tTITLE\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "ID\tTITLE\tUPDATED")
 	now := time.Now()
 	for _, s := range matches {
 		title := text.OneLine(50, s.Title)
 		if title == "" {
 			title = "-"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(s.ID), title, text.FuzzyAgoStr(now, s.UpdatedAt))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(s.ID), title, text.FuzzyAgoStr(now, s.UpdatedAt))
 	}
 	return tw.Flush()
 }

@@ -23,15 +23,40 @@ func (f *fakeListSvc) ListModels(_ context.Context) ([]sdk.Model, error) {
 
 func TestModelList_Text(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
-	svc := &fakeListSvc{models: []sdk.Model{
-		{ID: "m1", DisplayName: "GPT-X", Type: sdk.ModelTypeKnowledgeQA, Source: sdk.ModelSourceOpenAI, IsDefault: true},
-		{ID: "m2", Name: "bge", Type: sdk.ModelTypeEmbedding, Source: sdk.ModelSourceLocal},
-	}}
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc); err != nil {
+	svc := &fakeListSvc{
+		models: []sdk.Model{
+			{
+				ID:          "m1",
+				DisplayName: "GPT-X",
+				Type:        sdk.ModelTypeKnowledgeQA,
+				Source:      sdk.ModelSourceOpenAI,
+				IsDefault:   true,
+			},
+			{ID: "m2", Name: "bge", Type: sdk.ModelTypeEmbedding, Source: sdk.ModelSourceLocal},
+		},
+	}
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"ID", "NAME", "TYPE", "SOURCE", "m1", "GPT-X", "KnowledgeQA", "m2", "bge", "Embedding", "default"} {
+	for _, want := range []string{
+		"ID",
+		"NAME",
+		"TYPE",
+		"SOURCE",
+		"m1",
+		"GPT-X",
+		"KnowledgeQA",
+		"m2",
+		"bge",
+		"Embedding",
+		"default",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
@@ -46,7 +71,12 @@ func TestModelList_TypeFilter(t *testing.T) {
 		{ID: "m1", Type: sdk.ModelTypeKnowledgeQA},
 		{ID: "m2", Type: sdk.ModelTypeEmbedding},
 	}}
-	if err := runList(context.Background(), &ListOptions{Type: "embedding", Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Type: "embedding", Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		svc,
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	var env struct {
@@ -69,7 +99,12 @@ func TestModelList_TypeFilter(t *testing.T) {
 func TestModelList_Empty(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
 	svc := &fakeListSvc{models: nil}
-	if err := runList(context.Background(), &ListOptions{Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if !strings.Contains(out.String(), "(no models)") {
@@ -80,7 +115,12 @@ func TestModelList_Empty(t *testing.T) {
 func TestModelList_EmptyAfterFilter(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
 	svc := &fakeListSvc{models: []sdk.Model{{ID: "m1", Type: sdk.ModelTypeEmbedding}}}
-	if err := runList(context.Background(), &ListOptions{Type: "Rerank", Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Type: "Rerank", Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	if !strings.Contains(out.String(), "(no models match the filter)") {
@@ -95,7 +135,12 @@ func TestModelList_SourceFilter(t *testing.T) {
 		{ID: "m1", Type: sdk.ModelTypeEmbedding, Source: sdk.ModelSourceLocal},
 		{ID: "m2", Type: sdk.ModelTypeKnowledgeQA, Source: sdk.ModelSourceOpenAI},
 	}}
-	if err := runList(context.Background(), &ListOptions{Source: "OpenAI", Limit: 30}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc); err != nil {
+	if err := runList(
+		context.Background(),
+		&ListOptions{Source: "OpenAI", Limit: 30},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		svc,
+	); err != nil {
 		t.Fatalf("runList: %v", err)
 	}
 	var env struct {
@@ -112,19 +157,27 @@ func TestModelList_SourceFilter(t *testing.T) {
 // TestModelList_InvalidEnum: a typo'd --type / --source is rejected up front
 // (input.invalid_argument) instead of silently returning an empty set.
 func TestModelList_InvalidEnum(t *testing.T) {
-	for _, tc := range []struct{ name string; opts ListOptions }{
+	for _, tc := range []struct {
+		name string
+		opts ListOptions
+	}{
 		{"type", ListOptions{Type: "bogus", Limit: 30}},
 		{"source", ListOptions{Source: "bogus", Limit: 30}},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			_, _ = iostreams.SetForTest(t)
-			svc := &fakeListSvc{models: []sdk.Model{{ID: "m1", Type: sdk.ModelTypeEmbedding, Source: sdk.ModelSourceLocal}}}
-			err := runList(context.Background(), &tc.opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc)
-			var typed *cmdutil.Error
-			if !errors.As(err, &typed) || typed.Code != cmdutil.CodeInputInvalidArgument {
-				t.Errorf("expected input.invalid_argument, got %v", err)
-			}
-		})
+		t.Run(
+			tc.name,
+			func(t *testing.T) {
+				_, _ = iostreams.SetForTest(t)
+				svc := &fakeListSvc{
+					models: []sdk.Model{{ID: "m1", Type: sdk.ModelTypeEmbedding, Source: sdk.ModelSourceLocal}},
+				}
+				err := runList(context.Background(), &tc.opts, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc)
+				var typed *cmdutil.Error
+				if !errors.As(err, &typed) || typed.Code != cmdutil.CodeInputInvalidArgument {
+					t.Errorf("expected input.invalid_argument, got %v", err)
+				}
+			},
+		)
 	}
 }
 
@@ -159,7 +212,12 @@ func TestModelList_Limit_TruncatesAndSignals(t *testing.T) {
 // typed validation, consistent with kb/session list.
 func TestModelList_BadLimit_Rejected(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
-	err := runList(context.Background(), &ListOptions{Limit: 99999}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, &fakeListSvc{})
+	err := runList(
+		context.Background(),
+		&ListOptions{Limit: 99999},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		&fakeListSvc{},
+	)
 	if err == nil {
 		t.Fatal("--limit 99999 must be rejected")
 	}

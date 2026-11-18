@@ -38,7 +38,9 @@ func TestParseResponseCapsErrorBody(t *testing.T) {
 	t.Run("oversized body is truncated to the cap", func(t *testing.T) {
 		const oversized = maxErrorBodyBytes * 4
 
-		err := parseResponse(newTestResponse(http.StatusBadGateway, &fillerReader{remaining: oversized}), nil)
+		resp := newTestResponse(http.StatusBadGateway, &fillerReader{remaining: oversized})
+		defer func() { _ = resp.Body.Close() }()
+		err := parseResponse(resp, nil)
 
 		var apiErr *APIError
 		if !errors.As(err, &apiErr) {
@@ -52,7 +54,9 @@ func TestParseResponseCapsErrorBody(t *testing.T) {
 	t.Run("body exactly at the cap is kept whole", func(t *testing.T) {
 		body := strings.Repeat("a", maxErrorBodyBytes)
 
-		err := parseResponse(newTestResponse(http.StatusInternalServerError, strings.NewReader(body)), nil)
+		resp := newTestResponse(http.StatusInternalServerError, strings.NewReader(body))
+		defer func() { _ = resp.Body.Close() }()
+		err := parseResponse(resp, nil)
 
 		var apiErr *APIError
 		if !errors.As(err, &apiErr) {
@@ -69,7 +73,9 @@ func TestParseResponseCapsErrorBody(t *testing.T) {
 func TestParseResponseKeepsSmallErrorBody(t *testing.T) {
 	const body = `{"code":1003,"msg":"knowledge not found"}`
 
-	err := parseResponse(newTestResponse(http.StatusNotFound, strings.NewReader(body)), nil)
+	resp := newTestResponse(http.StatusNotFound, strings.NewReader(body))
+	defer func() { _ = resp.Body.Close() }()
+	err := parseResponse(resp, nil)
 
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) {
@@ -102,7 +108,9 @@ func TestParseResponseCapsSuccessBody(t *testing.T) {
 			Pad string `json:"pad"`
 		}
 
-		err := parseResponse(newTestResponse(http.StatusOK, body), &got)
+		resp := newTestResponse(http.StatusOK, body)
+		defer func() { _ = resp.Body.Close() }()
+		err := parseResponse(resp, &got)
 
 		if !errors.Is(err, errResponseBodyTooLarge) {
 			t.Fatalf("parseResponse() = %v, want %v", err, errResponseBodyTooLarge)
@@ -115,8 +123,9 @@ func TestParseResponseCapsSuccessBody(t *testing.T) {
 			Pad string `json:"pad"`
 		}
 
-		err := parseResponse(newTestResponse(http.StatusOK, strings.NewReader(`{"pad":"`+pad+`"}`)), &got)
-
+		resp := newTestResponse(http.StatusOK, strings.NewReader(`{"pad":"`+pad+`"}`))
+		defer func() { _ = resp.Body.Close() }()
+		err := parseResponse(resp, &got)
 		if err != nil {
 			t.Fatalf("parseResponse() = %v, want nil", err)
 		}
@@ -132,7 +141,9 @@ func TestParseResponseStillDecodesSuccessBody(t *testing.T) {
 		Name string `json:"name"`
 	}
 
-	if err := parseResponse(newTestResponse(http.StatusOK, strings.NewReader(`{"name":"ok"}`)), &got); err != nil {
+	resp := newTestResponse(http.StatusOK, strings.NewReader(`{"name":"ok"}`))
+	defer func() { _ = resp.Body.Close() }()
+	if err := parseResponse(resp, &got); err != nil {
 		t.Fatalf("parseResponse() = %v, want nil", err)
 	}
 	if got.Name != "ok" {

@@ -59,7 +59,7 @@ func ExitCode(err error) int {
 	if errors.As(err, &fe) {
 		return 2
 	}
-	if errors.Is(err, SilentError) {
+	if errors.Is(err, ErrSilent) {
 		return 1
 	}
 	if matchCode(err, CodeInputConfirmationRequired) {
@@ -98,7 +98,7 @@ func ExitCode(err error) int {
 //
 // Mode is read from globalFormatMode (set by root PersistentPreRunE).
 func PrintError(w io.Writer, err error) {
-	if err == nil || errors.Is(err, SilentError) {
+	if err == nil || errors.Is(err, ErrSilent) {
 		return
 	}
 	// Typed *Error with Silent=true suppresses stderr emit while preserving
@@ -117,7 +117,7 @@ func PrintError(w io.Writer, err error) {
 }
 
 func printErrorProse(w io.Writer, err error) {
-	fmt.Fprintln(w, err.Error())
+	_, _ = fmt.Fprintln(w, err.Error())
 	var typed *Error
 	if errors.As(err, &typed) {
 		hint := typed.Hint
@@ -125,14 +125,14 @@ func printErrorProse(w io.Writer, err error) {
 			hint = defaultHint(typed.Code)
 		}
 		if hint != "" {
-			fmt.Fprintf(w, "hint: %s\n", hint)
+			_, _ = fmt.Fprintf(w, "hint: %s\n", hint)
 		}
 		retry := typed.RetryArgv
 		if len(retry) == 0 {
 			retry = defaultRetryArgv(typed.Code)
 		}
 		if len(retry) > 0 {
-			fmt.Fprintf(w, "retry: %s\n", strings.Join(retry, " "))
+			_, _ = fmt.Fprintf(w, "retry: %s\n", strings.Join(retry, " "))
 		}
 	}
 }

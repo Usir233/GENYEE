@@ -1,4 +1,4 @@
-// Package-level note:
+// Package cmdutil provides shared CLI command plumbing.
 //
 // SetRisk / SetWriteRisk attach risk metadata to a cobra command via cobra
 // annotations. The SetAgentHelp wrapper in agenthelp.go reads these

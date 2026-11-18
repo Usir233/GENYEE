@@ -27,6 +27,7 @@ var kbSearchFields = []string{
 	"created_at", "updated_at",
 }
 
+// KBSearchOptions holds flags and arguments for the `search kb` command.
 type KBSearchOptions struct {
 	Query string
 	Limit int
@@ -79,12 +80,18 @@ content, use ` + "`genyee search chunks`" + `.`,
 	}
 	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum results to return")
 	cmdutil.AddFormatFlag(cmd, kbSearchFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Find knowledge bases by name or description (client-side case-insensitive substring match). Results come with meta.count; use --limit to cap. For searching content inside a KB, use 'search chunks' instead.",
-		RequiredFlags: []string{"<query> (positional)"},
-		Examples:      []string{`genyee search kb "engineering" --format json`},
-		Output:   "envelope.data is an array of KnowledgeBase objects with id, name, knowledge_count; meta.count is the returned count; meta.has_more=true if more matched than --limit",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Find knowledge bases by name or description (client-side case-insensitive substring " +
+				"match). Results come with meta.count; use --limit to cap. For searching content inside a KB, use " +
+				"'search chunks' instead.",
+			RequiredFlags: []string{"<query> (positional)"},
+			Examples:      []string{`genyee search kb "engineering" --format json`},
+			Output: "envelope.data is an array of KnowledgeBase objects with id, name, knowledge_count; " +
+				"meta.count is the returned count; meta.has_more=true if more matched than --limit",
+		},
+	)
 	return cmd
 }
 
@@ -107,14 +114,20 @@ func runKBSearch(ctx context.Context, opts *KBSearchOptions, fopts *cmdutil.Form
 		return fopts.Emit(iostreams.IO.Out, matches, meta)
 	}
 	if len(matches) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no matches)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no matches)")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tDOCS")
+	_, _ = fmt.Fprintln(tw, "ID\tNAME\tDOCS")
 	for _, kb := range matches {
 		name := text.OneLine(50, kb.Name)
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(kb.ID), name, text.Pluralize(int(kb.KnowledgeCount), "doc"))
+		_, _ = fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\n",
+			text.SanitizeInline(kb.ID),
+			name,
+			text.Pluralize(int(kb.KnowledgeCount), "doc"),
+		)
 	}
 	return tw.Flush()
 }

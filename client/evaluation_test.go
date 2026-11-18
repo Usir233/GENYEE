@@ -12,7 +12,12 @@ import (
 
 // This is the EvaluationDetail envelope emitted by handler.EvaluationHandler,
 // including numeric status and nested task/params/metric objects.
-const evaluationWireResponse = `{"success":true,"data":{"task":{"id":"evaluation-1","tenant_id":7,"dataset_id":"custom","start_time":"2026-11-13T00:00:00Z","status":2,"total":4,"finished":4},"params":{"chat_model_id":"chat-model","rerank_model_id":"rerank-model"},"metric":{"retrieval_metrics":{"precision":0.5,"recall":1,"ndcg3":0.6309297535714574,"ndcg10":0.6309297535714574,"mrr":0.5,"map":0.5},"generation_metrics":{"bleu1":0.8,"bleu2":0.7,"bleu4":0.6,"rouge1":0.5,"rouge2":0.4,"rougel":0.3}}}}`
+const evaluationWireResponse = `{"success":true,"data":{"task":{"id":"evaluation-1","tenant_id":7,` +
+	`"dataset_id":"custom","start_time":"2026-11-13T00:00:00Z","status":2,"total":4,"finished":4},` +
+	`"params":{"chat_model_id":"chat-model","rerank_model_id":"rerank-model"},` +
+	`"metric":{"retrieval_metrics":{"precision":0.5,"recall":1,"ndcg3":0.6309297535714574,` +
+	`"ndcg10":0.6309297535714574,"mrr":0.5,"map":0.5},"generation_metrics":{"bleu1":0.8,` +
+	`"bleu2":0.7,"bleu4":0.6,"rouge1":0.5,"rouge2":0.4,"rougel":0.3}}}}`
 
 func TestEvaluationClientWireContract(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +44,9 @@ func TestEvaluationClientWireContract(t *testing.T) {
 	defer server.Close()
 	c := NewClient(server.URL)
 	var request EvaluationRequest
-	if err := json.Unmarshal([]byte(`{"dataset_id":"custom","knowledge_base_id":"source-kb","chat_id":"chat-model","rerank_id":"rerank-model"}`), &request); err != nil {
+	reqJSON := `{"dataset_id":"custom","knowledge_base_id":"source-kb",` +
+		`"chat_id":"chat-model","rerank_id":"rerank-model"}`
+	if err := json.Unmarshal([]byte(reqJSON), &request); err != nil {
 		t.Fatal(err)
 	}
 	task, err := c.StartEvaluation(context.Background(), &request)
@@ -64,10 +71,13 @@ func TestEvaluationClientWireContract(t *testing.T) {
 	if got["task"] == nil || got["metric"] == nil || got["params"] == nil {
 		t.Errorf("evaluation detail lost nested task, metric or params: %s", raw)
 	}
-	if task.Status != EvaluationStatusSuccess || task.TenantID != 7 || task.Total != 4 || task.Finished != 4 || task.StartTime.IsZero() {
+	if task.Status != EvaluationStatusSuccess || task.TenantID != 7 ||
+		task.Total != 4 || task.Finished != 4 || task.StartTime.IsZero() {
 		t.Errorf("task state was not preserved: %+v", task)
 	}
-	if result.Metric == nil || result.Metric.RetrievalMetrics.MRR != .5 || result.Metric.GenerationMetrics.ROUGEL != .3 {
+	if result.Metric == nil ||
+		result.Metric.RetrievalMetrics.MRR != .5 ||
+		result.Metric.GenerationMetrics.ROUGEL != .3 {
 		t.Errorf("metrics were not preserved: %+v", result.Metric)
 	}
 	if result.Params["chat_model_id"] != "chat-model" || result.Params["rerank_model_id"] != "rerank-model" {
@@ -76,7 +86,13 @@ func TestEvaluationClientWireContract(t *testing.T) {
 }
 
 func TestEvaluationClientTaskStates(t *testing.T) {
-	for _, status := range []EvaluationStatus{EvaluationStatusPending, EvaluationStatusRunning, EvaluationStatusSuccess, EvaluationStatusFailed} {
+	statuses := []EvaluationStatus{
+		EvaluationStatusPending,
+		EvaluationStatusRunning,
+		EvaluationStatusSuccess,
+		EvaluationStatusFailed,
+	}
+	for _, status := range statuses {
 		t.Run(string(rune('0'+status)), func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")

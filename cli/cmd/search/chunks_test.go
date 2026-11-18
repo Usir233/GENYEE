@@ -54,7 +54,15 @@ func TestRunSearch_JSONIncludesMatchType(t *testing.T) {
 	svc := &fakeChunksSvc{results: []*sdk.SearchResult{
 		{Score: 0.9, Content: "x", MatchType: sdk.MatchTypeKeyword},
 	}}
-	require.NoError(t, runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "kb1"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, svc))
+	require.NoError(
+		t,
+		runChunks(
+			context.Background(),
+			&ChunksOptions{Query: "q", KBID: "kb1"},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+			svc,
+		),
+	)
 	assert.Contains(t, out.String(), `"match_type":1`)
 }
 
@@ -76,7 +84,15 @@ func TestRunSearch_JSONOutput(t *testing.T) {
 func TestRunSearch_EmptyResults(t *testing.T) {
 	out, _ := iostreams.SetForTest(t)
 	svc := &fakeChunksSvc{results: nil}
-	require.NoError(t, runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "kb1"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc))
+	require.NoError(
+		t,
+		runChunks(
+			context.Background(),
+			&ChunksOptions{Query: "q", KBID: "kb1"},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			svc,
+		),
+	)
 	assert.Contains(t, out.String(), "(no results)")
 }
 
@@ -92,7 +108,15 @@ func TestRunSearch_LimitHardCap(t *testing.T) {
 		{Score: 0, Content: "enrichment parent"}, // server-padded
 		{Score: 0, Content: "enrichment nearby"}, // server-padded
 	}}
-	require.NoError(t, runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "kb1", Limit: 3}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc))
+	require.NoError(
+		t,
+		runChunks(
+			context.Background(),
+			&ChunksOptions{Query: "q", KBID: "kb1", Limit: 3},
+			&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+			svc,
+		),
+	)
 	got := out.String()
 	assert.Contains(t, got, "3 result(s)")
 	assert.NotContains(t, got, "enrichment parent")
@@ -101,7 +125,12 @@ func TestRunSearch_LimitHardCap(t *testing.T) {
 
 func TestRunSearch_BothChannelsDisabled(t *testing.T) {
 	iostreams.SetForTest(t)
-	err := runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "kb1", NoVector: true, NoKeyword: true}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, &fakeChunksSvc{})
+	err := runChunks(
+		context.Background(),
+		&ChunksOptions{Query: "q", KBID: "kb1", NoVector: true, NoKeyword: true},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		&fakeChunksSvc{},
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "input.invalid_argument")
 }
@@ -109,7 +138,12 @@ func TestRunSearch_BothChannelsDisabled(t *testing.T) {
 func TestRunSearch_ServiceError_Transport(t *testing.T) {
 	iostreams.SetForTest(t)
 	svc := &fakeChunksSvc{err: assert.AnError}
-	err := runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "kb1"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc)
+	err := runChunks(
+		context.Background(),
+		&ChunksOptions{Query: "q", KBID: "kb1"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -120,7 +154,12 @@ func TestRunSearch_ServiceError_Transport(t *testing.T) {
 func TestRunSearch_ServiceError_HTTPNotFound(t *testing.T) {
 	iostreams.SetForTest(t)
 	svc := &fakeChunksSvc{err: errors.New("HTTP error 404: knowledge base not found")}
-	err := runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "missing"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc)
+	err := runChunks(
+		context.Background(),
+		&ChunksOptions{Query: "q", KBID: "missing"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		svc,
+	)
 	require.Error(t, err)
 	var typed *cmdutil.Error
 	require.ErrorAs(t, err, &typed)
@@ -134,7 +173,12 @@ func TestIndent(t *testing.T) {
 
 func TestRunSearch_NilService(t *testing.T) {
 	iostreams.SetForTest(t)
-	err := runChunks(context.Background(), &ChunksOptions{Query: "q", KBID: "kb1"}, &cmdutil.FormatOptions{Mode: cmdutil.FormatText}, nil)
+	err := runChunks(
+		context.Background(),
+		&ChunksOptions{Query: "q", KBID: "kb1"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText},
+		nil,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "server.error")
 }

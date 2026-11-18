@@ -89,6 +89,7 @@ type StorageProviderConfig struct {
 }
 
 // StorageConfig represents the legacy storage configuration (cos_config).
+//
 // Deprecated: use StorageProviderConfig for provider selection.
 type StorageConfig struct {
 	SecretID   string `json:"secret_id"`
@@ -198,6 +199,7 @@ type KnowledgeBaseListResponse struct {
 // 6-9 alternate sources (graph DB, web search, raw load, data analysis).
 type MatchType int
 
+// MatchType constants mirror internal/types/embedding.go on the server.
 const (
 	MatchTypeVector   MatchType = 0 // server: MatchTypeEmbedding
 	MatchTypeKeyword  MatchType = 1 // server: MatchTypeKeywords
@@ -258,6 +260,7 @@ type HybridSearchResponse struct {
 	Meta *RetrievalMeta `json:"meta,omitempty"`
 }
 
+// CopyKnowledgeBaseRequest starts an asynchronous copy from SourceID to TargetID.
 type CopyKnowledgeBaseRequest struct {
 	TaskID   string `json:"task_id,omitempty"`
 	SourceID string `json:"source_id"`
@@ -272,6 +275,7 @@ type CopyKnowledgeBaseResponse struct {
 	Message  string `json:"message"`
 }
 
+// DuplicateKnowledgeBaseResponse is returned when duplicating a knowledge base's settings.
 type DuplicateKnowledgeBaseResponse struct {
 	SourceID      string        `json:"source_id"`
 	TargetID      string        `json:"target_id"`
@@ -473,7 +477,10 @@ type ClearKnowledgeBaseContentsResponse struct {
 
 // ClearKnowledgeBaseContents deletes all knowledge entries in a knowledge base (async).
 // The knowledge base itself is preserved; only its contents are removed.
-func (c *Client) ClearKnowledgeBaseContents(ctx context.Context, knowledgeBaseID string) (*ClearKnowledgeBaseContentsResponse, error) {
+func (c *Client) ClearKnowledgeBaseContents(
+	ctx context.Context,
+	knowledgeBaseID string,
+) (*ClearKnowledgeBaseContentsResponse, error) {
 	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
@@ -600,7 +607,10 @@ func (c *Client) ListMoveTargets(ctx context.Context, knowledgeBaseID string) ([
 }
 
 // CopyKnowledgeBase copies a knowledge base asynchronously and returns task info
-func (c *Client) CopyKnowledgeBase(ctx context.Context, request *CopyKnowledgeBaseRequest) (*CopyKnowledgeBaseResponse, error) {
+func (c *Client) CopyKnowledgeBase(
+	ctx context.Context,
+	request *CopyKnowledgeBaseRequest,
+) (*CopyKnowledgeBaseResponse, error) {
 	path := "/api/v1/knowledge-bases/copy"
 
 	resp, err := c.doRequest(ctx, http.MethodPost, path, request, nil)

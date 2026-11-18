@@ -48,7 +48,10 @@ func ValidateHTTPURL(flagLabel, value string) error {
 	safeValue := redactURLUserinfo(value)
 	u, err := url.Parse(value)
 	if err != nil {
-		return NewError(CodeInputInvalidArgument, fmt.Sprintf("%s %q is not a valid URL: %v", flagLabel, safeValue, redactURLUserinfo(err.Error())))
+		return NewError(
+			CodeInputInvalidArgument,
+			fmt.Sprintf("%s %q is not a valid URL: %v", flagLabel, safeValue, redactURLUserinfo(err.Error())),
+		)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return &Error{
@@ -61,7 +64,10 @@ func ValidateHTTPURL(flagLabel, value string) error {
 		return NewError(CodeInputInvalidArgument, fmt.Sprintf("%s must not include user credentials", flagLabel))
 	}
 	if u.Host == "" || u.Hostname() == "" {
-		return NewError(CodeInputInvalidArgument, fmt.Sprintf("%s %q is missing the host portion", flagLabel, safeValue))
+		return NewError(
+			CodeInputInvalidArgument,
+			fmt.Sprintf("%s %q is missing the host portion", flagLabel, safeValue),
+		)
 	}
 	return nil
 }

@@ -121,7 +121,12 @@ type knowledgeBaseService interface {
 }
 
 type knowledgeService interface {
-	ListKnowledgeWithFilter(ctx context.Context, kbID string, page, pageSize int, filter sdk.KnowledgeListFilter) ([]sdk.Knowledge, int64, error)
+	ListKnowledgeWithFilter(
+		ctx context.Context,
+		kbID string,
+		page, pageSize int,
+		filter sdk.KnowledgeListFilter,
+	) ([]sdk.Knowledge, int64, error)
 	GetKnowledge(ctx context.Context, knowledgeID string) (*sdk.Knowledge, error)
 	OpenKnowledgeFile(ctx context.Context, knowledgeID string) (string, io.ReadCloser, error)
 	HybridSearch(
@@ -134,20 +139,33 @@ type knowledgeService interface {
 
 type chatService interface {
 	CreateSession(ctx context.Context, req *sdk.CreateSessionRequest) (*sdk.Session, error)
-	KnowledgeQAStream(ctx context.Context, sessionID string, req *sdk.KnowledgeQARequest, cb func(*sdk.StreamResponse) error, opts ...sdk.ResourceURLOptions) error
+	KnowledgeQAStream(ctx context.Context, sessionID string, req *sdk.KnowledgeQARequest, cb func(
+		*sdk.StreamResponse,
+	) error, opts ...sdk.ResourceURLOptions) error
 }
 
 type agentService interface {
 	ListAgents(ctx context.Context) ([]sdk.Agent, error)
 	GetAgent(ctx context.Context, agentID string) (*sdk.Agent, error)
-	AgentQAStreamWithRequest(ctx context.Context, sessionID string, req *sdk.AgentQARequest, cb sdk.AgentEventCallback, opts ...sdk.ResourceURLOptions) error
+	AgentQAStreamWithRequest(
+		ctx context.Context,
+		sessionID string,
+		req *sdk.AgentQARequest,
+		cb sdk.AgentEventCallback,
+		opts ...sdk.ResourceURLOptions,
+	) error
 }
 
 // chunkListService is the narrow surface chunk_list depends on. Kept
 // separate from knowledgeService because the chunk subtree is its own
 // domain on the server side (/api/v1/chunks/...).
 type chunkListService interface {
-	ListKnowledgeChunks(ctx context.Context, knowledgeID string, page, pageSize int, chunkTypes ...string) ([]sdk.Chunk, int64, error)
+	ListKnowledgeChunks(
+		ctx context.Context,
+		knowledgeID string,
+		page, pageSize int,
+		chunkTypes ...string,
+	) ([]sdk.Chunk, int64, error)
 }
 
 // sessionAskService composes the two SDK methods session_ask needs
@@ -157,7 +175,13 @@ type chunkListService interface {
 // four domain interfaces - also satisfies it.
 type sessionAskService interface {
 	CreateSession(ctx context.Context, req *sdk.CreateSessionRequest) (*sdk.Session, error)
-	AgentQAStreamWithRequest(ctx context.Context, sessionID string, req *sdk.AgentQARequest, cb sdk.AgentEventCallback, opts ...sdk.ResourceURLOptions) error
+	AgentQAStreamWithRequest(
+		ctx context.Context,
+		sessionID string,
+		req *sdk.AgentQARequest,
+		cb sdk.AgentEventCallback,
+		opts ...sdk.ResourceURLOptions,
+	) error
 }
 
 // registerTools wires the curated 10 tools onto server. Adding a tool here
@@ -194,26 +218,32 @@ type kbListOutput struct {
 }
 
 func addKBList(server *mcpsdk.Server, svc knowledgeBaseService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "kb_list",
-		Description: "List all knowledge bases visible to the active GENYEE tenant. No arguments. Returns items[]: each item carries id, name, description, knowledge_count, is_pinned, updated_at - useful for selecting a kb_id to pass to other tools.",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "List Knowledge Bases",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "kb_list",
+			Description: "List all knowledge bases visible to the active GENYEE tenant. No arguments. Returns " +
+				"items[]: each item carries id, name, description, knowledge_count, is_pinned, updated_at - useful " +
+				"for selecting a kb_id to pass to other tools.",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "List Knowledge Bases",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, _ kbListInput) (*mcpsdk.CallToolResult, any, error) {
-		items, err := svc.ListKnowledgeBases(ctx)
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "list knowledge bases")), nil, nil
-		}
-		if items == nil {
-			items = []sdk.KnowledgeBase{}
-		}
-		return successResult(kbListOutput{Items: items}), nil, nil
-	})
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, _ kbListInput) (*mcpsdk.CallToolResult, any, error) {
+			items, err := svc.ListKnowledgeBases(ctx)
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "list knowledge bases")), nil, nil
+			}
+			if items == nil {
+				items = []sdk.KnowledgeBase{}
+			}
+			return successResult(kbListOutput{Items: items}), nil, nil
+		},
+	)
 }
 
 // ---- kb_view -------------------------------------------------------------
@@ -223,29 +253,34 @@ type kbViewInput struct {
 }
 
 func addKBView(server *mcpsdk.Server, svc knowledgeBaseService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "kb_view",
-		Description: "Fetch a knowledge base by ID. Returns the full record including chunking config, embedding/summary model IDs, knowledge_count, and chunk_count.",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "View Knowledge Base",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "kb_view",
+			Description: "Fetch a knowledge base by ID. Returns the full record including chunking config, embedding/" +
+				"summary model IDs, knowledge_count, and chunk_count.",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "View Knowledge Base",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in kbViewInput) (*mcpsdk.CallToolResult, any, error) {
-		if in.KBID == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
-		}
-		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
-			return toolErrorResult(err), nil, nil
-		}
-		kb, err := svc.GetKnowledgeBase(ctx, in.KBID)
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "get knowledge base")), nil, nil
-		}
-		return successResult(kb), nil, nil
-	})
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, in kbViewInput) (*mcpsdk.CallToolResult, any, error) {
+			if in.KBID == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+			}
+			if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
+			kb, err := svc.GetKnowledgeBase(ctx, in.KBID)
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "get knowledge base")), nil, nil
+			}
+			return successResult(kb), nil, nil
+		},
+	)
 }
 
 // ---- doc_list ------------------------------------------------------------
@@ -254,13 +289,13 @@ type docListInput struct {
 	KBID      string `json:"kb_id" jsonschema:"knowledge base ID"`
 	Page      int    `json:"page,omitempty" jsonschema:"1-indexed page number; defaults to 1"`
 	PageSize  int    `json:"page_size,omitempty" jsonschema:"items per page (1..1000); defaults to 20"`
-	Status    string `json:"status,omitempty" jsonschema:"filter by parse status: pending | processing | completed | failed"`
-	Keyword   string `json:"keyword,omitempty" jsonschema:"server-side substring filter (case-sensitive LIKE against title / file_name); leave empty to skip"`
+	Status    string `json:"status,omitempty" jsonschema:"filter by parse status: pending | processing | completed | failed"`                                  //nolint:lll // one-line struct tag
+	Keyword   string `json:"keyword,omitempty" jsonschema:"server-side substring filter (case-sensitive LIKE against title / file_name); leave empty to skip"` //nolint:lll // one-line struct tag
 	FileType  string `json:"file_type,omitempty" jsonschema:"filter by file extension (e.g. pdf, md)"`
 	Source    string `json:"source,omitempty" jsonschema:"filter by ingestion source (e.g. api, web)"`
 	TagID     string `json:"tag_id,omitempty" jsonschema:"filter by tag association"`
-	StartTime string `json:"start_time,omitempty" jsonschema:"include docs with updated_at >= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)"`
-	EndTime   string `json:"end_time,omitempty" jsonschema:"include docs with updated_at <= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)"`
+	StartTime string `json:"start_time,omitempty" jsonschema:"include docs with updated_at >= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)"` //nolint:lll // one-line struct tag
+	EndTime   string `json:"end_time,omitempty" jsonschema:"include docs with updated_at <= this RFC3339 timestamp (e.g. 2006-01-02T15:04:05Z)"`   //nolint:lll // one-line struct tag
 }
 
 type docListOutput struct {
@@ -271,86 +306,110 @@ type docListOutput struct {
 }
 
 func addDocList(server *mcpsdk.Server, svc knowledgeService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "doc_list",
-		Description: "List documents in a knowledge base, with pagination and optional filters (parse-status, keyword, file_type, source, tag_id, start_time/end_time on updated_at). Returns items[] with id, file_name, title, parse_status, size, updated_at - plus the page/total metadata.",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "List Documents",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "doc_list",
+			Description: "List documents in a knowledge base, with pagination and optional filters (parse-status, " +
+				"keyword, file_type, source, tag_id, start_time/end_time on updated_at). Returns items[] with id, " +
+				"file_name, title, parse_status, size, updated_at - plus the page/total metadata.",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "List Documents",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docListInput) (*mcpsdk.CallToolResult, any, error) {
-		if in.KBID == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
-		}
-		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
-			return toolErrorResult(err), nil, nil
-		}
-		if in.TagID != "" {
-			if err := cmdutil.ValidateResourceID("tag_id", in.TagID); err != nil {
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docListInput) (*mcpsdk.CallToolResult, any, error) {
+			if in.KBID == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+			}
+			if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
 				return toolErrorResult(err), nil, nil
 			}
-		}
-		if in.Page < 0 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page must be >= 1")), nil, nil
-		}
-		page := in.Page
-		if page == 0 {
-			page = 1
-		}
-		if in.PageSize < 0 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page_size must be in 1..1000")), nil, nil
-		}
-		size := in.PageSize
-		if size == 0 {
-			size = 20
-		}
-		if size > 1000 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page_size must be in 1..1000")), nil, nil
-		}
-		normStatus := ""
-		if in.Status != "" {
-			var err error
-			normStatus, err = cmdutil.ValidateEnum("status", in.Status, validDocParseStatuses)
-			if err != nil {
-				return toolErrorResult(err), nil, nil
+			if in.TagID != "" {
+				if err := cmdutil.ValidateResourceID("tag_id", in.TagID); err != nil {
+					return toolErrorResult(err), nil, nil
+				}
 			}
-		}
-		filter := sdk.KnowledgeListFilter{
-			ParseStatus: normStatus,
-			Keyword:     in.Keyword,
-			FileType:    in.FileType,
-			Source:      in.Source,
-			TagID:       in.TagID,
-		}
-		if in.StartTime != "" {
-			t, err := time.Parse(time.RFC3339, in.StartTime)
-			if err != nil {
-				return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("start_time must be RFC3339 (e.g. 2006-01-02T15:04:05Z), got %q", in.StartTime))), nil, nil
+			if in.Page < 0 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page must be >= 1"),
+				), nil, nil
 			}
-			filter.StartTime = t
-		}
-		if in.EndTime != "" {
-			t, err := time.Parse(time.RFC3339, in.EndTime)
-			if err != nil {
-				return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("end_time must be RFC3339 (e.g. 2006-01-02T15:04:05Z), got %q", in.EndTime))), nil, nil
+			page := in.Page
+			if page == 0 {
+				page = 1
 			}
-			filter.EndTime = t
-		}
-		if !filter.StartTime.IsZero() && !filter.EndTime.IsZero() && filter.StartTime.After(filter.EndTime) {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "start_time must not be after end_time")), nil, nil
-		}
-		items, total, err := svc.ListKnowledgeWithFilter(ctx, in.KBID, page, size, filter)
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "list documents")), nil, nil
-		}
-		if items == nil {
-			items = []sdk.Knowledge{}
-		}
-		return successResult(docListOutput{Items: items, Page: page, PageSize: size, Total: total}), nil, nil
-	})
+			if in.PageSize < 0 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page_size must be in 1..1000"),
+				), nil, nil
+			}
+			size := in.PageSize
+			if size == 0 {
+				size = 20
+			}
+			if size > 1000 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page_size must be in 1..1000"),
+				), nil, nil
+			}
+			normStatus := ""
+			if in.Status != "" {
+				var err error
+				normStatus, err = cmdutil.ValidateEnum("status", in.Status, validDocParseStatuses)
+				if err != nil {
+					return toolErrorResult(err), nil, nil
+				}
+			}
+			filter := sdk.KnowledgeListFilter{
+				ParseStatus: normStatus,
+				Keyword:     in.Keyword,
+				FileType:    in.FileType,
+				Source:      in.Source,
+				TagID:       in.TagID,
+			}
+			if in.StartTime != "" {
+				t, err := time.Parse(time.RFC3339, in.StartTime)
+				if err != nil {
+					return toolErrorResult(
+						cmdutil.NewError(
+							cmdutil.CodeInputInvalidArgument,
+							fmt.Sprintf("start_time must be RFC3339 (e.g. 2006-01-02T15:04:05Z), got %q", in.StartTime),
+						),
+					), nil, nil
+				}
+				filter.StartTime = t
+			}
+			if in.EndTime != "" {
+				t, err := time.Parse(time.RFC3339, in.EndTime)
+				if err != nil {
+					return toolErrorResult(
+						cmdutil.NewError(
+							cmdutil.CodeInputInvalidArgument,
+							fmt.Sprintf("end_time must be RFC3339 (e.g. 2006-01-02T15:04:05Z), got %q", in.EndTime),
+						),
+					), nil, nil
+				}
+				filter.EndTime = t
+			}
+			if !filter.StartTime.IsZero() && !filter.EndTime.IsZero() && filter.StartTime.After(filter.EndTime) {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "start_time must not be after end_time"),
+				), nil, nil
+			}
+			items, total, err := svc.ListKnowledgeWithFilter(ctx, in.KBID, page, size, filter)
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "list documents")), nil, nil
+			}
+			if items == nil {
+				items = []sdk.Knowledge{}
+			}
+			return successResult(docListOutput{Items: items, Page: page, PageSize: size, Total: total}), nil, nil
+		},
+	)
 }
 
 // ---- doc_view ------------------------------------------------------------
@@ -360,29 +419,34 @@ type docViewInput struct {
 }
 
 func addDocView(server *mcpsdk.Server, svc knowledgeService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "doc_view",
-		Description: "Fetch a single document by ID. Returns the Knowledge record (file_name, title, type, parse_status, size, embedding_model_id, source URL if any, etc.).",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "View Document",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "doc_view",
+			Description: "Fetch a single document by ID. Returns the Knowledge record (file_name, title, type, " +
+				"parse_status, size, embedding_model_id, source URL if any, etc.).",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "View Document",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docViewInput) (*mcpsdk.CallToolResult, any, error) {
-		if in.DocID == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
-		}
-		if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
-			return toolErrorResult(err), nil, nil
-		}
-		k, err := svc.GetKnowledge(ctx, in.DocID)
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "get knowledge")), nil, nil
-		}
-		return successResult(k), nil, nil
-	})
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docViewInput) (*mcpsdk.CallToolResult, any, error) {
+			if in.DocID == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
+			}
+			if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
+			k, err := svc.GetKnowledge(ctx, in.DocID)
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "get knowledge")), nil, nil
+			}
+			return successResult(k), nil, nil
+		},
+	)
 }
 
 // ---- doc_download --------------------------------------------------------
@@ -409,46 +473,58 @@ type docDownloadOutput struct {
 const maxDocDownloadBytes = 1 << 20
 
 func addDocDownload(server *mcpsdk.Server, svc knowledgeService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name: "doc_download",
-		Description: "Download a document's raw bytes by ID. Capped at 1 MiB per call - for larger documents, " +
-			"use search_chunks to find the relevant excerpts. is_base64 reports whether content was " +
-			"base64-encoded (invalid UTF-8 or presence of NUL byte in the first 512 bytes).",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "Download Document",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "doc_download",
+			Description: "Download a document's raw bytes by ID. Capped at 1 MiB per call - for larger documents, " +
+				"use search_chunks to find the relevant excerpts. is_base64 reports whether content was " +
+				"base64-encoded (invalid UTF-8 or presence of NUL byte in the first 512 bytes).",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "Download Document",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docDownloadInput) (*mcpsdk.CallToolResult, any, error) {
-		if in.DocID == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
-		}
-		if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
-			return toolErrorResult(err), nil, nil
-		}
-		name, body, err := svc.OpenKnowledgeFile(ctx, in.DocID)
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "open knowledge file")), nil, nil
-		}
-		defer body.Close()
-		buf, err := io.ReadAll(io.LimitReader(body, maxDocDownloadBytes+1))
-		if err != nil {
-			return toolErrorResult(cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read knowledge file")), nil, nil
-		}
-		if len(buf) > maxDocDownloadBytes {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("document exceeds the %d-byte per-call cap; use search_chunks for excerpts", maxDocDownloadBytes))), nil, nil
-		}
-		content, isBase64 := encodeDownload(buf)
-		return successResult(docDownloadOutput{
-			DocID:    in.DocID,
-			FileName: name,
-			Bytes:    len(buf),
-			Content:  content,
-			IsBase64: isBase64,
-		}), nil, nil
-	})
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docDownloadInput) (*mcpsdk.CallToolResult, any, error) {
+			if in.DocID == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
+			}
+			if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
+			name, body, err := svc.OpenKnowledgeFile(ctx, in.DocID)
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "open knowledge file")), nil, nil
+			}
+			defer func() { _ = body.Close() }()
+			buf, err := io.ReadAll(io.LimitReader(body, maxDocDownloadBytes+1))
+			if err != nil {
+				return toolErrorResult(cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read knowledge file")), nil, nil
+			}
+			if len(buf) > maxDocDownloadBytes {
+				return toolErrorResult(
+					cmdutil.NewError(
+						cmdutil.CodeInputInvalidArgument,
+						fmt.Sprintf(
+							"document exceeds the %d-byte per-call cap; use search_chunks for excerpts",
+							maxDocDownloadBytes,
+						),
+					),
+				), nil, nil
+			}
+			content, isBase64 := encodeDownload(buf)
+			return successResult(docDownloadOutput{
+				DocID:    in.DocID,
+				FileName: name,
+				Bytes:    len(buf),
+				Content:  content,
+				IsBase64: isBase64,
+			}), nil, nil
+		},
+	)
 }
 
 // ---- search_chunks -------------------------------------------------------
@@ -473,59 +549,85 @@ func addSearchChunks(server *mcpsdk.Server, svc knowledgeService) {
 	// `any` keeps the structured JSON shape identical while bypassing
 	// the over-eager validator. Same pattern applied to chat / session_ask
 	// below.
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "search_chunks",
-		Description: "Hybrid (vector + keyword) retrieval against a knowledge base. Returns the top chunks ranked by RRF; use this before chat to ground an answer in cited context. Results include knowledge_id, content, score - feed back into chat as context or display directly.",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "Search Knowledge Chunks",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "search_chunks",
+			Description: "Hybrid (vector + keyword) retrieval against a knowledge base. Returns the top chunks " +
+				"ranked by RRF; use this before chat to ground an answer in cited context. Results include " +
+				"knowledge_id, content, score - feed back into chat as context or display directly.",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "Search Knowledge Chunks",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in searchChunksInput) (*mcpsdk.CallToolResult, any, error) {
-		if in.KBID == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
-		}
-		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
-			return toolErrorResult(err), nil, nil
-		}
-		if strings.TrimSpace(in.Query) == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty")), nil, nil
-		}
-		if in.Limit < 0 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "limit must be in 1..1000")), nil, nil
-		}
-		limit := in.Limit
-		if limit == 0 {
-			limit = 10
-		}
-		if limit > 1000 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "limit must be in 1..1000")), nil, nil
-		}
-		if math.IsNaN(in.VectorThreshold) || math.IsInf(in.VectorThreshold, 0) || in.VectorThreshold < 0 || in.VectorThreshold > 1 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "vector_threshold must be in 0..1")), nil, nil
-		}
-		if math.IsNaN(in.KeywordThreshold) || math.IsInf(in.KeywordThreshold, 0) || in.KeywordThreshold < 0 || in.KeywordThreshold > 1 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "keyword_threshold must be in 0..1")), nil, nil
-		}
-		results, err := svc.HybridSearch(ctx, in.KBID, &sdk.SearchParams{
-			QueryText:        in.Query,
-			MatchCount:       limit,
-			VectorThreshold:  in.VectorThreshold,
-			KeywordThreshold: in.KeywordThreshold,
-		})
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "hybrid search")), nil, nil
-		}
-		if len(results) > limit {
-			results = results[:limit]
-		}
-		if results == nil {
-			results = []*sdk.SearchResult{}
-		}
-		return successResult(searchChunksOutput{Results: results}), nil, nil
-	})
+		func(
+			ctx context.Context,
+			_ *mcpsdk.CallToolRequest,
+			in searchChunksInput,
+		) (*mcpsdk.CallToolResult, any, error) {
+			if in.KBID == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+			}
+			if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
+			if strings.TrimSpace(in.Query) == "" {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty"),
+				), nil, nil
+			}
+			if in.Limit < 0 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "limit must be in 1..1000"),
+				), nil, nil
+			}
+			limit := in.Limit
+			if limit == 0 {
+				limit = 10
+			}
+			if limit > 1000 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "limit must be in 1..1000"),
+				), nil, nil
+			}
+			if math.IsNaN(in.VectorThreshold) || math.IsInf(
+				in.VectorThreshold,
+				0,
+			) || in.VectorThreshold < 0 || in.VectorThreshold > 1 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "vector_threshold must be in 0..1"),
+				), nil, nil
+			}
+			if math.IsNaN(in.KeywordThreshold) || math.IsInf(
+				in.KeywordThreshold,
+				0,
+			) || in.KeywordThreshold < 0 || in.KeywordThreshold > 1 {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "keyword_threshold must be in 0..1"),
+				), nil, nil
+			}
+			results, err := svc.HybridSearch(ctx, in.KBID, &sdk.SearchParams{
+				QueryText:        in.Query,
+				MatchCount:       limit,
+				VectorThreshold:  in.VectorThreshold,
+				KeywordThreshold: in.KeywordThreshold,
+			})
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "hybrid search")), nil, nil
+			}
+			if len(results) > limit {
+				results = results[:limit]
+			}
+			if results == nil {
+				results = []*sdk.SearchResult{}
+			}
+			return successResult(searchChunksOutput{Results: results}), nil, nil
+		},
+	)
 }
 
 // ---- chat ----------------------------------------------------------------
@@ -547,86 +649,111 @@ type chatOutput struct {
 }
 
 func addChat(server *mcpsdk.Server, svc chatService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "chat",
-		Description: "Run a RAG answer against a knowledge base. Returns a bounded answer-event projection by default; reference=true adds indexed citations and verbose=true adds reasoning, tool, and lifecycle events. MCP tools/call is buffered rather than streaming. Pass session_id to continue a conversation.",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "Chat with KB (Streaming RAG)",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    false,
-			IdempotentHint:  false,
-			OpenWorldHint:   bptr(true),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "chat",
+			Description: "Run a RAG answer against a knowledge base. Returns a bounded answer-event projection by " +
+				"default; reference=true adds indexed citations and verbose=true adds reasoning, tool, and lifecycle " +
+				"events. MCP tools/call is buffered rather than streaming. Pass session_id to continue a conversation.",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "Chat with KB (Streaming RAG)",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    false,
+				IdempotentHint:  false,
+				OpenWorldHint:   bptr(true),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in chatInput) (*mcpsdk.CallToolResult, any, error) {
-		if in.KBID == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
-		}
-		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
-			return toolErrorResult(err), nil, nil
-		}
-		if in.SessionID != "" {
-			if err := cmdutil.ValidateResourceID("session_id", in.SessionID); err != nil {
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, in chatInput) (*mcpsdk.CallToolResult, any, error) {
+			if in.KBID == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+			}
+			if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
 				return toolErrorResult(err), nil, nil
 			}
-		}
-		if strings.TrimSpace(in.Query) == "" {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty")), nil, nil
-		}
-		sessionID := in.SessionID
-		if sessionID == "" {
-			sess, err := svc.CreateSession(ctx, &sdk.CreateSessionRequest{Title: "genyee mcp chat"})
-			if err != nil {
-				return toolErrorResult(cmdutil.WrapHTTP(err, "create chat session")), nil, nil
-			}
-			if sess == nil || strings.TrimSpace(sess.ID) == "" {
-				return toolErrorResult(cmdutil.NewError(cmdutil.CodeSessionCreateFailed, "create chat session returned an empty session ID")), nil, nil
-			}
-			sessionID = sess.ID
-		}
-		req := &sdk.KnowledgeQARequest{
-			Query:            in.Query,
-			KnowledgeBaseIDs: []string{in.KBID},
-			AgentEnabled:     false,
-			Channel:          "api",
-		}
-		projector := sse.NewProjector(in.Verbose, in.Reference, in.KBID)
-		events := make([]sse.ProjectedEvent, 0)
-		projectedBytes := 0
-		streamErr := svc.KnowledgeQAStream(ctx, sessionID, req, func(r *sdk.StreamResponse) error {
-			if event, include := projector.Chat(r); include {
-				if len(events) >= maxMCPBufferedEvents || projectedBytes+len(event.Content) > maxMCPProjectedBytes {
-					return cmdutil.NewError(cmdutil.CodeServerError, "stream exceeded MCP buffered event limit")
+			if in.SessionID != "" {
+				if err := cmdutil.ValidateResourceID("session_id", in.SessionID); err != nil {
+					return toolErrorResult(err), nil, nil
 				}
-				projectedBytes += len(event.Content)
-				events = append(events, event)
 			}
-			return nil
-		})
-		if streamErr != nil {
-			var cerr *cmdutil.Error
-			if errorsAsCmdError(streamErr, &cerr) {
-				return toolStreamError(cerr, sessionID, projector.AssistantMessageID()), nil, nil
+			if strings.TrimSpace(in.Query) == "" {
+				return toolErrorResult(
+					cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty"),
+				), nil, nil
 			}
-			return toolStreamError(cmdutil.WrapStream(streamErr, "knowledge qa stream"), sessionID, projector.AssistantMessageID()), nil, nil
-		}
-		if errMsg, hasErr := projector.TerminalError(); hasErr {
-			return toolStreamError(cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "knowledge qa stream"), sessionID, projector.AssistantMessageID()), nil, nil
-		}
-		if !projector.Done() {
-			return toolStreamError(cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event"), sessionID, projector.AssistantMessageID()), nil, nil
-		}
-		sid := projector.SessionID()
-		if sid == "" {
-			sid = sessionID
-		}
-		return successResult(chatOutput{
-			Events:             events,
-			SessionID:          sid,
-			AssistantMessageID: projector.AssistantMessageID(),
-			KBID:               in.KBID,
-			Query:              in.Query,
-		}), nil, nil
-	})
+			sessionID := in.SessionID
+			if sessionID == "" {
+				sess, err := svc.CreateSession(ctx, &sdk.CreateSessionRequest{Title: "genyee mcp chat"})
+				if err != nil {
+					return toolErrorResult(cmdutil.WrapHTTP(err, "create chat session")), nil, nil
+				}
+				if sess == nil || strings.TrimSpace(sess.ID) == "" {
+					return toolErrorResult(
+						cmdutil.NewError(
+							cmdutil.CodeSessionCreateFailed,
+							"create chat session returned an empty session ID",
+						),
+					), nil, nil
+				}
+				sessionID = sess.ID
+			}
+			req := &sdk.KnowledgeQARequest{
+				Query:            in.Query,
+				KnowledgeBaseIDs: []string{in.KBID},
+				AgentEnabled:     false,
+				Channel:          "api",
+			}
+			projector := sse.NewProjector(in.Verbose, in.Reference, in.KBID)
+			events := make([]sse.ProjectedEvent, 0)
+			projectedBytes := 0
+			streamErr := svc.KnowledgeQAStream(ctx, sessionID, req, func(r *sdk.StreamResponse) error {
+				if event, include := projector.Chat(r); include {
+					if len(events) >= maxMCPBufferedEvents || projectedBytes+len(event.Content) > maxMCPProjectedBytes {
+						return cmdutil.NewError(cmdutil.CodeServerError, "stream exceeded MCP buffered event limit")
+					}
+					projectedBytes += len(event.Content)
+					events = append(events, event)
+				}
+				return nil
+			})
+			if streamErr != nil {
+				var cerr *cmdutil.Error
+				if errorsAsCmdError(streamErr, &cerr) {
+					return toolStreamError(cerr, sessionID, projector.AssistantMessageID()), nil, nil
+				}
+				return toolStreamError(
+					cmdutil.WrapStream(streamErr, "knowledge qa stream"),
+					sessionID,
+					projector.AssistantMessageID(),
+				), nil, nil
+			}
+			if errMsg, hasErr := projector.TerminalError(); hasErr {
+				return toolStreamError(
+					cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "knowledge qa stream"),
+					sessionID,
+					projector.AssistantMessageID(),
+				), nil, nil
+			}
+			if !projector.Done() {
+				return toolStreamError(
+					cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event"),
+					sessionID,
+					projector.AssistantMessageID(),
+				), nil, nil
+			}
+			sid := projector.SessionID()
+			if sid == "" {
+				sid = sessionID
+			}
+			return successResult(chatOutput{
+				Events:             events,
+				SessionID:          sid,
+				AssistantMessageID: projector.AssistantMessageID(),
+				KBID:               in.KBID,
+				Query:              in.Query,
+			}), nil, nil
+		},
+	)
 }
 
 // ---- agent_list ----------------------------------------------------------
@@ -638,26 +765,31 @@ type agentListOutput struct {
 }
 
 func addAgentList(server *mcpsdk.Server, svc agentService) {
-	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "agent_list",
-		Description: "List the tenant's custom agents. Returns items[] with id, name, description, is_builtin - use to discover an agent_id before session_ask.",
-		Annotations: &mcpsdk.ToolAnnotations{
-			Title:           "List Custom Agents",
-			DestructiveHint: bptr(false),
-			ReadOnlyHint:    true,
-			IdempotentHint:  true,
-			OpenWorldHint:   bptr(false),
+	mcpsdk.AddTool(
+		server,
+		&mcpsdk.Tool{
+			Name: "agent_list",
+			Description: "List the tenant's custom agents. Returns items[] with id, name, description, is_builtin - " +
+				"use to discover an agent_id before session_ask.",
+			Annotations: &mcpsdk.ToolAnnotations{
+				Title:           "List Custom Agents",
+				DestructiveHint: bptr(false),
+				ReadOnlyHint:    true,
+				IdempotentHint:  true,
+				OpenWorldHint:   bptr(false),
+			},
 		},
-	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, _ agentListInput) (*mcpsdk.CallToolResult, any, error) {
-		items, err := svc.ListAgents(ctx)
-		if err != nil {
-			return toolErrorResult(cmdutil.WrapHTTP(err, "list agents")), nil, nil
-		}
-		if items == nil {
-			items = []sdk.Agent{}
-		}
-		return successResult(agentListOutput{Items: items}), nil, nil
-	})
+		func(ctx context.Context, _ *mcpsdk.CallToolRequest, _ agentListInput) (*mcpsdk.CallToolResult, any, error) {
+			items, err := svc.ListAgents(ctx)
+			if err != nil {
+				return toolErrorResult(cmdutil.WrapHTTP(err, "list agents")), nil, nil
+			}
+			if items == nil {
+				items = []sdk.Agent{}
+			}
+			return successResult(agentListOutput{Items: items}), nil, nil
+		},
+	)
 }
 
 // ---- session_ask ---------------------------------------------------------
@@ -679,8 +811,10 @@ type sessionAskOutput struct {
 
 func addSessionAsk(server *mcpsdk.Server, svc sessionAskService) {
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "session_ask",
-		Description: "Run a query through a custom agent. Returns a bounded answer-event projection by default; reference=true adds indexed citations and verbose=true adds reasoning, tool, and lifecycle events. MCP tools/call is buffered rather than streaming.",
+		Name: "session_ask",
+		Description: "Run a query through a custom agent. Returns a bounded answer-event projection by default; " +
+			"reference=true adds indexed citations and verbose=true adds reasoning, tool, and lifecycle events. MCP " +
+			"tools/call is buffered rather than streaming.",
 		Annotations: &mcpsdk.ToolAnnotations{
 			Title:           "Ask a Custom Agent (session ask --agent)",
 			DestructiveHint: bptr(false),
@@ -720,7 +854,12 @@ func addSessionAsk(server *mcpsdk.Server, svc sessionAskService) {
 				return toolErrorResult(cmdutil.WrapHTTP(err, "create chat session")), nil, nil
 			}
 			if sess == nil || strings.TrimSpace(sess.ID) == "" {
-				return toolErrorResult(cmdutil.NewError(cmdutil.CodeSessionCreateFailed, "create chat session returned an empty session ID")), nil, nil
+				return toolErrorResult(
+					cmdutil.NewError(
+						cmdutil.CodeSessionCreateFailed,
+						"create chat session returned an empty session ID",
+					),
+				), nil, nil
 			}
 			sessionID = sess.ID
 		}
@@ -743,10 +882,18 @@ func addSessionAsk(server *mcpsdk.Server, svc sessionAskService) {
 			return toolStreamError(cmdutil.WrapStream(streamErr, "agent-chat stream"), sessionID, ""), nil, nil
 		}
 		if errMsg, hasErr := projector.TerminalError(); hasErr {
-			return toolStreamError(cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "agent-chat stream"), sessionID, ""), nil, nil
+			return toolStreamError(
+				cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "agent-chat stream"),
+				sessionID,
+				"",
+			), nil, nil
 		}
 		if !projector.Done() {
-			return toolStreamError(cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event"), sessionID, ""), nil, nil
+			return toolStreamError(
+				cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event"),
+				sessionID,
+				"",
+			), nil, nil
 		}
 		return successResult(sessionAskOutput{
 			Events:    events,
@@ -781,8 +928,10 @@ const (
 
 func addChunkList(server *mcpsdk.Server, svc chunkListService) {
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
-		Name:        "chunk_list",
-		Description: "List chunks of a knowledge document for RAG retrieval debug. Returns at most `limit` chunks starting from ChunkIndex 0; if total chunks exceed limit, truncated_at_limit=true signals the agent to fall back to the CLI for paginated retrieval.",
+		Name: "chunk_list",
+		Description: "List chunks of a knowledge document for RAG retrieval debug. Returns at most `limit` chunks " +
+			"starting from ChunkIndex 0; if total chunks exceed limit, truncated_at_limit=true signals the agent to " +
+			"fall back to the CLI for paginated retrieval.",
 		Annotations: &mcpsdk.ToolAnnotations{
 			Title:           "List Knowledge Chunks",
 			DestructiveHint: bptr(false),
@@ -803,14 +952,24 @@ func addChunkList(server *mcpsdk.Server, svc chunkListService) {
 		// (rather than silently clamping) so the agent's request is never
 		// quietly changed — matching search_chunks in this same file.
 		if in.Limit < 0 {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("limit must be in 1..%d", chunkListMaxLimit))), nil, nil
+			return toolErrorResult(
+				cmdutil.NewError(
+					cmdutil.CodeInputInvalidArgument,
+					fmt.Sprintf("limit must be in 1..%d", chunkListMaxLimit),
+				),
+			), nil, nil
 		}
 		limit := in.Limit
 		if limit == 0 {
 			limit = chunkListDefaultLimit
 		}
 		if limit > chunkListMaxLimit {
-			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("limit must be in 1..%d", chunkListMaxLimit))), nil, nil
+			return toolErrorResult(
+				cmdutil.NewError(
+					cmdutil.CodeInputInvalidArgument,
+					fmt.Sprintf("limit must be in 1..%d", chunkListMaxLimit),
+				),
+			), nil, nil
 		}
 		chunks, total, err := svc.ListKnowledgeChunks(ctx, in.DocID, 1, limit)
 		if err != nil {

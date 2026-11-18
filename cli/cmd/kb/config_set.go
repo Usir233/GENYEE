@@ -13,6 +13,7 @@ import (
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
+// ConfigSetOptions holds flags and arguments for the `kb config_set` command.
 type ConfigSetOptions struct {
 	ChatModel      string
 	EmbeddingModel string
@@ -64,15 +65,36 @@ applying the change.`,
 			if err := validateConfigSetFlags(opts); err != nil {
 				return err
 			}
-			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
-				Action: action,
-				Args:   map[string]any{"kb": kbID, "chat_model": opts.ChatModel, "embedding_model": opts.EmbeddingModel},
-			}); handled {
+			if handled, err := cmdutil.HandleDryRun(
+				c,
+				opts.DryRun,
+				cmdutil.DryRunPlan{
+					Action: action,
+					Args: map[string]any{
+						"kb":              kbID,
+						"chat_model":      opts.ChatModel,
+						"embedding_model": opts.EmbeddingModel,
+					},
+				},
+			); handled {
 				return err
 			}
-			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(),
-				"configure", "knowledge base", kbID, action,
-				cmdutil.BuildRetryArgv(c, append(append([]string{}, head...), kbID), "chat-model", "embedding-model", "format")); err != nil {
+			if err := cmdutil.ConfirmDestructive(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"configure",
+				"knowledge base",
+				kbID,
+				action,
+				cmdutil.BuildRetryArgv(
+					c,
+					append(append([]string{}, head...), kbID),
+					"chat-model",
+					"embedding-model",
+					"format",
+				),
+			); err != nil {
 				return err
 			}
 			cli, err := f.Client()
@@ -82,32 +104,59 @@ applying the change.`,
 			// Resolve name-or-id for the model flags (a UUID passes through; a
 			// name is looked up among models of the expected type). Network read
 			// on the live path only — the dry-run above shows the raw refs.
-			if opts.ChatModel, err = cmdutil.ResolveModelRef(c.Context(), cli, opts.ChatModel, "KnowledgeQA"); err != nil {
+			if opts.ChatModel, err = cmdutil.ResolveModelRef(
+				c.Context(),
+				cli,
+				opts.ChatModel,
+				"KnowledgeQA",
+			); err != nil {
 				return err
 			}
-			if opts.EmbeddingModel, err = cmdutil.ResolveModelRef(c.Context(), cli, opts.EmbeddingModel, "Embedding"); err != nil {
+			if opts.EmbeddingModel, err = cmdutil.ResolveModelRef(
+				c.Context(),
+				cli,
+				opts.EmbeddingModel,
+				"Embedding",
+			); err != nil {
 				return err
 			}
 			return runConfigSet(c.Context(), opts, fopts, cli, kbID)
 		},
 	}
-	cmd.Flags().StringVar(&opts.ChatModel, "chat-model", "", "Chat / LLM model id or name for generation & summary (required) — see `genyee model list`")
-	cmd.Flags().StringVar(&opts.EmbeddingModel, "embedding-model", "", "Embedding model id or name for retrieval (required) — see `genyee model list`")
+	cmd.Flags().StringVar(
+		&opts.ChatModel,
+		"chat-model",
+		"",
+		"Chat / LLM model id or name for generation & summary (required) — see `genyee model list`",
+	)
+	cmd.Flags().StringVar(
+		&opts.EmbeddingModel,
+		"embedding-model",
+		"",
+		"Embedding model id or name for retrieval (required) — see `genyee model list`",
+	)
 	cmdutil.AddFormatFlag(cmd, kbConfigFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetRisk(cmd, action)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "bind models to a KB so it becomes retrieval-ready. --chat-model and --embedding-model are required and accept a model id or name; discover them with `genyee model list`. Read the result back with `genyee kb config`.",
-		RequiredFlags: []string{"<kb-id> (positional)", "--chat-model", "--embedding-model"},
-		Examples: []string{
-			"genyee kb config set kb_abc --chat-model model_llm --embedding-model model_emb -y",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "bind models to a KB so it becomes retrieval-ready. --chat-model and --embedding-model " +
+				"are required and accept a model id or name; discover them with `genyee model list`. Read the result " +
+				"back with `genyee kb config`.",
+			RequiredFlags: []string{"<kb-id> (positional)", "--chat-model", "--embedding-model"},
+			Examples: []string{
+				"genyee kb config set kb_abc --chat-model model_llm --embedding-model model_emb -y",
+			},
+			Output: "envelope.data is the resulting secret-free config view {retrieval_ready, embedding, llm, rerank," +
+				" multimodal}",
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"The server refuses to CHANGE the embedding model of a KB that already has documents (setting it on " +
+					"an unconfigured KB is fine).",
+			},
 		},
-		Output: "envelope.data is the resulting secret-free config view {retrieval_ready, embedding, llm, rerank, multimodal}",
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"The server refuses to CHANGE the embedding model of a KB that already has documents (setting it on an unconfigured KB is fine).",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -125,11 +174,18 @@ func validateConfigSetFlags(opts *ConfigSetOptions) error {
 	return &cmdutil.Error{
 		Code:    cmdutil.CodeInputMissingFlag,
 		Message: "kb config set requires " + strings.Join(missing, " and "),
-		Hint:    "discover model ids with `genyee model list` (or register one with `genyee model create`), then pass --chat-model <id> --embedding-model <id>",
+		Hint: "discover model ids with `genyee model list` (or register one with `genyee model create`), then " +
+			"pass --chat-model <id> --embedding-model <id>",
 	}
 }
 
-func runConfigSet(ctx context.Context, opts *ConfigSetOptions, fopts *cmdutil.FormatOptions, svc ConfigSetService, kbID string) error {
+func runConfigSet(
+	ctx context.Context,
+	opts *ConfigSetOptions,
+	fopts *cmdutil.FormatOptions,
+	svc ConfigSetService,
+	kbID string,
+) error {
 	if err := cmdutil.ValidateResourceID("kb-id", kbID); err != nil {
 		return err
 	}
@@ -157,7 +213,7 @@ func runConfigSet(ctx context.Context, opts *ConfigSetOptions, fopts *cmdutil.Fo
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, result, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Configured knowledge base %s (chat: %s, embedding: %s)\n",
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Configured knowledge base %s (chat: %s, embedding: %s)\n",
 		text.SanitizeInline(kbID), orUnset(result.LLM.ModelName), orUnset(result.Embedding.ModelName))
 	return nil
 }

@@ -2,9 +2,10 @@ package doctor
 
 import (
 	"context"
+	"testing"
+
 	sdk "github.com/Usir233/GENYEE/client"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 type hostedAuditService struct {

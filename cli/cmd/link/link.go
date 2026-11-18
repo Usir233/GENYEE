@@ -24,6 +24,7 @@ import (
 // `link`. Tracks the small linkResult struct.
 var linkFields = []string{"profile", "kb_id", "kb_name", "project_link_path"}
 
+// Options holds flags and arguments for the `link` command.
 type Options struct {
 	KB     string // --kb: KB UUID or name; empty triggers interactive prompt on TTY
 	DryRun bool
@@ -102,12 +103,17 @@ user explicitly asked to bind this directory; don't run it as a side effect.`,
 	cmd.Flags().StringVar(&opts.KB, "kb", "", "Knowledge base UUID or name; omit on a TTY for interactive prompt")
 	cmdutil.AddFormatFlag(cmd, linkFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Bind the current directory to a knowledge base by writing .genyee/project.yaml. Give the KB as a positional arg or --kb (non-interactive); only run when the user explicitly asks to link this directory.",
-		RequiredFlags: []string{"<kb> positional or --kb (required when no TTY)"},
-		Examples:      []string{"genyee link engineering", "genyee link --kb a32a63ff-fb36-4874-bcaa-30f48570a694"},
-		Output:        "envelope.data has profile, kb_id, kb_name, project_link_path",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Bind the current directory to a knowledge base by writing .genyee/project.yaml. Give the " +
+				"KB as a positional arg or --kb (non-interactive); only run when the user explicitly asks to link " +
+				"this directory.",
+			RequiredFlags: []string{"<kb> positional or --kb (required when no TTY)"},
+			Examples:      []string{"genyee link engineering", "genyee link --kb a32a63ff-fb36-4874-bcaa-30f48570a694"},
+			Output:        "envelope.data has profile, kb_id, kb_name, project_link_path",
+		},
+	)
 	return cmd
 }
 
@@ -147,9 +153,22 @@ func runLink(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, f
 		return fopts.Emit(iostreams.IO.Out, r, nil)
 	}
 	if kbName != "" {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Linked %s to %s (kb=%s, id=%s)\n", linkPath, text.SanitizeInline(profileName), text.SanitizeInline(kbName), text.SanitizeInline(kbID))
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Out,
+			"✓ Linked %s to %s (kb=%s, id=%s)\n",
+			linkPath,
+			text.SanitizeInline(profileName),
+			text.SanitizeInline(kbName),
+			text.SanitizeInline(kbID),
+		)
 	} else {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Linked %s to %s (kb_id=%s)\n", linkPath, text.SanitizeInline(profileName), text.SanitizeInline(kbID))
+		_, _ = fmt.Fprintf(
+			iostreams.IO.Out,
+			"✓ Linked %s to %s (kb_id=%s)\n",
+			linkPath,
+			text.SanitizeInline(profileName),
+			text.SanitizeInline(kbID),
+		)
 	}
 	return nil
 }
@@ -172,7 +191,8 @@ func resolveProfile(f *cmdutil.Factory) (string, error) {
 		// stranded on a misleading hint.
 		return "", cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 			"`link` records an active profile, but none is configured").
-			WithHint("register one with `genyee profile add <name> --host <url> --use`; for a headless (GENYEE_API_KEY) workflow, skip `link` and pass --kb per command or set GENYEE_KB_ID").
+			WithHint("register one with `genyee profile add <name> --host <url> --use`; for a headless " +
+				"(GENYEE_API_KEY) workflow, skip `link` and pass --kb per command or set GENYEE_KB_ID").
 			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
 	if err := cmdutil.ValidateProfileName(cfg.CurrentProfile); err != nil {
@@ -181,7 +201,8 @@ func resolveProfile(f *cmdutil.Factory) (string, error) {
 	if _, ok := cfg.Profiles[cfg.CurrentProfile]; !ok {
 		return "", cmdutil.NewError(cmdutil.CodeLocalProfileNotFound,
 			fmt.Sprintf("profile %q is not registered", cfg.CurrentProfile)).
-			WithHint("run `genyee profile list` to inspect registered profiles or `genyee profile add <name> --host <url>` to create one")
+			WithHint("run `genyee profile list` to inspect registered profiles or `genyee profile add <name> --host " +
+				"<url>` to create one")
 	}
 	return cfg.CurrentProfile, nil
 }
@@ -229,11 +250,14 @@ func promptForKB(ctx context.Context, svc cmdutil.KBLister, f *cmdutil.Factory) 
 		return "", "", cmdutil.WrapHTTP(err, "list knowledge bases")
 	}
 	if len(kbs) == 0 {
-		return "", "", cmdutil.NewError(cmdutil.CodeKBNotFound, "no knowledge bases visible to active profile; create one first")
+		return "", "", cmdutil.NewError(
+			cmdutil.CodeKBNotFound,
+			"no knowledge bases visible to active profile; create one first",
+		)
 	}
-	fmt.Fprintln(iostreams.IO.Err, "Available knowledge bases:")
+	_, _ = fmt.Fprintln(iostreams.IO.Err, "Available knowledge bases:")
 	for _, kb := range kbs {
-		fmt.Fprintf(iostreams.IO.Err, "  %s  %s\n", text.SanitizeInline(kb.ID), text.SanitizeInline(kb.Name))
+		_, _ = fmt.Fprintf(iostreams.IO.Err, "  %s  %s\n", text.SanitizeInline(kb.ID), text.SanitizeInline(kb.Name))
 	}
 	p := f.Prompter()
 	answer, err := p.Input("Knowledge base id or name", "")
@@ -248,5 +272,8 @@ func promptForKB(ctx context.Context, svc cmdutil.KBLister, f *cmdutil.Factory) 
 			return kb.ID, kb.Name, nil
 		}
 	}
-	return "", "", cmdutil.NewError(cmdutil.CodeKBNotFound, fmt.Sprintf("knowledge base not found: %s", text.SanitizeInline(answer)))
+	return "", "", cmdutil.NewError(
+		cmdutil.CodeKBNotFound,
+		fmt.Sprintf("knowledge base not found: %s", text.SanitizeInline(answer)),
+	)
 }

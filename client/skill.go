@@ -107,6 +107,9 @@ func (c *Client) UploadSandboxSkill(
 	if err != nil {
 		return "", err
 	}
+	if err := c.validateBaseURL(req); err != nil {
+		return "", err
+	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	c.applyAuthHeaders(ctx, req)
 

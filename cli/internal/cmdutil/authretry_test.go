@@ -13,12 +13,17 @@ import (
 	"testing"
 )
 
+type stubResp struct {
+	status int
+	body   string
+}
+
 // stubTransport returns a scripted sequence of responses (and optional
 // errors). The N-th request gets the N-th entry; running off the end is a
 // test failure.
 type stubTransport struct {
 	t      *testing.T
-	resps  []*http.Response
+	resps  []stubResp
 	errs   []error
 	bodies []string // captured body of each request, for assertions
 	authz  []string // captured Authorization header of each request
@@ -47,15 +52,16 @@ func (s *stubTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if int(i) < len(s.errs) {
 		err = s.errs[i]
 	}
-	return s.resps[i], err
+	entry := s.resps[i]
+	return &http.Response{
+		StatusCode: entry.status,
+		Body:       io.NopCloser(strings.NewReader(entry.body)),
+		Header:     make(http.Header),
+	}, err
 }
 
-func resp(status int, body string) *http.Response {
-	return &http.Response{
-		StatusCode: status,
-		Body:       io.NopCloser(strings.NewReader(body)),
-		Header:     make(http.Header),
-	}
+func resp(status int, body string) stubResp {
+	return stubResp{status: status, body: body}
 }
 
 // newReq builds a POST with a replayable body so retries can be verified.
@@ -74,7 +80,7 @@ func newReq(t *testing.T, method, url, body string) *http.Request {
 }
 
 func TestAuthRetry_PassThrough_200(t *testing.T) {
-	base := &stubTransport{t: t, resps: []*http.Response{resp(200, "ok")}}
+	base := &stubTransport{t: t, resps: []stubResp{resp(200, "ok")}}
 	rt := NewAuthRetryTransport(base, "old-token", func(context.Context) (string, error) {
 		t.Fatal("refresh must NOT be called on 200 response")
 		return "", nil
@@ -84,26 +90,29 @@ func TestAuthRetry_PassThrough_200(t *testing.T) {
 	if err != nil {
 		t.Fatalf("roundtrip: %v", err)
 	}
+	defer func() { _ = r.Body.Close() }()
 	if r.StatusCode != 200 {
 		t.Errorf("status=%d, want 200", r.StatusCode)
 	}
 }
 
 func TestAuthRetry_PassThrough_NonAuthError(t *testing.T) {
-	base := &stubTransport{t: t, resps: []*http.Response{resp(500, "boom")}}
+	base := &stubTransport{t: t, resps: []stubResp{resp(500, "boom")}}
 	rt := NewAuthRetryTransport(base, "old-token", func(context.Context) (string, error) {
 		t.Fatal("refresh must NOT be called on non-401 errors")
 		return "", nil
 	})
 	r, _ := rt.RoundTrip(newReq(t, "GET", "http://example.test/api/v1/kbs", ""))
+	defer func() { _ = r.Body.Close() }()
 	if r.StatusCode != 500 {
 		t.Errorf("status=%d, want 500", r.StatusCode)
 	}
 }
 
 func TestAuthRetry_401_RefreshAndReplay(t *testing.T) {
-	base := &stubTransport{t: t,
-		resps: []*http.Response{resp(401, "expired"), resp(200, "ok-after-retry")},
+	base := &stubTransport{
+		t:     t,
+		resps: []stubResp{resp(401, "expired"), resp(200, "ok-after-retry")},
 	}
 	refreshCalls := atomic.Int32{}
 	rt := NewAuthRetryTransport(base, "old-token", func(context.Context) (string, error) {
@@ -115,6 +124,7 @@ func TestAuthRetry_401_RefreshAndReplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("roundtrip: %v", err)
 	}
+	defer func() { _ = r.Body.Close() }()
 	if r.StatusCode != 200 {
 		t.Errorf("status=%d, want 200", r.StatusCode)
 	}
@@ -136,11 +146,14 @@ func TestAuthRetry_401_RefreshAndReplay(t *testing.T) {
 }
 
 func TestAuthRetry_401_RefreshFails(t *testing.T) {
-	base := &stubTransport{t: t, resps: []*http.Response{resp(401, "expired")}}
+	base := &stubTransport{t: t, resps: []stubResp{resp(401, "expired")}}
 	rt := NewAuthRetryTransport(base, "old-token", func(context.Context) (string, error) {
 		return "", errors.New("refresh rejected")
 	})
-	_, err := rt.RoundTrip(newReq(t, "GET", "http://example.test/api/v1/kbs", ""))
+	r, err := rt.RoundTrip(newReq(t, "GET", "http://example.test/api/v1/kbs", ""))
+	if r != nil {
+		_ = r.Body.Close()
+	}
 	if err == nil {
 		t.Fatal("expected refresh error")
 	}
@@ -156,12 +169,13 @@ func TestAuthRetry_SkipAuthEndpoints(t *testing.T) {
 	}
 	for _, path := range cases {
 		t.Run(path, func(t *testing.T) {
-			base := &stubTransport{t: t, resps: []*http.Response{resp(401, "")}}
+			base := &stubTransport{t: t, resps: []stubResp{resp(401, "")}}
 			rt := NewAuthRetryTransport(base, "old-token", func(context.Context) (string, error) {
 				t.Fatalf("refresh must NOT be triggered by a 401 on %s", path)
 				return "", nil
 			})
 			r, _ := rt.RoundTrip(newReq(t, "POST", "http://example.test"+path, ""))
+			defer func() { _ = r.Body.Close() }()
 			if r.StatusCode != 401 {
 				t.Errorf("status=%d, want 401 (passthrough)", r.StatusCode)
 			}
@@ -173,7 +187,7 @@ func TestAuthRetry_NoTokenConfigured_DoesNotInjectAuthz(t *testing.T) {
 	// API-key contexts construct the transport with an empty initial token;
 	// authretry should pass through 401s untouched (no refresh callback exists
 	// for api-key - they're rejected at the auth-refresh layer).
-	base := &stubTransport{t: t, resps: []*http.Response{resp(401, "")}}
+	base := &stubTransport{t: t, resps: []stubResp{resp(401, "")}}
 	refreshed := false
 	rt := NewAuthRetryTransport(base, "", func(context.Context) (string, error) {
 		refreshed = true
@@ -181,6 +195,7 @@ func TestAuthRetry_NoTokenConfigured_DoesNotInjectAuthz(t *testing.T) {
 	})
 	req, _ := http.NewRequest("GET", "http://example.test/api/v1/kbs", nil)
 	r, _ := rt.RoundTrip(req)
+	defer func() { _ = r.Body.Close() }()
 	if r.StatusCode != 401 {
 		t.Errorf("status=%d, want 401", r.StatusCode)
 	}
@@ -245,7 +260,7 @@ func TestAuthRetry_NonReplayableBody_NoRetry(t *testing.T) {
 	// io.Reader that isn't *bytes.Buffer / Reader / strings.Reader → http
 	// does NOT set req.GetBody. Confirm we don't lose the response and
 	// don't attempt a retry.
-	base := &stubTransport{t: t, resps: []*http.Response{resp(401, "")}}
+	base := &stubTransport{t: t, resps: []stubResp{resp(401, "")}}
 	rt := NewAuthRetryTransport(base, "old-token", func(context.Context) (string, error) {
 		t.Fatal("must not retry without GetBody")
 		return "", nil
@@ -264,6 +279,7 @@ func TestAuthRetry_NonReplayableBody_NoRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("roundtrip: %v", err)
 	}
+	defer func() { _ = r.Body.Close() }()
 	if r.StatusCode != 401 {
 		t.Errorf("status=%d, want 401 (passthrough)", r.StatusCode)
 	}
@@ -283,7 +299,9 @@ func TestAuthRetry_CrossOriginRedirect_StripsCredentialsAndSkipsRefresh(t *testi
 	}))
 	defer apiSrv.Close()
 
-	rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, apiSrv.URL, "secret-jwt", func(context.Context) (string, error) {
+	rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, apiSrv.URL, "secret-jwt", func(
+		context.Context,
+	) (string, error) {
 		t.Fatal("refresh must NOT be triggered by cross-origin 401")
 		return "", nil
 	})

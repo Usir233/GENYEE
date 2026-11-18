@@ -29,7 +29,13 @@ type uploadedFile struct {
 // in one run. Exit semantics: nil error on full success, a typed *cmdutil.Error
 // when ≥1 file failed (the typed code mirrors the first failure's
 // classification so callers can still branch).
-func runUploadRecursive(ctx context.Context, opts *UploadOptions, fopts *cmdutil.FormatOptions, svc UploadService, kbID, dir string) error {
+func runUploadRecursive(
+	ctx context.Context,
+	opts *UploadOptions,
+	fopts *cmdutil.FormatOptions,
+	svc UploadService,
+	kbID, dir string,
+) error {
 	if opts.Name != "" {
 		return &cmdutil.Error{
 			Code:    cmdutil.CodeInputInvalidArgument,
@@ -77,7 +83,7 @@ func runUploadRecursive(ctx context.Context, opts *UploadOptions, fopts *cmdutil
 			// Empty batch: emit an all-success envelope with zero items.
 			return output.WriteBatchEnvelope(iostreams.IO.Out, nil, fopts.TTY, cmdutil.GetProfile())
 		}
-		fmt.Fprintf(iostreams.IO.Out, "(no files matched %q under %s)\n", opts.Glob, dir)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "(no files matched %q under %s)\n", opts.Glob, dir)
 		return nil
 	}
 
@@ -93,12 +99,12 @@ func runUploadRecursive(ctx context.Context, opts *UploadOptions, fopts *cmdutil
 		// UI's folder upload uses. Passing "" here flattened every file into the
 		// KB root, losing the structure --recursive was asked to walk.
 		customFileName := knowledgeRelativePath(dir, p)
-		k, err := svc.CreateKnowledgeFromFile(ctx, kbID, p, meta, opts.EnableMultimodel, customFileName, channel, nil)
+		k, err := svc.CreateKnowledgeFromFile(ctx, kbID, p, meta, opts.EnableMultimodal, customFileName, channel, nil)
 		if err != nil {
 			// Per-file progress lines are human progress signal; suppress
 			// under --format json so they don't precede the JSON object on stdout.
 			if !fopts.WantsJSON() {
-				fmt.Fprintf(iostreams.IO.Out, "FAIL %s: %v\n", filepath.Base(p), err)
+				_, _ = fmt.Fprintf(iostreams.IO.Out, "FAIL %s: %v\n", filepath.Base(p), err)
 			}
 			if errors.Is(err, sdk.ErrDuplicateFile) {
 				return cmdutil.Wrapf(cmdutil.CodeResourceAlreadyExists, err,
@@ -113,7 +119,7 @@ func runUploadRecursive(ctx context.Context, opts *UploadOptions, fopts *cmdutil
 		}
 		uploaded[p] = uploadedFile{ID: id, Name: name}
 		if !fopts.WantsJSON() {
-			fmt.Fprintf(iostreams.IO.Out, "OK   %s (id: %s)\n", filepath.Base(p), id)
+			_, _ = fmt.Fprintf(iostreams.IO.Out, "OK   %s (id: %s)\n", filepath.Base(p), id)
 		}
 		return nil
 	})
@@ -133,7 +139,7 @@ func runUploadRecursive(ctx context.Context, opts *UploadOptions, fopts *cmdutil
 			return err
 		}
 	} else {
-		fmt.Fprintf(iostreams.IO.Out, "Uploaded %d, Failed %d\n", len(outcomes)-failures, failures)
+		_, _ = fmt.Fprintf(iostreams.IO.Out, "Uploaded %d, Failed %d\n", len(outcomes)-failures, failures)
 	}
 
 	if runErr != nil {

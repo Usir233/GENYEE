@@ -13,7 +13,11 @@ import (
 func TestAgentReadModifyWritePreservesOperationalConfig(t *testing.T) {
 	// These fields exist in types.CustomAgentConfig. PUT replaces the entire config,
 	// so losing them on GET changes permissions, memory and execution behavior.
-	const config = `{"model_id":"model","access_level":"read_only","memory_enabled":false,"sandbox_config_id":"sandbox-1","mcp_auth_wait_timeout":45,"chat_parser_engine_rules":[{"file_types":["pdf"],"engine":"docreader"}],"attachment_image_understanding":true,"attachment_ocr_max_pages":4,"attachment_parse_wait_timeout_sec":90,"intent_prompts":{"greeting":"Hello"}}`
+	const config = `{"model_id":"model","access_level":"read_only","memory_enabled":false,` +
+		`"sandbox_config_id":"sandbox-1","mcp_auth_wait_timeout":45,` +
+		`"chat_parser_engine_rules":[{"file_types":["pdf"],"engine":"docreader"}],` +
+		`"attachment_image_understanding":true,"attachment_ocr_max_pages":4,` +
+		`"attachment_parse_wait_timeout_sec":90,"intent_prompts":{"greeting":"Hello"}}`
 	var want map[string]any
 	if err := json.Unmarshal([]byte(config), &want); err != nil {
 		t.Fatal(err)

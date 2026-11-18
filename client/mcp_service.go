@@ -10,6 +10,7 @@ import (
 // MCPTransportType represents the transport type for MCP service
 type MCPTransportType string
 
+// MCPTransportType values supported by the server.
 const (
 	MCPTransportSSE            MCPTransportType = "sse"
 	MCPTransportHTTPStreamable MCPTransportType = "http-streamable"
@@ -130,7 +131,8 @@ func (c *Client) ListMCPServices(ctx context.Context) ([]*MCPService, error) {
 
 // GetMCPService gets an MCP service by ID
 func (c *Client) GetMCPService(ctx context.Context, serviceID string) (*MCPService, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +148,13 @@ func (c *Client) GetMCPService(ctx context.Context, serviceID string) (*MCPServi
 }
 
 // UpdateMCPService updates an MCP service
-func (c *Client) UpdateMCPService(ctx context.Context, serviceID string, updates map[string]interface{}) (*MCPService, error) {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID)), updates, nil)
+func (c *Client) UpdateMCPService(
+	ctx context.Context,
+	serviceID string,
+	updates map[string]interface{},
+) (*MCPService, error) {
+	path := fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodPut, path, updates, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +171,8 @@ func (c *Client) UpdateMCPService(ctx context.Context, serviceID string, updates
 
 // DeleteMCPService deletes an MCP service
 func (c *Client) DeleteMCPService(ctx context.Context, serviceID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -173,7 +181,8 @@ func (c *Client) DeleteMCPService(ctx context.Context, serviceID string) error {
 
 // TestMCPService tests an MCP service connection
 func (c *Client) TestMCPService(ctx context.Context, serviceID string) (*MCPTestResult, error) {
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/mcp-services/%s/test", escapePathSegment(serviceID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s/test", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +199,8 @@ func (c *Client) TestMCPService(ctx context.Context, serviceID string) (*MCPTest
 
 // GetMCPServiceTools gets the tools provided by an MCP service
 func (c *Client) GetMCPServiceTools(ctx context.Context, serviceID string) ([]*MCPTool, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/tools", escapePathSegment(serviceID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s/tools", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +232,8 @@ type MCPMetadata struct {
 // GetMCPMetadata reads the saved tool directory without connecting upstream.
 // Server route: GET /api/v1/mcp-services/{id}/metadata.
 func (c *Client) GetMCPMetadata(ctx context.Context, serviceID string) (*MCPMetadata, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/metadata", escapePathSegment(serviceID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s/metadata", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +270,8 @@ func (c *Client) RefreshMCPMetadata(ctx context.Context, serviceID string) (*MCP
 
 // GetMCPServiceResources gets the resources provided by an MCP service
 func (c *Client) GetMCPServiceResources(ctx context.Context, serviceID string) ([]*MCPResource, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/resources", escapePathSegment(serviceID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s/resources", escapePathSegment(serviceID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}

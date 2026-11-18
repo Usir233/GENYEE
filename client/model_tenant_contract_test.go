@@ -39,7 +39,8 @@ func TestModelCredentialsAndDefaultSettingsContracts(t *testing.T) {
 			t.Errorf("decode credentials body: %v", err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"success":true,"data":{"fields":{"api_key":{"configured":true},"app_secret":{"configured":false}}}}`)
+		_, _ = io.WriteString(w, `{"success":true,"data":{"fields":`+
+			`{"api_key":{"configured":true},"app_secret":{"configured":false}}}}`)
 	})
 	mux.HandleFunc("/api/v1/models/mdl-1/credentials/api_key", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {

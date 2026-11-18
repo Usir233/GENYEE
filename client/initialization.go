@@ -22,11 +22,11 @@ import (
 type InitializationConfig struct {
 	LLM                *InitializationModelConfig     `json:"llm,omitempty"`
 	Embedding          *InitializationModelConfig     `json:"embedding,omitempty"`
-	DocumentSplitting  *InitializationSplittingConfig `json:"documentSplitting,omitempty"`
+	DocumentSplitting  *InitializationSplittingConfig `json:"document_splitting,omitempty"`
 	Rerank             json.RawMessage                `json:"rerank,omitempty"`
 	Multimodal         json.RawMessage                `json:"multimodal,omitempty"`
-	NodeExtract        json.RawMessage                `json:"nodeExtract,omitempty"`
-	QuestionGeneration json.RawMessage                `json:"questionGeneration,omitempty"`
+	NodeExtract        json.RawMessage                `json:"node_extract,omitempty"`
+	QuestionGeneration json.RawMessage                `json:"question_generation,omitempty"`
 
 	// Deprecated: these fields are accepted only by UpdateKBConfig. The
 	// initialization endpoint takes model connection settings, not IDs.
@@ -36,17 +36,19 @@ type InitializationConfig struct {
 	MultimodalID     string `json:"-"`
 }
 
+// InitializationModelConfig carries provider connection parameters for one model slot.
 type InitializationModelConfig struct {
 	Source    string `json:"source"`
-	ModelName string `json:"modelName"`
-	BaseURL   string `json:"baseUrl,omitempty"`
-	APIKey    string `json:"apiKey,omitempty"`
+	ModelName string `json:"model_name"`
+	BaseURL   string `json:"base_url,omitempty"`
+	APIKey    string `json:"api_key,omitempty"`
 	Dimension int    `json:"dimension,omitempty"`
 }
 
+// InitializationSplittingConfig carries document chunking parameters for KB initialization.
 type InitializationSplittingConfig struct {
-	ChunkSize    int      `json:"chunkSize"`
-	ChunkOverlap int      `json:"chunkOverlap"`
+	ChunkSize    int      `json:"chunk_size"`
+	ChunkOverlap int      `json:"chunk_overlap"`
 	Separators   []string `json:"separators"`
 }
 
@@ -94,12 +96,12 @@ type OllamaModelInfo struct {
 // DownloadTask represents an Ollama model download task
 type DownloadTask struct {
 	ID        string     `json:"id"`
-	ModelName string     `json:"modelName"`
+	ModelName string     `json:"model_name"`
 	Status    string     `json:"status"`
 	Progress  float64    `json:"progress"`
 	Message   string     `json:"message"`
-	StartTime time.Time  `json:"startTime"`
-	EndTime   *time.Time `json:"endTime,omitempty"`
+	StartTime time.Time  `json:"start_time"`
+	EndTime   *time.Time `json:"end_time,omitempty"`
 }
 
 // ModelCheckResult represents the result of checking a remote model
@@ -113,8 +115,8 @@ type ModelCheckResult struct {
 	ProcessingTime int64  `json:"processing_time,omitempty"`
 }
 
-// Model checks use available; multimodal tests use success. Both describe
-// the test outcome, independently of the envelope's transport success flag.
+// UnmarshalJSON normalizes model-check ("available") and multimodal-test
+// ("success") outcome flags onto both Success and Available.
 func (r *ModelCheckResult) UnmarshalJSON(data []byte) error {
 	type resultFields ModelCheckResult
 	var result struct {
@@ -141,26 +143,27 @@ func (r *ModelCheckResult) UnmarshalJSON(data []byte) error {
 // parses ONLY the non-secret fields (apiKey/baseUrl are never read into the
 // struct, so they cannot leak through the CLI) and remaps to snake_case.
 func (c *Client) GetInitializationConfig(ctx context.Context, kbID string) (*KBModelConfigView, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	// Deliberately model only non-secret fields; apiKey / baseUrl in the server
+	// Deliberately model only non-secret fields; api_key / base_url in the server
 	// payload are ignored by omission.
 	var result struct {
 		Data struct {
 			Embedding struct {
 				Source    string `json:"source"`
-				ModelName string `json:"modelName"`
+				ModelName string `json:"model_name"`
 				Dimension int    `json:"dimension"`
 			} `json:"embedding"`
 			LLM struct {
 				Source    string `json:"source"`
-				ModelName string `json:"modelName"`
+				ModelName string `json:"model_name"`
 			} `json:"llm"`
 			Rerank struct {
 				Enabled   bool   `json:"enabled"`
-				ModelName string `json:"modelName"`
+				ModelName string `json:"model_name"`
 			} `json:"rerank"`
 			Multimodal struct {
 				Enabled bool `json:"enabled"`
@@ -173,10 +176,19 @@ func (c *Client) GetInitializationConfig(ctx context.Context, kbID string) (*KBM
 	d := result.Data
 	view := &KBModelConfigView{
 		RetrievalReady: d.Embedding.ModelName != "",
-		Embedding:      ModelSlotView{Configured: d.Embedding.ModelName != "", ModelName: d.Embedding.ModelName, Source: d.Embedding.Source, Dimension: d.Embedding.Dimension},
-		LLM:            ModelSlotView{Configured: d.LLM.ModelName != "", ModelName: d.LLM.ModelName, Source: d.LLM.Source},
-		Rerank:         RerankSlotView{Enabled: d.Rerank.Enabled, ModelName: d.Rerank.ModelName},
-		Multimodal:     MultimodalSlotView{Enabled: d.Multimodal.Enabled},
+		Embedding: ModelSlotView{
+			Configured: d.Embedding.ModelName != "",
+			ModelName:  d.Embedding.ModelName,
+			Source:     d.Embedding.Source,
+			Dimension:  d.Embedding.Dimension,
+		},
+		LLM: ModelSlotView{
+			Configured: d.LLM.ModelName != "",
+			ModelName:  d.LLM.ModelName,
+			Source:     d.LLM.Source,
+		},
+		Rerank:     RerankSlotView{Enabled: d.Rerank.Enabled, ModelName: d.Rerank.ModelName},
+		Multimodal: MultimodalSlotView{Enabled: d.Multimodal.Enabled},
 	}
 	return view, nil
 }
@@ -184,9 +196,12 @@ func (c *Client) GetInitializationConfig(ctx context.Context, kbID string) (*KBM
 // InitializeByKB initializes a knowledge base with model configuration
 func (c *Client) InitializeByKB(ctx context.Context, kbID string, config *InitializationConfig) error {
 	if config == nil || config.LLM == nil || config.Embedding == nil || config.DocumentSplitting == nil {
-		return fmt.Errorf("initialization requires llm, embedding and documentSplitting; use SetKBModelConfig to bind model IDs")
+		return fmt.Errorf(
+			"initialization requires llm, embedding and document_splitting; use SetKBModelConfig to bind model IDs",
+		)
 	}
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/initialization/initialize/%s", escapePathSegment(kbID)), config, nil)
+	path := fmt.Sprintf("/api/v1/initialization/initialize/%s", escapePathSegment(kbID))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, config, nil)
 	if err != nil {
 		return err
 	}
@@ -204,24 +219,28 @@ func (c *Client) UpdateKBConfig(ctx context.Context, kbID string, config *Initia
 	if config.RerankModelID != "" || config.MultimodalID != "" {
 		return fmt.Errorf("UpdateKBConfig supports chat and embedding model IDs only")
 	}
-	return c.SetKBModelConfig(ctx, kbID, &KBModelConfig{LLMModelID: config.ChatModelID, EmbeddingModelID: config.EmbeddingModelID})
+	return c.SetKBModelConfig(ctx, kbID, &KBModelConfig{
+		LLMModelID:       config.ChatModelID,
+		EmbeddingModelID: config.EmbeddingModelID,
+	})
 }
 
 // KBModelConfig points a knowledge base at already-registered models. Field
 // names match the server's KBModelConfigRequest (PUT
-// /initialization/config/:kbId). LLMModelID is required server-side;
+// /initialization/config/:kb_id). LLMModelID is required server-side;
 // EmbeddingModelID is optional (omitted when RAG indexing is disabled).
 type KBModelConfig struct {
-	LLMModelID       string `json:"llmModelId"`
-	EmbeddingModelID string `json:"embeddingModelId,omitempty"`
+	LLMModelID       string `json:"llm_model_id"`
+	EmbeddingModelID string `json:"embedding_model_id,omitempty"`
 }
 
 // SetKBModelConfig binds a knowledge base to already-registered models via PUT
-// /initialization/config/:kbId. Register models first with CreateModel; the
+// /initialization/config/:kb_id. Register models first with CreateModel; the
 // server rejects unknown model ids and refuses to change the embedding model of
 // a KB that already has documents.
 func (c *Client) SetKBModelConfig(ctx context.Context, kbID string, cfg *KBModelConfig) error {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID)), cfg, nil)
+	path := fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID))
+	resp, err := c.doRequest(ctx, http.MethodPut, path, cfg, nil)
 	if err != nil {
 		return err
 	}
@@ -285,7 +304,7 @@ func (c *Client) CheckOllamaModels(ctx context.Context, models []string) (map[st
 
 // DownloadOllamaModel starts downloading an Ollama model
 func (c *Client) DownloadOllamaModel(ctx context.Context, modelName string) (*DownloadTask, error) {
-	req := map[string]string{"modelName": modelName}
+	req := map[string]string{"model_name": modelName}
 	resp, err := c.doRequest(ctx, http.MethodPost, "/api/v1/initialization/ollama/models/download", req, nil)
 	if err != nil {
 		return nil, err
@@ -294,19 +313,22 @@ func (c *Client) DownloadOllamaModel(ctx context.Context, modelName string) (*Do
 		Success bool `json:"success"`
 		Data    struct {
 			DownloadTask
-			TaskID string `json:"taskId"`
+			TaskID string `json:"task_id"`
 		} `json:"data"`
 	}
 	if err := parseResponse(resp, &result); err != nil {
 		return nil, err
 	}
-	result.Data.DownloadTask.ID = result.Data.TaskID
+	if result.Data.TaskID != "" {
+		result.Data.ID = result.Data.TaskID
+	}
 	return &result.Data.DownloadTask, nil
 }
 
 // GetOllamaDownloadProgress gets the download progress of an Ollama model
 func (c *Client) GetOllamaDownloadProgress(ctx context.Context, taskID string) (*DownloadTask, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/initialization/ollama/download/progress/%s", escapePathSegment(taskID)), nil, nil)
+	path := fmt.Sprintf("/api/v1/initialization/ollama/download/progress/%s", escapePathSegment(taskID))
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +451,11 @@ func detectMultimodalImageContentType(filename string, head []byte) string {
 // fields to the multimodal test endpoint. Exactly one image path is required.
 // The variadic argument preserves source compatibility with old callers,
 // which previously could not supply the server's required image at all.
-func (c *Client) TestMultimodalFunction(ctx context.Context, params map[string]string, imagePaths ...string) (*ModelCheckResult, error) {
+func (c *Client) TestMultimodalFunction(
+	ctx context.Context,
+	params map[string]string,
+	imagePaths ...string,
+) (*ModelCheckResult, error) {
 	if len(imagePaths) != 1 || imagePaths[0] == "" {
 		return nil, fmt.Errorf("multimodal test requires one image path")
 	}
@@ -437,7 +463,7 @@ func (c *Client) TestMultimodalFunction(ctx context.Context, params map[string]s
 	if err != nil {
 		return nil, fmt.Errorf("open multimodal test image: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var sniffBuf [512]byte
 	n, sniffErr := io.ReadFull(file, sniffBuf[:])
@@ -466,8 +492,15 @@ func (c *Client) TestMultimodalFunction(ctx context.Context, params map[string]s
 	if err := writer.Close(); err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/initialization/multimodal/test", &body)
+	const path = "/api/v1/initialization/multimodal/test"
+	if err := validateAPIPath(path); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, &body)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.validateBaseURL(req); err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())

@@ -44,6 +44,7 @@ type AgentConfigFlags struct {
 // which doesn't match the JSON schema users see elsewhere.
 const maxAgentConfigBytes = 4 << 20 // 4 MiB
 
+// LoadAgentConfig parses an agent configuration document from JSON or YAML.
 func LoadAgentConfig(r io.Reader, kind string) (*sdk.AgentConfig, error) {
 	body, err := io.ReadAll(io.LimitReader(r, maxAgentConfigBytes+1))
 	if err != nil {

@@ -66,19 +66,36 @@ func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 			return runSearch(c.Context(), opts, fopts, cli)
 		},
 	}
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 20, "Maximum results to return — server-side limit (1..1000; default 20 mirrors the server default)")
-	cmd.Flags().StringVar(&opts.Mode, "mode", "", "Search mode: keyword | vector | hybrid (omit for server default: hybrid)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		20,
+		"Maximum results to return — server-side limit (1..1000; default 20 mirrors the server default)",
+	)
+	cmd.Flags().StringVar(
+		&opts.Mode,
+		"mode",
+		"",
+		"Search mode: keyword | vector | hybrid (omit for server default: hybrid)",
+	)
 	cmd.Flags().StringArrayVar(&opts.SessionIDs, "session", nil, "Restrict search to these session ids (repeatable)")
 	cmdutil.AddFormatFlag(cmd, messageSearchFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Search past Q&A pairs across chat history. This searches conversation messages — for RAG retrieval over documents use `genyee search chunks` instead.",
-		RequiredFlags: []string{"<query> (positional)"},
-		Examples: []string{
-			`genyee message search "deploy steps"`,
-			`genyee message search "deploy steps" --session sess_abc --limit 5`,
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "Search past Q&A pairs across chat history. This searches conversation messages — for RAG " +
+				"retrieval over documents use `genyee search chunks` instead.",
+			RequiredFlags: []string{"<query> (positional)"},
+			Examples: []string{
+				`genyee message search "deploy steps"`,
+				`genyee message search "deploy steps" --session sess_abc --limit 5`,
+			},
+			Output: "envelope.data is an array of grouped results (request_id, session_id, query_content, " +
+				"answer_content, score); meta.count is the returned count, meta.total_count is the server-side " +
+				"total. --mode accepts keyword | vector | hybrid (server default: hybrid)",
 		},
-		Output: "envelope.data is an array of grouped results (request_id, session_id, query_content, answer_content, score); meta.count is the returned count, meta.total_count is the server-side total. --mode accepts keyword | vector | hybrid (server default: hybrid)",
-	})
+	)
 	return cmd
 }
 
@@ -142,13 +159,20 @@ func runSearch(ctx context.Context, opts *SearchOptions, fopts *cmdutil.FormatOp
 		return fopts.Emit(iostreams.IO.Out, items, meta)
 	}
 	if len(items) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no matches)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no matches)")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "SESSION ID\tQUERY\tANSWER\tSCORE")
+	_, _ = fmt.Fprintln(tw, "SESSION ID\tQUERY\tANSWER\tSCORE")
 	for _, it := range items {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%.2f\n", text.SanitizeInline(it.SessionID), text.OneLine(40, it.QueryContent), text.OneLine(40, it.AnswerContent), it.Score)
+		_, _ = fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\t%.2f\n",
+			text.SanitizeInline(it.SessionID),
+			text.OneLine(40, it.QueryContent),
+			text.OneLine(40, it.AnswerContent),
+			it.Score,
+		)
 	}
 	return tw.Flush()
 }

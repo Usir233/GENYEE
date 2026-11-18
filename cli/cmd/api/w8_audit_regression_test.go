@@ -84,11 +84,21 @@ func TestW8_API_RejectsTraversalProtocolRelativeBadMethodAndNaNField(t *testing.
 			calls++
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewBufferString(`{"data":[{"id":"1"}],"total":999999999,"page":1,"page_size":1}`)),
+				Body: io.NopCloser(
+					bytes.NewBufferString(`{"data":[{"id":"1"}],"total":999999999,"page":1,"page_size":1}`),
+				),
 			}, nil
 		},
 	}
-	err = runAPI(context.Background(), &Options{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, endlessSvc, http.MethodGet, "/api/v1/items", true)
+	err = runAPI(
+		context.Background(),
+		&Options{},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatJSON},
+		endlessSvc,
+		http.MethodGet,
+		"/api/v1/items",
+		true,
+	)
 	require.Error(t, err)
 	assert.LessOrEqual(t, calls, maxPaginatePages+1)
 	assert.True(t, strings.Contains(err.Error(), "page") || strings.Contains(err.Error(), "limit"))

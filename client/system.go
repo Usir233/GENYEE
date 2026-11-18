@@ -26,10 +26,12 @@ type SystemInfo struct {
 
 // ParserEngine represents a document parser engine
 type ParserEngine struct {
-	Name        string `json:"name"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
-	Available   bool   `json:"available"`
+	Name              string   `json:"name"`
+	Label             string   `json:"label,omitempty"`
+	Description       string   `json:"description"`
+	FileTypes         []string `json:"file_types,omitempty"`
+	Available         bool     `json:"available"`
+	UnavailableReason string   `json:"unavailable_reason,omitempty"`
 }
 
 // StorageEngineStatusItem describes one storage engine's availability
@@ -149,11 +151,19 @@ func (c *Client) ReconnectDocReader(ctx context.Context, addr string) error {
 		return err
 	}
 	var result struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
+		Success *bool  `json:"success"`
+		Code    int    `json:"code"`
+		Msg     string `json:"msg"`
+		Error   struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
 	}
 	if err := parseResponse(resp, &result); err != nil {
 		return err
+	}
+	if result.Success != nil && !*result.Success {
+		return fmt.Errorf("reconnect docreader: %s (code %d)", result.Error.Message, result.Error.Code)
 	}
 	if result.Code != 0 {
 		return fmt.Errorf("reconnect docreader: %s (code %d)", result.Msg, result.Code)

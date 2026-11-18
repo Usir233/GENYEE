@@ -125,7 +125,7 @@ For AI agents (any MCP-capable host) integrating GENYEE:
    and writes nothing to disk — just set two env vars:
    ```bash
    export GENYEE_API_KEY="sk-…"   # or GENYEE_TOKEN for a bearer JWT
-   export GENYEE_HOST="https://kb.example.com"
+   export GENYEE_HOST="https://kb.example.com"   # or GENYEE_BASE_URL (wins over GENYEE_HOST)
    genyee kb list                  # already authenticated
    ```
    Or, for a persisted local profile:

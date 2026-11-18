@@ -16,6 +16,7 @@ import (
 // on `kb delete`. The result payload is a small {id, deleted} object.
 var kbDeleteFields = []string{"id", "deleted"}
 
+// DeleteOptions holds flags and arguments for the `kb delete` command.
 type DeleteOptions struct {
 	Yes    bool // sourced from the global -y/--yes persistent flag (see cli/cmd/root.go addGlobalFlags)
 	DryRun bool
@@ -73,7 +74,16 @@ exactly to guard against unintended deletes.`,
 			}); handled {
 				return err
 			}
-			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "knowledge base", id, "kb.delete", []string{"genyee", "kb", "delete", id, "-y"}); err != nil {
+			if err := cmdutil.ConfirmDestructive(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"delete",
+				"knowledge base",
+				id,
+				"kb.delete",
+				[]string{"genyee", "kb", "delete", id, "-y"},
+			); err != nil {
 				return err
 			}
 			opts.Yes = true
@@ -103,11 +113,27 @@ exactly to guard against unintended deletes.`,
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter, id string) error {
+func runDelete(
+	ctx context.Context,
+	opts *DeleteOptions,
+	fopts *cmdutil.FormatOptions,
+	svc DeleteService,
+	p prompt.Prompter,
+	id string,
+) error {
 	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
 		return err
 	}
-	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "knowledge base", id, "kb.delete", []string{"genyee", "kb", "delete", id, "-y"}); err != nil {
+	if err := cmdutil.ConfirmDestructive(
+		p,
+		opts.Yes,
+		fopts.WantsJSON(),
+		"delete",
+		"knowledge base",
+		id,
+		"kb.delete",
+		[]string{"genyee", "kb", "delete", id, "-y"},
+	); err != nil {
 		return err
 	}
 
@@ -118,6 +144,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: id, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted knowledge base %s\n", text.SanitizeInline(id))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Deleted knowledge base %s\n", text.SanitizeInline(id))
 	return nil
 }

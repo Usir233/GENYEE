@@ -37,9 +37,15 @@ var chunkListFields = []string{
 
 // ListService is the narrow SDK surface this command depends on.
 type ListService interface {
-	ListKnowledgeChunks(ctx context.Context, knowledgeID string, page, pageSize int, chunkTypes ...string) ([]sdk.Chunk, int64, error)
+	ListKnowledgeChunks(
+		ctx context.Context,
+		knowledgeID string,
+		page, pageSize int,
+		chunkTypes ...string,
+	) ([]sdk.Chunk, int64, error)
 }
 
+// ListOptions holds flags and arguments for the `chunk list` command.
 type ListOptions struct {
 	// DocID scopes the listing to a single knowledge document (SDK
 	// `knowledge_id`). The chunks SDK does not expose a KB-wide route.
@@ -107,17 +113,33 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&opts.DocID, "doc", "", "Document id (SDK knowledge_id) to enumerate chunks for")
 	_ = cmd.MarkFlagRequired("doc")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", defaultLimit, "Maximum results to return — client-side cap; meta.has_more/total_count report truncation (1..10000)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		defaultLimit,
+		"Maximum results to return — client-side cap; meta.has_more/total_count report truncation (1..10000)",
+	)
 	cmd.Flags().IntVar(&opts.PageSize, "page-size", defaultPageSize, "Items per server batch (1..1000)")
 	cmd.Flags().BoolVar(&opts.AllPages, "all-pages", false, "Walk all server pages until exhausted (or --limit hit)")
 	cmdutil.AddFormatFlag(cmd, chunkListFields...)
 	cmdutil.AddIgnoredKBFlag(cmd)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "List chunks of a specific document in stored order (admin/debug). Results come with meta.count; use --limit (1..10000) and --all-pages to paginate. Prefer 'search chunks' for RAG retrieval.",
-		RequiredFlags: []string{"--doc"},
-		Examples:      []string{"genyee chunk list --doc doc_abc --format json", "genyee chunk list --doc doc_abc --all-pages --format json"},
-		Output:        "envelope.data is an array of Chunk objects with id, chunk_index, content, is_enabled; meta.count is the returned count, meta.total_count the document's full chunk count, meta.has_more true when --limit truncated",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "List chunks of a specific document in stored order (admin/debug). Results come with " +
+				"meta.count; use --limit (1..10000) and --all-pages to paginate. Prefer 'search chunks' for RAG " +
+				"retrieval.",
+			RequiredFlags: []string{"--doc"},
+			Examples: []string{
+				"genyee chunk list --doc doc_abc --format json",
+				"genyee chunk list --doc doc_abc --all-pages --format json",
+			},
+			Output: "envelope.data is an array of Chunk objects with id, chunk_index, content, is_enabled; " +
+				"meta.count is the returned count, meta.total_count the document's full chunk count, meta.has_more " +
+				"true when --limit truncated",
+		},
+	)
 	return cmd
 }
 
@@ -157,7 +179,10 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 		accum := make([]sdk.Chunk, 0)
 		for page := 1; ; page++ {
 			if page > maxChunkPages {
-				return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("chunk list exceeded %d-page safety limit", maxChunkPages))
+				return cmdutil.NewError(
+					cmdutil.CodeServerError,
+					fmt.Sprintf("chunk list exceeded %d-page safety limit", maxChunkPages),
+				)
 			}
 			chunks, total, err := svc.ListKnowledgeChunks(ctx, opts.DocID, page, opts.PageSize)
 			if err != nil {
@@ -192,16 +217,20 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	}
 
 	if fopts.WantsJSON() {
-		meta := &output.Meta{Count: output.IntPtr(len(items)), TotalCount: output.IntPtr(int(serverTotal)), HasMore: truncated}
+		meta := &output.Meta{
+			Count:      output.IntPtr(len(items)),
+			TotalCount: output.IntPtr(int(serverTotal)),
+			HasMore:    truncated,
+		}
 		return fopts.Emit(iostreams.IO.Out, items, meta)
 	}
 
 	if len(items) == 0 {
-		fmt.Fprintln(iostreams.IO.Out, "(no chunks)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no chunks)")
 		return nil
 	}
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "CHUNK_ID\tINDEX\tTYPE\tENABLED\tPREVIEW\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "CHUNK_ID\tINDEX\tTYPE\tENABLED\tPREVIEW\tUPDATED")
 	now := time.Now()
 	for _, c := range items {
 		enabled := "-"
@@ -216,7 +245,7 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 		if typ == "" {
 			typ = "-"
 		}
-		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\n",
 			text.SanitizeInline(c.ID), c.ChunkIndex, typ, enabled, preview, text.FuzzyAgoStr(now, c.UpdatedAt))
 	}
 	return tw.Flush()

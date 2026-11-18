@@ -25,11 +25,15 @@ import (
 // MemStore is neither *FileStore nor a real keyring, so the doctor's
 // type-switch hits the StatusOK branch.
 func TestMain(m *testing.M) {
+	os.Exit(runTestMain(m))
+}
+
+func runTestMain(m *testing.M) int {
 	restore := doctor.SetCredStoreFactoryForTest(func() (secrets.Store, error) {
 		return secrets.NewMemStore(), nil
 	})
 	defer restore()
-	os.Exit(m.Run())
+	return m.Run()
 }
 
 // update is the standard Go test golden-update flag.
@@ -52,6 +56,7 @@ func newTestFactory(t *testing.T, mockServer *httptest.Server, mockClient *sdk.C
 		"GENYEE_TOKEN",
 		"GENYEE_API_KEY",
 		"GENYEE_HOST",
+		"GENYEE_BASE_URL",
 		"GENYEE_PROFILE",
 		"GENYEE_KB_ID",
 		"GENYEE_FORMAT",
@@ -104,10 +109,10 @@ func runCmd(t *testing.T, f *cmdutil.Factory, args ...string) (stdout, stderr st
 func assertGolden(t *testing.T, got []byte, path string) {
 	t.Helper()
 	if *update {
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("mkdir testdata: %v", err)
 		}
-		if err := os.WriteFile(path, got, 0644); err != nil {
+		if err := os.WriteFile(path, got, 0o644); err != nil {
 			t.Fatalf("write golden: %v", err)
 		}
 		return

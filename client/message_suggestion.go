@@ -6,6 +6,7 @@ import (
 	"net/http"
 )
 
+// MessageSuggestionItem is one suggested follow-up question for an assistant message.
 type MessageSuggestionItem struct {
 	ID               string   `json:"id"`
 	Text             string   `json:"text"`
@@ -14,6 +15,7 @@ type MessageSuggestionItem struct {
 	KnowledgeBaseIDs []string `json:"knowledge_base_ids,omitempty"`
 }
 
+// MessageSuggestionSet groups follow-up question suggestions for one assistant message.
 type MessageSuggestionSet struct {
 	ID                 string                  `json:"id"`
 	SessionID          string                  `json:"session_id"`
@@ -29,13 +31,18 @@ type messageSuggestionResponse struct {
 	Data    MessageSuggestionSet `json:"data"`
 }
 
+// EnsureMessageSuggestions generates or retrieves follow-up suggestions for an assistant message.
 func (c *Client) EnsureMessageSuggestions(
 	ctx context.Context,
 	sessionID string,
 	messageID string,
 	regenerate bool,
 ) (*MessageSuggestionSet, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s/messages/%s/suggestions", escapePathSegment(sessionID), escapePathSegment(messageID))
+	path := fmt.Sprintf(
+		"/api/v1/sessions/%s/messages/%s/suggestions",
+		escapePathSegment(sessionID),
+		escapePathSegment(messageID),
+	)
 	resp, err := c.doRequest(ctx, http.MethodPost, path, map[string]bool{"regenerate": regenerate}, nil)
 	if err != nil {
 		return nil, err
@@ -47,12 +54,17 @@ func (c *Client) EnsureMessageSuggestions(
 	return &response.Data, nil
 }
 
+// GetMessageSuggestions fetches stored follow-up suggestions for an assistant message.
 func (c *Client) GetMessageSuggestions(
 	ctx context.Context,
 	sessionID string,
 	messageID string,
 ) (*MessageSuggestionSet, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s/messages/%s/suggestions", escapePathSegment(sessionID), escapePathSegment(messageID))
+	path := fmt.Sprintf(
+		"/api/v1/sessions/%s/messages/%s/suggestions",
+		escapePathSegment(sessionID),
+		escapePathSegment(messageID),
+	)
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -64,6 +76,7 @@ func (c *Client) GetMessageSuggestions(
 	return &response.Data, nil
 }
 
+// RecordMessageSuggestionEvent records an interaction event on a suggested question.
 func (c *Client) RecordMessageSuggestionEvent(
 	ctx context.Context,
 	sessionID string,

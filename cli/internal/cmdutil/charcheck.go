@@ -44,7 +44,8 @@ func CheckSafeText(value, label string) error {
 			return &Error{
 				Code: CodeInputInvalidArgument,
 				Message: fmt.Sprintf(
-					"%s contains a disallowed control character (U+%04X at byte %d); strip control / ANSI-escape / Bidi / zero-width characters",
+					"%s contains a disallowed control character (U+%04X at byte %d); strip control / ANSI-escape / "+
+						"Bidi / zero-width characters",
 					label, r, i,
 				),
 			}
@@ -105,7 +106,8 @@ func checkNonEmptyArgs(args []string) error {
 			return &Error{
 				Code:    CodeInputInvalidArgument,
 				Message: fmt.Sprintf("argument %d is empty", i+1),
-				Hint:    "an empty id / name / query is never valid — verify the value you captured (e.g. from a prior --jq) is non-empty",
+				Hint: "an empty id / name / query is never valid — verify the value you captured (e.g. from a " +
+					"prior --jq) is non-empty",
 			}
 		}
 	}

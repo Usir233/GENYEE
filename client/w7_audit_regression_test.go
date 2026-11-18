@@ -38,6 +38,7 @@ func TestW7RedirectBoomerangRequestIDAndBodyReplayBlocked(t *testing.T) {
 			WithAPIKey("gy_secret_key"),
 			WithTenantID(42),
 		)
+		//nolint:staticcheck // Exercises string RequestID context key supported by applyAuthHeaders.
 		ctx := context.WithValue(context.Background(), "RequestID", "req-sensitive-123")
 		resp, err := c.Raw(ctx, http.MethodGet, "/api/v1/knowledge-bases", nil)
 		if err != nil {
@@ -78,7 +79,7 @@ func TestW7RedirectBoomerangRequestIDAndBodyReplayBlocked(t *testing.T) {
 }
 
 func TestW7ExportFAQEntriesCapsResponseBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/csv")
 		_, _ = io.Copy(w, &fillerReader{remaining: maxResponseBodyBytes + 1024})
 	}))
@@ -94,7 +95,7 @@ func TestW7SSEMultiLineFrameCapAndNamedEventFiltering(t *testing.T) {
 	t.Run("multi-line SSE frame exceeding cap is rejected without unbounded buffering", func(t *testing.T) {
 		chunk := "data: " + strings.Repeat("a", 64*1024) + "\n"
 		repeats := (4<<20)/(64*1024) + 4
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/event-stream")
 			for i := 0; i < repeats; i++ {
 				if _, err := io.WriteString(w, chunk); err != nil {
@@ -119,7 +120,7 @@ func TestW7SSEMultiLineFrameCapAndNamedEventFiltering(t *testing.T) {
 	t.Run("named non-message SSE events are ignored in KnowledgeQAStream and AgentQAStream", func(t *testing.T) {
 		ssePayload := "event: progress\ndata: non-json-heartbeat\n\n" +
 			"data: {\"response_type\":\"answer\",\"content\":\"ok\",\"done\":true}\n\n"
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/event-stream")
 			_, _ = io.WriteString(w, ssePayload)
 		}))
@@ -160,7 +161,7 @@ func TestW7SSEMultiLineFrameCapAndNamedEventFiltering(t *testing.T) {
 }
 
 func TestW7ValidateAPIPathRawAndNilGuards(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		t.Fatalf("unexpected HTTP request to %s", r.URL.String())
 	}))
 	defer srv.Close()
@@ -176,7 +177,8 @@ func TestW7ValidateAPIPathRawAndNilGuards(t *testing.T) {
 		"/api/v1/knowledge/%2E%2E/tenants/1/api-keys",
 		"/api/v1/knowledge/foo%2fbar",
 	} {
-		if _, err := c.Raw(ctx, http.MethodGet, bad, nil); err == nil {
+		if resp, err := c.Raw(ctx, http.MethodGet, bad, nil); err == nil {
+			_ = resp.Body.Close()
 			t.Fatalf("expected Raw(%q) to be rejected", bad)
 		}
 	}

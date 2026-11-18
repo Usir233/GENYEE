@@ -16,14 +16,17 @@ type ConfirmPrompter struct {
 	Asked  bool
 }
 
+// Input stubs free-form input by returning prompt.ErrAgentNoPrompt.
 func (c *ConfirmPrompter) Input(string, string) (string, error) {
 	return "", prompt.ErrAgentNoPrompt
 }
 
+// Password stubs secret input by returning prompt.ErrAgentNoPrompt.
 func (c *ConfirmPrompter) Password(string) (string, error) {
 	return "", prompt.ErrAgentNoPrompt
 }
 
+// Confirm records that confirmation was requested and returns the scripted response.
 func (c *ConfirmPrompter) Confirm(string, bool) (bool, error) {
 	c.Asked = true
 	return c.Answer, c.Err

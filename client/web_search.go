@@ -14,16 +14,16 @@ type WebSearchProvider struct {
 	Enabled     bool   `json:"enabled"`
 }
 
-// GetWebSearchProviders returns the list of available web search providers
+// GetWebSearchProviders returns the list of available web search provider types.
 func (c *Client) GetWebSearchProviders(ctx context.Context) ([]json.RawMessage, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, "/api/v1/web-search/providers", nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, "/api/v1/web-search-providers/types", nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var result struct {
-		Success bool               `json:"success"`
-		Data    []json.RawMessage  `json:"data"`
+		Success bool              `json:"success"`
+		Data    []json.RawMessage `json:"data"`
 	}
 	if err := parseResponse(resp, &result); err != nil {
 		return nil, err

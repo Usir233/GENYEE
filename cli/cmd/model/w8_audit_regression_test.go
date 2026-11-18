@@ -41,7 +41,8 @@ func TestW8_Model_CapsStdinValidatesIDsBaseURLAndScrubsSecrets(t *testing.T) {
 	_, err = readStdinTrimmed(strings.NewReader("sk-line1\nsk-line2"))
 	require.Error(t, err, "multi-line --api-key-stdin must be rejected")
 
-	// 2. model delete / update / view must validate <model-id> and model list/create/update must validate flags before Client().
+	// 2. model delete / update / view must validate <model-id> and model list/create/update must validate flags before
+	// Client().
 	f := &cmdutil.Factory{
 		Client: func() (*sdk.Client, error) {
 			t.Fatal("Client() must not run before preflight validation or confirmation")
@@ -70,7 +71,10 @@ func TestW8_Model_CapsStdinValidatesIDsBaseURLAndScrubsSecrets(t *testing.T) {
 		{NewCmdDelete(f), []string{"../bad", "--dry-run"}},
 		{NewCmdUpdate(f), []string{"../bad", "--display-name", "x", "--dry-run"}},
 		{NewCmdCreate(f), []string{"m", "--type", "Embedding", "--source", "local", "--dimension", "-5", "--dry-run"}},
-		{NewCmdCreate(f), []string{"m", "--type", "Embedding", "--source", "local", "--base-url", "ftp://bad", "--dry-run"}},
+		{
+			NewCmdCreate(f),
+			[]string{"m", "--type", "Embedding", "--source", "local", "--base-url", "ftp://bad", "--dry-run"},
+		},
 		{NewCmdUpdate(f), []string{"mdl_1", "--base-url", "javascript:alert(1)", "--dry-run"}},
 		{NewCmdList(f), []string{"--type", "NotAType"}},
 	} {
@@ -90,7 +94,10 @@ func TestW8_Model_CapsStdinValidatesIDsBaseURLAndScrubsSecrets(t *testing.T) {
 
 	// 3. model view JSON must scrub api_key / app_secret from parameters if returned by server.
 	out.Reset()
-	require.NoError(t, runView(context.Background(), &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, w8LeakyViewSvc{}, "mdl_1"))
+	require.NoError(
+		t,
+		runView(context.Background(), &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, w8LeakyViewSvc{}, "mdl_1"),
+	)
 	if strings.Contains(out.String(), "sk-supersecretkey123456") || strings.Contains(out.String(), "app_super_secret") {
 		t.Fatalf("model view leaked provider secret in JSON output: %s", out.String())
 	}

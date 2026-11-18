@@ -7,7 +7,6 @@
 //     outcomes. Stops on context cancellation; keep-going on per-item err.
 //   - EmitBatch: renders the outcomes — JSON/NDJSON via output.WriteBatchEnvelope,
 //     text via per-item "OK <id>" / "FAIL <id>: <msg>".
-
 package cmdutil
 
 import (
@@ -44,7 +43,13 @@ func RunBatch(ctx context.Context, ids []string, op func(context.Context, string
 			// operation.cancelled / operation.timeout (ClassifyContextErr)
 			// instead of the generic internal.error, and an all-aborted batch
 			// exits by that class. Cause preserved so errors.Is still matches.
-			outcomes = append(outcomes, BatchOutcome{ID: id, Err: Wrapf(ClassifyContextErr(ctx.Err()), ctx.Err(), "operation on %s aborted", id)})
+			outcomes = append(
+				outcomes,
+				BatchOutcome{
+					ID:  id,
+					Err: Wrapf(ClassifyContextErr(ctx.Err()), ctx.Err(), "operation on %s aborted", id),
+				},
+			)
 			failed++
 			continue
 		default:
@@ -98,10 +103,10 @@ func EmitBatch(outcomes []BatchOutcome, fopts *FormatOptions, w io.Writer, resul
 	}
 	for _, o := range outcomes {
 		if o.Err == nil {
-			fmt.Fprintf(w, "OK %s\n", o.ID)
+			_, _ = fmt.Fprintf(w, "OK %s\n", o.ID)
 			continue
 		}
-		fmt.Fprintf(w, "FAIL %s: %s\n", o.ID, o.Err)
+		_, _ = fmt.Fprintf(w, "FAIL %s: %s\n", o.ID, o.Err)
 	}
 	return nil
 }
@@ -113,7 +118,7 @@ var deletedAtClock = time.Now
 // DeletedAtNow is the canonical resultFn for delete batches that report
 // {deleted_at: <RFC3339>} per success. Tests can freeze the clock via
 // SetDeletedAtClock(func() time.Time { return fixed }).
-func DeletedAtNow(id string) any {
+func DeletedAtNow(_ string) any {
 	return map[string]any{"deleted_at": deletedAtClock().Format(time.RFC3339)}
 }
 

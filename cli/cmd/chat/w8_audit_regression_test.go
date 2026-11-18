@@ -19,7 +19,13 @@ func (w8NilSessChatSvc) CreateSession(context.Context, *sdk.CreateSessionRequest
 	return nil, nil
 }
 
-func (w8NilSessChatSvc) KnowledgeQAStream(_ context.Context, _ string, _ *sdk.KnowledgeQARequest, cb func(*sdk.StreamResponse) error, _ ...sdk.ResourceURLOptions) error {
+func (w8NilSessChatSvc) KnowledgeQAStream(
+	_ context.Context,
+	_ string,
+	_ *sdk.KnowledgeQARequest,
+	cb func(*sdk.StreamResponse) error,
+	_ ...sdk.ResourceURLOptions,
+) error {
 	return cb(&sdk.StreamResponse{ResponseType: sdk.ResponseTypeError, Content: "fatal upstream", Done: true})
 }
 

@@ -49,8 +49,9 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List knowledge bases visible to the active profile",
-		Long:  `List knowledge bases visible to the active profile, sorted by most recently updated. Pass --pinned to restrict to pinned KBs.`,
-		Args:  cobra.NoArgs,
+		Long: `List knowledge bases visible to the active profile, sorted by most recently updated. Pass --pinned ` +
+			`to restrict to pinned KBs.`,
+		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
@@ -71,13 +72,25 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&opts.Pinned, "pinned", false, "Only show pinned knowledge bases")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)")
+	cmd.Flags().IntVarP(
+		&opts.Limit,
+		"limit",
+		"L",
+		30,
+		"Maximum results to return — client-side cap; meta.has_more/total_count report the full size (1..10000)",
+	)
 	cmdutil.AddFormatFlag(cmd, kbListFields...)
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:  "List knowledge bases in the current tenant. --format json emits the standard envelope {ok, data:[...], meta:{count}, profile}.",
-		Examples: []string{"genyee kb list --format json"},
-		Output:   "envelope.data is an array of KnowledgeBase objects with id, name, is_pinned, type, embedding_model_id; meta.total_count is the full tenant set and meta.has_more=true means --limit truncated it (raise --limit to get the rest)",
-	})
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor: "List knowledge bases in the current tenant. --format json emits the standard envelope {ok, " +
+				"data:[...], meta:{count}, profile}.",
+			Examples: []string{"genyee kb list --format json"},
+			Output: "envelope.data is an array of KnowledgeBase objects with id, name, is_pinned, type, " +
+				"embedding_model_id; meta.total_count is the full tenant set and meta.has_more=true means --limit " +
+				"truncated it (raise --limit to get the rest)",
+		},
+	)
 	return cmd
 }
 
@@ -139,21 +152,21 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 
 	if len(items) == 0 {
 		if opts.Pinned {
-			fmt.Fprintln(iostreams.IO.Out, "(no pinned knowledge bases)")
+			_, _ = fmt.Fprintln(iostreams.IO.Out, "(no pinned knowledge bases)")
 			return nil
 		}
-		fmt.Fprintln(iostreams.IO.Out, "(no knowledge bases)")
+		_, _ = fmt.Fprintln(iostreams.IO.Out, "(no knowledge bases)")
 		return nil
 	}
 
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tDOCS\tUPDATED")
+	_, _ = fmt.Fprintln(tw, "ID\tNAME\tDOCS\tUPDATED")
 	now := time.Now()
 	for _, kb := range items {
 		name := text.OneLine(40, kb.Name)
 		docs := text.Pluralize(int(kb.KnowledgeCount), "doc")
 		updated := text.FuzzyAgo(now, kb.UpdatedAt)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(kb.ID), name, docs, updated)
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(kb.ID), name, docs, updated)
 	}
 	return tw.Flush()
 }

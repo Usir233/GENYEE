@@ -25,6 +25,7 @@ var kbEditFields = []string{
 	"created_at", "updated_at",
 }
 
+// EditOptions holds flags and arguments for the `kb edit` command.
 type EditOptions struct {
 	// Name/Description are *string so we can distinguish "unset" from "set to
 	// empty". An unset field is omitted from the SDK request - only fields the
@@ -109,8 +110,23 @@ to the user first.`,
 			}
 			// Build a retry command from the flags the user actually passed so
 			// agents can re-invoke with -y after explicit human approval.
-			retryCmd := cmdutil.BuildRetryArgv(c, []string{"genyee", "kb", "update", id}, "name", "description", "format")
-			if err := cmdutil.ConfirmWrite(f.Prompter(), opts.Yes, fopts.WantsJSON(), "update", "knowledge base", id, "kb.update", retryCmd); err != nil {
+			retryCmd := cmdutil.BuildRetryArgv(
+				c,
+				[]string{"genyee", "kb", "update", id},
+				"name",
+				"description",
+				"format",
+			)
+			if err := cmdutil.ConfirmWrite(
+				f.Prompter(),
+				opts.Yes,
+				fopts.WantsJSON(),
+				"update",
+				"knowledge base",
+				id,
+				"kb.update",
+				retryCmd,
+			); err != nil {
 				return err
 			}
 			cli, err := f.Client()
@@ -125,19 +141,23 @@ to the user first.`,
 	cmdutil.AddFormatFlag(cmd, kbEditFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetWriteRisk(cmd, "kb.update")
-	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "update a knowledge base's name or description",
-		RequiredFlags: []string{"<kb-id> (positional)", "--name or --description (at least one)"},
-		Output:        "envelope.data is the updated KnowledgeBase object (id, name, description)",
-		Examples: []string{
-			"genyee kb update kb_abc --name \"New Name\" -y",
-			"genyee kb update kb_abc --description \"Updated desc\" --format json -y",
+	cmdutil.SetAgentHelp(
+		cmd,
+		cmdutil.AgentHelp{
+			UsedFor:       "update a knowledge base's name or description",
+			RequiredFlags: []string{"<kb-id> (positional)", "--name or --description (at least one)"},
+			Output:        "envelope.data is the updated KnowledgeBase object (id, name, description)",
+			Examples: []string{
+				"genyee kb update kb_abc --name \"New Name\" -y",
+				"genyee kb update kb_abc --description \"Updated desc\" --format json -y",
+			},
+			Warnings: []string{
+				"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
+				"kb update overwrites fields; SDK uses fetch-then-update to avoid clobbering, but malformed input " +
+					"can still corrupt config.",
+			},
 		},
-		Warnings: []string{
-			"Requires explicit user approval (exit 10 / input.confirmation_required); never auto-add -y.",
-			"kb update overwrites fields; SDK uses fetch-then-update to avoid clobbering, but malformed input can still corrupt config.",
-		},
-	})
+	)
 	return cmd
 }
 
@@ -182,11 +202,14 @@ func runEdit(ctx context.Context, opts *EditOptions, fopts *cmdutil.FormatOption
 		return cmdutil.WrapHTTP(err, "update knowledge base %s", id)
 	}
 	if updated == nil {
-		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty updated knowledge base response for %s", id))
+		return cmdutil.NewError(
+			cmdutil.CodeServerError,
+			fmt.Sprintf("empty updated knowledge base response for %s", id),
+		)
 	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, updated, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Updated knowledge base %s\n", text.SanitizeInline(id))
+	_, _ = fmt.Fprintf(iostreams.IO.Out, "✓ Updated knowledge base %s\n", text.SanitizeInline(id))
 	return nil
 }
