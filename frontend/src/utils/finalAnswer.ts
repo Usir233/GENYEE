@@ -1,100 +1,89 @@
-// finalAnswer.ts
-//
-// Helpers for normalising LLM-emitted final answers before rendering.
-//
-// Background: the agent ends a turn by writing its answer as plain assistant
-// text. Many models — especially smaller ones or those SFT'd on different
-// conventions — wrap that answer inside <answer>…</answer>,
-// <final_answer>…</final_answer>, or prefix it with "Final Answer:" /
-// "最终答案：". When the agent loop accepts such a natural-stop response as the
-// final answer, those wrappers leak into the rendered output. This module
-// provides a single helper to strip them before the markdown renderer sees
-// the text.
-//
-// The function is intentionally conservative: it only strips a wrapper when
-// it covers the *entire* trimmed content. We don't want to corrupt user-
-// authored markdown that happens to contain the word "Final Answer:" or an
-// XML-style tag in the middle of a sentence.
+import enUS from '../i18n/locales/en-US.ts'
+import jaJP from '../i18n/locales/ja-JP.ts'
+import koKR from '../i18n/locales/ko-KR.ts'
+import ruRU from '../i18n/locales/ru-RU.ts'
+import zhCN from '../i18n/locales/zh-CN.ts'
+import zhTW from '../i18n/locales/zh-TW.ts'
 
 const ANSWER_TAG_RE =
-  /^\s*<(answer|final_answer|final-answer)\b[^>]*>([\s\S]*?)<\/\1>\s*$/i;
+  /^\s*<(answer|final_answer|final-answer)\b[^>]*>([\s\S]*?)<\/\1>\s*$/i
 
 const FENCED_ANSWER_RE =
-  /^\s*```(?:final_answer|answer)\s*\n?([\s\S]*?)\n?```\s*$/i;
+  /^\s*```(?:final_answer|answer)\s*\n?([\s\S]*?)\n?```\s*$/i
 
-const ANSWER_PREFIX_RE =
-  /^\s*(?:final\s*answer|最终答案|答案|答)\s*[:：]\s*/i;
+function buildAnswerPrefixRegex(): RegExp {
+  const prefixes = [zhCN, zhTW, enUS, jaJP, koKR, ruRU]
+    .flatMap((bundle) => bundle.chat.finalAnswerPrefixList.split(','))
+    .map((token) => token.trim())
+    .filter(Boolean)
+  const uniqueSorted = [...new Set(prefixes)].toSorted((a, b) => b.length - a.length)
+  const alternation = uniqueSorted
+    .map((token) =>
+      token
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\s+/g, '\\s*'),
+    )
+    .join('|')
+  return new RegExp(`^\\s*(?:${alternation})\\s*[:\\uff1a]\\s*`, 'i')
+}
+
+const ANSWER_PREFIX_RE = buildAnswerPrefixRegex()
 
 /**
  * Remove common "final answer" wrappers that some models wrap their
  * plain-text answer in. Returns the original string
  * (trimmed only when stripping happens) when no wrapper is detected.
- *
- * Recognised wrappers (must cover the entire trimmed content):
- *  - `<answer>…</answer>` / `<final_answer>…</final_answer>` (case-insensitive)
- *  - ```` ```final_answer\n…\n``` ```` fenced code block
- *  - Leading `Final Answer:` / `最终答案：` / `答：` prefix
  */
 export function unwrapFinalAnswerWrappers(content: string): string {
   if (!content || typeof content !== 'string') {
-    return content ?? '';
+    return content ?? ''
   }
 
-  let result = content;
-  let changed = false;
+  let result = content
+  let changed = false
 
-  // Strip outer XML-style answer tags. Loop in case the model nested them
-  // (e.g. <final_answer><answer>…</answer></final_answer>), but cap iterations
-  // to avoid pathological inputs.
   for (let i = 0; i < 3; i++) {
-    const tagMatch = result.match(ANSWER_TAG_RE);
-    if (!tagMatch) break;
-    result = tagMatch[2];
-    changed = true;
+    const tagMatch = result.match(ANSWER_TAG_RE)
+    if (!tagMatch) break
+    result = tagMatch[2]
+    changed = true
   }
 
-  // Strip fenced "```final_answer" code block wrappers.
-  const fencedMatch = result.match(FENCED_ANSWER_RE);
+  const fencedMatch = result.match(FENCED_ANSWER_RE)
   if (fencedMatch) {
-    result = fencedMatch[1];
-    changed = true;
+    result = fencedMatch[1]
+    changed = true
   }
 
-  // Strip a leading "Final Answer:" / "最终答案：" prefix when it is the very
-  // first non-whitespace token. Only applied once.
-  const prefixMatch = result.match(ANSWER_PREFIX_RE);
+  const prefixMatch = result.match(ANSWER_PREFIX_RE)
   if (prefixMatch) {
-    result = result.slice(prefixMatch[0].length);
-    changed = true;
+    result = result.slice(prefixMatch[0].length)
+    changed = true
   }
 
-  return changed ? result.trim() : result;
+  return changed ? result.trim() : result
 }
 
-const THINK_BLOCK_RE = /<think\b[^>]*>[\s\S]*?<\/think>/gi;
+const THINK_BLOCK_RE = /<think\b[^>]*>[\s\S]*?<\/think>/gi
 
 /**
  * Normalise content for cross-event comparison. Strips <think>…</think>
- * blocks (which appear in raw thinking chunks but not in the final answer
- * event), strips final-answer wrappers, and collapses whitespace. Used to
- * detect when the natural-stop path emits the same content twice (once as
- * streaming thinking chunks and once as a final answer event).
+ * blocks, strips final-answer wrappers, and collapses whitespace.
  */
 export function normaliseForComparison(content: string): string {
-  if (!content || typeof content !== 'string') return '';
-  const stripped = content.replace(THINK_BLOCK_RE, '');
-  const unwrapped = unwrapFinalAnswerWrappers(stripped);
-  return unwrapped.replace(/\s+/g, ' ').trim();
+  if (!content || typeof content !== 'string') return ''
+  const stripped = content.replace(THINK_BLOCK_RE, '')
+  const unwrapped = unwrapFinalAnswerWrappers(stripped)
+  return unwrapped.replace(/\s+/g, ' ').trim()
 }
 
 /**
  * Returns true when `thinking` and `answer` represent the same final answer
- * after normalisation. Whitespace and answer wrappers are already handled
- * above; differences in the remaining content must keep the thinking visible.
+ * after normalisation.
  */
 export function thinkingEqualsAnswer(thinking: string, answer: string): boolean {
-  const a = normaliseForComparison(thinking);
-  const b = normaliseForComparison(answer);
-  if (!a || !b) return false;
-  return a === b;
+  const a = normaliseForComparison(thinking)
+  const b = normaliseForComparison(answer)
+  if (!a || !b) return false
+  return a === b
 }

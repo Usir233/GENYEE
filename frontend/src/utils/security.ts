@@ -438,7 +438,7 @@ export function escapeHTML(text: string): string {
     '=': '&#x3D;'
   };
   
-  return text.replace(/[&<>"'`=\/]/g, (s) => map[s]);
+  return text.replace(/[&<>"'`=/]/g, (s) => map[s]);
 }
 
 /**
@@ -811,11 +811,25 @@ function ensureProtectedResourceCardClicks(): void {
  * 上下文（如嵌入应用的 Embed 平面）优先，组件只在同一鉴权平面内用
  * `access` 细化作用域（如知识库）。
  */
+const PROTECTED_FILE_FETCH_TIMEOUT_MS = 30_000;
+
+function createProtectedFetchSignal(callerSignal?: AbortSignal): AbortSignal | undefined {
+  const timeoutSignal =
+    typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(PROTECTED_FILE_FETCH_TIMEOUT_MS)
+      : undefined;
+  if (callerSignal && timeoutSignal && typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([callerSignal, timeoutSignal]);
+  }
+  return callerSignal ?? timeoutSignal;
+}
+
 export async function hydrateProtectedFileImages(
   root: ParentNode | null | undefined,
   access?: ProtectedFileAccessContext,
+  options?: { signal?: AbortSignal },
 ): Promise<void> {
-  if (!root || typeof window === 'undefined') {
+  if (!root || typeof window === 'undefined' || options?.signal?.aborted) {
     return;
   }
 
@@ -887,6 +901,7 @@ export async function hydrateProtectedFileImages(
               method: 'GET',
               headers,
               credentials: 'include',
+              signal: createProtectedFetchSignal(options?.signal),
             });
             if (
               taskEpoch !== protectedFileCacheState.clearEpoch ||
@@ -925,8 +940,14 @@ export async function hydrateProtectedFileImages(
             if (taskEpoch !== protectedFileCacheState.clearEpoch) {
               return { status: 'failed' };
             }
+            const errName = error instanceof Error ? error.name : '';
+            if (errName === 'AbortError' && options?.signal?.aborted) {
+              return { status: 'failed' };
+            }
             if (attempt === 0 && generation !== protectedFileCacheState.retryGeneration) continue;
-            console.warn('[security] hydrateProtectedFileImages failed:', error);
+            if (errName !== 'AbortError' && errName !== 'TimeoutError') {
+              console.warn('[security] hydrateProtectedFileImages failed:', error);
+            }
             protectedFileFailureCache.set(requestKey, Date.now());
             return { status: 'failed' };
           }

@@ -10,9 +10,30 @@
  * typically send no echo, and predicted characters would stay on screen.
  */
 
+import enUS from '../i18n/locales/en-US.ts'
+import jaJP from '../i18n/locales/ja-JP.ts'
+import koKR from '../i18n/locales/ko-KR.ts'
+import ruRU from '../i18n/locales/ru-RU.ts'
+import zhCN from '../i18n/locales/zh-CN.ts'
+import zhTW from '../i18n/locales/zh-TW.ts'
+
 export type PtyEchoWrite = (chunk: string | Uint8Array) => void
 
 const ANSI_ESCAPE_RE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])/g
+
+const SECRET_PROMPT_RE = new RegExp(
+  `(?:${[
+    ...new Set(
+      [zhCN, zhTW, enUS, jaJP, koKR, ruRU]
+        .flatMap((bundle) => bundle.settings.sandbox.secretPromptTerms.split(','))
+        .map((term) => term.trim())
+        .filter(Boolean),
+    ),
+  ]
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')})`,
+  'i',
+)
 
 function stripAnsi(text: string): string {
   return text.replace(ANSI_ESCAPE_RE, '')
@@ -20,7 +41,7 @@ function stripAnsi(text: string): string {
 
 export function looksLikeSecretPrompt(text: string): boolean {
   const line = stripAnsi(text.split(/\r\n|\n|\r/).pop() ?? '').trimEnd()
-  if (/(?:password|passphrase|密码)/i.test(line)) {
+  if (SECRET_PROMPT_RE.test(line)) {
     return true
   }
   return /\bpin\s*:?\s*$/i.test(line)

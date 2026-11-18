@@ -66,7 +66,7 @@ export function analyzeSpeech(samples: Float32Array, sampleRate: number): Speech
   }
   if (levels.length === 0) return { speech: false, noiseFloor: 0, threshold: 0, peak: 0, voicedMs: 0 };
 
-  const sorted = [...levels].sort((a, b) => a - b);
+  const sorted = levels.toSorted((a, b) => a - b);
   const noiseFloor = sorted[Math.floor(SPEECH_NOISE_PERCENTILE * (sorted.length - 1))];
   const threshold = Math.max(SPEECH_RMS_FLOOR, noiseFloor * SPEECH_NOISE_RATIO);
   const voicedMs = levels.filter(level => level >= threshold).length * SPEECH_FRAME_MS;

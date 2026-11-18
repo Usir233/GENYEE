@@ -142,6 +142,9 @@ export function useChatQuestionMinimap(options: {
     resizeObserver = new ResizeObserver(scheduleMeasure)
     resizeObserver.observe(el)
     if (content) resizeObserver.observe(content)
+    if (typeof document !== 'undefined' && document.documentElement) {
+      resizeObserver.observe(document.documentElement)
+    }
     observedContainer = el
     observedContent = content
   }
@@ -155,14 +158,18 @@ export function useChatQuestionMinimap(options: {
     }
 
     el.addEventListener('scroll', scheduleMeasure, { passive: true })
-    window.addEventListener('resize', scheduleMeasure)
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleMeasure)
+    }
     observeCurrentContainer()
     scheduleMeasure()
   }
 
   const unbind = (el: HTMLElement | null) => {
     el?.removeEventListener('scroll', scheduleMeasure)
-    window.removeEventListener('resize', scheduleMeasure)
+    if (typeof ResizeObserver === 'undefined') {
+      window.removeEventListener('resize', scheduleMeasure)
+    }
     disconnectObserver()
   }
 

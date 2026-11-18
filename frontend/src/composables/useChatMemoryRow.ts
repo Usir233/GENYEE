@@ -39,8 +39,12 @@ export function useChatMemoryRow(getUsedMemories: () => UsedMemory[] | undefined
       await deleteMemoryItem(memory.id)
       forgottenIds.value = [...forgottenIds.value, memory.id]
       MessagePlugin.success(t('chat.memoryForgotten'))
-    } catch (error: any) {
-      MessagePlugin.error(error?.message || t('chat.memoryForgetFailed'))
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string } | null)?.message
+      MessagePlugin.error(msg || t('chat.memoryForgetFailed'))
     } finally {
       forgettingId.value = ''
     }

@@ -12,7 +12,7 @@ import {
 
 const SOURCE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const EXT = /\.(vue|ts|js|mjs)$/
-const SKIP = /\/i18n\/locales\/|localeGapScan\.ts$|\.test\.(ts|mjs|js)$/
+const SKIP = /\/i18n\/(?:locales|embed-locales)\/|localeGapScan\.ts$|\.test\.(ts|mjs|js)$/
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -157,12 +157,21 @@ for (const [root, files] of tmRoots) {
 }
 
 // embed bundle audit
-const embedFile = join(dirname(fileURLToPath(import.meta.url)), 'embed.ts')
-const embedSource = readFileSync(embedFile, 'utf8')
-const embedMessagesMatch = embedSource.match(/const messages = (\{[\s\S]*?\n\}) as const/)
-const embedMessages = embedMessagesMatch
-  ? (Function(`"use strict"; return (${embedMessagesMatch[1]});`)() as Record<string, unknown>)
-  : {}
+import enEmbed from './embed-locales/en-US.ts'
+import jaEmbed from './embed-locales/ja-JP.ts'
+import koEmbed from './embed-locales/ko-KR.ts'
+import ruEmbed from './embed-locales/ru-RU.ts'
+import zhCNEmbed from './embed-locales/zh-CN.ts'
+import zhTWEmbed from './embed-locales/zh-TW.ts'
+
+const embedMessages: Record<string, unknown> = {
+  'en-US': enEmbed,
+  'ja-JP': jaEmbed,
+  'ko-KR': koEmbed,
+  'ru-RU': ruEmbed,
+  'zh-CN': zhCNEmbed,
+  'zh-TW': zhTWEmbed,
+}
 
 const embedKeysByLocale = Object.fromEntries(
   Object.entries(embedMessages).map(([locale, bundle]) => [locale, flattenMessages(bundle)]),

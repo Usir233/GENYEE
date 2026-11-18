@@ -1,10 +1,18 @@
+import enUS from '../i18n/locales/en-US.ts'
+
 /** Default base path of website-docs (VitePress, base `/docs/`). */
 export const DOCS_BASE_URL = '/docs/'
+
+interface DocsRuntimeWindow {
+  __RUNTIME_CONFIG__?: {
+    DOCS_BASE_URL?: unknown
+  }
+}
 
 export function resolveDocsBaseUrl(): string {
   const configured =
     typeof window !== 'undefined'
-      ? (window as any).__RUNTIME_CONFIG__?.DOCS_BASE_URL
+      ? (window as unknown as DocsRuntimeWindow).__RUNTIME_CONFIG__?.DOCS_BASE_URL
       : undefined
   if (typeof configured === 'string' && configured.trim() !== '') {
     const trimmed = configured.trim()
@@ -38,7 +46,7 @@ export const DOC_PAGES = {
   home: '',
   tenantAuth: '03-features/01-tenant-auth',
   models: '03-features/06-models',
-  modelsCompat: '03-features/06-models#协议兼容覆盖-compat-json',
+  modelsCompat: `03-features/06-models#${enUS.settings.docsAnchors.modelsCompat}`,
   knowledgeGraph: '03-features/09-knowledge-graph',
   imIntegration: '03-features/12-im-integration',
   apiOverview: '04-api/01-api-overview',

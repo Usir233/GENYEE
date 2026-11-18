@@ -4,6 +4,13 @@
  * Nothing here touches the DOM.
  */
 
+import enUS from '../i18n/locales/en-US.ts'
+import jaJP from '../i18n/locales/ja-JP.ts'
+import koKR from '../i18n/locales/ko-KR.ts'
+import ruRU from '../i18n/locales/ru-RU.ts'
+import zhCN from '../i18n/locales/zh-CN.ts'
+import zhTW from '../i18n/locales/zh-TW.ts'
+
 export type PageTextEditOp = 'replace' | 'insert_before' | 'insert_after' | 'replace_selection' | 'append'
 
 export interface PageTextEdit {
@@ -151,8 +158,24 @@ export function markdownOutline(value: string, limit = 60): OutlineEntry[] {
 
 // Labels of fields that hold credentials. "token" alone is left out: model
 // settings have "max tokens".
-const SECRET_LABEL =
-  /\b(api[\s_-]?key|secret|passwords?|passwd|passphrase|access[\s_-]?key|private[\s_-]?key|client[\s_-]?secret|bearer|(auth|access|refresh|api|bot|app)[\s_-]?token|credentials?|cookie)\b|密钥|秘钥|密码|口令|令牌|凭证|凭据/i
+const ASCII_SECRET_LABEL =
+  /\b(api[\s_-]?key|secret|passwords?|passwd|passphrase|access[\s_-]?key|private[\s_-]?key|client[\s_-]?secret|bearer|(auth|access|refresh|api|bot|app)[\s_-]?token|credentials?|cookie)\b/i
+
+const LOCALIZED_SECRET_TERMS = [zhCN, zhTW, enUS, jaJP, koKR, ruRU]
+  .flatMap((bundle) => bundle.assistant.secretFieldTerms.split(','))
+  .map((term) => term.trim())
+  .filter((term) => term && !/^[a-z\s_-]+$/i.test(term))
+
+const LOCALIZED_SECRET_LABEL = new RegExp(
+  [...new Set(LOCALIZED_SECRET_TERMS)]
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|'),
+  'i',
+)
+
+function matchesSecretPattern(input: string): boolean {
+  return ASCII_SECRET_LABEL.test(input) || LOCALIZED_SECRET_LABEL.test(input)
+}
 
 function normalizeIdentifierWords(raw: string): string {
   return raw
@@ -164,7 +187,7 @@ function normalizeIdentifierWords(raw: string): string {
 export function isSecretLabel(...texts: Array<string | null | undefined>): boolean {
   return texts.some((text) => {
     if (!text) return false
-    return SECRET_LABEL.test(text) || SECRET_LABEL.test(normalizeIdentifierWords(text))
+    return matchesSecretPattern(text) || matchesSecretPattern(normalizeIdentifierWords(text))
   })
 }
 

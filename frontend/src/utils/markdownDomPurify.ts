@@ -19,7 +19,7 @@ export const domPurifyForbidTags = [
 export const domPurifyForbidAttr = ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'] as const;
 
 export const domPurifyAllowedUriRegexp =
-  /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|blob):|data:image\/(?:png|gif|jpe?g|webp|bmp|avif|x-icon|vnd\.microsoft\.icon)[;,]|(?:resource|storage|local|minio|cos|tos|s3|oss|ks3|obs):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
+  /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|blob):|data:image\/(?:png|gif|jpe?g|webp|bmp|avif|x-icon|vnd\.microsoft\.icon)[;,]|(?:resource|storage|local|minio|cos|tos|s3|oss|ks3|obs):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i;
 
 /** Shared DOMPurify security options (FORBID_*, URI scheme, DOM flags). */
 export const domPurifySecurityOptions = {

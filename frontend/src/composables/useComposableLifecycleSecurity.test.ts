@@ -359,7 +359,10 @@ test('useVoiceInput suppresses onText and onError when component unmounts during
   let beforeUnmountCb: (() => void) | null = null
   let now = 1000
   let resolveTranscribe!: (text: string) => void
-  let activeRecorder: any = null
+  let activeRecorder: FakeMediaRecorder | null = null
+  const captureRecorder = (rec: FakeMediaRecorder) => {
+    activeRecorder = rec
+  }
 
   class FakeMediaRecorder {
     state = 'inactive'
@@ -369,7 +372,7 @@ test('useVoiceInput suppresses onText and onError when component unmounts during
     onstop: (() => void) | null = null
     start() {
       this.state = 'recording'
-      activeRecorder = this
+      captureRecorder(this)
       this.onstart?.()
     }
     stop() {

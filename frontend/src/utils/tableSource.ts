@@ -1,4 +1,12 @@
-import { findNormalizedMatches, normalizeForMatch, normalizeWithPositions, type TextMatch } from './sourceLocator'
+import {
+  HAN_ORDINAL_CHARS,
+  findNormalizedMatches,
+  normalizeForMatch,
+  normalizeWithPositions,
+  type TextMatch,
+} from './sourceLocator'
+
+const HAN_ORDINAL_PREFIX_RE = new RegExp(`^[${HAN_ORDINAL_CHARS}]+(.+)$`, 'u')
 
 export type TableSourceMatch = TextMatch & { page: number; quote: string }
 type Column = { text: string; ends: number[] }
@@ -26,8 +34,8 @@ function spanningLabel(scope: string): string {
 export function tableFragmentPages(pages: string[], scope: string): string[] {
   const qualifier = spanningLabel(scope)
   if (!scope.includes('|') || !qualifier) return pages
-  const ordinal = qualifier.match(/^[一二三四五六七八九十百]+(.+)$/u)
-  const heading = ordinal ? new RegExp(`^[一二三四五六七八九十百]+${ordinal[1]}`) : null
+  const ordinal = qualifier.match(HAN_ORDINAL_PREFIX_RE)
+  const heading = ordinal ? new RegExp(`^[${HAN_ORDINAL_CHARS}]+${ordinal[1]}`) : null
   let active = false
   return pages.map(page => page.split('\n').map(line => {
     const norm = normalizeForMatch(line)
@@ -58,8 +66,8 @@ export function findTableSource(pages: string[], scope: string): TableSourceMatc
       return row
     })
   })
-  const ordinalLabel = qualifier.match(/^[一二三四五六七八九十百]+(.+)$/u)
-  const heading = ordinalLabel ? new RegExp(`^[一二三四五六七八九十百]+${ordinalLabel[1]}`) : null
+  const ordinalLabel = qualifier.match(HAN_ORDINAL_PREFIX_RE)
+  const heading = ordinalLabel ? new RegExp(`^[${HAN_ORDINAL_CHARS}]+${ordinalLabel[1]}`) : null
   let active = !qualifier
   const allowed = rows.map(row => {
     const label = heading ? row.norm.match(heading)?.[0] : row.norm.startsWith(qualifier) ? qualifier : undefined

@@ -214,8 +214,7 @@ export const vStableHtml: ObjectDirective<HTMLElement, string> = {
     const template = document.createElement('template');
     template.innerHTML = html;
     scrubDangerousSubtree(template.content);
-    while (el.firstChild) el.removeChild(el.firstChild);
-    while (template.content.firstChild) el.appendChild(template.content.firstChild);
+    el.replaceChildren(...Array.from(template.content.childNodes));
   },
   updated(el, binding) {
     const html = binding.value || '';

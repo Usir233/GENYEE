@@ -1,6 +1,22 @@
+export interface TimelinePresentationEvent {
+  type?: string
+  event_id?: string
+  tool_call_id?: string
+  tool_name?: string
+  title?: string
+  content?: string
+  superseded?: boolean
+  done?: boolean
+  iteration?: number
+  timestamp?: number | string
+  reasoning?: { id: string; content: string }
+  progress_history?: string[]
+  [key: string]: unknown
+}
+
 /** Presentation only: keep reasoning and progress separate in the stored stream. */
-export function foldProgressIntoThinking(events: any[]): any[] {
-  const result: any[] = []
+export function foldProgressIntoThinking<T extends TimelinePresentationEvent>(events: T[]): T[] {
+  const result: T[] = []
   for (const event of events) {
     const progress = event.type === 'progress' || (event.type === 'answer' && event.superseded)
     if (!progress || typeof event.content !== 'string' || !event.content.trim()) {
@@ -26,8 +42,11 @@ export function foldProgressIntoThinking(events: any[]): any[] {
  * timeline shows one row per action instead of alternating thought/tool rows.
  * Titled reasoning (a relocated preamble) is user-facing narration and stays.
  */
-export function attachReasoningToTools(events: any[], canAttach: (event: any) => boolean): any[] {
-  const result: any[] = []
+export function attachReasoningToTools<T extends TimelinePresentationEvent>(
+  events: T[],
+  canAttach: (event: T) => boolean,
+): T[] {
+  const result: T[] = []
   for (let i = 0; i < events.length; i++) {
     const event = events[i]
     const next = events[i + 1]
@@ -50,7 +69,7 @@ export function attachReasoningToTools(events: any[], canAttach: (event: any) =>
  * than `minFolded` rows would cost a row without saving one.
  */
 export function earlierStepKeys(
-  rows: { key: string, step: boolean, sticky: boolean }[],
+  rows: { key: string; step: boolean; sticky: boolean }[],
   keepRecent = 3,
   minFolded = 2,
 ): string[] {
@@ -62,8 +81,8 @@ export function earlierStepKeys(
 }
 
 /** Compact adjacent visible updates without crossing tools, prompts or answers. */
-export function groupProgressUpdates(events: any[]): any[] {
-  const result: any[] = []
+export function groupProgressUpdates<T extends TimelinePresentationEvent>(events: T[]): T[] {
+  const result: T[] = []
   for (const event of events) {
     const previous = result.at(-1)
     if (event.type === 'progress' && typeof event.content === 'string' && event.content.trim()

@@ -1,5 +1,9 @@
-// src/utils/request.js
-import axios, { type InternalAxiosRequestConfig } from "axios";
+// src/utils/request.ts
+import axios, {
+  type AxiosProgressEvent,
+  type AxiosRequestConfig,
+  type InternalAxiosRequestConfig,
+} from "axios";
 import { generateRandomString, MAX_FILE_SIZE_MB, MAX_SKILL_BUNDLE_SIZE_MB } from "./index";
 import i18n from '@/i18n'
 import { getApiBaseUrl } from './api-base';
@@ -182,9 +186,41 @@ function isPublicAuthRequest(url?: string): boolean {
   return PUBLIC_AUTH_PATHS.some(p => url.includes(p));
 }
 
+export interface DefaultApiPayload {
+  success?: boolean;
+  data?: unknown;
+  total?: number;
+  page?: number;
+  page_size?: number;
+  message?: string;
+  code?: string | number;
+  error?: { code?: string | number; message?: string; details?: unknown } | string;
+  [key: string]: unknown;
+}
+
+interface AxiosErrorLike {
+  config?: AuthenticatedRequestConfig;
+  response?: {
+    status: number;
+    data: unknown;
+  };
+  message?: string;
+}
+
+function extractErrorMessage(data: unknown): string | undefined {
+  if (typeof data === 'string') return data;
+  if (!data || typeof data !== 'object') return undefined;
+  const obj = data as { error?: unknown; message?: unknown };
+  if (typeof obj.error === 'string') return obj.error;
+  if (obj.error && typeof obj.error === 'object') {
+    const nested = (obj.error as { message?: unknown }).message;
+    if (typeof nested === 'string') return nested;
+  }
+  return typeof obj.message === 'string' ? obj.message : undefined;
+}
+
 instance.interceptors.response.use(
   (response) => {
-    // 根据业务状态码处理逻辑
     const { status, data } = response;
     if (status >= 200 && status < 300) {
       return withHttpStatus(data, status);
@@ -192,54 +228,43 @@ instance.interceptors.response.use(
       return Promise.reject(withHttpStatus(data, status));
     }
   },
-  async (error: any) => {
-    const originalRequest = error.config as AuthenticatedRequestConfig | undefined;
+  async (rawError: unknown) => {
+    const error = (rawError && typeof rawError === 'object' ? rawError : {}) as AxiosErrorLike;
+    const originalRequest = error.config;
 
-    if (axios.isCancel(error) || error instanceof AuthSessionChangedError) {
-      return Promise.reject(error);
+    if (axios.isCancel(rawError) || rawError instanceof AuthSessionChangedError) {
+      return Promise.reject(rawError);
     }
-    
+
     if (!error.response) {
-      // A timeout and an unreachable server both arrive without a response, but
-      // telling someone whose upload timed out to "check your connection" sends
-      // them after the wrong problem.
       return Promise.reject({
-        message: t(isTimeoutError(error) ? 'error.requestTimeout' : 'error.networkError'),
+        message: t(isTimeoutError(rawError) ? 'error.requestTimeout' : 'error.networkError'),
       });
     }
 
-    // 文件下载失败时服务端仍返回 JSON；先还原错误信息，避免被 Blob 隐藏。
-    // 不依赖 Content-Type：网关可能把错误改成 text/plain 或空类型。
     if (typeof Blob !== 'undefined' && error.response.data instanceof Blob) {
       try {
         const text = (await error.response.data.text()).trim();
         if (text.startsWith('{') || text.startsWith('[') || error.response.data.type.includes('json')) {
-          error.response.data = JSON.parse(text);
+          error.response.data = JSON.parse(text) as unknown;
         }
       } catch {
-        // 非法 JSON 继续使用原有错误处理。
+        // Invalid JSON falls through to standard error handling.
       }
     }
-    
-    // 公开接口（auto-setup / login / register / oidc）的 401 不走 refresh 逻辑，直接返回错误
+
     if ((error.response.status === 401 || error.response.status === 403) && isPublicAuthRequest(originalRequest?.url)) {
       const { status, data } = error.response;
-      const msg = typeof data === 'object'
-        ? (typeof data?.error === 'string' ? data.error : (data?.error?.message || data?.message))
-        : data;
+      const msg = extractErrorMessage(data);
       return Promise.reject(withHttpStatus({ status, message: msg || t('error.invalidCredentials') }, status));
     }
 
-    // Embed 调试页/挂件：无 JWT 时直接拒绝，勿走 refresh → /login
     if (error.response.status === 401 && isEmbedPage()) {
       const { status, data } = error.response;
-      const msg = typeof data === 'object'
-        ? (typeof data?.error === 'string' ? data.error : (data?.error?.message || data?.message))
-        : data;
+      const msg = extractErrorMessage(data);
       return Promise.reject(withHttpStatus({ status, message: msg || t('error.invalidCredentials') }, status));
     }
 
-    // 如果是401错误且不是刷新token的请求，尝试刷新token（仅限同源受信任 API 且非单次消费流请求体）
     const isUnreplayableStream =
       typeof ReadableStream !== 'undefined' && originalRequest?.data instanceof ReadableStream;
     if (
@@ -256,8 +281,6 @@ instance.interceptors.response.use(
         const context = originalRequest._authContext;
         if (!context) throw new AuthSessionChangedError();
         const currentToken = assertAuthRequestContext(context);
-        // Another concurrent request may already have rotated this session.
-        // A late 401 should reuse that token, not rotate the new refresh again.
         const token = currentToken && originalRequest.headers.Authorization !== `Bearer ${currentToken}`
           ? currentToken
           : await waitForRefresh(refreshAccessTokenShared({
@@ -271,50 +294,36 @@ instance.interceptors.response.use(
         originalRequest.headers['Authorization'] = 'Bearer ' + token;
         return instance(originalRequest);
       } catch (refreshError) {
-        // Refresh failures handle relogin themselves. Superseded/cancelled
-        // operations leave the currently active account and tenant untouched.
         return Promise.reject(refreshError);
       }
     }
-    
-    // 处理 Nginx 413 Request Entity Too Large
+
     const ERR_ENTITY_TOO_LARGE = 413;
     if (error.response.status === ERR_ENTITY_TOO_LARGE) {
-      const skillUpload = isSkillBundleUploadUrl(error.config?.url)
+      const skillUpload = isSkillBundleUploadUrl(error.config?.url);
       return Promise.reject(withHttpStatus({
         status: ERR_ENTITY_TOO_LARGE,
         message: skillUpload
           ? i18n.global.t('settings.sandbox.skillBundleTooLarge', { size: MAX_SKILL_BUNDLE_SIZE_MB })
           : i18n.global.t('error.fileSizeExceeded', { size: MAX_FILE_SIZE_MB }),
-        success: false
+        success: false,
       }, ERR_ENTITY_TOO_LARGE));
     }
 
     const { status, data } = error.response;
-    // 将HTTP状态码一并抛出，方便上层判断401等场景
-    // 后端返回格式: { success: false, error: { code, message, details } }
-    // 提取 error.message 作为顶层 message，方便前端使用 error?.message 获取
-    let errorMessage: string | undefined;
-    if (typeof data === 'object') {
-      if (typeof data?.error === 'string') {
-        errorMessage = data.error;
-      } else if (data?.error?.message) {
-        errorMessage = data.error.message;
-      } else {
-        errorMessage = data?.message;
-      }
-    } else if (typeof data === 'string') {
-      errorMessage = data;
-    }
+    const errorMessage = extractErrorMessage(data);
     return Promise.reject(withHttpStatus({
       status,
       message: errorMessage,
-      ...(typeof data === 'object' ? data : {}) 
+      ...(data && typeof data === 'object' ? (data as Record<string, unknown>) : {}),
     }, status));
   }
 );
 
-export function get<T = any>(url: string, config?: any): Promise<WithStatus<T>> {
+export function get<T = DefaultApiPayload>(
+  url: string,
+  config?: AxiosRequestConfig,
+): Promise<WithStatus<T>> {
   return instance.get<T>(url, config) as unknown as Promise<WithStatus<T>>;
 }
 
@@ -322,20 +331,16 @@ export async function getDown(url: string): Promise<Blob> {
   const res = await instance.get<Blob>(url, {
     responseType: "blob",
   }) as unknown as Blob;
-  return res
+  return res;
 }
 
-export function postUpload(
+export function postUpload<T = DefaultApiPayload>(
   url: string,
-  data = {},
-  onUploadProgress?: (progressEvent: any) => void,
-  config: any = {},
-): Promise<WithStatus<any>> {
+  data: unknown = {},
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
+  config: AxiosRequestConfig = {},
+): Promise<WithStatus<T>> {
   return instance.post(url, data, {
-    // Uploads are bounded by transfer time, not by the 30s default that suits
-    // JSON calls. Derive the budget from the payload so a deployment raising
-    // MAX_FILE_SIZE_MB doesn't silently abort its own uploads; an explicit
-    // `config.timeout` still wins.
     timeout: uploadTimeoutMs(data),
     ...config,
     headers: {
@@ -344,10 +349,10 @@ export function postUpload(
       ...(config.headers || {}),
     },
     onUploadProgress: onUploadProgress || config.onUploadProgress,
-  }) as unknown as Promise<any>;
+  }) as unknown as Promise<WithStatus<T>>;
 }
 
-export function postChat<T = any>(url: string, data = {}): Promise<T> {
+export function postChat<T = string>(url: string, data: unknown = {}): Promise<T> {
   // SSE stream: body is a string, so no `$httpStatus` is attached (see WithStatus).
   return instance.post(url, data, {
     headers: {
@@ -357,18 +362,33 @@ export function postChat<T = any>(url: string, data = {}): Promise<T> {
   }) as unknown as Promise<T>;
 }
 
-export function post<T = any>(url: string, data = {}, config?: any): Promise<WithStatus<T>> {
+export function post<T = DefaultApiPayload>(
+  url: string,
+  data: unknown = {},
+  config?: AxiosRequestConfig,
+): Promise<WithStatus<T>> {
   return instance.post<T>(url, data, config) as unknown as Promise<WithStatus<T>>;
 }
 
-export function put<T = any>(url: string, data = {}, config?: any): Promise<WithStatus<T>> {
+export function put<T = DefaultApiPayload>(
+  url: string,
+  data: unknown = {},
+  config?: AxiosRequestConfig,
+): Promise<WithStatus<T>> {
   return instance.put<T>(url, data, config) as unknown as Promise<WithStatus<T>>;
 }
 
-export function patch<T = any>(url: string, data = {}, config?: any): Promise<WithStatus<T>> {
+export function patch<T = DefaultApiPayload>(
+  url: string,
+  data: unknown = {},
+  config?: AxiosRequestConfig,
+): Promise<WithStatus<T>> {
   return instance.patch<T>(url, data, config) as unknown as Promise<WithStatus<T>>;
 }
 
-export function del<T = any>(url: string, data?: any): Promise<WithStatus<T>> {
+export function del<T = DefaultApiPayload>(
+  url: string,
+  data?: unknown,
+): Promise<WithStatus<T>> {
   return instance.delete<T>(url, { data }) as unknown as Promise<WithStatus<T>>;
 }

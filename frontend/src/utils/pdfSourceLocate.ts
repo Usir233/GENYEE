@@ -108,7 +108,7 @@ export type SourceRect = { left: number; top: number; width: number; height: num
 /** Merge adjacent glyph runs only; never bridge the gutter between columns. */
 export function mergeSourceRects(rects: SourceRect[]): SourceRect[] {
   const lines: SourceRect[] = []
-  for (const r of [...rects].sort((a, b) => a.top - b.top || a.left - b.left)) {
+  for (const r of rects.toSorted((a, b) => a.top - b.top || a.left - b.left)) {
     if (r.width < 0.5 || r.height < 0.5) continue
     const line = lines.find((l) => {
       const overlap = Math.min(l.top + l.height, r.top + r.height) - Math.max(l.top, r.top)

@@ -336,7 +336,7 @@ export async function undoFill(key: string): Promise<{ restored: number; skipped
   undoable.delete(key)
   let restored = 0
   let skipped = 0
-  for (const entry of [...entries].reverse()) {
+  for (const entry of entries.toReversed()) {
     const { field } = entry
     // Option labels are normalized for matching, but every character of a
     // user's text edit matters, including case, spacing and line breaks.

@@ -314,7 +314,7 @@ export function prettyPrintJson(text: string): string {
   } catch {
     return text
   }
-  const tokens = trimmed.match(/"(?:\\.|[^"\\])*"|[{}\[\],:]|[^\s{}\[\],:]+/g)!
+  const tokens = trimmed.match(/"(?:\\.|[^"\\])*"|[{}[\],:]|[^\s{}[\],:]+/g)!
   const output: string[] = []
   let depth = 0
   const newline = () => output.push('\n', '  '.repeat(depth))

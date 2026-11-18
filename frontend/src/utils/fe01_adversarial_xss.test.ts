@@ -4,7 +4,7 @@ import { DOMParser } from '@xmldom/xmldom'
 
 import { getAttachmentParsingSummaryHtml } from './attachmentParsingDisplay.ts'
 
-const mockT = (key: string, params?: Record<string, unknown>) => {
+const mockT = (key: string, _params?: Record<string, unknown>) => {
   return key
 }
 

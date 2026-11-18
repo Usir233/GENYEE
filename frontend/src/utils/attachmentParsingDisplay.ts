@@ -1,4 +1,10 @@
 import type { ComposerTranslation } from 'vue-i18n'
+import enUS from '../i18n/locales/en-US.ts'
+import jaJP from '../i18n/locales/ja-JP.ts'
+import koKR from '../i18n/locales/ko-KR.ts'
+import ruRU from '../i18n/locales/ru-RU.ts'
+import zhCN from '../i18n/locales/zh-CN.ts'
+import zhTW from '../i18n/locales/zh-TW.ts'
 
 type AttachmentParsingEvent = {
   success?: boolean
@@ -6,6 +12,30 @@ type AttachmentParsingEvent = {
   error?: string
   tool_data?: Record<string, unknown> | null
 }
+
+function escapeRegExp(raw: string): string {
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const ATTACHMENT_LOCALE_BAGS = [zhCN, zhTW, enUS, jaJP, koKR, ruRU].map(
+  (bundle) => bundle.agentStream.attachmentParsing,
+)
+
+const PARSED_COUNT_PATTERNS = ATTACHMENT_LOCALE_BAGS.map(
+  (bag) =>
+    new RegExp(
+      `${escapeRegExp(bag.legacyParsedPrefix)}\\s*(\\d+)\\s*${escapeRegExp(bag.legacyParsedSuffix)}`,
+      'i',
+    ),
+)
+
+const SKIPPED_COUNT_PATTERNS = ATTACHMENT_LOCALE_BAGS.map(
+  (bag) => new RegExp(`(\\d+)\\s*${escapeRegExp(bag.legacySkippedSuffix)}`, 'i'),
+)
+
+const ERROR_PREFIX_PATTERNS = ATTACHMENT_LOCALE_BAGS.map(
+  (bag) => new RegExp(`^${escapeRegExp(bag.errorPrefix)}\\s*`, 'i'),
+)
 
 export function resolveAttachmentParsingCounts(event: AttachmentParsingEvent): {
   parsed: number
@@ -25,15 +55,25 @@ export function resolveAttachmentParsingCounts(event: AttachmentParsingEvent): {
 function parseAttachmentOutput(output?: string): { parsed: number; skipped: number } {
   if (!output) return { parsed: 0, skipped: 0 }
 
-  const parsedMatch = output.match(/已解析\s*(\d+)\s*个附件/)
-  const skippedMatch = output.match(/(\d+)\s*个未完成已跳过/)
-  const parsedEnMatch = output.match(/Parsed\s*(\d+)\s*attachment/i)
-  const skippedEnMatch = output.match(/(\d+)\s*skipped/i)
-
-  return {
-    parsed: Number(parsedMatch?.[1] ?? parsedEnMatch?.[1] ?? 0) || 0,
-    skipped: Number(skippedMatch?.[1] ?? skippedEnMatch?.[1] ?? 0) || 0,
+  let parsed = 0
+  for (const pattern of PARSED_COUNT_PATTERNS) {
+    const match = output.match(pattern)
+    if (match?.[1]) {
+      parsed = Number(match[1]) || 0
+      break
+    }
   }
+
+  let skipped = 0
+  for (const pattern of SKIPPED_COUNT_PATTERNS) {
+    const match = output.match(pattern)
+    if (match?.[1]) {
+      skipped = Number(match[1]) || 0
+      break
+    }
+  }
+
+  return { parsed, skipped }
 }
 
 function escapeHtml(s: string): string {
@@ -52,7 +92,11 @@ export function getAttachmentParsingSummaryHtml(
   if (event.success === false) {
     const err = String(event.error || event.output || '').trim()
     if (!err) return ''
-    const normalized = err.replace(/^附件解析失败:\s*/i, '').trim()
+    let normalized = err
+    for (const prefixPattern of ERROR_PREFIX_PATTERNS) {
+      normalized = normalized.replace(prefixPattern, '')
+    }
+    normalized = normalized.trim()
     return escapeHtml(normalized || err)
   }
 

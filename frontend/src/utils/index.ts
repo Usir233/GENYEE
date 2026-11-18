@@ -52,14 +52,14 @@ export function generateRandomString(length: number) {
   return result;
 }
 
-export function formatStringDate(date: any) {
-  let data = new Date(date);
-  let year = data.getFullYear();
-  let month = String(data.getMonth() + 1).padStart(2, '0');
-  let day = String(data.getDate()).padStart(2, '0');
-  let hour = String(data.getHours()).padStart(2, '0');
-  let minute = String(data.getMinutes()).padStart(2, '0');
-  let second = String(data.getSeconds()).padStart(2, '0');
+export function formatStringDate(date: string | number | Date) {
+  const data = new Date(date);
+  const year = data.getFullYear();
+  const month = String(data.getMonth() + 1).padStart(2, '0');
+  const day = String(data.getDate()).padStart(2, '0');
+  const hour = String(data.getHours()).padStart(2, '0');
+  const minute = String(data.getMinutes()).padStart(2, '0');
+  const second = String(data.getSeconds()).padStart(2, '0');
   return (
     year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second
   );
@@ -77,7 +77,11 @@ export function fileSizeVerification(file: Pick<File, 'size'>, silent = false) {
  * Returns true when the file should be **rejected**.
  * @param validTypes - override the default extension whitelist with a dynamic set (e.g. from engine registry).
  */
-export function kbFileTypeVerification(file: any, silent = false, validTypes?: Set<string> | string[]) {
+export function kbFileTypeVerification(
+  file: Pick<File, 'name' | 'size'>,
+  silent = false,
+  validTypes?: Set<string> | string[],
+) {
   if (shouldRejectKnowledgeFileType(file.name, validTypes)) {
     if (!silent) {
       MessagePlugin.error(i18n.global.t('error.unsupportedFileType'));

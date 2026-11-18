@@ -1,7 +1,7 @@
 import type { FormRule } from 'tdesign-vue-next'
 
 export const PASSWORD_SPECIAL_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?'
-export const PASSWORD_SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/
+export const PASSWORD_SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 

@@ -18,9 +18,10 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
     'tabSize', 'MozTabSize'
   ];
 
+  const targetStyle = div.style as unknown as Record<string, string>;
+  const sourceStyle = style as unknown as Record<string, string>;
   properties.forEach(prop => {
-    // @ts-ignore
-    div.style[prop] = style[prop];
+    targetStyle[prop] = sourceStyle[prop] ?? '';
   });
 
   div.style.position = 'absolute';
@@ -44,8 +45,7 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
   document.body.appendChild(div);
   
   const spanRect = span.getBoundingClientRect();
-  const divRect = div.getBoundingClientRect();
-  
+
   const coordinates = {
     top: span.offsetTop + parseInt(style.borderTopWidth),
     left: span.offsetLeft + parseInt(style.borderLeftWidth),

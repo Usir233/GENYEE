@@ -60,8 +60,17 @@ function syncWailsNativeChrome(effective: 'light' | 'dark') {
   }
 }
 
+function syncColorSchemeMeta(mode: ThemeMode, effective: 'light' | 'dark') {
+  if (typeof document === 'undefined') return
+  const meta = document.querySelector?.('meta[name="color-scheme"]') as HTMLMetaElement | null
+  if (meta) {
+    meta.content = mode === 'system' ? 'light dark' : effective
+  }
+}
+
 function applyTheme(mode: ThemeMode) {
   const effective = mode === 'system' ? getSystemTheme() : mode
+  syncColorSchemeMeta(mode, effective)
   if (lastEffective === effective) return
   lastEffective = effective
   document.documentElement.setAttribute('theme-mode', effective)
@@ -80,7 +89,7 @@ export function useTheme() {
   return { currentTheme, setTheme }
 }
 
-/** Call once in main.ts to initialise theme and listen for OS changes. */
+/** Call once in main.ts to initialise theme and listen for OS and cross-tab changes. */
 export function initTheme() {
   currentTheme.value = loadTheme()
   applyTheme(currentTheme.value)
@@ -89,6 +98,14 @@ export function initTheme() {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (currentTheme.value === 'system') {
       applyTheme('system')
+    }
+  })
+
+  // Keep open tabs synchronized when theme preference changes elsewhere
+  window.addEventListener('storage', (event) => {
+    if (!event.key || event.key.endsWith(`_${THEME_KEY}`)) {
+      currentTheme.value = loadTheme()
+      applyTheme(currentTheme.value)
     }
   })
 }

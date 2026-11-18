@@ -1,5 +1,10 @@
 import JSZip from 'jszip';
+import i18n from '../i18n/index.ts';
 import { sanitizeSvgForDataUrl } from './security';
+
+function defaultCellImageAlt(): string {
+  return i18n.global.t('preview.xlsxCellImageAlt');
+}
 
 export interface XlsxCellImage {
   src: string;
@@ -224,7 +229,7 @@ export async function extractXlsxCellImages(arrayBuffer: ArrayBuffer): Promise<S
             const entry = rvToMedia[rvIdx];
             const src = entry?.mediaPath ? mediaDataUrls.get(entry.mediaPath) : undefined;
             if (src) {
-              vmToMedia.set(vmIndex, { src, alt: entry.alt || '图片' });
+              vmToMedia.set(vmIndex, { src, alt: entry.alt || defaultCellImageAlt() });
               mappedFromMetadata = true;
             }
           }
@@ -236,8 +241,8 @@ export async function extractXlsxCellImages(arrayBuffer: ArrayBuffer): Promise<S
       rvToMedia.forEach((entry, idx) => {
         const src = entry.mediaPath ? mediaDataUrls.get(entry.mediaPath) : undefined;
         if (src) {
-          vmToMedia.set(idx + 1, { src, alt: entry.alt || '图片' });
-          vmToMedia.set(idx, { src, alt: entry.alt || '图片' });
+          vmToMedia.set(idx + 1, { src, alt: entry.alt || defaultCellImageAlt() });
+          vmToMedia.set(idx, { src, alt: entry.alt || defaultCellImageAlt() });
         }
       });
     }
@@ -342,7 +347,7 @@ export async function extractXlsxCellImages(arrayBuffer: ArrayBuffer): Promise<S
           const cNvPrMatch = /<(?:\w+:)?cNvPr\b([^>]*?)\/?>/i.exec(anchorBody);
           const descrMatch = cNvPrMatch ? /\b(?:descr|name)\s*=\s*["']([^"']+)["']/i.exec(cNvPrMatch[1]) : null;
           const cellCoord = `${colIndexToLetter(col0)}${row0 + 1}`;
-          addCellImage(cellCoord, { src, alt: descrMatch ? descrMatch[1] : '图片' });
+          addCellImage(cellCoord, { src, alt: descrMatch ? descrMatch[1] : defaultCellImageAlt() });
         }
       }
     }
@@ -368,7 +373,6 @@ export function injectSheetHtmlImages(
 ): string {
   if (!cellImages || cellImages.size === 0) return sheetHtml;
 
-  const prefix = `sheet-${sheetIdx}-`;
   return sheetHtml.replace(
     /<td\b([^>]*?\bid=["']sheet-(\d+)-([A-Z]+\d+)["'][^>]*)>([\s\S]*?)<\/td>/gi,
     (fullMatch, attrs: string, idxStr: string, coord: string, innerHtml: string) => {
@@ -376,10 +380,11 @@ export function injectSheetHtmlImages(
       const images = cellImages.get(coord.toUpperCase());
       if (!images || images.length === 0) return fullMatch;
 
+      const fallbackAlt = defaultCellImageAlt();
       const imgHtml = images
         .map(
           (img) =>
-            `<img class="excel-cell-image" src="${escapeHtmlAttr(img.src)}" alt="${escapeHtmlAttr(img.alt || '图片')}" />`,
+            `<img class="excel-cell-image" src="${escapeHtmlAttr(img.src)}" alt="${escapeHtmlAttr(img.alt || fallbackAlt)}" />`,
         )
         .join('');
 

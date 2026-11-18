@@ -3,7 +3,15 @@ import { isAwaitingInput } from '@/composables/useChatStreamHandler'
 import { persistedAssistantId } from '@/utils/steerStreamFork'
 import { isHostApprovalEvent } from '@/views/chat/components/hostApproval'
 
-type PromptEvent = Record<string, any>
+export interface PromptEvent {
+  type?: string
+  pending_id?: string
+  kind?: string
+  resolved?: boolean
+  suspended?: boolean
+  expires_at?: string | number
+  [key: string]: unknown
+}
 type ChatRow = Record<string, unknown>
 
 const DOCKED_TYPES = new Set(['tool_approval_required', 'agent_prompt_required', 'mcp_oauth_required'])
@@ -53,8 +61,9 @@ export function pendingPrompts(messages: ChatRow[]): PromptEvent[] {
     if (message.is_completed && !isAwaitingInput(message) &&
       !(message.steerForked && liveTurns.has(persistedAssistantId(message)))) continue
     for (const e of (message.agentEventStream as PromptEvent[] | undefined) || []) {
-      if (isDockable(e) && !seen.has(e.pending_id)) {
-        seen.add(e.pending_id)
+      const pendingId = typeof e?.pending_id === 'string' ? e.pending_id : ''
+      if (pendingId && isDockable(e) && !seen.has(pendingId)) {
+        seen.add(pendingId)
         out.push(e)
       }
     }

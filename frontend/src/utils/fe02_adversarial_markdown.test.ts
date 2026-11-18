@@ -18,7 +18,6 @@ const defaultRenderer = createChatMarkdownRenderer({
 
 test('FE-02: options.escapeMarkdown is actively executed and fed into marked.parse', () => {
   let escapeMarkdownCalled = false
-  let escapedTextReceivedByMarked = false
 
   const customEscape = (markdown: string) => {
     escapeMarkdownCalled = true

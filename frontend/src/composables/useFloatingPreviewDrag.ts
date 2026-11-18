@@ -74,12 +74,19 @@ export function useFloatingPreviewDrag(element: Ref<HTMLElement | null>, boundar
     }
     const observer = new ResizeObserver(keepInBounds)
     observer.observe(preview)
-    if (boundary === 'viewport') window.addEventListener('resize', keepInBounds)
-    else if (preview.offsetParent) observer.observe(preview.offsetParent)
+    const rootDocEl = typeof document !== 'undefined' ? document.documentElement : null
+    if (boundary === 'viewport') {
+      if (rootDocEl) observer.observe(rootDocEl)
+      else window.addEventListener('resize', keepInBounds)
+    } else if (preview.offsetParent) {
+      observer.observe(preview.offsetParent)
+    }
     keepInBounds()
     onCleanup(() => {
       observer.disconnect()
-      if (boundary === 'viewport') window.removeEventListener('resize', keepInBounds)
+      if (boundary === 'viewport' && !rootDocEl) {
+        window.removeEventListener('resize', keepInBounds)
+      }
       stopDrag()
     })
   }, { flush: 'post' })

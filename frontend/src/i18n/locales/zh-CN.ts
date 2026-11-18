@@ -1,185 +1,185 @@
 export default {
   documentProgress: {
-    "queueView": "队列任务",
-    "title": "资料与 Wiki 进度",
-    "description": "分别查看当前入库和 Wiki 处理情况，恢复后的原始失败记录继续保留。",
-    "refresh": "刷新",
-    "search": "搜索资料或知识库",
-    "searchButton": "搜索",
-    "filter": "进度筛选",
-    "count": "启动数量（1–100）",
-    "batchStart": "批量整理 Wiki",
-    "confirmBatch": "按当前搜索范围，从等待最久的资料开始，安排最多 {count} 份 Wiki 待办？",
-    "confirmOne": "使用“{title}”的已有进度，安排 Wiki 整理？",
-    "attempt": "第 {value} 次处理",
-    "pendingOps": "{count} 项待办 · 重试计数 {retries}",
-    "historyCount": "{count} 条记录",
-    "details": "详情",
-    "startNow": "立即整理",
-    "currentStatus": "当前状态",
-    "history": "失败历史",
-    "historyDescription": "这里保留原始失败记录，也包含后来已恢复的失败；历史记录不代表资料当前仍在失败。",
-    "noHistory": "该资料没有归档失败记录。",
-    "failureAttempts": "累计失败 {count} 次",
-    "historyLimit": "显示最近 50 条，原始历史继续保留。",
-    "unfinished": "未完成",
-    "all": "全部资料",
-    "document": "资料",
-    "ingestion": "入库",
-    "wiki": "Wiki",
-    "actions": "操作",
-    "loadError": "暂时无法读取资料进度，请刷新重试。",
-    "started": "已安排 {count} 份，另有 {queued} 份已在队列中；已有进度保留。",
-    "startError": "队列交接中断前已接收 {count} 份；请刷新后再安排剩余资料。",
-    "states": {
-      "ready": "已入库",
-      "pending": "待处理",
-      "processing": "处理中",
-      "finalizing": "收尾中",
-      "completed": "已完成",
-      "failed": "失败",
-      "skipped": "已跳过",
-      "cancelled": "已取消",
-      "queued": "排队中",
-      "retrying": "重试中",
-      "disabled": "未启用",
-      "notStarted": "尚未开始"
+    queueView: '队列任务',
+    title: '资料与 Wiki 进度',
+    description: '分别查看当前入库和 Wiki 处理情况，恢复后的原始失败记录继续保留。',
+    refresh: '刷新',
+    search: '搜索资料或知识库',
+    searchButton: '搜索',
+    filter: '进度筛选',
+    count: '启动数量（1–100）',
+    batchStart: '批量整理 Wiki',
+    confirmBatch: '按当前搜索范围，从等待最久的资料开始，安排最多 {count} 份 Wiki 待办？',
+    confirmOne: '使用“{title}”的已有进度，安排 Wiki 整理？',
+    attempt: '第 {value} 次处理',
+    pendingOps: '{count} 项待办 · 重试计数 {retries}',
+    historyCount: '{count} 条记录',
+    details: '详情',
+    startNow: '立即整理',
+    currentStatus: '当前状态',
+    history: '失败历史',
+    historyDescription: '这里保留原始失败记录，也包含后来已恢复的失败；历史记录不代表资料当前仍在失败。',
+    noHistory: '该资料没有归档失败记录。',
+    failureAttempts: '累计失败 {count} 次',
+    historyLimit: '显示最近 50 条，原始历史继续保留。',
+    unfinished: '未完成',
+    all: '全部资料',
+    document: '资料',
+    ingestion: '入库',
+    wiki: 'Wiki',
+    actions: '操作',
+    loadError: '暂时无法读取资料进度，请刷新重试。',
+    started: '已安排 {count} 份，另有 {queued} 份已在队列中；已有进度保留。',
+    startError: '队列交接中断前已接收 {count} 份；请刷新后再安排剩余资料。',
+    states: {
+      ready: '已入库',
+      pending: '待处理',
+      processing: '处理中',
+      finalizing: '收尾中',
+      completed: '已完成',
+      failed: '失败',
+      skipped: '已跳过',
+      cancelled: '已取消',
+      queued: '排队中',
+      retrying: '重试中',
+      disabled: '未启用',
+      notStarted: '尚未开始'
     },
-    "stages": {
-      "docreader": "文档解析",
-      "chunking": "分块",
-      "embedding": "索引构建",
-      "multimodal": "图片处理",
-      "postprocess": "后处理"
+    stages: {
+      docreader: '文档解析',
+      chunking: '分块',
+      embedding: '索引构建',
+      multimodal: '图片处理',
+      postprocess: '后处理'
     }
   },
   modelCatalog: {
-    "title": "模型目录",
-    "description": "模型目录决定添加模型时可选的模型列表，以及上下文窗口、是否支持思考等默认参数。在这里修改后，所有空间立即生效。",
-    "howItWorks": "配置如何生效",
-    "layers": {
-      "builtin": "内置目录：随版本发布的默认模型清单。",
-      "deployment": "部署文件：服务器上的 models.json，可覆盖内置目录。",
-      "console": "管理员修改：在本页所做的修改，优先于以上两者。",
-      "explicit": "各空间在模型配置中填写的参数始终优先；修改目录不会改写已保存的模型。",
+    title: '模型目录',
+    description: '模型目录决定添加模型时可选的模型列表，以及上下文窗口、是否支持思考等默认参数。在这里修改后，所有空间立即生效。',
+    howItWorks: '配置如何生效',
+    layers: {
+      builtin: '内置目录：随版本发布的默认模型清单。',
+      deployment: '部署文件：服务器上的 models.json，可覆盖内置目录。',
+      console: '管理员修改：在本页所做的修改，优先于以上两者。',
+      explicit: '各空间在模型配置中填写的参数始终优先；修改目录不会改写已保存的模型。'
     },
-    "add": "添加模型",
-    "more": "更多",
-    "jsonEditor": "JSON 编辑",
-    "history": "版本历史",
-    "import": "导入 JSON",
-    "export": "导出修改",
-    "search": "搜索模型 ID 或名称",
-    "allProviders": "全部厂商",
-    "allTypes": "全部类型",
-    "onlyModified": "只看已修改",
-    "summary": "{count} 个模型 · 版本 {version}",
-    "columns": {
-      "model": "模型",
-      "provider": "厂商",
-      "type": "类型",
-      "tokens": "上下文 / 输出",
-      "capabilities": "能力",
-      "source": "来源",
+    add: '添加模型',
+    more: '更多',
+    jsonEditor: 'JSON 编辑',
+    history: '版本历史',
+    import: '导入 JSON',
+    export: '导出修改',
+    search: '搜索模型 ID 或名称',
+    allProviders: '全部厂商',
+    allTypes: '全部类型',
+    onlyModified: '只看已修改',
+    summary: '{count} 个模型 · 版本 {version}',
+    columns: {
+      model: '模型',
+      provider: '厂商',
+      type: '类型',
+      tokens: '上下文 / 输出',
+      capabilities: '能力',
+      source: '来源'
     },
-    "capability": {
-      "reasoning": "思考",
-      "image": "图像",
-      "audio": "音频",
-      "video": "视频",
+    capability: {
+      reasoning: '思考',
+      image: '图像',
+      audio: '音频',
+      video: '视频'
     },
-    "source": {
-      "builtin": "内置",
-      "deployment": "部署文件",
-      "console": "管理员修改",
+    source: {
+      builtin: '内置',
+      deployment: '部署文件',
+      console: '管理员修改'
     },
-    "rule": "匹配规则",
-    "ruleTip": "按名称模式匹配一组模型，只提供默认参数，不会出现在候选列表中。",
-    "hidden": "已隐藏",
-    "edit": "编辑",
-    "view": "查看",
-    "empty": "没有匹配的模型",
-    "editDescription": "{provider} · {type}",
-    "ruleNotice": "这是一条匹配规则，为名称符合该模式的模型提供默认参数。如需修改，请使用「更多 → JSON 编辑」。",
-    "fieldsSection": "默认参数",
-    "nameDesc": "在模型选择列表中显示的名称。",
-    "dimension": "向量维度",
-    "dimensionDesc": "添加该向量模型时预填的维度，需与模型实际输出一致。",
-    "inputDesc": "模型可接收的输入类型；勾选图像后可作为视觉模型使用。",
-    "thinkingLevels": "思考等级",
-    "thinkingLevelsDesc": "对话中可选的思考强度。未勾选「关闭」表示该模型始终思考。",
-    "levelsNeedReasoning": "开启「支持思考」后可设置。",
-    "levelsUnsupported": "该厂商接口不支持分级思考。",
-    "textOnly": "仅文本",
-    "noLevels": "无",
-    "sourceLink": "厂商文档",
-    "customHint": "这是管理员在本页添加的模型，参数均来自这里的配置。",
-    "fieldsHint": "各空间在模型配置中填写的参数仍然优先。输入框留空即恢复默认值。",
-    "context": "上下文窗口",
-    "contextDesc": "模型一次可处理的最大 token 数。",
-    "output": "最大输出",
-    "outputDesc": "单次回复最多生成的 token 数。",
-    "reasoning": "支持思考",
-    "reasoningDesc": "模型能否输出思考过程。",
-    "hide": "在候选列表中隐藏",
-    "hideDesc": "隐藏后添加模型时不再出现，已配置的模型不受影响。",
-    "inputModes": "输入模态",
-    "inherited": "默认：{value}",
-    "notSet": "未设置",
-    "optional": "可选",
-    "yes": "是",
-    "no": "否",
-    "modified": "已修改",
-    "layersSection": "各层取值",
-    "layerField": "参数",
-    "layerBuiltin": "内置目录",
-    "layerDeployment": "部署文件",
-    "layerEffective": "当前生效",
-    "save": "保存并生效",
-    "restore": "恢复默认",
-    "restoreConfirm": "移除对该模型的全部管理员修改，并立即生效？",
-    "restored": "已恢复，其他实例约 5 秒内同步",
-    "remove": "删除模型",
-    "removeConfirm": "从目录中删除这个由管理员添加的模型，并立即生效？",
-    "removed": "已删除，其他实例约 5 秒内同步",
-    "published": "已生效，其他实例约 5 秒内同步",
-    "conflict": "目录已被其他管理员更新，已刷新到最新版本，请重新操作。",
-    "loadFailed": "模型目录加载失败",
-    "deploymentError": "部署文件 models.json 加载失败，当前只使用内置目录：{error}",
-    "syncError": "最新版本同步失败，页面显示的可能不是当前生效的配置：{error}",
-    "addDescription": "为厂商补充目录中没有的模型，添加后可在模型配置中直接选择。",
-    "modelId": "模型 ID",
-    "modelIdPlaceholder": "与厂商 API 中的模型名一致，如 gpt-5-mini",
-    "displayName": "显示名称",
-    "required": "请选择厂商并填写模型 ID",
-    "exists": "该模型已在目录中，请直接编辑",
-    "jsonDescription": "用 models.json 格式直接编辑全部管理员修改，适合批量调整或迁移。",
-    "jsonHint": "只写需要修改的字段，删除字段即恢复默认。凭据、请求头和环境变量引用请在模型配置或部署文件中维护；图标仅支持内联 SVG；最大 1 MiB。",
-    "jsonClear": "清空全部修改",
-    "jsonCheck": "检查变更",
-    "jsonPublish": "发布 {count} 项变更",
-    "jsonUnchanged": "与当前生效的配置一致，无需发布。",
-    "changesTitle": "将要生效的变更",
-    "change": {
-      "added": "新增",
-      "removed": "移除",
-      "updated": "修改",
-      "provider": "厂商",
+    rule: '匹配规则',
+    ruleTip: '按名称模式匹配一组模型，只提供默认参数，不会出现在候选列表中。',
+    hidden: '已隐藏',
+    edit: '编辑',
+    view: '查看',
+    empty: '没有匹配的模型',
+    editDescription: '{provider} · {type}',
+    ruleNotice: '这是一条匹配规则，为名称符合该模式的模型提供默认参数。如需修改，请使用「更多 → JSON 编辑」。',
+    fieldsSection: '默认参数',
+    nameDesc: '在模型选择列表中显示的名称。',
+    dimension: '向量维度',
+    dimensionDesc: '添加该向量模型时预填的维度，需与模型实际输出一致。',
+    inputDesc: '模型可接收的输入类型；勾选图像后可作为视觉模型使用。',
+    thinkingLevels: '思考等级',
+    thinkingLevelsDesc: '对话中可选的思考强度。未勾选「关闭」表示该模型始终思考。',
+    levelsNeedReasoning: '开启「支持思考」后可设置。',
+    levelsUnsupported: '该厂商接口不支持分级思考。',
+    textOnly: '仅文本',
+    noLevels: '无',
+    sourceLink: '厂商文档',
+    customHint: '这是管理员在本页添加的模型，参数均来自这里的配置。',
+    fieldsHint: '各空间在模型配置中填写的参数仍然优先。输入框留空即恢复默认值。',
+    context: '上下文窗口',
+    contextDesc: '模型一次可处理的最大 token 数。',
+    output: '最大输出',
+    outputDesc: '单次回复最多生成的 token 数。',
+    reasoning: '支持思考',
+    reasoningDesc: '模型能否输出思考过程。',
+    hide: '在候选列表中隐藏',
+    hideDesc: '隐藏后添加模型时不再出现，已配置的模型不受影响。',
+    inputModes: '输入模态',
+    inherited: '默认：{value}',
+    notSet: '未设置',
+    optional: '可选',
+    yes: '是',
+    no: '否',
+    modified: '已修改',
+    layersSection: '各层取值',
+    layerField: '参数',
+    layerBuiltin: '内置目录',
+    layerDeployment: '部署文件',
+    layerEffective: '当前生效',
+    save: '保存并生效',
+    restore: '恢复默认',
+    restoreConfirm: '移除对该模型的全部管理员修改，并立即生效？',
+    restored: '已恢复，其他实例约 5 秒内同步',
+    remove: '删除模型',
+    removeConfirm: '从目录中删除这个由管理员添加的模型，并立即生效？',
+    removed: '已删除，其他实例约 5 秒内同步',
+    published: '已生效，其他实例约 5 秒内同步',
+    conflict: '目录已被其他管理员更新，已刷新到最新版本，请重新操作。',
+    loadFailed: '模型目录加载失败',
+    deploymentError: '部署文件 models.json 加载失败，当前只使用内置目录：{error}',
+    syncError: '最新版本同步失败，页面显示的可能不是当前生效的配置：{error}',
+    addDescription: '为厂商补充目录中没有的模型，添加后可在模型配置中直接选择。',
+    modelId: '模型 ID',
+    modelIdPlaceholder: '与厂商 API 中的模型名一致，如 gpt-5-mini',
+    displayName: '显示名称',
+    required: '请选择厂商并填写模型 ID',
+    exists: '该模型已在目录中，请直接编辑',
+    jsonDescription: '用 models.json 格式直接编辑全部管理员修改，适合批量调整或迁移。',
+    jsonHint: '只写需要修改的字段，删除字段即恢复默认。凭据、请求头和环境变量引用请在模型配置或部署文件中维护；图标仅支持内联 SVG；最大 1 MiB。',
+    jsonClear: '清空全部修改',
+    jsonCheck: '检查变更',
+    jsonPublish: '发布 {count} 项变更',
+    jsonUnchanged: '与当前生效的配置一致，无需发布。',
+    changesTitle: '将要生效的变更',
+    change: {
+      added: '新增',
+      removed: '移除',
+      updated: '修改',
+      provider: '厂商'
     },
-    "publishHint": "发布后本实例立即生效，其他实例约 5 秒内同步。",
-    "invalid": "请输入包含 providers 对象的 models.json。",
-    "tooLarge": "文件不能超过 1 MiB。",
-    "historyDescription": "保留最近 20 个版本，恢复后立即生效。",
-    "historyVersion": "版本 {version}",
-    "historyCurrent": "当前",
-    "historyRestore": "恢复",
-    "historyRestoreConfirm": "恢复到版本 {version} 的配置，并立即对所有空间生效？",
-    "historyEmpty": "暂无历史版本",
-    "historyModels": "修改了 {count} 个模型",
-    "historyNoOverrides": "无管理员修改",
+    publishHint: '发布后本实例立即生效，其他实例约 5 秒内同步。',
+    invalid: '请输入包含 providers 对象的 models.json。',
+    tooLarge: '文件不能超过 1 MiB。',
+    historyDescription: '保留最近 20 个版本，恢复后立即生效。',
+    historyVersion: '版本 {version}',
+    historyCurrent: '当前',
+    historyRestore: '恢复',
+    historyRestoreConfirm: '恢复到版本 {version} 的配置，并立即对所有空间生效？',
+    historyEmpty: '暂无历史版本',
+    historyModels: '修改了 {count} 个模型',
+    historyNoOverrides: '无管理员修改'
   },
   automation: {
-    conversationNotice: "此会话由自动化任务运行，不能手动发送消息。请在上方处理待审批事项。",
+    conversationNotice: '此会话由自动化任务运行，不能手动发送消息。请在上方处理待审批事项。',
     title: '自动化',
     description: '让 GENYEE 助手按计划以你的身份执行任务，结果和待审批事项会通知你。',
     add: '新建自动化',
@@ -204,10 +204,10 @@ export default {
       maxDuration: '单次运行时长上限',
       notifyOnSuccess: '成功时也通知',
       nextRun: '下次运行',
-      enabled: '启用',
+      enabled: '启用'
     },
     editor: {
-      model: "运行模型",
+      model: '运行模型',
       modelHelp: '默认沿用助手的模型设置，也可以单独指定。委派的智能体使用各自的模型。修改后用于后续运行。',
       modelDefault: '跟随助手默认模型',
       createTitle: '新建自动化',
@@ -230,42 +230,42 @@ export default {
       maxDurationDesc: '超过这个时长仍未完成，本次运行会被终止',
       navGroups: {
         task: '任务',
-        run: '运行',
+        run: '运行'
       },
       sections: {
         basic: {
           title: '基本信息',
-          desc: '任务由 GENYEE 助手执行。需要其他智能体时，请在任务中写明委派对象和工作。',
+          desc: '任务由 GENYEE 助手执行。需要其他智能体时，请在任务中写明委派对象和工作。'
         },
         schedule: {
           title: '运行时间',
-          desc: '设置任务什么时候运行，两次运行至少间隔 5 分钟。',
+          desc: '设置任务什么时候运行，两次运行至少间隔 5 分钟。'
         },
         execution: {
           title: '执行方式',
-          desc: '运行时可以做哪些修改、在哪个对话里进行，以及重叠和错过时的处理。',
+          desc: '运行时可以做哪些修改、在哪个对话里进行，以及重叠和错过时的处理。'
         },
         notify: {
           title: '审批与通知',
-          desc: '运行结果和待审批的操作会出现在右上角的通知里。',
-        },
+          desc: '运行结果和待审批的操作会出现在右上角的通知里。'
+        }
       },
       sessionModeDesc: {
         per_run: '每次运行开一个新对话，互不影响',
-        persistent: '所有运行都在同一个对话里，助手能看到之前的内容',
+        persistent: '所有运行都在同一个对话里，助手能看到之前的内容'
       },
       errors: {
         name: '请填写名称',
         instruction: '请填写要执行的任务',
-        schedule: '请设置有效的运行时间',
+        schedule: '请设置有效的运行时间'
       },
       approvalTimeoutHelp: '超过期限仍未审批，本次运行记为失败',
       notifyHint: '失败、等待审批和自动暂停总会通知你',
       access: {
         read_only: '只查看，不做任何修改。',
         confirm: '每次修改前暂停并通知你审批；可在详情里把常用操作设为长期授权。',
-        auto_write: '可恢复的修改直接执行；删除等操作仍暂停等待审批。',
-      },
+        auto_write: '可恢复的修改直接执行；删除等操作仍暂停等待审批。'
+      }
     },
     schedule: {
       kinds: {
@@ -275,7 +275,7 @@ export default {
         monthly: '每月',
         hourly: '每小时',
         once: '仅一次',
-        custom: '自定义 cron',
+        custom: '自定义 cron'
       },
       atMinute: '每小时的第几分钟',
       dayOfMonth: '每月几号',
@@ -292,24 +292,24 @@ export default {
         once: '仅在 {at}',
         custom: 'cron：{expr}',
         everyMinutes: '每 {n} 分钟',
-        everyHours: '每 {n} 小时',
-      },
+        everyHours: '每 {n} 小时'
+      }
     },
     sessionMode: {
       per_run: '每次新对话',
-      persistent: '始终同一对话',
+      persistent: '始终同一对话'
     },
     overlap: {
       skip: '跳过本次',
-      queue: '排队，等上次结束后运行',
+      queue: '排队，等上次结束后运行'
     },
     misfire: {
       skip: '跳过',
-      run_once: '恢复后补跑一次',
+      run_once: '恢复后补跑一次'
     },
     units: {
       hours: '小时',
-      minutes: '分钟',
+      minutes: '分钟'
     },
     status: {
       queued: '排队中',
@@ -320,12 +320,12 @@ export default {
       cancelled: '已停止',
       skipped: '已跳过',
       needs_attention: '需要检查',
-      paused: '已暂停',
+      paused: '已暂停'
     },
     runTrigger: {
       schedule: '按计划',
       manual: '手动',
-      misfire: '补跑',
+      misfire: '补跑'
     },
     actions: {
       runNow: '立即运行',
@@ -333,7 +333,7 @@ export default {
       resume: '恢复',
       review: '去审批',
       openConversation: '查看对话',
-      stop: '停止',
+      stop: '停止'
     },
     detail: {
       pausedBecause: '已暂停：{reason}',
@@ -343,7 +343,7 @@ export default {
       grants: '长期授权',
       task: '任务内容',
       durationSeconds: '{n} 秒',
-      durationMinutes: '{n} 分钟',
+      durationMinutes: '{n} 分钟'
     },
     grants: {
       intro: '这里的操作在以后的运行中无需再次审批。只针对具体资源；更换智能体或你的空间角色变化后自动失效。需要每次审批的工具不会出现在这里。',
@@ -356,32 +356,31 @@ export default {
       allow: '以后都允许',
       allowTitle: '设为长期授权',
       allowBody: '以后的运行执行「{label}」时将不再暂停等待审批。',
-      allowDestructiveBody: '「{label}」会删除或覆盖数据，且无法撤销。确认后，以后的运行将直接执行它，不再询问。',
+      allowDestructiveBody: '「{label}」会删除或覆盖数据，且无法撤销。确认后，以后的运行将直接执行它，不再询问。'
     },
     risk: {
       write: '修改',
-      destructive: '删除/覆盖',
+      destructive: '删除/覆盖'
     },
     messages: {
       queued: '已开始运行',
-      notFound: '自动化不存在或已删除',
-    },
+      notFound: '自动化不存在或已删除'
+    }
   },
   notifications: {
-    pending: "待处理",
-    history: "通知记录",
-    clearRead: "清理已读",
-    clearReadConfirm: "清理已读通知？不会删除运行记录、对话或待处理事项。",
-    handle: "去处理",
-    review: "去审批",
-    unreadCount: "{count} 条未读",
-    unread: "未读",
-    newItems: "有新通知，点击刷新",
-    loadError: "通知加载失败",
-    awaitingApproval: "等待你确认操作",
-    awaitingAuthorization: "等待你完成授权",
-    awaitingReply: "等待你回复",
-
+    pending: '待处理',
+    history: '通知记录',
+    clearRead: '清理已读',
+    clearReadConfirm: '清理已读通知？不会删除运行记录、对话或待处理事项。',
+    handle: '去处理',
+    review: '去审批',
+    unreadCount: '{count} 条未读',
+    unread: '未读',
+    newItems: '有新通知，点击刷新',
+    loadError: '通知加载失败',
+    awaitingApproval: '等待你确认操作',
+    awaitingAuthorization: '等待你完成授权',
+    awaitingReply: '等待你回复',
     title: '通知',
     markAllRead: '全部已读',
     pendingInvitations: '{count} 个待处理邀请',
@@ -390,145 +389,140 @@ export default {
       automation_succeeded: '自动化已完成',
       automation_failed: '自动化失败',
       automation_awaiting_approval: '自动化等待审批',
-      automation_paused: '自动化已暂停',
-    },
+      automation_paused: '自动化已暂停'
+    }
   },
   toolbox: {
-    "title": "工具箱",
-    "description": "管理智能体可用的技能、外部工具和浏览器连接。",
-    "unavailable": "当前空间暂无可用的工具。"
+    title: '工具箱',
+    description: '管理智能体可用的技能、外部工具和浏览器连接。',
+    unavailable: '当前空间暂无可用的工具。'
   },
   localBrowser: {
-    pipOpen: "弹出悬浮窗",
-    pipReturn: "返回对话小窗",
-    pipFailed: "无法打开悬浮窗，请重试。",
-
-    captureScreenshot: "截取网页画面",
-    navigationIncomplete: "导航未达到目标加载阶段，请检查当前页面。",
-    noEntries: "没有返回记录。",
-    stopping: "正在结束任务…",
-    elapsedSeconds: "{seconds} 秒",
-
-    searchInstructionsTitle: "浏览器搜索指令",
-    searchInstructionsDescription: "设置你偏好的搜索引擎和搜索地址。",
-    searchInstructionsHint: "保存后下次请求生效，留空使用默认指令。",
-    searchInstructionsReset: "恢复默认",
-    searchInstructionsSaved: "已保存",
-
-    "sourceHint": "本轮使用本机浏览器查询和操作网页，可与联网搜索、知识库及其他工具配合使用。",
-    "pressKey": "按键",
-    "hoverPage": "悬停元素",
-    "scrollPage": "滚动页面",
-    "focusElement": "聚焦元素",
-    "blurElement": "移开焦点",
-    "selectOption": "选择选项",
-    "closeTab": "关闭标签页",
-    "runScript": "执行网页脚本",
-    "readConsole": "查看控制台",
-    "readNetwork": "查看网络请求",
-    "resizeWindow": "调整窗口大小",
-    "emulateDevice": "模拟设备",
-    "actionPending": "正在操作浏览器…",
-    "actionRecorded": "已记录浏览器操作",
-    "untitledTab": "未命名标签页",
-    "contentTruncated": "仅显示部分网页内容。",
-    "controlScope": "仅控制本对话的浏览器操作",
-    "pauseHint": "中断当前浏览器操作并保留页面，可继续操作；不会停止整段对话。",
-    "stopHint": "关闭本任务新建的标签页，归还借用的标签页；不会关闭浏览器或撤销配对。",
-    "openPage": "打开网页",
-    "switchPage": "切换网页",
-    "readPage": "查看网页",
-    "listTabs": "查看标签页",
-    "clickPage": "点击元素",
-    "fillPage": "填写内容",
-    "waitPage": "等待页面",
-    "openTab": "新建任务标签",
-    "switchTab": "切换任务标签",
-    "authorizeTab": "请求标签授权",
-    "returnTab": "归还标签",
-    "needHelp": "等待你操作",
-    "browserAction": "浏览器操作",
-    "actionFailed": "未完成",
-    "actionCompleted": "操作已完成",
-    "commandBusy": "上一条浏览器操作尚未结束，请等待完成后继续。",
-    "invalidArguments": "浏览器工具参数格式错误或不完整，智能体需要修正后再执行。",
-    "commandInterrupted": "浏览器操作已中断，请先确认页面状态，再从小预览继续任务。",
-    "actionFailedHint": "浏览器操作未完成，请检查当前页面后重试。",
-    "previewStale": "画面暂未更新",
-    "previewIdle": "已保留最后画面",
-    "previewLive": "画面同步中",
-    "previewLoading": "正在获取画面",
-    "borrowHint": "请切换到要借用的网页，在 BrowserSkill 授权提示中选择「允许」或「拒绝」。授权通过后会自动继续；「继续操作」只恢复暂停的任务，不代替借用授权。",
-    "helpHint": "点击预览前往浏览器，完成上述步骤后，在浏览器帮助提示中确认完成。",
-
-    "settingsTitle": "浏览器连接",
-    "settingsDescription": "通过 BrowserSkill 连接本机 Chrome 或 Edge，配对后即可在对话中操作真实网页。",
-    "openSettings": "前往浏览器连接",
-    "settingsHint": "在工具箱中连接 BrowserSkill，即可在对话里使用本机浏览器。",
-    "unavailable": "服务端尚未启用本机浏览器，请联系管理员。",
-
-    "source": "浏览器来源",
-    "sandbox": "沙箱浏览器",
-    "local": "本机浏览器",
-    "paused": "已暂停",
-    "connected": "已连接",
-    "disconnected": "未连接",
-    "resume": "继续操作",
-    "pause": "暂停操作",
-    "start": "开始任务",
-    "stop": "结束浏览器任务",
-    "resumeShort": "继续",
-    "pauseShort": "暂停",
-    "stopShort": "结束",
-    "pairHint": "打开扩展的「连接设置 → 远程连接」，粘贴配对链接并确认服务器。链接 5 分钟内有效，仅可使用一次。",
-    "copyPairing": "复制配对链接",
-    "copied": "已复制",
-    "windowHint": "任务在独立的浏览器任务窗口中运行。借用已有标签页需要你的授权。",
-    "preview": "本机浏览器任务预览",
-    "waiting": "等待任务页面",
-    "startHint": "发起浏览器请求后，会创建独立的任务窗口。",
-    "revoke": "撤销设备授权",
-    "revokeConfirm": "撤销后需要重新配对，才能继续使用本机浏览器。",
-    "failed": "操作失败，请重试",
-    "productDescription": "开源的 Chrome / Edge 扩展，让智能体在你的浏览器里打开网页、读取内容并完成操作。",
-    "offline": "离线",
-    "notPaired": "未配对",
-    "lastSeen": "最近连接",
-    "readyHint": "已准备就绪。回到对话，直接描述需要浏览器完成的任务。",
-    "capabilitiesTitle": "智能体可以",
-    "sidebarStatus": "在侧边栏显示连接状态",
-    "reconnectHint": "保留授权，等待扩展自动重连。请确认浏览器和 BrowserSkill 扩展已开启。",
-    "replaceDevice": "更换浏览器",
-    "installExtension": "安装 BrowserSkill 扩展",
-    "storeInstall": "Chrome 应用商店",
-    "edgeStoreInstall": "Edge 加载项",
-    "extensionMinVersion": "需要 BrowserSkill v{version} 及以上版本，支持 Chrome 和 Edge。",
-    "extensionOutdated": "当前扩展版本 v{current} 过低，请升级到 v{version} 及以上。",
-    "manualInstall": "手动安装（备用）",
-    "storeInstallHint": "在 Chrome 应用商店或 Edge 加载项中安装 BrowserSkill，再回到这里配对。",
-    "installHint": "无法访问商店或商店版本不兼容时，可下载配套扩展并手动安装。",
-    "downloadExtension": "下载配套扩展",
-    "officialExtension": "官方扩展（Chrome 应用商店）",
-    "installGuide": "如何安装下载的扩展包？",
-    "pairGuide": "如何使用配对链接？",
-    "pairBrowser": "连接这台浏览器",
-    "packageUnavailable": "管理员尚未配置扩展下载包，请向管理员获取配套版本。",
-    "manualCopy": "点击下方输入框复制链接，5 分钟内有效，仅可配对一次。",
-    "pairingReady": "链接已复制。请在扩展中粘贴，5 分钟内有效，仅可配对一次。",
-    "copyAgain": "再次复制",
-    "usageTitle": "使用方式",
-    "usageStep1Title": "安装扩展",
-    "usageStep1Text": "下载 ZIP 后解压，在浏览器地址栏输入 chrome://extensions（Edge 为 edge://extensions），开启「开发者模式」，点击「加载已解压的扩展程序」，选择解压后的扩展目录。",
-    "usageStep2Title": "配对这台浏览器",
-    "usageStep2Text": "复制配对链接，在扩展的「连接设置 → 远程连接」中粘贴并确认服务器。配对一次，同一空间的各个对话共用。",
-    "usageStep3Title": "回到对话描述任务",
-    "usageStep3Text": "在对话输入栏开启「本机浏览器」，再发送网页任务。配对不会自动开启此选项，任务会在独立的任务窗口中运行。",
-    "usageStep4Title": "通过预览查看和继续",
-    "usageStep4Text": "对话里会出现小预览，点击可定位到任务标签。中断或重连后任务仍会暂停，请在预览中点继续；借用已有标签页会先请你确认。",
-    "running": "运行中",
-    "locateWindow": "定位到浏览器",
-    "reconnectShort": "等待浏览器重连",
-},
+    pipOpen: '弹出悬浮窗',
+    pipReturn: '返回对话小窗',
+    pipFailed: '无法打开悬浮窗，请重试。',
+    captureScreenshot: '截取网页画面',
+    navigationIncomplete: '导航未达到目标加载阶段，请检查当前页面。',
+    noEntries: '没有返回记录。',
+    stopping: '正在结束任务…',
+    elapsedSeconds: '{seconds} 秒',
+    searchInstructionsTitle: '浏览器搜索指令',
+    searchInstructionsDescription: '设置你偏好的搜索引擎和搜索地址。',
+    searchInstructionsHint: '保存后下次请求生效，留空使用默认指令。',
+    searchInstructionsReset: '恢复默认',
+    searchInstructionsSaved: '已保存',
+    sourceHint: '本轮使用本机浏览器查询和操作网页，可与联网搜索、知识库及其他工具配合使用。',
+    pressKey: '按键',
+    hoverPage: '悬停元素',
+    scrollPage: '滚动页面',
+    focusElement: '聚焦元素',
+    blurElement: '移开焦点',
+    selectOption: '选择选项',
+    closeTab: '关闭标签页',
+    runScript: '执行网页脚本',
+    readConsole: '查看控制台',
+    readNetwork: '查看网络请求',
+    resizeWindow: '调整窗口大小',
+    emulateDevice: '模拟设备',
+    actionPending: '正在操作浏览器…',
+    actionRecorded: '已记录浏览器操作',
+    untitledTab: '未命名标签页',
+    contentTruncated: '仅显示部分网页内容。',
+    controlScope: '仅控制本对话的浏览器操作',
+    pauseHint: '中断当前浏览器操作并保留页面，可继续操作；不会停止整段对话。',
+    stopHint: '关闭本任务新建的标签页，归还借用的标签页；不会关闭浏览器或撤销配对。',
+    openPage: '打开网页',
+    switchPage: '切换网页',
+    readPage: '查看网页',
+    listTabs: '查看标签页',
+    clickPage: '点击元素',
+    fillPage: '填写内容',
+    waitPage: '等待页面',
+    openTab: '新建任务标签',
+    switchTab: '切换任务标签',
+    authorizeTab: '请求标签授权',
+    returnTab: '归还标签',
+    needHelp: '等待你操作',
+    browserAction: '浏览器操作',
+    actionFailed: '未完成',
+    actionCompleted: '操作已完成',
+    commandBusy: '上一条浏览器操作尚未结束，请等待完成后继续。',
+    invalidArguments: '浏览器工具参数格式错误或不完整，智能体需要修正后再执行。',
+    commandInterrupted: '浏览器操作已中断，请先确认页面状态，再从小预览继续任务。',
+    actionFailedHint: '浏览器操作未完成，请检查当前页面后重试。',
+    previewStale: '画面暂未更新',
+    previewIdle: '已保留最后画面',
+    previewLive: '画面同步中',
+    previewLoading: '正在获取画面',
+    borrowHint: '请切换到要借用的网页，在 BrowserSkill 授权提示中选择「允许」或「拒绝」。授权通过后会自动继续；「继续操作」只恢复暂停的任务，不代替借用授权。',
+    helpHint: '点击预览前往浏览器，完成上述步骤后，在浏览器帮助提示中确认完成。',
+    settingsTitle: '浏览器连接',
+    settingsDescription: '通过 BrowserSkill 连接本机 Chrome 或 Edge，配对后即可在对话中操作真实网页。',
+    openSettings: '前往浏览器连接',
+    settingsHint: '在工具箱中连接 BrowserSkill，即可在对话里使用本机浏览器。',
+    unavailable: '服务端尚未启用本机浏览器，请联系管理员。',
+    source: '浏览器来源',
+    sandbox: '沙箱浏览器',
+    local: '本机浏览器',
+    paused: '已暂停',
+    connected: '已连接',
+    disconnected: '未连接',
+    resume: '继续操作',
+    pause: '暂停操作',
+    start: '开始任务',
+    stop: '结束浏览器任务',
+    resumeShort: '继续',
+    pauseShort: '暂停',
+    stopShort: '结束',
+    pairHint: '打开扩展的「连接设置 → 远程连接」，粘贴配对链接并确认服务器。链接 5 分钟内有效，仅可使用一次。',
+    copyPairing: '复制配对链接',
+    copied: '已复制',
+    windowHint: '任务在独立的浏览器任务窗口中运行。借用已有标签页需要你的授权。',
+    preview: '本机浏览器任务预览',
+    waiting: '等待任务页面',
+    startHint: '发起浏览器请求后，会创建独立的任务窗口。',
+    revoke: '撤销设备授权',
+    revokeConfirm: '撤销后需要重新配对，才能继续使用本机浏览器。',
+    failed: '操作失败，请重试',
+    productDescription: '开源的 Chrome / Edge 扩展，让智能体在你的浏览器里打开网页、读取内容并完成操作。',
+    offline: '离线',
+    notPaired: '未配对',
+    lastSeen: '最近连接',
+    readyHint: '已准备就绪。回到对话，直接描述需要浏览器完成的任务。',
+    capabilitiesTitle: '智能体可以',
+    sidebarStatus: '在侧边栏显示连接状态',
+    reconnectHint: '保留授权，等待扩展自动重连。请确认浏览器和 BrowserSkill 扩展已开启。',
+    replaceDevice: '更换浏览器',
+    installExtension: '安装 BrowserSkill 扩展',
+    storeInstall: 'Chrome 应用商店',
+    edgeStoreInstall: 'Edge 加载项',
+    extensionMinVersion: '需要 BrowserSkill v{version} 及以上版本，支持 Chrome 和 Edge。',
+    extensionOutdated: '当前扩展版本 v{current} 过低，请升级到 v{version} 及以上。',
+    manualInstall: '手动安装（备用）',
+    storeInstallHint: '在 Chrome 应用商店或 Edge 加载项中安装 BrowserSkill，再回到这里配对。',
+    installHint: '无法访问商店或商店版本不兼容时，可下载配套扩展并手动安装。',
+    downloadExtension: '下载配套扩展',
+    officialExtension: '官方扩展（Chrome 应用商店）',
+    installGuide: '如何安装下载的扩展包？',
+    pairGuide: '如何使用配对链接？',
+    pairBrowser: '连接这台浏览器',
+    packageUnavailable: '管理员尚未配置扩展下载包，请向管理员获取配套版本。',
+    manualCopy: '点击下方输入框复制链接，5 分钟内有效，仅可配对一次。',
+    pairingReady: '链接已复制。请在扩展中粘贴，5 分钟内有效，仅可配对一次。',
+    copyAgain: '再次复制',
+    usageTitle: '使用方式',
+    usageStep1Title: '安装扩展',
+    usageStep1Text: '下载 ZIP 后解压，在浏览器地址栏输入 chrome://extensions（Edge 为 edge://extensions），开启「开发者模式」，点击「加载已解压的扩展程序」，选择解压后的扩展目录。',
+    usageStep2Title: '配对这台浏览器',
+    usageStep2Text: '复制配对链接，在扩展的「连接设置 → 远程连接」中粘贴并确认服务器。配对一次，同一空间的各个对话共用。',
+    usageStep3Title: '回到对话描述任务',
+    usageStep3Text: '在对话输入栏开启「本机浏览器」，再发送网页任务。配对不会自动开启此选项，任务会在独立的任务窗口中运行。',
+    usageStep4Title: '通过预览查看和继续',
+    usageStep4Text: '对话里会出现小预览，点击可定位到任务标签。中断或重连后任务仍会暂停，请在预览中点继续；借用已有标签页会先请你确认。',
+    running: '运行中',
+    locateWindow: '定位到浏览器',
+    reconnectShort: '等待浏览器重连'
+  },
   resourceSort: {
     title: '排序',
     updatedTime: '更新时间',
@@ -542,7 +536,7 @@ export default {
     recentlyCreated: '最近创建',
     earliestCreated: '最早创建',
     nameAscending: 'A–Z',
-    nameDescending: 'Z–A',
+    nameDescending: 'Z–A'
   },
   platformApiKeys: {
     title: '平台 API Key',
@@ -788,8 +782,8 @@ export default {
       policyFailed: '新密码须为 8-32 个字符，且同时包含字母和数字',
       sameAsCurrent: '新密码不能与当前密码相同',
       oidcOnlyDescription: '您的账号通过 OIDC 登录开通，尚未设置本地登录密码。',
-      oidcOnlyNotice: '请联系系统管理员重置密码，或继续使用 OIDC 登录。自助修改密码需要先知道当前密码。',
-    },
+      oidcOnlyNotice: '请联系系统管理员重置密码，或继续使用 OIDC 登录。自助修改密码需要先知道当前密码。'
+    }
   },
   credential: {
     configured: '已配置',
@@ -823,7 +817,7 @@ export default {
       mcpTitle: '接入 MCP 客户端',
       mcpDesc: '完成登录后，将以下配置添加到支持 stdio 的 MCP 客户端。若客户端无法找到 genyee，请将 command 改为二进制的绝对路径。',
       copy: '复制',
-      copied: '已复制',
+      copied: '已复制'
     },
     title: '发布集成',
     selectAgentPlaceholder: '请选择智能体',
@@ -1114,7 +1108,7 @@ export default {
       empty: '暂无 MCP 端点',
       disabled: '已停用',
       cardSummary: '{tools} 个工具 · {scope}',
-              scopeAll: '全部知识库',
+      scopeAll: '全部知识库',
       scopeCount: '{count} 个知识库',
       create: '新建端点',
       editTitle: '编辑 MCP 端点',
@@ -1139,7 +1133,7 @@ export default {
         retrieve: '检索与阅读',
         chat: '问答',
         wiki: 'Wiki',
-        ingest: '写入（谨慎开启）',
+        ingest: '写入（谨慎开启）'
       },
       tools: {
         list_knowledge_bases: '列出知识库',
@@ -1165,7 +1159,7 @@ export default {
         update_document: '更新文档',
         update_documentDesc: '替换 Markdown 文档的内容或标题',
         delete_document: '删除文档',
-        delete_documentDesc: '永久删除文档及其索引数据',
+        delete_documentDesc: '永久删除文档及其索引数据'
       },
       sectionAsk: '问答设置',
       defaultAgentLabel: '默认 Agent',
@@ -1193,7 +1187,7 @@ export default {
         claudeCodeTitle: 'Claude Code',
         claudeCodeDesc: '在终端执行一条命令即可添加。',
         stdioTitle: 'STDIO 备用配置',
-        stdioDesc: '用于不支持原生 HTTP/Bearer 的客户端或配置，包括未开放 Request headers 的 Claude Desktop。客户端需安装 Node.js。',
+        stdioDesc: '用于不支持原生 HTTP/Bearer 的客户端或配置，包括未开放 Request headers 的 Claude Desktop。客户端需安装 Node.js。'
       },
       loadFailed: '加载 MCP 端点失败',
       nameRequired: '请填写名称',
@@ -1211,7 +1205,7 @@ export default {
       menuEnable: '启用',
       menuRotate: '轮换令牌',
       copied: '已复制',
-      deleteConfirm: '删除后使用该端点的客户端会立即断开，确定删除？',
+      deleteConfirm: '删除后使用该端点的客户端会立即断开，确定删除？'
     },
     tabs: {
       im: 'IM 集成',
@@ -1247,7 +1241,7 @@ export default {
     parseMode: {
       inherit: '使用服务器配置',
       blocks: '块级解析（默认）',
-      export: '导出解析（docx）',
+      export: '导出解析（docx）'
     },
     parseModeHint: '飞书云文档的解析方式。块级解析更快并保留文档内附件；导出解析将文档导出为 docx 后解析，图片与文档的关联更完整。',
     createTitle: '添加数据源',
@@ -1267,10 +1261,15 @@ export default {
       accessToken: '个人访问令牌',
       projects: 'GitLab 项目',
       projectsHint: '填写项目 ID 或命名空间路径（如 group/project），可选指定分支和目录。',
-      project: '项目', projectId: '项目 ID', projectIdPlaceholder: '例如：12345 或 group/project',
-      ref: '分支', refPlaceholder: '留空时使用默认分支',
-      paths: '同步目录', pathsPlaceholder: '每行一个目录；留空同步整个项目',
-      addProject: '添加项目', projectRequired: '请至少添加一个 GitLab 项目',
+      project: '项目',
+      projectId: '项目 ID',
+      projectIdPlaceholder: '例如：12345 或 group/project',
+      ref: '分支',
+      refPlaceholder: '留空时使用默认分支',
+      paths: '同步目录',
+      pathsPlaceholder: '每行一个目录；留空同步整个项目',
+      addProject: '添加项目',
+      projectRequired: '请至少添加一个 GitLab 项目'
     },
     nextcloud: {
       baseUrl: 'Nextcloud 地址',
@@ -1281,13 +1280,14 @@ export default {
       selectionRequired: '请至少选择一个目录或文件',
       includeExtensions: '包含的扩展名（可选）',
       excludeExtensions: '排除的扩展名（可选）',
-      extensionsHint: '用逗号分隔扩展名，如 .pdf, .md。包含项留空表示所有支持的格式，排除项优先。修改过滤条件也会改变删除对账范围。',
+      extensionsHint: '用逗号分隔扩展名，如 .pdf, .md。包含项留空表示所有支持的格式，排除项优先。修改过滤条件也会改变删除对账范围。'
     },
     seafile: {
-      baseUrl: 'Seafile 地址', apiToken: 'API 令牌',
+      baseUrl: 'Seafile 地址',
+      apiToken: 'API 令牌',
       apiTokenHint: '在 Seafile「设置 → Web API 令牌」中生成；账号对所选资料库有读权限即可，令牌不会随文件下载请求发送。',
       singleLibraryOnly: '一个数据源只能同步一个资料库，请先取消已选资料库中的内容再改选。',
-      selectionRequired: '请至少勾选一个资料库、目录或文件',
+      selectionRequired: '请至少勾选一个资料库、目录或文件'
     },
     resourceHint: '选择要同步的内容空间/文件夹',
     untitled: '无标题',
@@ -1359,30 +1359,30 @@ export default {
     prereqStep3Brief_ima: '授权目标知识库',
     prereqStep3Desc_ima: '在 IMA 客户端为该凭证授权需要同步的知识库，未授权的知识库不会出现在列表中',
     prereqOpenConsole_ima: '前往 IMA OpenAPI 控制台',
-    prereqStep1Brief_feishu: "创建飞书自建应用",
-    prereqStep1Desc_feishu: "登录飞书开放平台 → 创建企业自建应用",
-    prereqStep2Brief_feishu: "添加机器人能力",
-    prereqStep2Desc_feishu: "开放平台 → 你的应用 → 添加应用能力 → 机器人",
-    prereqStep3Brief_feishu: "配置应用权限",
-    prereqStep3Desc_feishu: "为应用开通 wiki:wiki:readonly, drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限",
-    prereqStep1Brief_lark: "创建 Lark 自建应用",
-    prereqStep1Desc_lark: "登录 Lark 开放平台 → 创建企业自建应用",
-    prereqStep2Brief_lark: "添加机器人能力",
-    prereqStep2Desc_lark: "开放平台 → 你的应用 → 添加应用能力 → 机器人",
-    prereqStep3Brief_lark: "配置应用权限",
-    prereqStep3Desc_lark: "为应用开通 wiki:wiki:readonly, drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限",
-    prereqStep1Brief_feishu_drive: "创建飞书自建应用",
-    prereqStep1Desc_feishu_drive: "登录飞书开放平台 → 创建企业自建应用",
-    prereqStep2Brief_feishu_drive: "添加机器人能力",
-    prereqStep2Desc_feishu_drive: "开放平台 → 你的应用 → 添加应用能力 → 机器人",
-    prereqStep3Brief_feishu_drive: "配置应用权限",
-    prereqStep3Desc_feishu_drive: "为应用开通 drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限",
-    prereqStep1Brief_lark_drive: "创建 Lark 自建应用",
-    prereqStep1Desc_lark_drive: "登录 Lark 开放平台 → 创建企业自建应用",
-    prereqStep2Brief_lark_drive: "添加机器人能力",
-    prereqStep2Desc_lark_drive: "开放平台 → 你的应用 → 添加应用能力 → 机器人",
-    prereqStep3Brief_lark_drive: "配置应用权限",
-    prereqStep3Desc_lark_drive: "为应用开通 drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限",
+    prereqStep1Brief_feishu: '创建飞书自建应用',
+    prereqStep1Desc_feishu: '登录飞书开放平台 → 创建企业自建应用',
+    prereqStep2Brief_feishu: '添加机器人能力',
+    prereqStep2Desc_feishu: '开放平台 → 你的应用 → 添加应用能力 → 机器人',
+    prereqStep3Brief_feishu: '配置应用权限',
+    prereqStep3Desc_feishu: '为应用开通 wiki:wiki:readonly, drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限',
+    prereqStep1Brief_lark: '创建 Lark 自建应用',
+    prereqStep1Desc_lark: '登录 Lark 开放平台 → 创建企业自建应用',
+    prereqStep2Brief_lark: '添加机器人能力',
+    prereqStep2Desc_lark: '开放平台 → 你的应用 → 添加应用能力 → 机器人',
+    prereqStep3Brief_lark: '配置应用权限',
+    prereqStep3Desc_lark: '为应用开通 wiki:wiki:readonly, drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限',
+    prereqStep1Brief_feishu_drive: '创建飞书自建应用',
+    prereqStep1Desc_feishu_drive: '登录飞书开放平台 → 创建企业自建应用',
+    prereqStep2Brief_feishu_drive: '添加机器人能力',
+    prereqStep2Desc_feishu_drive: '开放平台 → 你的应用 → 添加应用能力 → 机器人',
+    prereqStep3Brief_feishu_drive: '配置应用权限',
+    prereqStep3Desc_feishu_drive: '为应用开通 drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限',
+    prereqStep1Brief_lark_drive: '创建 Lark 自建应用',
+    prereqStep1Desc_lark_drive: '登录 Lark 开放平台 → 创建企业自建应用',
+    prereqStep2Brief_lark_drive: '添加机器人能力',
+    prereqStep2Desc_lark_drive: '开放平台 → 你的应用 → 添加应用能力 → 机器人',
+    prereqStep3Brief_lark_drive: '配置应用权限',
+    prereqStep3Desc_lark_drive: '为应用开通 drive:drive:readonly, drive:export:readonly, docx:document:readonly 权限',
     prereqBotBrief: '为应用添加「机器人」能力',
     prereqBotDesc: '开放平台 → 添加应用能力 → 机器人 → 创建版本并发布',
     prereqPermBrief: '开通 API 权限',
@@ -1448,8 +1448,8 @@ export default {
     connectorDesc: {
       feishu: '同步飞书知识库中的文档、表格、文件',
       lark: '同步 Lark 知识库中的文档、表格、文件（飞书国际版）',
-      feishu_drive: "同步飞书云盘文件夹中的文档、表格、文件",
-      lark_drive: "同步 Lark 云盘文件夹中的文档、表格、文件（飞书国际版）",
+      feishu_drive: '同步飞书云盘文件夹中的文档、表格、文件',
+      lark_drive: '同步 Lark 云盘文件夹中的文档、表格、文件（飞书国际版）',
       notion: '同步 Notion 中的页面和数据库',
       confluence: '将 Confluence 空间和页面同步为 Markdown',
       yuque: '同步语雀知识库中的文档',
@@ -1463,8 +1463,8 @@ export default {
     connector: {
       feishu: '飞书',
       lark: 'Lark（飞书国际版）',
-      feishu_drive: "飞书云盘",
-      lark_drive: "Lark 云盘",
+      feishu_drive: '飞书云盘',
+      lark_drive: 'Lark 云盘',
       notion: 'Notion',
       confluence: 'Confluence',
       yuque: '语雀',
@@ -1520,17 +1520,17 @@ export default {
       full: '全量同步'
     },
     drive: {
-      folderTokenLabel: "云盘文件夹 Token",
-      folderTokenPlaceholder: "输入 folder_token 或飞书云盘文件夹链接",
-      folderTokenRequired: "请输入具体文件夹的 folder_token，不支持云空间根目录",
-      rootNotSupportedHint: "根目录不分页且不返回快捷方式，请选择具体文件夹",
-      load: "加载",
-      shareHint: "需先将该云盘文件夹分享给应用所在的群，应用才能访问",
-      placeholderTitle: "请先加载云盘文件夹",
-      placeholderDesc: "在上方输入 folder_token（或从飞书云盘文件夹 URL 复制）并点击「加载」",
-      loadForbiddenHint: "应用无权访问该文件夹。请在飞书云盘中将该文件夹分享给应用所在的群后再试。",
-      loadAuthHint: "应用凭证无效或缺少云盘权限，请检查 App ID / App Secret 及 drive:drive:readonly 等权限。",
-      loadNotFoundHint: "folder_token 不存在或已删除，请确认从飞书云盘文件夹 URL 复制的 token 正确。",
+      folderTokenLabel: '云盘文件夹 Token',
+      folderTokenPlaceholder: '输入 folder_token 或飞书云盘文件夹链接',
+      folderTokenRequired: '请输入具体文件夹的 folder_token，不支持云空间根目录',
+      rootNotSupportedHint: '根目录不分页且不返回快捷方式，请选择具体文件夹',
+      load: '加载',
+      shareHint: '需先将该云盘文件夹分享给应用所在的群，应用才能访问',
+      placeholderTitle: '请先加载云盘文件夹',
+      placeholderDesc: '在上方输入 folder_token（或从飞书云盘文件夹 URL 复制）并点击「加载」',
+      loadForbiddenHint: '应用无权访问该文件夹。请在飞书云盘中将该文件夹分享给应用所在的群后再试。',
+      loadAuthHint: '应用凭证无效或缺少云盘权限，请检查 App ID / App Secret 及 drive:drive:readonly 等权限。',
+      loadNotFoundHint: 'folder_token 不存在或已删除，请确认从飞书云盘文件夹 URL 复制的 token 正确。'
     },
     syncError: {
       dingtalk_document_failed: '无法读取钉钉文档，请检查访问权限后重试同步。',
@@ -1555,7 +1555,7 @@ export default {
       seafile_invalid_response: 'Seafile 返回了无法解析的响应，请检查服务器版本与反向代理配置。',
       seafile_ssrf_blocked: 'Seafile 文件下载地址被 SSRF 策略拦截，请将 fileserver 域名加入 SSRF_WHITELIST。',
       seafile_fetch_failed: '从 Seafile 获取文件失败，下次同步将重试。'
-    },
+    }
   },
   ollama: {
     unknown: '未知',
@@ -1571,7 +1571,17 @@ export default {
     reset: '重置',
     download: '下载图片',
     close: '关闭',
-    downloading: '下载中...'
+    downloading: '下载中...',
+    devTestPage: {
+      shimmerRetrieving: '正在检索知识库…',
+      shimmerGenerating: '正在生成回答…',
+      shimmerDone: '检索完成（静态对照）',
+      basicTextSample: '这是一段普通文本，包含 **加粗**、*斜体*、***加粗斜体***、~~删除线~~、行内 `code`。\n\n也可以包含快捷键样式：<kbd>⌘</kbd> + <kbd>K</kbd>。\n\n这里有一个链接：[GitHub](https://github.com)。\n\n> 一级引用\n>\n> > 嵌套引用，用于对比 GPT 的引用层级与字重。\n\n- [ ] 未完成任务\n- [x] 已完成任务',
+      streamIntroSection: '好的，以下是根据知识库中**《xxx》学程手册**整理的有关XXX的介绍：\n\n**XBRL（eXtensible Business Reporting Language，可扩展商业报告语言）**是一种基于XML的标准化标记语言，专门用于电子化商业和财务报告的编制、交换和分析\n\n该数据集包含90个文本和方程对，挑战模型提取、解释和推理相互关联的财务术语和公式的能力，例如：',
+      streamImportanceHeading: '重要性',
+      streamTitlePrefix: '标题：',
+      adasSequenceMermaid: 'sequenceDiagram\n    participant Driver as 驾驶员 (Driver)\n    participant HMI as 人机交互界面 (HMI/Cluster)\n    participant ADAS as 组合驾驶辅助系统 (ADAS ECU)\n    participant Sensor as 传感器/定位模块\n    participant Cloud as 云端服务平台 (可选)\n\n    Note over ADAS, Sensor: 阶段1：正常运行与监控\n    Driver->>Sensor: 车辆正常行驶中\n    Sensor->>ADAS: 状态数据 (环境、定位、车辆状态)\n    ADAS-->>Driver: 维持组合驾驶辅助状态 (显示图标正常)\n\n    Note over ADAS, Sensor: 阶段2：触发接管条件\n    alt 系统检测到需接管场景\n        Sensor->>ADAS: 检测条件满足 (如: 地图数据缺失/限速变化/系统故障/驾驶员分心)\n        ADAS->>HMI: 发送接管请求信号 (HOR Signal)\n        Note right of HMI: 阶段3：分级提醒策略 (符合国标要求)\n        HMI-->>Driver: 视觉提示 (仪表盘图标闪烁/颜色变化)\n        HMI-->>Driver: 听觉提示 (轻柔蜂鸣声)\n        ADAS->>HMI: 增强提醒 (若驾驶员无响应)\n        HMI-->>Driver: 强视觉警告 + 强听觉警告 + 触觉提示\n    end\n\n    Note over Driver, ADAS: 阶段4：驾驶员响应处理\n    alt 驾驶员及时接管\n        Driver->>HMI: 手握方向盘动作 (Torque/Grip Detection)\n        HMI->>ADAS: 确认驾驶员介入信号\n        ADAS-->>Driver: 退出自动驾驶，切换至人工驾驶模式\n        ADAS->>HMI: 清除警告提示\n    else 驾驶员未响应\n        alt 达到最后接管时限 (e.g., T+5s)\n            ADAS->>ADAS: 启动最小风险策略 (MRM/MLR)\n            ADAS->>HMI: 触发紧急减速/停车提示\n            ADAS->>Sensor: 执行安全停车动作 (靠边、刹车、双闪)\n        end\n    end\n\n    Note over Cloud, Driver: 阶段5：数据记录与上报\n    ADAS->>Cloud: 上传接管事件数据 (时间、原因、驾驶员响应)'
+    }
   },
   faqManager: {
     import: {
@@ -1883,7 +1893,7 @@ export default {
       name: '为智能体设置一个易于识别的名称',
       description: '简要描述智能体的用途和特点',
       systemPrompt: '自定义系统提示词，定义智能体的行为和角色',
-      promptInheritance: "保持模板原文时将跟随模板更新；修改后按自定义内容保存。智能推理模式下，这里定义角色和工作要求，工具权限与本轮来源选择由系统单独控制。",
+      promptInheritance: '保持模板原文时将跟随模板更新；修改后按自定义内容保存。智能推理模式下，这里定义角色和工作要求，工具权限与本轮来源选择由系统单独控制。',
       leaveEmptyDefault: '（留空则使用系统默认）',
       contextTemplate: '定义如何将检索到的内容格式化后传递给模型',
       model: '选择智能体使用的大语言模型',
@@ -2000,31 +2010,31 @@ export default {
       failed: '复制失败，请手动复制'
     },
     mcp: {
-      discoverTools: "发现 MCP 工具",
-      listServers: "查看 MCP 服务",
-      listTools: "查看 MCP 工具",
-      searchTools: "搜索 MCP 工具",
-      describeTool: "读取工具定义",
-      callTool: "调用 MCP 工具",
-      showing: "已显示 {count} / {total} 项",
-      moreAvailable: "还有更多结果",
-      empty: "没有可显示的项",
-      parameters: "参数",
-      expand: "展开说明",
-      collapse: "收起",
-      required: "必填",
-      fullSchema: "完整参数定义",
-      failed: "MCP 操作失败",
-      result: "执行结果",
+      discoverTools: '发现 MCP 工具',
+      listServers: '查看 MCP 服务',
+      listTools: '查看 MCP 工具',
+      searchTools: '搜索 MCP 工具',
+      describeTool: '读取工具定义',
+      callTool: '调用 MCP 工具',
+      showing: '已显示 {count} / {total} 项',
+      moreAvailable: '还有更多结果',
+      empty: '没有可显示的项',
+      parameters: '参数',
+      expand: '展开说明',
+      collapse: '收起',
+      required: '必填',
+      fullSchema: '完整参数定义',
+      failed: 'MCP 操作失败',
+      result: '执行结果',
       status: {
-        not_loaded: "未加载",
-        loading: "加载中",
-        ready: "可用",
-        needs_auth: "需要授权",
-        error: "连接失败",
-        disabled: "已禁用",
-        unavailable: "不可用",
-      },
+        not_loaded: '未加载',
+        loading: '加载中',
+        ready: '可用',
+        needs_auth: '需要授权',
+        error: '连接失败',
+        disabled: '已禁用',
+        unavailable: '不可用'
+      }
     },
     toolStatus: {
       calling: '正在调用 {name}...',
@@ -2067,7 +2077,11 @@ export default {
     attachmentParsing: {
       parsedSummary: '已解析 {count} 个附件',
       parsedWithSkipped: '已解析 {parsed} 个附件，{skipped} 个未完成已跳过',
-      noneReady: '没有可用的已解析附件'
+      noneReady: '没有可用的已解析附件',
+      errorPrefix: '附件解析失败:',
+      legacyParsedPrefix: '已解析',
+      legacyParsedSuffix: '个附件',
+      legacySkippedSuffix: '个未完成已跳过'
     },
     knowledgeChunksList: {
       chunkRange: '已加载 {fetched} / {total} 个分块',
@@ -2169,25 +2183,25 @@ export default {
       recentProgress: '最近进展',
       waitFailed: '等待子任务更新失败',
       assignment: '任务说明',
-      "title": "子任务",
-      "unnamed": "未命名任务",
-      "waiting": "等待子任务更新…",
-      "status": {
-        "queued": "排队中",
-        "running": "进行中",
-        "waiting": "等待你处理",
-        "succeeded": "已完成",
-        "failed": "失败",
-        "interrupted": "已中断",
-        "cancelled": "已取消",
-        "needs_attention": "需要处理",
-        "cancelling": "正在取消",
-        "unknown": "状态未知"
+      title: '子任务',
+      unnamed: '未命名任务',
+      waiting: '等待子任务更新…',
+      status: {
+        queued: '排队中',
+        running: '进行中',
+        waiting: '等待你处理',
+        succeeded: '已完成',
+        failed: '失败',
+        interrupted: '已中断',
+        cancelled: '已取消',
+        needs_attention: '需要处理',
+        cancelling: '正在取消',
+        unknown: '状态未知'
       },
-      "phase": {
-        "tool_running": "正在使用工具",
-        "tool_succeeded": "工具已完成",
-        "tool_failed": "工具失败"
+      phase: {
+        tool_running: '正在使用工具',
+        tool_succeeded: '工具已完成',
+        tool_failed: '工具失败'
       }
     },
     pageAccess: {
@@ -2251,170 +2265,170 @@ export default {
     operations: {
       names: {
         data_source: {
-          list: "获取数据源列表",
-          get: "获取数据源详情",
-          test: "测试数据源连接",
-          sync: "同步数据源",
-          pause: "暂停数据源同步",
-          resume: "恢复数据源同步",
-          list_sync_logs: "获取数据源同步记录",
-          get_sync_log: "获取数据源同步进度",
-          list_resources: "查询数据源可同步资源",
-          update_sync: "修改数据源同步配置",
+          list: '获取数据源列表',
+          get: '获取数据源详情',
+          test: '测试数据源连接',
+          sync: '同步数据源',
+          pause: '暂停数据源同步',
+          resume: '恢复数据源同步',
+          list_sync_logs: '获取数据源同步记录',
+          get_sync_log: '获取数据源同步进度',
+          list_resources: '查询数据源可同步资源',
+          update_sync: '修改数据源同步配置'
         },
         agent: {
-          list: "获取智能体列表",
-          create: "创建智能体",
-          get: "获取智能体详情",
-          delete: "删除智能体",
-          update: "更新智能体",
-          copy: "复制智能体",
+          list: '获取智能体列表',
+          create: '创建智能体',
+          get: '获取智能体详情',
+          delete: '删除智能体',
+          update: '更新智能体',
+          copy: '复制智能体'
         },
         artifact: {
-          list: "获取产物库文件列表",
+          list: '获取产物库文件列表'
         },
         chunk: {
-          get: "获取分块详情",
-          update: "更新分块",
-          list_revisions: "获取分块历史版本",
-          revert: "恢复分块历史版本",
-          list: "获取知识分块列表",
+          get: '获取分块详情',
+          update: '更新分块',
+          list_revisions: '获取分块历史版本',
+          revert: '恢复分块历史版本',
+          list: '获取知识分块列表'
         },
         knowledge_base: {
-          list_parser_engines: "获取可用解析引擎",
-          copy: "复制知识库内容",
-          duplicate: "复制知识库设置",
-          get_copy_progress: "获取知识库复制进度",
-          list: "获取知识库列表",
-          create: "创建知识库",
-          get: "获取知识库详情",
-          delete: "删除知识库",
-          update: "更新知识库",
-          list_activity: "获取知识库活动记录",
-          search: "搜索知识库",
-          list_move_targets: "获取可移动的目标知识库",
-          generate_profile: "生成知识库描述",
-          list_tags: "获取知识库标签列表",
-          create_tag: "创建知识库标签",
-          update_tag: "更新知识库标签",
-          delete_tag: "删除知识库标签",
-          list_shared: "获取共享知识库列表",
+          list_parser_engines: '获取可用解析引擎',
+          copy: '复制知识库内容',
+          duplicate: '复制知识库设置',
+          get_copy_progress: '获取知识库复制进度',
+          list: '获取知识库列表',
+          create: '创建知识库',
+          get: '获取知识库详情',
+          delete: '删除知识库',
+          update: '更新知识库',
+          list_activity: '获取知识库活动记录',
+          search: '搜索知识库',
+          list_move_targets: '获取可移动的目标知识库',
+          generate_profile: '生成知识库描述',
+          list_tags: '获取知识库标签列表',
+          create_tag: '创建知识库标签',
+          update_tag: '更新知识库标签',
+          delete_tag: '删除知识库标签',
+          list_shared: '获取共享知识库列表'
         },
         faq: {
-          batch_update: "批量修改 FAQ 状态和标签",
-          list_entries: "获取 FAQ 条目列表",
-          delete_entries: "批量删除 FAQ 条目",
-          get_entry: "获取 FAQ 条目详情",
-          update_entry: "更新 FAQ 条目",
-          add_similar_questions: "添加相似问",
-          create_entry: "创建 FAQ 条目",
+          batch_update: '批量修改 FAQ 状态和标签',
+          list_entries: '获取 FAQ 条目列表',
+          delete_entries: '批量删除 FAQ 条目',
+          get_entry: '获取 FAQ 条目详情',
+          update_entry: '更新 FAQ 条目',
+          add_similar_questions: '添加相似问',
+          create_entry: '创建 FAQ 条目'
         },
         knowledge: {
-          list: "获取知识列表",
-          list_folders: "获取知识文件夹列表",
-          rename_folder: "重命名或移动文件夹",
-          create_manual: "手动创建知识",
-          create_from_url: "从链接创建知识",
-          batch_delete: "批量删除知识",
-          batch_reparse: "批量重新解析知识",
-          move_to_folder: "移动知识到文件夹",
-          update_manual: "更新手动创建的知识",
-          move: "移动知识到其他知识库",
-          get_move_progress: "获取知识移动进度",
-          set_tags: "设置知识标签",
-          get: "获取知识详情",
-          update: "更新知识",
-          delete: "删除知识",
-          cancel_parse: "取消知识解析",
-          reparse: "重新解析知识",
-          get_parse_progress: "获取知识解析进度",
+          list: '获取知识列表',
+          list_folders: '获取知识文件夹列表',
+          rename_folder: '重命名或移动文件夹',
+          create_manual: '手动创建知识',
+          create_from_url: '从链接创建知识',
+          batch_delete: '批量删除知识',
+          batch_reparse: '批量重新解析知识',
+          move_to_folder: '移动知识到文件夹',
+          update_manual: '更新手动创建的知识',
+          move: '移动知识到其他知识库',
+          get_move_progress: '获取知识移动进度',
+          set_tags: '设置知识标签',
+          get: '获取知识详情',
+          update: '更新知识',
+          delete: '删除知识',
+          cancel_parse: '取消知识解析',
+          reparse: '重新解析知识',
+          get_parse_progress: '获取知识解析进度'
         },
         wiki: {
-          list_folders: "获取 Wiki 文件夹列表",
-          create_folder: "创建 Wiki 文件夹",
-          list_issues: "获取 Wiki 页面问题列表",
-          lint: "检查 Wiki 页面",
-          move_page: "移动 Wiki 页面",
-          get_page: "获取 Wiki 页面",
-          rebuild_links: "重建 Wiki 链接",
-          revert: "还原 Wiki 页面版本",
-          list_revisions: "获取 Wiki 页面版本列表",
-          get_stats: "获取 Wiki 统计信息",
+          list_folders: '获取 Wiki 文件夹列表',
+          create_folder: '创建 Wiki 文件夹',
+          list_issues: '获取 Wiki 页面问题列表',
+          lint: '检查 Wiki 页面',
+          move_page: '移动 Wiki 页面',
+          get_page: '获取 Wiki 页面',
+          rebuild_links: '重建 Wiki 链接',
+          revert: '还原 Wiki 页面版本',
+          list_revisions: '获取 Wiki 页面版本列表',
+          get_stats: '获取 Wiki 统计信息'
         },
         system_admin: {
-          list_admins: "查询系统管理员",
-          list_users: "查询平台用户",
-          list_settings: "查询系统设置",
-          get_queues: "查询任务队列运行状态",
-          list_tasks: "查询队列任务",
+          list_admins: '查询系统管理员',
+          list_users: '查询平台用户',
+          list_settings: '查询系统设置',
+          get_queues: '查询任务队列运行状态',
+          list_tasks: '查询队列任务'
         },
         workspace: {
-          get: "查询当前空间信息",
-          update: "修改当前空间基本信息",
-          list_members: "查询当前空间成员",
+          get: '查询当前空间信息',
+          update: '修改当前空间基本信息',
+          list_members: '查询当前空间成员'
         },
         system: {
-          get_info: "查询版本与系统信息",
+          get_info: '查询版本与系统信息'
         },
         web_search_provider: {
-          list: "获取网络搜索服务列表",
-          get: "获取网络搜索服务详情",
-          list_types: "获取网络搜索服务类型",
-          test: "测试网络搜索连接",
-          update: "修改网络搜索服务",
-          delete: "删除网络搜索服务",
+          list: '获取网络搜索服务列表',
+          get: '获取网络搜索服务详情',
+          list_types: '获取网络搜索服务类型',
+          test: '测试网络搜索连接',
+          update: '修改网络搜索服务',
+          delete: '删除网络搜索服务'
         },
         mcp_service: {
-          list: "获取 MCP 服务列表",
-          create: "创建 MCP 服务",
-          get: "获取 MCP 服务详情",
-          update: "更新 MCP 服务",
-          delete: "删除 MCP 服务",
-          test: "测试 MCP 服务连接",
-          list_tools: "实时查询 MCP 工具",
-          get_metadata: "查看已同步 MCP 工具",
-          refresh_metadata: "同步 MCP 工具目录",
+          list: '获取 MCP 服务列表',
+          create: '创建 MCP 服务',
+          get: '获取 MCP 服务详情',
+          update: '更新 MCP 服务',
+          delete: '删除 MCP 服务',
+          test: '测试 MCP 服务连接',
+          list_tools: '实时查询 MCP 工具',
+          get_metadata: '查看已同步 MCP 工具',
+          refresh_metadata: '同步 MCP 工具目录'
         },
         message: {
-          chat_history_stats: "获取聊天历史统计",
-          search: "搜索历史对话",
-          list: "获取消息历史",
+          chat_history_stats: '获取聊天历史统计',
+          search: '搜索历史对话',
+          list: '获取消息历史'
         },
         model: {
-          list: "获取模型列表",
-          list_providers: "获取模型厂商列表",
-          get_provider: "获取模型厂商详情",
-          get: "获取模型详情",
-          delete: "删除模型",
-          update: "更新模型显示信息",
-          copy: "复制模型配置",
+          list: '获取模型列表',
+          list_providers: '获取模型厂商列表',
+          get_provider: '获取模型厂商详情',
+          get: '获取模型详情',
+          delete: '删除模型',
+          update: '更新模型显示信息',
+          copy: '复制模型配置'
         },
         skill: {
-          list_installed: "获取已安装技能列表",
-          install: "安装技能",
-          get_installed: "获取已安装技能详情",
-          uninstall: "卸载技能",
-          set_enabled: "设置技能启用状态",
-          list: "获取可执行技能列表",
-          list_catalog: "获取工作空间技能列表",
-          get_catalog: "获取工作空间技能详情",
-          install_catalog: "将目录技能安装到沙箱",
+          list_installed: '获取已安装技能列表',
+          install: '安装技能',
+          get_installed: '获取已安装技能详情',
+          uninstall: '卸载技能',
+          set_enabled: '设置技能启用状态',
+          list: '获取可执行技能列表',
+          list_catalog: '获取工作空间技能列表',
+          get_catalog: '获取工作空间技能详情',
+          install_catalog: '将目录技能安装到沙箱'
         },
         automation: {
-          list: "获取自动化列表",
-          create: "创建自动化",
-          validate_trigger: "校验运行时间",
-          get: "获取自动化详情",
-          update: "更新自动化",
-          delete: "删除自动化",
-          pause: "暂停自动化",
-          resume: "恢复自动化",
-          run_now: "立即运行自动化",
-          list_runs: "获取自动化运行记录",
+          list: '获取自动化列表',
+          create: '创建自动化',
+          validate_trigger: '校验运行时间',
+          get: '获取自动化详情',
+          update: '更新自动化',
+          delete: '删除自动化',
+          pause: '暂停自动化',
+          resume: '恢复自动化',
+          run_now: '立即运行自动化',
+          list_runs: '获取自动化运行记录'
         },
         session: {
-          list: "获取会话列表",
-        },
+          list: '获取会话列表'
+        }
       },
       found: '{count} 个可执行操作',
       unavailableCount: '{count} 个当前不可用',
@@ -2478,7 +2492,7 @@ export default {
       timedOutTag: '超时未回答',
       canceledTag: '已取消',
       unansweredTag: '未回答',
-      submitFailed: '提交失败',
+      submitFailed: '提交失败'
     },
     secureForm: {
       onlyFillInto: '只会填入：{domains}',
@@ -2499,7 +2513,7 @@ export default {
       timedOut: '超时未填写',
       canceled: '已取消',
       submitFailed: '提交失败',
-      savedButClosed: '凭据已保存到保险库，但这次请求已结束',
+      savedButClosed: '凭据已保存到保险库，但这次请求已结束'
     },
     promptDock: {
       approvalTitle: '需要你审核',
@@ -2533,7 +2547,7 @@ export default {
       grantLapsed: {
         changed: '之前的允许已失效：自动化的 Agent 配置、成员角色或权限上限已变化。',
         expired: '之前的允许已过期。',
-        idle: '之前的允许因长期未使用已失效。',
+        idle: '之前的允许因长期未使用已失效。'
       },
       countdownShort: '{seconds}s',
       approve: '通过并执行',
@@ -2760,7 +2774,7 @@ export default {
     resize: '调整助手宽度',
     layout: {
       dock: '固定在右侧',
-      float: '改为悬浮',
+      float: '改为悬浮'
     },
     welcomeTitle: '有什么可以帮你？',
     agentWelcomeDesc: '可以检查这个智能体的配置、调整模型或查看它能检索的知识库。',
@@ -2770,7 +2784,7 @@ export default {
       title: 'GENYEE 助手能做什么',
       identity: '助手以你的身份工作。它能看到和修改的范围，与你在这个空间里的角色一致，不会超出你的权限。',
       page: '打开后会附带当前页面，可以据此梳理内容、配置智能体和自动化，或代为填写表单。它不会替你点击按钮或保存。',
-      access: '输入框下方可以切换权限：只读、修改前确认、自动执行。删除始终需要你确认。管理员限制的最高等级无法突破。',
+      access: '输入框下方可以切换权限：只读、修改前确认、自动执行。删除始终需要你确认。管理员限制的最高等级无法突破。'
     },
     welcomeDescriptions: {
       knowledgeBases: '我可以帮你选择知识库类型、整理资料，找到适合当前问题的知识来源。',
@@ -2787,282 +2801,282 @@ export default {
       chat: '我可以概括这次对话做了什么，核对最后一轮回答，并帮你想好还能接着问什么。',
       message: '我可以追溯这条回答的来源、核对关键信息，帮你整理成可复用的内容。',
       artifacts: '我可以按时间和类型整理这些文件，找到它们来自哪次对话，以及怎样让智能体把结果保存下来。',
-      organizations: '我可以帮你看清各共享空间里有哪些知识库和智能体，以及怎样创建、加入或邀请成员。',
+      organizations: '我可以帮你看清各共享空间里有哪些知识库和智能体，以及怎样创建、加入或邀请成员。'
     },
     settingsPages: {
       fallback: {
         description: '我可以解释这个设置页是做什么的，改动会影响什么，以及哪些项建议先配好。',
         q1: '这个设置页是做什么的？',
         q2: '改这里会影响哪些功能？',
-        q3: '有哪些项建议先配好？',
+        q3: '有哪些项建议先配好？'
       },
       general: {
         description: '我可以帮你看清界面、语言和主题这些个人偏好，以及它们会影响哪些地方。',
         q1: '这些个人偏好分别会影响哪些界面？',
         q2: '语言和主题要怎么改？',
-        q3: '还有哪些个人设置建议先配好？',
+        q3: '还有哪些个人设置建议先配好？'
       },
       userprofile: {
         description: '我可以帮你查看和修改账号资料，并说明登录信息改动后会发生什么。',
         q1: '我的账号信息在哪里改？',
         q2: '怎样修改头像、昵称或密码？',
-        q3: '改完账号信息后需要重新登录吗？',
+        q3: '改完账号信息后需要重新登录吗？'
       },
       assistant: {
         description: '我可以说明助手入口、权限等级，以及它能代你做什么、不能做什么。',
         q1: '助手的权限等级分别意味着什么？',
         q2: '怎样把助手入口放到侧栏或右下角？',
-        q3: '助手能替我改设置或删除内容吗？',
+        q3: '助手能替我改设置或删除内容吗？'
       },
       mymemory: {
         description: '我可以帮你查看个人记忆、说明它们会用在哪些对话，以及怎样增删。',
         q1: '这里保存了哪些我的个人记忆？',
         q2: '怎样新增或删除一条记忆？',
-        q3: '这些记忆会用在哪些对话里？',
+        q3: '这些记忆会用在哪些对话里？'
       },
       envvars: {
         description: '我可以说明这些环境变量会用在哪里，以及个人变量和工作区变量的区别。',
         q1: '这些环境变量会用在哪些技能或智能体上？',
         q2: '怎样安全地填写我自己的密钥？',
-        q3: '工作区变量和我个人的变量有什么区别？',
+        q3: '工作区变量和我个人的变量有什么区别？'
       },
       tenant: {
         description: '我可以帮你看这个空间的名称、配额和基本信息，以及哪些可以改。',
         q1: '这个空间的名称和存储配额是多少？',
         q2: '怎样修改空间名称或描述？',
-        q3: '存储快用完时会有什么影响？',
+        q3: '存储快用完时会有什么影响？'
       },
       members: {
         description: '我可以帮你看成员和角色、说明邀请方式，以及各角色能做什么。',
         q1: '这个空间现在有哪些成员、分别是什么角色？',
         q2: '怎样邀请新成员加入？',
-        q3: '管理员和普通成员的权限差在哪里？',
+        q3: '管理员和普通成员的权限差在哪里？'
       },
       chathistory: {
         description: '我可以说明对话历史检索开了没有、能搜到什么，以及怎样建索引。',
         q1: '对话历史检索现在开了吗？',
         q2: '开启后能搜索到哪些历史内容？',
-        q3: '怎样给历史对话建立索引？',
+        q3: '怎样给历史对话建立索引？'
       },
       memory: {
         description: '我可以区分工作区记忆和个人记忆，并说明怎样让智能体记住空间约定。',
         q1: '工作区记忆和我的个人记忆有什么不同？',
         q2: '现在启用了哪些记忆规则？',
-        q3: '怎样让智能体记住这个空间的约定？',
+        q3: '怎样让智能体记住这个空间的约定？'
       },
       ollama: {
         description: '我可以指导你连接本机 Ollama，并把拉下来的模型加到这个空间。',
         q1: '怎样连接本机的 Ollama？',
         q2: '连上之后要怎样把模型加到空间里？',
-        q3: 'Ollama 连不上时通常要检查什么？',
+        q3: 'Ollama 连不上时通常要检查什么？'
       },
       vectorstore: {
         description: '我可以说明当前向量检索引擎、换引擎的影响，以及怎样检查是否正常。',
         q1: '当前用的是哪套向量检索引擎？',
         q2: '换引擎会影响已经建好的知识库吗？',
-        q3: '怎样检查检索引擎是否工作正常？',
+        q3: '怎样检查检索引擎是否工作正常？'
       },
       parser: {
         description: '我可以帮你看默认解析引擎、哪些格式需要换解析器，以及失败时该查哪里。',
         q1: '当前默认用哪个文档解析引擎？',
         q2: '哪些文件格式需要换解析器？',
-        q3: '文档解析失败时通常要改哪里？',
+        q3: '文档解析失败时通常要改哪里？'
       },
       storage: {
         description: '我可以说明文件存在哪里、怎样改到对象存储，以及配额用完怎么办。',
         q1: '上传的文件现在存在哪里？',
         q2: '怎样改成对象存储？',
-        q3: '存储配额用完了会怎样？',
+        q3: '存储配额用完了会怎样？'
       },
       sandbox: {
         description: '我可以说明沙箱用来跑什么、怎样加配置，以及脚本失败时要检查哪些项。',
         q1: '沙箱是干什么用的？',
         q2: '怎样新增一套沙箱配置？',
-        q3: '智能体跑脚本失败时，要检查沙箱的哪些设置？',
+        q3: '智能体跑脚本失败时，要检查沙箱的哪些设置？'
       },
       websearch: {
         description: '我可以帮你看已接入的搜索服务，并说明怎样给智能体加上联网搜索。',
         q1: '现在配置了哪些网页搜索服务？',
         q2: '怎样给智能体加上联网搜索？',
-        q3: '搜索用的密钥要填在哪里？',
+        q3: '搜索用的密钥要填在哪里？'
       },
       system: {
         description: '我可以告诉你当前版本、组件状态，以及升级前建议核对什么。',
         q1: '当前版本是什么，最近更新了哪些内容？',
         q2: '怎样查看这次部署的组件状态？',
-        q3: '升级前需要检查或备份什么？',
+        q3: '升级前需要检查或备份什么？'
       },
       'system-global': {
         description: '我可以帮你看这套部署的全局配置、用户与空间，以及安全相关开关。',
         q1: '这套部署的全局配置有哪些？',
         q2: '怎样管理平台上的用户和空间？',
-        q3: '安全相关的开关分别管什么？',
+        q3: '安全相关的开关分别管什么？'
       },
       'system-global-access': {
         description: '我可以说明登录、注册和访问控制这些全局开关各自管什么。',
         q1: '这些访问控制开关分别限制什么？',
         q2: '怎样关闭开放注册或限制登录方式？',
-        q3: '改完这些开关要重启服务吗？',
+        q3: '改完这些开关要重启服务吗？'
       },
       'system-global-users': {
         description: '我可以帮你查看平台用户、说明角色，以及怎样停用或调整账号。',
         q1: '平台上现在有哪些用户？',
         q2: '怎样停用或调整一个用户的权限？',
-        q3: '系统管理员和普通用户差在哪里？',
+        q3: '系统管理员和普通用户差在哪里？'
       },
       'system-global-tenant': {
         description: '我可以说明平台上的空间策略、默认配额，以及新建空间时会套用什么。',
         q1: '新建空间时会套用哪些默认设置？',
         q2: '怎样限制一个人能创建多少个空间？',
-        q3: '空间的默认存储配额是多少？',
+        q3: '空间的默认存储配额是多少？'
       },
       'system-global-runtime': {
         description: '我可以说明运行时、任务和资源相关的全局选项分别影响什么。',
         q1: '这些运行时设置会影响哪些后台任务？',
         q2: '怎样限制并发或超时？',
-        q3: '改完运行时配置何时生效？',
+        q3: '改完运行时配置何时生效？'
       },
       'system-global-security': {
         description: '我可以解释安全策略、密钥和会话相关开关，以及改动的风险。',
         q1: '这些安全开关分别保护什么？',
         q2: '怎样轮换或作废平台级密钥？',
-        q3: '哪些安全改动会影响已经登录的用户？',
+        q3: '哪些安全改动会影响已经登录的用户？'
       },
       'system-global-other': {
         description: '我可以帮你看那些没有归类的全局配置，并说明改动前该注意什么。',
         q1: '这些未归类的配置是做什么的？',
         q2: '改其中某一项会影响什么？',
-        q3: '哪些项不建议在生产环境随便改？',
+        q3: '哪些项不建议在生产环境随便改？'
       },
       'model-catalog': {
         description: '我可以帮你浏览模型目录、说明怎样把厂商模型加到空间。',
         q1: '目录里有哪些厂商和模型可以接入？',
         q2: '怎样把目录里的模型加到当前空间？',
-        q3: '某个厂商还缺什么配置才能用？',
+        q3: '某个厂商还缺什么配置才能用？'
       },
       'runtime-queues': {
         description: '我可以帮你查看任务队列是否卡住，以及失败任务怎样重试。',
         q1: '现在哪些任务队列卡住了？',
         q2: '解析或索引失败时要怎么重试？',
-        q3: '怎样查看某个队列里正在跑的任务？',
+        q3: '怎样查看某个队列里正在跑的任务？'
       },
       'platform-api-keys': {
         description: '我可以区分平台 Key 和空间 Key，并说明怎样创建和作废。',
         q1: '平台 API Key 和空间 Key 有什么区别？',
         q2: '怎样创建一把只能访问某个空间的 Key？',
-        q3: '密钥泄露后要怎么立刻作废？',
+        q3: '密钥泄露后要怎么立刻作废？'
       },
       'system-audit-log': {
         description: '我可以帮你筛选审计记录、找出高风险操作，并说明日志保留多久。',
         q1: '最近有哪些高风险操作？',
         q2: '怎样按人、按空间筛选审计记录？',
-        q3: '这些日志会保留多久？',
+        q3: '这些日志会保留多久？'
       },
       'integration-im': {
         description: '我可以指导你把飞书、企微等 IM 接到这个空间，并排查收不到消息的原因。',
         q1: '怎样把飞书或企微接到这个空间？',
         q2: '接入后用户要怎样在 IM 里用智能体？',
-        q3: '机器人收不到消息时要检查什么？',
+        q3: '机器人收不到消息时要检查什么？'
       },
       'integration-embed': {
         description: '我可以说明怎样把对话窗口嵌到网站，以及访客能用哪些知识库。',
         q1: '怎样把对话窗口嵌到自己的网站？',
         q2: '嵌入后访客能用哪些知识库或智能体？',
-        q3: '嵌入代码里要改哪些参数？',
+        q3: '嵌入代码里要改哪些参数？'
       },
       'integration-api': {
         description: '我可以说明怎样用 API 发起对话、要带哪些鉴权，并给出请求示例。',
         q1: '怎样用 API 发起一次对话？',
         q2: '调用时要带哪些鉴权信息？',
-        q3: '有没有现成的请求示例？',
+        q3: '有没有现成的请求示例？'
       },
       'integration-mcpserver': {
         description: '我可以说明怎样把 GENYEE 作为 MCP 服务提供出去，以及会暴露哪些工具。',
         q1: '怎样把 GENYEE 作为 MCP 服务提供出去？',
         q2: '外部客户端要怎样连接？',
-        q3: '这个服务会暴露哪些工具？',
+        q3: '这个服务会暴露哪些工具？'
       },
       'integration-cli': {
         description: '我可以指导你安装并登录 CLI，并列出常用的知识库和对话命令。',
         q1: '怎样安装并登录 GENYEE CLI？',
         q2: 'CLI 能做哪些知识库和对话操作？',
-        q3: '最常用的几条命令是什么？',
+        q3: '最常用的几条命令是什么？'
       },
       'integration-chrome': {
         description: '我可以说明浏览器扩展能做什么、怎样安装登录，以及选中内容会发到哪里。',
         q1: '浏览器扩展能做什么？',
         q2: '怎样安装并登录这个扩展？',
-        q3: '扩展里选中的内容会发到哪里？',
+        q3: '扩展里选中的内容会发到哪里？'
       },
       'integration-claw': {
         description: '我可以说明怎样把 GENYEE 接到 Claw，以及需要安装哪个技能。',
         q1: '怎样把 GENYEE 接到 Claw？',
         q2: '需要安装哪个技能？',
-        q3: '连上之后能在 Claw 里做什么？',
-      },
+        q3: '连上之后能在 Claw 里做什么？'
+      }
     },
     startFailed: '启动助手失败，请重试',
     askAboutDocument: '问 {name}',
-    chooseAction: "选择一个功能，或直接输入你的需求。",
+    chooseAction: '选择一个功能，或直接输入你的需求。',
     create: {
-      agentTitle: "用自然语言创建智能体",
-      agentAction: "用助手创建",
-      agentHint: "说说它为谁服务、需要完成什么，助手会帮你选择资源并创建。",
-      agentPlaceholder: "例如：创建一个产品客服助手，根据产品知识库回答使用问题，回答附上来源，找不到答案时说明原因。",
-      automationTitle: "用助手创建任务",
-      automationHint: "描述要做什么、何时运行，助手会帮你整理成自动化任务。",
-      automationPlaceholder: "例如：每周五下午 5 点汇总产品知识库本周的更新，列出新增文档和重点变化。",
-      requestLabel: "任务描述",
-      manual: "手动配置",
-      start: "交给助手",
+      agentTitle: '用自然语言创建智能体',
+      agentAction: '用助手创建',
+      agentHint: '说说它为谁服务、需要完成什么，助手会帮你选择资源并创建。',
+      agentPlaceholder: '例如：创建一个产品客服助手，根据产品知识库回答使用问题，回答附上来源，找不到答案时说明原因。',
+      automationTitle: '用助手创建任务',
+      automationHint: '描述要做什么、何时运行，助手会帮你整理成自动化任务。',
+      automationPlaceholder: '例如：每周五下午 5 点汇总产品知识库本周的更新，列出新增文档和重点变化。',
+      requestLabel: '任务描述',
+      manual: '手动配置',
+      start: '交给助手'
     },
     actions: {
-      writeAnswer: "起草答案",
-      refineAnswer: "优化答案",
-      processSelected: "处理所选",
-      summarizeSelected: "汇总要点",
-      compareDocuments: "比较差异",
-      suggestTags: "推荐标签",
-      organizeDocuments: "整理目录",
-      summarizeActivity: "汇总这 {count} 条动态",
-      toolExamples: "查看使用示例",
-      readContent: "用助手阅读",
-      readSummary: "提炼要点",
-      readSteps: "整理操作步骤",
-      extractFaq: "提取 FAQ",
-      answerToDocument: "整理为文档",
-      answerToFaq: "保存为 FAQ",
-      answerToAutomation: "设为定时任务",
-      analyzeRun: "分析结果",
-      summarizeRun: "总结这次",
-      compareRuns: "对比最近几次",
+      writeAnswer: '起草答案',
+      refineAnswer: '优化答案',
+      processSelected: '处理所选',
+      summarizeSelected: '汇总要点',
+      compareDocuments: '比较差异',
+      suggestTags: '推荐标签',
+      organizeDocuments: '整理目录',
+      summarizeActivity: '汇总这 {count} 条动态',
+      toolExamples: '查看使用示例',
+      readContent: '用助手阅读',
+      readSummary: '提炼要点',
+      readSteps: '整理操作步骤',
+      extractFaq: '提取 FAQ',
+      answerToDocument: '整理为文档',
+      answerToFaq: '保存为 FAQ',
+      answerToAutomation: '设为定时任务',
+      analyzeRun: '分析结果',
+      summarizeRun: '总结这次',
+      compareRuns: '对比最近几次',
       writePrompt: '帮我写',
       refinePrompt: '优化提示词',
       diagnose: '分析原因',
       suggestFaqQuestions: '补充问法',
       refineRules: '优化规则',
-      analyzeChunks: '分析分块效果',
+      analyzeChunks: '分析分块效果'
     },
     prompts: {
-      startAgentCreation: "我想用自然语言创建智能体。请先问我它为谁服务、要完成什么任务。需求明确后，检查可用模型、知识库、MCP 和技能，选择合适的资源，遵循当前权限规则创建并打开配置页。",
-      createAgent: "请根据我的需求创建智能体：{request}。先检查当前可用的模型、知识库、MCP 和技能，选择合适的资源；只询问必要的缺失信息，遵循当前权限规则，创建成功后打开编辑页。",
-      createAutomation: "请创建定时任务：{request}。未另行指定时使用时区 {timezone}。把说明写成可独立执行的完整任务，先校验时间并展示后续运行时刻，遵循当前权限规则，不提高执行权限；创建后打开任务。",
-      writeFaqAnswer: "请根据标准问、已有答案及可核实的资料起草 FAQ 答案，信息不足先询问，不要编造。将草稿填入当前答案输入框，不添加条目、不保存或改动已有答案。",
-      refineFaqAnswer: "请读取当前 FAQ 标准问和完整答案草稿，保留事实与原意，优化清晰度和语气。只回填当前答案输入框，不添加条目、不保存或改动已有答案。",
-      summarizeDocuments: "请只读取知识库 {kb} 中这些文档：{ids}。汇总重点、共同主题与待办，注明各结论的文档来源；不要修改资料。",
-      compareDocuments: "请只比较知识库 {kb} 中这些文档：{ids}。列出共同点、差异和相互矛盾的说法，引用来源，不把不同适用范围误当冲突；不要修改资料。",
-      tagDocuments: "请读取知识库 {kb} 中这些文档：{ids}，优先使用现有标签，逐份给出标签建议和理由。先展示建议清单，不改动标签。",
-      organizeDocuments: "请读取知识库 {kb} 中这些文档：{ids} 及现有目录，按内容提出目录整理方案，逐份列出目标位置与理由。先展示方案，不移动或修改文档。",
-      summarizeActivity: "请仅汇总这个筛选快照中 loaded_entry_ids 指定的动态：{scope}。按筛选条件查询并翻页补齐，说明涉及资料、操作人与结果。区分操作日志与正文改动，不把已加载记录当成全部动态。",
-      explainMcpTools: "请读取 MCP 服务 {id} 的缓存工具目录，说明它能做什么，给出三个实用提问示例，并注明目录是否陈旧或不完整。不要刷新目录、调用工具或修改配置。",
-      readSummary: "请读取这份资料：{source}。提炼重点、关键结论与限制，保留出处，不把摘要当完整原文，也不要改动资料。",
-      readSteps: "请读取这份资料：{source}，整理其中有依据的操作步骤、前提和检查点，附上出处。缺失步骤明确说明，不补造事实，也不要改动原文。",
-      extractFaq: "请读取这份资料：{source}，提取有原文依据的常见问题与答案，逐条注明来源，先展示 FAQ 草稿供我选择，不保存或修改资料。",
-      answerToDocument: "请读取这条回答及原问题：{source}，整理成结构清晰的文档，保留来源与不确定性。先展示草稿并让我选择目标知识库，再按当前权限规则创建文档，不覆盖现有资料。",
-      answerToFaq: "请读取这条回答及原问题：{source}，整理出标准问和准确答案。先展示草稿并让我选择目标 FAQ 知识库，检查相近条目后按当前权限规则保存，不覆盖已有条目。",
-      answerToAutomation: "请读取这条回答及原问题：{source}，把需要重复完成的工作整理成可独立执行的定时任务。向我确认缺失的频率、时间和时区，校验并展示后续运行时刻，再按当前权限规则创建，不提高执行权限。",
-      summarizeRun: "请读取这次自动化运行的完整记录与回答：{source}。总结产出、重要发现和待办，附带文本只是摘录；不要修改或重跑任务。",
-      compareRuns: "请读取这次自动化运行 {source}，并与同一任务的这些已完成运行比较：{ids}。读取完整回答，比较结果变化，区分输入或执行时间不同造成的差异；不要修改或重跑任务。",
+      startAgentCreation: '我想用自然语言创建智能体。请先问我它为谁服务、要完成什么任务。需求明确后，检查可用模型、知识库、MCP 和技能，选择合适的资源，遵循当前权限规则创建并打开配置页。',
+      createAgent: '请根据我的需求创建智能体：{request}。先检查当前可用的模型、知识库、MCP 和技能，选择合适的资源；只询问必要的缺失信息，遵循当前权限规则，创建成功后打开编辑页。',
+      createAutomation: '请创建定时任务：{request}。未另行指定时使用时区 {timezone}。把说明写成可独立执行的完整任务，先校验时间并展示后续运行时刻，遵循当前权限规则，不提高执行权限；创建后打开任务。',
+      writeFaqAnswer: '请根据标准问、已有答案及可核实的资料起草 FAQ 答案，信息不足先询问，不要编造。将草稿填入当前答案输入框，不添加条目、不保存或改动已有答案。',
+      refineFaqAnswer: '请读取当前 FAQ 标准问和完整答案草稿，保留事实与原意，优化清晰度和语气。只回填当前答案输入框，不添加条目、不保存或改动已有答案。',
+      summarizeDocuments: '请只读取知识库 {kb} 中这些文档：{ids}。汇总重点、共同主题与待办，注明各结论的文档来源；不要修改资料。',
+      compareDocuments: '请只比较知识库 {kb} 中这些文档：{ids}。列出共同点、差异和相互矛盾的说法，引用来源，不把不同适用范围误当冲突；不要修改资料。',
+      tagDocuments: '请读取知识库 {kb} 中这些文档：{ids}，优先使用现有标签，逐份给出标签建议和理由。先展示建议清单，不改动标签。',
+      organizeDocuments: '请读取知识库 {kb} 中这些文档：{ids} 及现有目录，按内容提出目录整理方案，逐份列出目标位置与理由。先展示方案，不移动或修改文档。',
+      summarizeActivity: '请仅汇总这个筛选快照中 loaded_entry_ids 指定的动态：{scope}。按筛选条件查询并翻页补齐，说明涉及资料、操作人与结果。区分操作日志与正文改动，不把已加载记录当成全部动态。',
+      explainMcpTools: '请读取 MCP 服务 {id} 的缓存工具目录，说明它能做什么，给出三个实用提问示例，并注明目录是否陈旧或不完整。不要刷新目录、调用工具或修改配置。',
+      readSummary: '请读取这份资料：{source}。提炼重点、关键结论与限制，保留出处，不把摘要当完整原文，也不要改动资料。',
+      readSteps: '请读取这份资料：{source}，整理其中有依据的操作步骤、前提和检查点，附上出处。缺失步骤明确说明，不补造事实，也不要改动原文。',
+      extractFaq: '请读取这份资料：{source}，提取有原文依据的常见问题与答案，逐条注明来源，先展示 FAQ 草稿供我选择，不保存或修改资料。',
+      answerToDocument: '请读取这条回答及原问题：{source}，整理成结构清晰的文档，保留来源与不确定性。先展示草稿并让我选择目标知识库，再按当前权限规则创建文档，不覆盖现有资料。',
+      answerToFaq: '请读取这条回答及原问题：{source}，整理出标准问和准确答案。先展示草稿并让我选择目标 FAQ 知识库，检查相近条目后按当前权限规则保存，不覆盖已有条目。',
+      answerToAutomation: '请读取这条回答及原问题：{source}，把需要重复完成的工作整理成可独立执行的定时任务。向我确认缺失的频率、时间和时区，校验并展示后续运行时刻，再按当前权限规则创建，不提高执行权限。',
+      summarizeRun: '请读取这次自动化运行的完整记录与回答：{source}。总结产出、重要发现和待办，附带文本只是摘录；不要修改或重跑任务。',
+      compareRuns: '请读取这次自动化运行 {source}，并与同一任务的这些已完成运行比较：{ids}。读取完整回答，比较结果变化，区分输入或执行时间不同造成的差异；不要修改或重跑任务。',
       writePrompt: '请结合当前智能体的用途和配置，帮我起草系统提示词。如果目标还不明确，先询问我。将建议填入当前编辑器，保留模板占位符，不要保存或修改已保存的智能体。',
       refinePrompt: '请优化我附带的系统提示词，使职责、回答要求和工具使用规则更清晰，保留原意及模板占位符。将修改填入当前编辑器，不要保存或修改已保存的智能体。',
       modelFailure: '请结合当前模型配置和附带的连接错误，分析失败原因并给出排查步骤。不要读取或展示密钥，也不要修改或保存配置。',
@@ -3072,7 +3086,7 @@ export default {
       syncFailure: '请检查数据源「{source}」（ID：{id}）的同步记录（ID：{log}），结合附带的错误样例和失败数量分析原因。先给出处理建议，不要重试同步或修改数据源。',
       writeWikiRules: '请根据当前知识库的用途，为「{field}」起草清晰的规则。如果用途还不明确，先询问我。将建议填入对应输入框，保留系统固定的引用与输出协议，不要保存或重新解析。',
       refineWikiRules: '请优化附带的「{field}」规则，让表达更明确并保留原意。将修改填入对应输入框，保留系统固定的引用与输出协议，不要保存或重新解析。',
-      analyzeChunks: '请分析附带的这次分块预览，结合原文与分块摘录、当次参数和统计，说明是否存在割裂语义、过短或过长的分块，并给出参数调整建议。区分摘录可验证的问题与需要更多原文的判断，不要修改配置或重建知识库。',
+      analyzeChunks: '请分析附带的这次分块预览，结合原文与分块摘录、当次参数和统计，说明是否存在割裂语义、过短或过长的分块，并给出参数调整建议。区分摘录可验证的问题与需要更多原文的判断，不要修改配置或重建知识库。'
     },
     askAboutAnswer: '就这条回答问 {name}',
     selection: {
@@ -3141,70 +3155,71 @@ export default {
       }
     },
     starters: {
-      agentConfig: "这个智能体的配置有哪些可以改进的地方？",
-      agentModel: "这个智能体适合换成什么模型？",
+      agentConfig: '这个智能体的配置有哪些可以改进的地方？',
+      agentModel: '这个智能体适合换成什么模型？',
       agentKnowledge: '它能检索哪些知识库？',
-      wikiIssues: "这篇 Wiki 有哪些内容需要补充或核实？",
-      wikiSummary: "这篇 Wiki 的核心内容是什么？",
+      wikiIssues: '这篇 Wiki 有哪些内容需要补充或核实？',
+      wikiSummary: '这篇 Wiki 的核心内容是什么？',
       documentStatus: '这个文档的解析状态怎么样？',
-      documentSummary: "这篇文档有哪些关键结论？",
+      documentSummary: '这篇文档有哪些关键结论？',
       failedDocuments: '这个知识库有哪些解析失败的文档？',
-      recentActivity: "最近上传或更新了哪些文档？",
+      recentActivity: '最近上传或更新了哪些文档？',
       formats: 'GENYEE 支持哪些文档格式？',
       createWiki: '怎样创建 Wiki 知识库？',
-      agents: "这些智能体分别适合回答什么问题？",
+      agents: '这些智能体分别适合回答什么问题？',
       messageSources: '这个回答的依据是什么？',
       messageCheck: '这个回答有没有说错？',
-      modelCheck: "这个模型的配置适合当前用途吗？",
+      modelCheck: '这个模型的配置适合当前用途吗？',
       modelUsage: '哪些智能体和知识库在用这些模型？',
       mcpTools: '这个 MCP 服务提供哪些工具？',
-      mcpCheck: "使用这个服务还需要配置什么？",
+      mcpCheck: '使用这个服务还需要配置什么？',
       modelSetup: '我还需要配置哪些模型？',
       mcpSetup: '怎样接入一个 MCP 服务？',
-      releaseHighlights: "当前版本主要更新了哪些内容？",
-      gettingStarted: "第一次使用 GENYEE，应该先配置什么？",
-      workflow: "知识库、智能体和自动化该怎么配合使用？",
-      knowledgeOverview: "这些知识库分别适合查哪些内容？",
-      knowledgeType: "文档、FAQ 和 Wiki，我该怎么选？",
-      knowledgeOrganize: "我有一批资料，怎样整理成好用的知识库？",
-      knowledgeTopics: "这些文档分别讲了什么？",
-      knowledgeGaps: "哪些文档解析失败或还没完成？",
-      faqCoverage: "这些问答覆盖了哪些高频问题？",
-      faqDuplicates: "哪些问答内容重复，可以合并？",
-      faqImprove: "哪些答案需要补充或更新？",
-      documentSteps: "把这篇文档里的做法整理成操作步骤",
-      documentFaq: "这篇文档可以提炼出哪些常见问答？",
-      wikiSources: "这篇 Wiki 的结论有哪些来源支撑？",
-      agentCreate: "怎样新建一个能查知识库的智能体？",
-      agentChoose: "查知识库时，该用这里的哪个智能体？",
-      automationIdeas: "哪些重复工作适合交给自动化？",
-      automationCreate: "帮我设一个任务，每周汇总知识库的更新",
-      automationOverview: "我的自动化任务最近运行得怎么样？",
-      automationSummary: "这个任务最近一次运行产出了什么？",
-      automationSchedule: "这个任务下次什么时候运行？",
-      automationImprove: "这个任务的提示词和执行安排还能怎么改进？",
-      skillFind: "这里有哪些技能适合加到智能体上？",
-      skillAdd: "怎样把新技能添加并启用到智能体？",
-      skillUse: "已添加的技能分别能做什么？",
-      mcpFind: "这些 MCP 服务里，智能体能调用哪些工具？",
-      mcpExamples: "怎样让智能体使用这些 MCP 工具？",
-      mcpUsage: "这个服务的工具怎么用？举个例子",
-      modelFit: "这个模型更适合处理哪些任务？",
-      modelTypes: "对话、向量和重排模型分别怎么选？",
-      browserConnect: "怎样把浏览器连接给智能体使用？",
-      browserTasks: "用浏览器可以自动完成哪些网页操作？",
-      browserReconnect: "浏览器显示离线时，要怎么重连？",
-      messageReuse: "把这个回答整理成可以照着做的步骤",
-      chatSummary: "这次对话主要问了什么、得到了哪些结果？",
-      chatCheck: "最后一轮回答有没有漏掉或说错的地方？",
-      chatFollowup: "基于这次对话，还能接着问哪些问题？",
-      artifactRecent: "最近生成了哪些文件？",
-      artifactSources: "这些文件分别来自哪次对话？",
-      artifactCreate: "怎样让智能体把结果保存成文件？",
-      organizationShared: "这些共享空间分别共享了哪些知识库和智能体？",
-      organizationJoin: "怎样加入一个已有的共享空间？",
-      organizationCreate: "怎样创建一个共享空间并邀请成员？",
-    }
+      releaseHighlights: '当前版本主要更新了哪些内容？',
+      gettingStarted: '第一次使用 GENYEE，应该先配置什么？',
+      workflow: '知识库、智能体和自动化该怎么配合使用？',
+      knowledgeOverview: '这些知识库分别适合查哪些内容？',
+      knowledgeType: '文档、FAQ 和 Wiki，我该怎么选？',
+      knowledgeOrganize: '我有一批资料，怎样整理成好用的知识库？',
+      knowledgeTopics: '这些文档分别讲了什么？',
+      knowledgeGaps: '哪些文档解析失败或还没完成？',
+      faqCoverage: '这些问答覆盖了哪些高频问题？',
+      faqDuplicates: '哪些问答内容重复，可以合并？',
+      faqImprove: '哪些答案需要补充或更新？',
+      documentSteps: '把这篇文档里的做法整理成操作步骤',
+      documentFaq: '这篇文档可以提炼出哪些常见问答？',
+      wikiSources: '这篇 Wiki 的结论有哪些来源支撑？',
+      agentCreate: '怎样新建一个能查知识库的智能体？',
+      agentChoose: '查知识库时，该用这里的哪个智能体？',
+      automationIdeas: '哪些重复工作适合交给自动化？',
+      automationCreate: '帮我设一个任务，每周汇总知识库的更新',
+      automationOverview: '我的自动化任务最近运行得怎么样？',
+      automationSummary: '这个任务最近一次运行产出了什么？',
+      automationSchedule: '这个任务下次什么时候运行？',
+      automationImprove: '这个任务的提示词和执行安排还能怎么改进？',
+      skillFind: '这里有哪些技能适合加到智能体上？',
+      skillAdd: '怎样把新技能添加并启用到智能体？',
+      skillUse: '已添加的技能分别能做什么？',
+      mcpFind: '这些 MCP 服务里，智能体能调用哪些工具？',
+      mcpExamples: '怎样让智能体使用这些 MCP 工具？',
+      mcpUsage: '这个服务的工具怎么用？举个例子',
+      modelFit: '这个模型更适合处理哪些任务？',
+      modelTypes: '对话、向量和重排模型分别怎么选？',
+      browserConnect: '怎样把浏览器连接给智能体使用？',
+      browserTasks: '用浏览器可以自动完成哪些网页操作？',
+      browserReconnect: '浏览器显示离线时，要怎么重连？',
+      messageReuse: '把这个回答整理成可以照着做的步骤',
+      chatSummary: '这次对话主要问了什么、得到了哪些结果？',
+      chatCheck: '最后一轮回答有没有漏掉或说错的地方？',
+      chatFollowup: '基于这次对话，还能接着问哪些问题？',
+      artifactRecent: '最近生成了哪些文件？',
+      artifactSources: '这些文件分别来自哪次对话？',
+      artifactCreate: '怎样让智能体把结果保存成文件？',
+      organizationShared: '这些共享空间分别共享了哪些知识库和智能体？',
+      organizationJoin: '怎样加入一个已有的共享空间？',
+      organizationCreate: '怎样创建一个共享空间并邀请成员？'
+    },
+    secretFieldTerms: '密钥,秘钥,密码,口令,令牌,凭证,凭据'
   },
   assistantSettings: {
     title: '助手',
@@ -3284,6 +3299,15 @@ export default {
     scope: {
       placeholder: '在本知识库中搜索…',
       remove: '移除范围过滤（Backspace）'
+    },
+    keywords: {
+      assistant: 'assistant,help,genyee,kora,助手,帮助',
+      newChat: 'new,chat,conversation,新建,对话',
+      knowledgeBases: 'kb,knowledge,base,知识库,文档',
+      agents: 'agent,bot,智能体,助手',
+      organizations: 'org,organization,team,space,组织,共享',
+      settings: 'settings,preferences,config,设置,配置',
+      productTour: 'guide,tour,onboarding,help,引导,新手,教程'
     }
   },
   preview: {
@@ -3301,13 +3325,15 @@ export default {
     htmlSource: '查看源码',
     audioLoading: '加载音频中…',
     audioNotSupported: '您的浏览器不支持音频播放',
-    videoNotSupported: '您的浏览器不支持视频播放'
+    videoNotSupported: '您的浏览器不支持视频播放',
+    xlsxCellImageAlt: '图片',
+    emptyContent: '文档内容为空'
   },
   organization: {
     cardStats: {
       members: '{count} 成员',
       knowledgeBases: '{count} 知识库',
-      agents: '{count} 智能体',
+      agents: '{count} 智能体'
     },
     title: '共享空间',
     subtitle: '创建或加入共享空间，让多个空间互相协作，共享知识库与智能体',
@@ -3625,58 +3651,57 @@ export default {
     withWebSearch: '网络搜索'
   },
   mcpMetadata: {
-    "searchTools": "搜索工具名称或描述",
-    "retry": "重试",
-    "details": "详情",
-    "description": "描述",
-    "parameters": "参数",
-    "required": "必填",
-    "fullSchema": "完整定义",
-    "noDescription": "没有描述",
-    "noParameters": "没有参数定义",
-    "enabled": "启用工具",
-    "approval": "调用需审批",
-    "noTools": "没有匹配的工具",
-    "next": "下一页",
-    "policyLoadFailed": "工具策略读取失败，请重试后再修改。",
-    "policySaveFailed": "工具设置保存失败",
-
-    "tools": "Tools 清单",
-    "cacheHint": "尚未同步时会自动连接并保存完整描述；之后只在刷新时访问 MCP 服务。",
-    "refresh": "刷新 Tools",
-    "fetch": "重新拉取",
-    "fetching": "正在连接并拉取 Tools…",
-    "toolCount": "{count} 个工具",
-    "stale": "连接或认证配置已改变。以下是旧目录，重新同步后才能供模型使用。",
-    "notSynced": "尚未同步工具。连接并拉取后，会保存完整描述和参数定义。",
-    "syncRequired": "请先连接并拉取 Tools，同步后的目录才能给模型使用。",
-    "needsRefresh": "需要重新同步",
-    "saved": "已保存目录",
-    "syncedAt": "同步时间：",
-    "serverDocumentation": "服务端原始说明",
-    "noServerDocumentation": "该 MCP Server 的 initialize 未返回 instructions / serverInfo.description（均为可选字段）。工具说明在下方各工具的 description 里。",
-    "policyHint": "工具开关与审批设置即时保存；刷新目录不会覆盖这些设置。",
-    "columnTool": "工具",
-    "columnEnabled": "启用",
-    "columnApproval": "需审批",
-    "failed": "工具目录读取失败",
-    "setupProgress": "MCP 配置步骤",
-    "connection": "连接配置",
-    "toolsAndUsage": "工具与用途说明",
-    "previous": "上一步",
-    "usage": "服务用途",
-    "usageHint": "模型先读取服务用途，再按需加载具体工具。以下内容由你维护，刷新不会覆盖。",
-    "summary": "用途摘要",
-    "summaryPlaceholder": "例如：查询订单状态、物流进度和退款记录。",
-    "usageInstructions": "使用说明",
-    "instructionsPlaceholder": "简要说明服务用途、适用场景和关键使用约束。",
-    "generateUsage": "AI 生成",
-    "generateHint": "根据已同步且启用的 Tools 生成精简说明，填入后可编辑，保存后生效。",
-    "instructionsRequired": "使用说明不能为空",
-    "generated": "已生成，请检查后保存",
-    "generateFailed": "生成失败，请确认 Tools 已同步且已配置可用的对话模型后重试。",
-    "saveNext": "保存并下一步"
-},
+    searchTools: '搜索工具名称或描述',
+    retry: '重试',
+    details: '详情',
+    description: '描述',
+    parameters: '参数',
+    required: '必填',
+    fullSchema: '完整定义',
+    noDescription: '没有描述',
+    noParameters: '没有参数定义',
+    enabled: '启用工具',
+    approval: '调用需审批',
+    noTools: '没有匹配的工具',
+    next: '下一页',
+    policyLoadFailed: '工具策略读取失败，请重试后再修改。',
+    policySaveFailed: '工具设置保存失败',
+    tools: 'Tools 清单',
+    cacheHint: '尚未同步时会自动连接并保存完整描述；之后只在刷新时访问 MCP 服务。',
+    refresh: '刷新 Tools',
+    fetch: '重新拉取',
+    fetching: '正在连接并拉取 Tools…',
+    toolCount: '{count} 个工具',
+    stale: '连接或认证配置已改变。以下是旧目录，重新同步后才能供模型使用。',
+    notSynced: '尚未同步工具。连接并拉取后，会保存完整描述和参数定义。',
+    syncRequired: '请先连接并拉取 Tools，同步后的目录才能给模型使用。',
+    needsRefresh: '需要重新同步',
+    saved: '已保存目录',
+    syncedAt: '同步时间：',
+    serverDocumentation: '服务端原始说明',
+    noServerDocumentation: '该 MCP Server 的 initialize 未返回 instructions / serverInfo.description（均为可选字段）。工具说明在下方各工具的 description 里。',
+    policyHint: '工具开关与审批设置即时保存；刷新目录不会覆盖这些设置。',
+    columnTool: '工具',
+    columnEnabled: '启用',
+    columnApproval: '需审批',
+    failed: '工具目录读取失败',
+    setupProgress: 'MCP 配置步骤',
+    connection: '连接配置',
+    toolsAndUsage: '工具与用途说明',
+    previous: '上一步',
+    usage: '服务用途',
+    usageHint: '模型先读取服务用途，再按需加载具体工具。以下内容由你维护，刷新不会覆盖。',
+    summary: '用途摘要',
+    summaryPlaceholder: '例如：查询订单状态、物流进度和退款记录。',
+    usageInstructions: '使用说明',
+    instructionsPlaceholder: '简要说明服务用途、适用场景和关键使用约束。',
+    generateUsage: 'AI 生成',
+    generateHint: '根据已同步且启用的 Tools 生成精简说明，填入后可编辑，保存后生效。',
+    instructionsRequired: '使用说明不能为空',
+    generated: '已生成，请检查后保存',
+    generateFailed: '生成失败，请确认 Tools 已同步且已配置可用的对话模型后重试。',
+    saveNext: '保存并下一步'
+  },
   mcpServiceDialog: {
     addTitle: '添加 MCP 服务',
     addDesc: '连接外部 MCP 服务，智能体即可调用其中的工具。',
@@ -3820,7 +3845,7 @@ export default {
       bindings: {
         embedding_model: 'Embedding 模型',
         summary_model: '摘要模型',
-          question_model: '问题生成模型',
+        question_model: '问题生成模型',
         image_processing_model: '图片处理模型',
         vlm_model: '视觉理解模型',
         asr_model: '语音识别模型',
@@ -3959,8 +3984,8 @@ export default {
     }
   },
   mcpSettings: {
-    addUsageInstructions: "添加使用说明",
-    noUsageInstructions: "尚未填写使用说明",
+    addUsageInstructions: '添加使用说明',
+    noUsageInstructions: '尚未填写使用说明',
     title: 'MCP 服务管理',
     description: '管理外部 MCP (Model Context Protocol) 服务，在 Agent 模式下调用外部工具和资源',
     enabled: '已启用',
@@ -4224,7 +4249,31 @@ export default {
     selectLanguage: '选择语言',
     language: '语言',
     languageDescription: '选择界面显示语言',
-    languageSaved: '语言设置已保存'
+    languageSaved: '语言设置已保存',
+    autonyms: {
+      zhCN: '简体中文',
+      zhTW: '繁體中文',
+      enUS: 'English',
+      jaJP: '日本語',
+      koKR: '한국어',
+      ruRU: 'Русский'
+    },
+    shortAutonyms: {
+      zhCN: '中文',
+      zhTW: '繁中',
+      enUS: 'EN',
+      jaJP: '日本語',
+      koKR: '한국어',
+      ruRU: 'RU'
+    },
+    flags: {
+      zhCN: '🇨🇳',
+      zhTW: '繁',
+      enUS: '🇺🇸',
+      jaJP: '🇯🇵',
+      koKR: '🇰🇷',
+      ruRU: '🇷🇺'
+    }
   },
   model: {
     reasoning: {
@@ -4236,7 +4285,7 @@ export default {
         medium: '中',
         high: '高',
         xhigh: '极高',
-        max: '最大',
+        max: '最大'
       },
       levelDescriptions: {
         off: '关闭思考，不写入任何思考参数',
@@ -4246,8 +4295,8 @@ export default {
         medium: '中等思考强度',
         high: '深度思考，响应更慢',
         xhigh: '超高强度思考（仅部分模型支持）',
-        max: '最大思考预算（仅部分模型支持）',
-      },
+        max: '最大思考预算（仅部分模型支持）'
+      }
     },
     modelName: '模型名称',
     defaultTag: '默认',
@@ -4263,7 +4312,7 @@ export default {
       catalog: {
         reasoning: '推理',
         vision: '视觉',
-        hint: '可从厂商内置目录选择，也可直接输入自定义模型名。',
+        hint: '可从厂商内置目录选择，也可直接输入自定义模型名。'
       },
       resolved: {
         title: '实际调用方式',
@@ -4276,34 +4325,34 @@ export default {
         endpoint: '请求地址',
         thinkingFormat: '思考开关传参',
         thinkingLevels: '可选思考强度',
-        noThinking: '该模型不支持思考',
+        noThinking: '该模型不支持思考'
       },
       advanced: {
         toggle: '高级',
         api: {
           label: '协议覆盖',
           auto: '自动（按厂商 / URL 推断）',
-          desc: '强制使用指定的请求协议；一般无需修改。',
+          desc: '强制使用指定的请求协议；一般无需修改。'
         },
         remoteModelName: {
           label: '远端模型名',
           placeholder: '留空与模型名相同',
-          desc: '实际发送给厂商的模型 ID，与上面的模型名不同时填写。',
+          desc: '实际发送给厂商的模型 ID，与上面的模型名不同时填写。'
         },
         legacyThinking: {
           label: '思考参数格式（旧配置）',
           catalog: '遵循目录默认（推荐）',
           none: '不写入思考参数',
-          desc: '此模型仍带有旧版 thinking_control 设置。选择「遵循目录默认」后由目录决定思考参数的写法。',
+          desc: '此模型仍带有旧版 thinking_control 设置。选择「遵循目录默认」后由目录决定思考参数的写法。'
         },
         compat: {
           label: '协议兼容覆盖（JSON）',
-          placeholder: "{'{'} \"max_tokens_field\": \"max_tokens\" {'}'}",
+          placeholder: '{\'{\'} "max_tokens_field": "max_tokens" {\'}\'}',
           desc: '只在接口与目录默认值不一致时填写，只写需要改的字段。留空表示不覆盖。',
           docLink: '查看字段说明',
           invalid: 'JSON 格式不正确',
-          mustBeObject: '必须是 JSON 对象',
-        },
+          mustBeObject: '必须是 JSON 对象'
+        }
       },
       addTitle: '添加模型',
       editTitle: '编辑模型',
@@ -4622,7 +4671,7 @@ export default {
         promoteBtn: '提升',
         revokedMsg: '已撤销 {name} 的管理员权限',
         promotedMsg: '已将 {name} 提升为系统管理员',
-        roleFailed: '修改角色失败',
+        roleFailed: '修改角色失败'
       },
       passwordReset: {
         dialogTitle: '重置其他用户的密码',
@@ -4634,7 +4683,7 @@ export default {
         confirmPasswordPlaceholder: '再次输入新密码',
         confirmBtn: '重置',
         success: '密码已重置，该用户的现有会话已失效',
-        failed: '重置密码失败',
+        failed: '重置密码失败'
       },
       createUser: {
         action: '创建用户',
@@ -5169,7 +5218,7 @@ export default {
       today: '今天 {time}',
       yesterday: '昨天 {time}',
       thisYear: '{month}月{day}日 {time}',
-      otherYear: '{year}年{month}月{day}日 {time}',
+      otherYear: '{year}年{month}月{day}日 {time}'
     },
     preparingAnswer: '正在准备回答…',
     connectingModelAndGeneratingAnswer: '正在连接模型并生成回答…',
@@ -5190,45 +5239,45 @@ export default {
     referencesDrawerToolsSection: '工具',
     referencesDrawerEmpty: '暂无参考来源',
     sandbox: {
-        panelTitle: '沙箱可视化',
-        tabArtifacts: '产物',
-        tabTerminal: '终端',
-        tabDesktop: '桌面',
-        artifactsEmpty: '本会话尚未生成可下载的文件',
-        artifactScope: '产物范围',
-        artifactsCurrent: '本轮',
-        artifactsAll: '全部',
-        artifactsSearch: '搜索文件名',
-        artifactsNoMatches: '没有匹配的文件',
-        desktopNotStarted: '桌面尚未连接。连接后会接入本会话的沙箱环境。',
-        desktopStart: '连接桌面',
-        desktopStarting: '正在连接桌面…（首次约需 3–8 秒）',
-        desktopUnsupported: '当前沙箱配置不支持桌面。需要在工作区沙箱设置的模板列表里选中带桌面的镜像，且后端为 Cube 或 E2B。',
-        desktopBusy: '本会话已有一个桌面连接。桌面同一时刻只允许一个连接，否则会出现两个人抢同一套键鼠。',
-        desktopStartFailed: '桌面启动失败，可以重试。',
-        desktopRebuilt: '沙箱已因技能更新重建，原桌面及未保存的内容已丢失。重新连接会得到一个全新桌面。',
-        desktopNeedsProvision: '本会话当前没有运行中的沙箱环境。创建并连接会新建一个沙箱，并按工作区配置计费。',
-        desktopCreateAndStart: '创建并连接',
-        desktopPaused: '本会话的沙箱已暂停。连接桌面会唤醒它。',
-        desktopDisconnected: '桌面连接已断开',
-        desktopIdleDisconnected: '桌面空闲已断开，沙箱将按工作区 TTL 自行暂停。可重新连接。',
-        desktopRetry: '重新连接',
-        notStarted: '终端尚未启动。启动后会连接本会话的沙箱环境；若沙箱不存在或已暂停，将为你创建或唤醒它。',
-        paused: '本会话的沙箱已暂停。启动终端会唤醒它。',
-        stopped: '本会话的沙箱未在运行：可能已停止，或因长时间空闲已被回收。启动终端会重新启动它；若已被回收，则会新建一个沙箱，之前的文件和安装的软件不会保留。',
-        start: '启动终端',
-        connecting: '正在连接沙箱…',
-        needsProvision: '本会话当前没有运行中的沙箱环境。创建并启动会新建一个沙箱，并按工作区配置计费。',
-        createAndStart: '创建并启动',
-        noSandbox: '会话尚未创建沙箱，且当前智能体未配置沙箱后端，无法确定在哪个后端创建。请切换到配置了沙箱的智能体，或发送一条需要执行代码的消息。',
-        unsupported: '当前沙箱后端不支持交互终端',
-        disconnected: '连接已断开',
-        retry: '重新连接',
-        sessionEnded: '终端会话已结束',
-        idleDisconnected: '终端空闲已断开，沙箱将按工作区 TTL 自行暂停。可重新连接。',
-        idleDisconnectedNewShell: '终端空闲已断开，其中的 shell 已结束（nohup 启动的后台任务不受影响）。重新连接会打开一个新的 shell。',
-        disconnectedNewShell: '连接已断开，终端中的 shell 已结束（nohup 启动的后台任务不受影响）。重新连接会打开一个新的 shell。',
-        authRevoked: '登录状态已失效，终端已断开。请重新登录后再连接。',
+      panelTitle: '沙箱可视化',
+      tabArtifacts: '产物',
+      tabTerminal: '终端',
+      tabDesktop: '桌面',
+      artifactsEmpty: '本会话尚未生成可下载的文件',
+      artifactScope: '产物范围',
+      artifactsCurrent: '本轮',
+      artifactsAll: '全部',
+      artifactsSearch: '搜索文件名',
+      artifactsNoMatches: '没有匹配的文件',
+      desktopNotStarted: '桌面尚未连接。连接后会接入本会话的沙箱环境。',
+      desktopStart: '连接桌面',
+      desktopStarting: '正在连接桌面…（首次约需 3–8 秒）',
+      desktopUnsupported: '当前沙箱配置不支持桌面。需要在工作区沙箱设置的模板列表里选中带桌面的镜像，且后端为 Cube 或 E2B。',
+      desktopBusy: '本会话已有一个桌面连接。桌面同一时刻只允许一个连接，否则会出现两个人抢同一套键鼠。',
+      desktopStartFailed: '桌面启动失败，可以重试。',
+      desktopRebuilt: '沙箱已因技能更新重建，原桌面及未保存的内容已丢失。重新连接会得到一个全新桌面。',
+      desktopNeedsProvision: '本会话当前没有运行中的沙箱环境。创建并连接会新建一个沙箱，并按工作区配置计费。',
+      desktopCreateAndStart: '创建并连接',
+      desktopPaused: '本会话的沙箱已暂停。连接桌面会唤醒它。',
+      desktopDisconnected: '桌面连接已断开',
+      desktopIdleDisconnected: '桌面空闲已断开，沙箱将按工作区 TTL 自行暂停。可重新连接。',
+      desktopRetry: '重新连接',
+      notStarted: '终端尚未启动。启动后会连接本会话的沙箱环境；若沙箱不存在或已暂停，将为你创建或唤醒它。',
+      paused: '本会话的沙箱已暂停。启动终端会唤醒它。',
+      stopped: '本会话的沙箱未在运行：可能已停止，或因长时间空闲已被回收。启动终端会重新启动它；若已被回收，则会新建一个沙箱，之前的文件和安装的软件不会保留。',
+      start: '启动终端',
+      connecting: '正在连接沙箱…',
+      needsProvision: '本会话当前没有运行中的沙箱环境。创建并启动会新建一个沙箱，并按工作区配置计费。',
+      createAndStart: '创建并启动',
+      noSandbox: '会话尚未创建沙箱，且当前智能体未配置沙箱后端，无法确定在哪个后端创建。请切换到配置了沙箱的智能体，或发送一条需要执行代码的消息。',
+      unsupported: '当前沙箱后端不支持交互终端',
+      disconnected: '连接已断开',
+      retry: '重新连接',
+      sessionEnded: '终端会话已结束',
+      idleDisconnected: '终端空闲已断开，沙箱将按工作区 TTL 自行暂停。可重新连接。',
+      idleDisconnectedNewShell: '终端空闲已断开，其中的 shell 已结束（nohup 启动的后台任务不受影响）。重新连接会打开一个新的 shell。',
+      disconnectedNewShell: '连接已断开，终端中的 shell 已结束（nohup 启动的后台任务不受影响）。重新连接会打开一个新的 shell。',
+      authRevoked: '登录状态已失效，终端已断开。请重新登录后再连接。'
     },
     questionMinimapTitle: '问答',
     questionMinimapPosition: '第 {current} 轮 · 共 {total} 轮',
@@ -5251,7 +5300,7 @@ export default {
       failed: '回滚失败，请重试',
       skipped: '对话已回滚，工作区未改动',
       skipNoSandbox: '对话已回滚，工作区未改动（当前没有沙箱）',
-      skipNoCheckpoint: '对话已回滚，工作区未改动（没有可回退的检查点）',
+      skipNoCheckpoint: '对话已回滚，工作区未改动（没有可回退的检查点）'
     },
     requestInfoTitle: '请求信息',
     requestInfoRequestId: 'Request ID',
@@ -5269,13 +5318,13 @@ export default {
     referenceSourceView: '查看原文',
     referenceSourceRelocate: '重新定位',
     referenceSourceLocating: '正在定位引用位置…',
-    referenceSourceExact: "已精确定位原文片段",
-    referenceSourcePartial: "已高亮核验通过的原文片段，部分引用内容尚未匹配",
-    referenceSourceBlock: "已定位到来源区域，尚未精确匹配文字",
-    referenceSourceAmbiguous: "原文有多处相同内容，无法唯一定位",
-    referenceSourceStale: "原文或内容已更新，当前引用无法精确定位",
-    referenceSourcePrevious: "上一处引用",
-    referenceSourceNext: "下一处引用",
+    referenceSourceExact: '已精确定位原文片段',
+    referenceSourcePartial: '已高亮核验通过的原文片段，部分引用内容尚未匹配',
+    referenceSourceBlock: '已定位到来源区域，尚未精确匹配文字',
+    referenceSourceAmbiguous: '原文有多处相同内容，无法唯一定位',
+    referenceSourceStale: '原文或内容已更新，当前引用无法精确定位',
+    referenceSourcePrevious: '上一处引用',
+    referenceSourceNext: '下一处引用',
     referenceSourceFoundPage: '已定位到第 {page} 页',
     referenceSourceNotFound: '未能精确定位引用内容，已为你打开原文',
     referenceSourceOpenWeb: '打开原网页并定位',
@@ -5345,7 +5394,7 @@ export default {
       running: '没有后台任务 | {count} 个后台任务 | {count} 个后台任务',
       stop: '停止',
       loading: '正在加载输出…',
-      unavailable: '暂时无法查看输出',
+      unavailable: '暂时无法查看输出'
     },
     wikiWritePageTitle: 'Wiki 页面写入',
     wikiReplaceTextTitle: 'Wiki 文本替换',
@@ -5385,7 +5434,13 @@ export default {
     attachmentReady: '解析完成',
     attachmentUploadFailed: '附件上传失败',
     attachmentParseFailed: '附件解析失败',
-    attachmentStillProcessing: '附件 {name} 仍在解析，请稍候'
+    attachmentStillProcessing: '附件 {name} 仍在解析，请稍候',
+    finalAnswerPrefixList: '最终答案,答案,答',
+    forkFromAnswerTooltip: '从这条回答继续分叉',
+    forkFromMessageTooltip: '从这里分叉出新会话',
+    forkedSessionTitle: '{title}（分支）',
+    forkWaitForTurnEnd: '请等本轮回答结束后再分叉',
+    forkFailed: '分叉失败，请重试'
   },
   knowledgeEditor: {
     titleCreate: '新建知识库',
@@ -5438,7 +5493,7 @@ export default {
         description: '解析文档时调用大模型为每个分块生成相关问题，提高检索召回率。启用后会增加文档解析耗时。',
         countLabel: '生成问题数量',
         countDescription: '每个文档分块生成的问题数量（1-10）',
-    instructionsLabel: '问题生成要求',
+        instructionsLabel: '问题生成要求',
         instructionsDescription: '指定问题面向的人群、场景和表达方式，系统仍维护稳定输出格式',
         instructionsPlaceholder: '例如：生成客服用户常问的自然语言问题，避免考试题式表达…'
       },
@@ -5537,6 +5592,12 @@ export default {
           faq: 'FAQ 列表',
           chapter: 'PDF 章节',
           plain: '纯文本'
+        },
+        sampleTexts: {
+          markdown: '# GENYEE 知识框架\n\nGENYEE 是一个基于 LLM 的企业级知识问答系统，集 RAG 问答、ReAct 智能体、Wiki 知识图谱于一体。本文介绍其设计动机、架构与典型用法。\n\n## 设计动机\n\n企业内部知识散落在 Confluence、飞书、Notion、Git 仓库等多种系统，传统全文检索难以理解语义，单一 LLM 又缺少可信赖的上下文来源。GENYEE 的目标是：\n\n- **多源接入**：把分散内容统一抽取、清洗、向量化\n- **多策略检索**：稠密、稀疏、知识图谱多路召回 + RRF 融合\n- **可解释推理**：ReAct Agent 让推理链条可追踪、可干预\n- **可观测**：支持标准 OpenTelemetry / 链路追踪，每一步推理、每一次工具调用都有 trace\n\n## 核心特性\n\n### 多模型支持\n\n兼容 20+ 主流 LLM：OpenAI、Anthropic、DeepSeek、Qwen、智谱、混元、Gemini，以及本地 Ollama。模型层抽象 `Provider` 接口，新增厂商只需实现 `Chat()` 方法并注册即可。\n\n### 多向量库支持\n\n通过 `RETRIEVE_DRIVER` 环境变量切换：\n\n{\'|\'} 驱动 {\'|\'} 适合场景 {\'|\'}\n{\'|\'}------{\'|\'}---------{\'|\'}\n{\'|\'} pgvector {\'|\'} 已有 PostgreSQL，规模 < 1000 万 chunk {\'|\'}\n{\'|\'} Elasticsearch {\'|\'} 需要混合检索 + 关键词高亮 {\'|\'}\n{\'|\'} Milvus {\'|\'} 大规模、低延迟 {\'|\'}\n{\'|\'} Weaviate {\'|\'} 需要混合 BM25 + GraphQL 查询 {\'|\'}\n{\'|\'} Qdrant {\'|\'} 默认推荐，部署简单、性能均衡 {\'|\'}\n\n## 快速开始\n\n```bash\ngit clone <repository-url> && cd GENYEE\ncp .env.example .env\nmake dev-start\nmake dev-app\nmake dev-frontend\n```\n\n打开浏览器访问 http://localhost:5173 即可。\n\n## 架构概览\n\n1. **HTTP 层 (Gin)**：请求路由 / 鉴权 / 限流\n2. **业务层 (service)**：核心算法 / 编排\n3. **数据层 (repository)**：数据库访问 / 缓存\n4. **领域模型 (types)**：KnowledgeBase / Chunk / Agent',
+          faq: '# GENYEE 部署与使用 FAQ\n\n## 安装与启动\n\n### Q1: Docker 镜像在哪里下载？\n可拉取官方交付镜像或导入离线镜像包：\n```\ndocker pull genyee/genyee-app:latest\ndocker pull genyee/genyee-docreader:latest\ndocker pull genyee/genyee-ui:latest\n```\n\n### Q2: 上传文档报数据库列不存在？\n数据库迁移未完成。运行 `make migrate-up`，确认所有迁移成功后重启 app 容器。\n\n### Q3: 如何切换向量库？\n修改 `.env` 中的 `RETRIEVE_DRIVER`（`qdrant` / `pgvector` / `elasticsearch` / `milvus` / `weaviate`），切换后重新索引存量文档。\n\n### Q4: 检索结果命中但答非所问\n建议启用父子分块、将 chunk overlap 调高至 15%-20%，并在空间模型设置中启用重排模型。',
+          chapter: '第 1 章 引言\n\n1.1 文档目的\n本文档描述分布式知识检索平台的整体架构、组件划分与部署方案，面向运维工程师、SRE 与系统架构师。\n\n1.2 名词约定\n- 网关层（Gateway）：负责入口流量调度与协议转换\n- 业务层（Service）：承载领域逻辑与编排\n- 存储层（Storage）：封装持久化与缓存细节\n- 推理层（Inference）：与外部 LLM / 嵌入模型交互的隔离层\n\n第 2 章 系统架构\n\n2.1 总体设计\n系统包含 4 个长驻服务：网关、业务后端、文档解析、向量索引。\n\n2.2 数据流\n文档上传后依次经过：解析 → 清洗 → 分块 → 嵌入 → 写库。查询路径：rewrite → 多路召回 → fusion → rerank → LLM 生成。\n\n第 3 章 部署指南\n\n3.1 环境要求\n物理资源：8 vCPU / 16 GB 内存 / 100 GB SSD 起步；生产环境建议 16 vCPU / 32 GB / 500 GB。',
+          plain: '知识库的检索质量受多个因素影响，最直接的是切分策略与嵌入模型的匹配度。切分过粗会导致单段语义混杂、相关度被稀释；切分过细则丢失上下文，单独检索某一段无法回答跨段问题。一般建议切分大小落在嵌入模型推荐窗口的 50%–80%，既保证语义完整又留出余量。\n\n除了切分大小，重叠（overlap）也会显著影响召回完整性。重叠为 0 时，跨段问题往往只能召回半句话；重叠 10%–20% 通常就足够覆盖大多数边界情况；重叠超过 30% 会让相邻分块大量同质化，反而增加索引成本。\n\n分隔符的选择应贴合文档真实结构。纯文本可保留默认双换行作为强分隔；Markdown 文档建议保留标题层级，先按标题切，再按段落切；如果文档混合中英文，分隔符应同时包含中文标点（。！？）和英文标点（. ! ?）。\n\n最后，重排（rerank）几乎在所有场景都能显著提升端到端效果。若检索路径包含关键词召回，建议使用 reranker 做第二层过滤，避免纯字面命中污染上下文。'
         }
       },
       languageOptions: {
@@ -5614,7 +5675,46 @@ export default {
       downloadExample: '下载示例文件',
       downloadExampleJSON: '下载 JSON 示例',
       downloadExampleCSV: '下载 CSV 示例',
-      downloadExampleExcel: '下载 Excel 示例'
+      downloadExampleExcel: '下载 Excel 示例',
+      exportHeaders: {
+        tag: '标签(必填)',
+        question: '问题(必填)',
+        similarQuestions: '相似问题(选填-多个用##分隔)',
+        negativeQuestions: '反例问题(选填-多个用##分隔)',
+        answers: '机器人回答(必填-多个用##分隔)',
+        replyAll: '是否全部回复(选填-默认FALSE)',
+        disabled: '是否停用(选填-默认FALSE)',
+        notRecommended: '是否禁止被推荐(选填-默认False 可被推荐)'
+      },
+      importHeaderAliases: {
+        disabled: '是否停用,disabled,is_disabled',
+        replyAll: '是否全部回复,reply all,answer_all',
+        notRecommended: '是否禁止被推荐,exclude from recommendations,not_recommended',
+        question: '问题,standard_question,question',
+        answers: '机器人回答,answers,bot answers',
+        similarQuestions: '相似问题,similar_questions,similar questions',
+        negativeQuestions: '反例问题,negative_questions,negative questions',
+        tag: '标签,分类,tag_name,tag,category'
+      },
+      booleanTrueAliases: 'TRUE,1,YES,是',
+      booleanFalseAliases: 'FALSE,0,NO,否',
+      examples: {
+        q1Question: '什么是 GENYEE？',
+        q1Answer1: 'GENYEE 是一个智能知识库管理系统',
+        q1Answer2: '它支持多种知识库类型和导入方式',
+        q1Similar1: 'GENYEE 是什么？',
+        q1Similar2: '介绍一下 GENYEE',
+        q1Negative1: '这不是 GENYEE',
+        q1Negative2: '与 GENYEE 无关',
+        q1Tag: '产品介绍',
+        q2Question: '如何创建知识库？',
+        q2Answer1: '点击"新建知识库"按钮',
+        q2Answer2: '选择知识库类型并填写相关信息',
+        q2Answer3: '完成创建后即可开始使用',
+        q2Similar1: '怎么创建知识库？',
+        q2Similar2: '如何新建知识库？',
+        q2Tag: '使用指南'
+      }
     },
     faq: {
       title: '问答',
@@ -5715,15 +5815,15 @@ export default {
     buttons: {
       create: '创建知识库',
       save: '保存配置',
-      saveAndClose: '保存并关闭',
+      saveAndClose: '保存并关闭'
     },
     footer: {
-      instantEffect: '此页的更改即时生效，无需保存',
+      instantEffect: '此页的更改即时生效，无需保存'
     },
     postCreateHint: {
       title: '创建成功',
       footer: '可继续调整配置，设置共享与数据源，完成后点击「保存并关闭」。',
-      followUpDesc: '可在左侧配置数据源，或在「共享管理」中发布到空间',
+      followUpDesc: '可在左侧配置数据源，或在「共享管理」中发布到空间'
     },
     wikiBrowser: {
       editBtn: '编辑',
@@ -5856,9 +5956,6 @@ export default {
         sourceFilterSelectAll: '全选 / 全不选（含全部命中结果）',
         sourceFilterOverflowRecent: '文档较多，仅显示最近 {cap} 条，请输入关键字精确定位',
         sourceFilterOverflowHits: '命中 {total} 个文档，仅显示前 {cap} 条，请细化关键字后再全选',
-        // Display names for the builtin attributes the gallery itself
-        // declares. Attributes contributed by other sources fall back to the
-        // pipeline's own wording (see the imageAttr namespace).
         sourcePage: '第 {page} 页',
         attr: {
           builtin_caption: '描述',
@@ -5874,8 +5971,8 @@ export default {
           builtin_is_enabled: '启用状态',
           builtin_is_enabled_description: '所属文档片段是否参与检索',
           builtin_is_enabled_value_true: '已启用',
-          builtin_is_enabled_value_false: '已停用',
-        },
+          builtin_is_enabled_value_false: '已停用'
+        }
       },
       tabGraph: '图谱',
       tabGraphTip: 'Wiki 页面之间的引用关系图（即页面链接图谱），与「知识库设置 → 知识图谱」中基于 LLM 抽取的实体-关系图谱不是同一个概念',
@@ -6229,16 +6326,15 @@ export default {
     }
   },
   embedPublish: {
-    history: "对话历史",
-    historyHint: "最近 30 个对话，仅保存在此浏览器。清除记录不会删除服务端消息。",
-    historyEmpty: "暂无对话记录",
-    historyUntitled: "未命名对话",
-    historyClear: "清除本地历史",
-    historyClearConfirm: "清除此浏览器的历史并开启新对话？服务端消息将保留。",
-    historyRetry: "重试",
-    historyLoadFailed: "无法打开对话，请稍后重试。",
-    historyUnavailable: "该对话已不可用，已从本地历史中移除。",
-
+    history: '对话历史',
+    historyHint: '最近 30 个对话，仅保存在此浏览器。清除记录不会删除服务端消息。',
+    historyEmpty: '暂无对话记录',
+    historyUntitled: '未命名对话',
+    historyClear: '清除本地历史',
+    historyClearConfirm: '清除此浏览器的历史并开启新对话？服务端消息将保留。',
+    historyRetry: '重试',
+    historyLoadFailed: '无法打开对话，请稍后重试。',
+    historyUnavailable: '该对话已不可用，已从本地历史中移除。',
     create: '新建嵌入渠道',
     channelsTitle: '嵌入渠道',
     disabled: '已停用',
@@ -6407,8 +6503,8 @@ export default {
       sharedReadonly: '共享给我 · 仅查看'
     },
     pin: {
-              pin: '置顶',
-              unpin: '取消置顶',
+      pin: '置顶',
+      unpin: '取消置顶',
       pinSuccess: '已置顶',
       unpinSuccess: '已取消置顶',
       failed: '操作失败'
@@ -6651,26 +6747,26 @@ export default {
     upload: '上传文件'
   },
   mentionBrowser: {
-    browse: "按目录浏览",
-    path: "目录路径",
-    root: "根目录",
-    searchFolder: "搜索当前目录",
-    searchKb: "搜索知识库",
-    subtree: "搜索包含当前目录及其子目录。",
-    wholeKb: "当前仍选中了整库，选择单文件不会缩小该范围。",
-    tags: "已有标签仍会过滤所选文件。",
-    folderCount: "含子目录共 {count} 个文档",
-    selected: "已选择",
-    deleting: "正在删除",
-    unsupported: "当前智能体不支持此格式",
-    forbidden: "你已无权访问此内容。",
-    missing: "目录已失效，请返回并重新选择。",
-    error: "目录加载失败，请重试。",
-    retry: "重试",
-    empty: "当前视图没有文件。",
-    previous: "上一页",
-    next: "下一页",
-    page: "第 {page} 页 · 共 {total} 个文档",
+    browse: '按目录浏览',
+    path: '目录路径',
+    root: '根目录',
+    searchFolder: '搜索当前目录',
+    searchKb: '搜索知识库',
+    subtree: '搜索包含当前目录及其子目录。',
+    wholeKb: '当前仍选中了整库，选择单文件不会缩小该范围。',
+    tags: '已有标签仍会过滤所选文件。',
+    folderCount: '含子目录共 {count} 个文档',
+    selected: '已选择',
+    deleting: '正在删除',
+    unsupported: '当前智能体不支持此格式',
+    forbidden: '你已无权访问此内容。',
+    missing: '目录已失效，请返回并重新选择。',
+    error: '目录加载失败，请重试。',
+    retry: '重试',
+    empty: '当前视图没有文件。',
+    previous: '上一页',
+    next: '下一页',
+    page: '第 {page} 页 · 共 {total} 个文档'
   },
   mentionDetail: {
     readOnlyFromAgent: '仅在此对话中只读，不显示在知识库列表中',
@@ -6685,7 +6781,7 @@ export default {
     tag: '标签',
     searchPlaceholder: '搜索知识库、文件、技能等',
     searchInGroup: '在{group}中搜索…',
-    typeToSearch: "在 {'@'} 后继续输入以搜索…",
+    typeToSearch: '在 {\'@\'} 后继续输入以搜索…',
     viewAll: '查看全部',
     back: '返回'
   },
@@ -6698,7 +6794,7 @@ export default {
       title: '有未保存的更改',
       body: '关闭后当前修改将丢失，确定要关闭吗？',
       discard: '放弃更改',
-      keepEditing: '继续编辑',
+      keepEditing: '继续编辑'
     },
     fullscreen: '全屏',
     exitFullscreen: '退出全屏',
@@ -7099,7 +7195,7 @@ export default {
     newPassword: '新密码',
     passwordHint: '留空表示不修改',
     lastUsed: '最近使用：{time}',
-    never: '从未使用',
+    never: '从未使用'
   },
   envVarSettings: {
     title: '沙箱密钥',
@@ -7112,7 +7208,7 @@ export default {
       sandboxTitle: '在这台电脑上始终带上的值',
       sandboxHint: '只带给你在这台电脑上跑的命令。多数情况用不到；需要时再加，对话里也可以当场提供。',
       nameInvalid: '这个名字不能用。保留名（例如 PATH，或以 GENYEE_ 开头的名字）不接受。',
-      deleteConfirm: '删除 {name}？之后在这台电脑上运行的东西都不会再带上它。',
+      deleteConfirm: '删除 {name}？之后在这台电脑上运行的东西都不会再带上它。'
     },
     description: '给技能和沙箱用的个人密钥，不是 GENYEE 的系统或部署配置。',
     helpAria: '沙箱密钥说明',
@@ -7178,33 +7274,33 @@ export default {
       chat: {
         label: '默认对话模型',
         description: '新建智能体和问答默认使用，也作为后台任务的兜底模型。',
-        none: '空间内没有可用的对话模型，问答和后台生成将无法使用。',
+        none: '空间内没有可用的对话模型，问答和后台生成将无法使用。'
       },
       utility: {
         label: '轻量生成模型',
         description: '用于生成会话标题、MCP 服务使用说明、记忆提取等短文本任务，可选更快更便宜的模型。',
-        none: '空间内没有可用的对话模型，标题和说明生成将无法使用。',
+        none: '空间内没有可用的对话模型，标题和说明生成将无法使用。'
       },
       embedding: {
         label: '默认 Embedding 模型',
         description: '新建知识库时默认选用。已有知识库不受影响。',
-        none: '空间内没有可用的 Embedding 模型，无法新建知识库。',
+        none: '空间内没有可用的 Embedding 模型，无法新建知识库。'
       },
       rerank: {
         label: '默认 Rerank 模型',
         description: '未单独配置重排模型的检索和内置智能体使用。',
-        none: '空间内没有可用的 Rerank 模型，检索将按召回顺序返回。',
+        none: '空间内没有可用的 Rerank 模型，检索将按召回顺序返回。'
       },
       vlm: {
         label: '默认视觉模型',
         description: '用于图片理解和多模态解析的默认选择。',
-        none: '空间内没有可用的视觉模型，图片理解不可用。',
+        none: '空间内没有可用的视觉模型，图片理解不可用。'
       },
       asr: {
         label: '默认语音识别模型',
         description: '用于音视频转写的默认选择。',
-        none: '空间内没有可用的语音识别模型，音视频转写不可用。',
-      },
+        none: '空间内没有可用的语音识别模型，音视频转写不可用。'
+      }
     },
     hints: {
       workspace: '使用空间设置。',
@@ -7212,18 +7308,18 @@ export default {
       auto: '未设置，当前自动使用首个可用模型：{name}',
       followChat: '未设置，跟随默认对话模型：{name}',
       staleFallback: '所选模型已删除或不可用，当前回退到：{name}',
-      staleNone: '所选模型已删除或不可用，且没有可回退的模型。',
+      staleNone: '所选模型已删除或不可用，且没有可回退的模型。'
     },
     webSearch: {
       label: '默认搜索引擎',
       description: '未单独指定搜索引擎的智能体开启联网搜索时使用。',
       unset: '未设置默认搜索引擎，未单独指定搜索引擎的智能体将无法联网搜索。',
-      placeholder: '选择搜索引擎',
+      placeholder: '选择搜索引擎'
     },
     toasts: {
       saveSuccess: '默认配置已保存',
-      saveFailed: '保存失败：{message}',
-    },
+      saveFailed: '保存失败：{message}'
+    }
   },
   memoryWorkspaceSettings: {
     title: '长期记忆',
@@ -7391,7 +7487,7 @@ export default {
         connection: '先配置后端并验证连接，通过后再从集群加载模板。',
         template: '选择当前集群返回且已经就绪的运行模板。',
         runtime: '配置执行参数、环境变量，以及技能镜像如何生效，然后保存。',
-        skills: '把技能装进这份配置的沙箱镜像；配置已保存后可随时回来增删。',
+        skills: '把技能装进这份配置的沙箱镜像；配置已保存后可随时回来增删。'
       },
       back: '上一步',
       connectAndContinue: '连接并继续',
@@ -7405,7 +7501,7 @@ export default {
       backendDescriptions: {
         cube: '适合私有化或内网部署的自建 MicroVM 集群',
         e2b: 'E2B 托管服务或兼容 E2B 的集群',
-        docker: '在本机 Docker 上为每个会话保留一个长驻容器，脚本和文件都落在同一容器里',
+        docker: '在本机 Docker 上为每个会话保留一个长驻容器，脚本和文件都落在同一容器里'
       },
       dockerDisabledAlert: '当前部署未启用 Docker 沙箱',
       dockerDisabledHint: '本机 docker.sock 等同宿主机 root。仅私有化单机需要时，由系统管理员在「设置 → 系统设置 → 网络安全」中打开。',
@@ -7496,8 +7592,7 @@ export default {
       forceDelete: '强制删除',
       disableScripts: '禁用沙箱执行',
       enableScripts: '启用沙箱执行',
-      disableScriptsConfirm:
-        '禁用后，本空间内所有智能体将无法在沙箱中执行技能脚本；仍可阅读技能内容。已在运行中的远端沙箱不会自动销毁，需结束或删除相关会话后才会释放。是否继续？',
+      disableScriptsConfirm: '禁用后，本空间内所有智能体将无法在沙箱中执行技能脚本；仍可阅读技能内容。已在运行中的远端沙箱不会自动销毁，需结束或删除相关会话后才会释放。是否继续？',
       scriptsDisabled: '已禁用本空间沙箱执行',
       scriptsEnabled: '已恢复本空间沙箱执行',
       policySaveFailed: '更新沙箱执行策略失败',
@@ -7566,7 +7661,7 @@ export default {
         building: '构建中',
         untagged: '缺少 default 标签',
         failed: '失败',
-        unknown: '未知',
+        unknown: '未知'
       },
       allowPrivateEndpoints: '允许访问私网集群地址',
       allowPrivateEndpointsHint: '仅用于自建 Cube 等私网控制面；云元数据等链路本地地址始终禁止访问。',
@@ -7591,7 +7686,7 @@ export default {
         local: '本地进程',
         docker: 'Docker',
         cube: 'CubeSandbox',
-        e2b: 'E2B',
+        e2b: 'E2B'
       },
       apiUrl: 'API 端点',
       proxyUrl: 'Proxy 端点',
@@ -7649,7 +7744,7 @@ export default {
         control_plane_unreachable: '控制面不可达，已跳过',
         sandbox_not_created: '沙箱未创建，已跳过',
         sandbox_exec_failed: '沙箱内执行失败，已跳过',
-        egress_restricted_by_policy: '按网络策略受限（该配置默认拒绝出网）',
+        egress_restricted_by_policy: '按网络策略受限（该配置默认拒绝出网）'
       },
       checks: {
         client_build: '客户端构建',
@@ -7657,7 +7752,7 @@ export default {
         credential_valid: '凭据有效性',
         template_exists: '模板存在性',
         sandbox_exec: '沙箱内执行',
-        egress_available: '出网可用',
+        egress_available: '出网可用'
       },
       manageSkills: '管理技能',
       cardSkillsNone: '尚未安装技能',
@@ -7726,7 +7821,7 @@ export default {
         sandbox_ready: '正在打开维护沙箱',
         removed: '文件已删除，正在生成新镜像',
         done: '卸载完成',
-        failed: '卸载失败',
+        failed: '卸载失败'
       },
       imageInfoTitle: '当前镜像',
       imageInfoSnapshot: '快照 ID',
@@ -7751,12 +7846,12 @@ export default {
         injected: '已注入',
         unprocessed: '未处理，请重新安装时补充',
         unavailable: '当前阶段暂不接收说明；安装结束后可携带说明重试。',
-        failed: '发送失败，说明已保留，请重试。',
+        failed: '发送失败，说明已保留，请重试。'
       },
       skillTranscriptEmpty: '这次安装没有留下记录。',
       skillTranscriptWaiting: '安装已开始，正在等待过程记录…',
-      installCommandRunning: "命令执行中",
-      installCommandWaiting: "等待命令输出，耗时持续更新。",
+      installCommandRunning: '命令执行中',
+      installCommandWaiting: '等待命令输出，耗时持续更新。',
       skillFiles: '查看文件',
       skillFilesTitle: '文件',
       skillFilesEmpty: '该技能还没有可查看的文件。',
@@ -7803,6 +7898,7 @@ export default {
         clearSuccess: '已清除空间共用值。',
         valueTooLong: '单个值不能超过 {max} 字节。'
       },
+      secretPromptTerms: '密码,口令'
     },
     skills: {
       title: '技能管理',
@@ -7830,7 +7926,7 @@ export default {
         removeWaiting: '已开始卸载，正在等待进度…',
         removeSandboxReady: '正在准备本机目录',
         removeRemoved: '文件已删除',
-        envWorkspaceHint: '所有没有填写自己值的成员都会用这里的值。成员可以在「设置 → 环境变量」里填自己的值。',
+        envWorkspaceHint: '所有没有填写自己值的成员都会用这里的值。成员可以在「设置 → 环境变量」里填自己的值。'
       },
       goSandboxSettings: '去配置沙箱',
       noConfigsDesc: '还没有沙箱，技能需要先有一份可写入的镜像。',
@@ -7892,7 +7988,7 @@ export default {
       servedWhileUpgradingPlain: '升级中，仍在使用旧版本',
       servedAfterFailure: '升级失败，仍在使用 {version}',
       servedAfterFailurePlain: '升级失败，仍在使用旧版本',
-      loadFailed: '加载失败',
+      loadFailed: '加载失败'
     },
     mcpService: 'MCP服务',
     versionInfo: '版本信息',
@@ -8015,7 +8111,8 @@ export default {
       deleteTitle: '删除存储实例',
       deleteConfirm: '确定删除“{name}”吗？',
       deleted: '已删除',
-      deleteFailed: '删除失败'
+      deleteFailed: '删除失败',
+      loadFailed: '加载存储后端失败'
     },
     parser: {
       title: '解析引擎',
@@ -8080,7 +8177,8 @@ export default {
       mineruLegacySectionHint: 'MinerU 4.0 已移除以下请求参数，连接 4.0 及以上服务时会被忽略；VLM 地址改在 MinerU 服务端配置。',
       paddleocrVlEndpointPlaceholder: '如 http://your-paddleocr-vl:8080',
       paddleocrVlEndpointHint: '填写 PaddleOCR-VL 完整服务（pipeline）地址，无需 /layout-parsing 后缀',
-      paddleocrVlCloudTokenPlaceholder: 'PaddleOCR-VL 飞桨星河社区 Token'
+      paddleocrVlCloudTokenPlaceholder: 'PaddleOCR-VL 飞桨星河社区 Token',
+      engineStatusUnknown: '引擎状态未知'
     },
     roleDenied: {
       title: '权限不足',
@@ -8098,6 +8196,9 @@ export default {
     hostApprovalDefault: {
       title: '默认执行权限审批',
       description: '智能体要删除文件，或写入工作区以外时，用这里决定是每次问你，还是由模型替你审批。新会话按这个开始；当前会话可在输入框左侧切换。'
+    },
+    docsAnchors: {
+      modelsCompat: '协议兼容覆盖-compat-json'
     }
   },
   agent: {
@@ -8121,7 +8222,7 @@ export default {
       downloadFailed: '下载失败，请稍后重试',
       inlinePreviewHint: '点击预览',
       inlineMissing: '文件不可用',
-      inlineDeleted: '文件已删除',
+      inlineDeleted: '文件已删除'
     },
     updatePlan: '更新计划',
     webSearchFound: '找到 <strong>{count}</strong> 个网络搜索结果',
@@ -8176,12 +8277,12 @@ export default {
       editTitle: '编辑智能体',
       buttons: {
         create: '创建智能体',
-        saveAndClose: '保存并关闭',
+        saveAndClose: '保存并关闭'
       },
       postCreateHint: {
         title: '创建成功',
         footer: '可继续调整配置，设置共享与发布渠道，完成后点击「保存并关闭」。',
-        integrationDesc: '前往集成中心配置 IM、网页嵌入等发布渠道',
+        integrationDesc: '前往集成中心配置 IM、网页嵌入等发布渠道'
       },
       basicInfo: '基本信息',
       basicInfoDesc: '配置智能体的名称、描述与运行模式',
@@ -8426,12 +8527,12 @@ export default {
     noActivity: '暂无解析记录',
     totalDuration: '总耗时：{d}',
     errorCode: {
-      DOCREADER_UNAVAILABLE: "文档解析服务不可用",
-      DOCREADER_UNAVAILABLE_SUGGESTION: "无法连接 DocReader，或连接已中断。请检查解析服务是否启动、是否反复重启以及网络是否正常；服务恢复后再重试，无需重复上传文件。",
-      DOCREADER_TIMEOUT: "文档解析超时",
-      DOCREADER_TIMEOUT_SUGGESTION: "请检查 DocReader 的健康状态和负载；服务正常后再重试，必要时拆分大文件。",
-      DOCREADER_PARSE_FAILED: "文档解析失败",
-      DOCREADER_PARSE_FAILED_SUGGESTION: "请检查文件格式，并让管理员查看本次解析对应的 DocReader 日志。",
+      DOCREADER_UNAVAILABLE: '文档解析服务不可用',
+      DOCREADER_UNAVAILABLE_SUGGESTION: '无法连接 DocReader，或连接已中断。请检查解析服务是否启动、是否反复重启以及网络是否正常；服务恢复后再重试，无需重复上传文件。',
+      DOCREADER_TIMEOUT: '文档解析超时',
+      DOCREADER_TIMEOUT_SUGGESTION: '请检查 DocReader 的健康状态和负载；服务正常后再重试，必要时拆分大文件。',
+      DOCREADER_PARSE_FAILED: '文档解析失败',
+      DOCREADER_PARSE_FAILED_SUGGESTION: '请检查文件格式，并让管理员查看本次解析对应的 DocReader 日志。',
       TASK_STALLED: '长时间无进展，已自动终止',
       TASK_STALLED_SUGGESTION: '处理超过阈值仍没有任何进展，且队列中已无对应任务，已被系统标记为失败。请点击「重试」；如反复出现，请检查该阶段依赖的服务（文档解析、模型、向量库）是否正常。',
       UNKNOWN_SUGGESTION: '请查看应用日志获取详细信息。'
@@ -8505,16 +8606,15 @@ export default {
     }
   },
   uploadConfirm: {
-    imageEmbeddingModel: "图像索引 Embedding 模型",
-    imageIndexInherited: "图像索引使用知识库绑定的 Embedding 模型；如需更换，请前往知识库设置。",
-    imageVectorIndex: "本次图片向量索引",
-    imageVectorIndexHint: "为本次上传或重新解析的图片生成向量，不改变知识库默认配置。是否参与检索仍由知识库的“图片向量检索”开关决定。",
-    imageVectorRequiresIndex: "请先在知识库设置中开启向量索引。",
-    documentSummary: "文档摘要",
-    documentSummaryDescription: "为本次导入的文档选择是否自动生成摘要。",
-    generateSummary: "生成文档摘要",
-    generateSummaryHint: "默认开启。关闭后跳过摘要生成，文档解析、索引及其他处理步骤仍按配置执行。",
-
+    imageEmbeddingModel: '图像索引 Embedding 模型',
+    imageIndexInherited: '图像索引使用知识库绑定的 Embedding 模型；如需更换，请前往知识库设置。',
+    imageVectorIndex: '本次图片向量索引',
+    imageVectorIndexHint: '为本次上传或重新解析的图片生成向量，不改变知识库默认配置。是否参与检索仍由知识库的“图片向量检索”开关决定。',
+    imageVectorRequiresIndex: '请先在知识库设置中开启向量索引。',
+    documentSummary: '文档摘要',
+    documentSummaryDescription: '为本次导入的文档选择是否自动生成摘要。',
+    generateSummary: '生成文档摘要',
+    generateSummaryHint: '默认开启。关闭后跳过摘要生成，文档解析、索引及其他处理步骤仍按配置执行。',
     title: '上传文档确认',
     parseConfig: '解析配置',
     configNav: '解析配置导航',
@@ -8574,7 +8674,6 @@ export default {
     documentCount: '{count} 个文档',
     filters: '筛选',
     clearFilters: '清除筛选',
-
     title: '知识库',
     fileContent: '文件内容',
     name: '名称',
@@ -8593,7 +8692,7 @@ export default {
       newestCreated: '最新上传',
       earliestCreated: '最早上传',
       nameAscending: 'A–Z',
-      nameDescending: 'Z–A',
+      nameDescending: 'Z–A'
     },
     tagUpdateSuccess: '标签已更新',
     tagEditDialogHeading: '编辑标签',
@@ -8620,7 +8719,7 @@ export default {
       renamePlaceholder: '输入文件夹名称',
       renameSuccess: '文件夹已重命名',
       renameFailed: '文件夹重命名失败',
-      renameInvalid: '不能把文件夹移动到它自己的子目录下',
+      renameInvalid: '不能把文件夹移动到它自己的子目录下'
     },
     moveToFolder: {
       action: '移动到目录',
@@ -8634,7 +8733,7 @@ export default {
       newFolderHintUnder: '将在「{folder}」下创建',
       success: '已移动 {count} 个文档',
       failed: '移动失败',
-      duplicate: '该目录已存在',
+      duplicate: '该目录已存在'
     },
     tagFilterTitle: '按标签筛选',
     tagFilterPlaceholder: '标签',
@@ -8648,9 +8747,9 @@ export default {
     tagPickerSelected: '已选择',
     tagPickerUnselected: '未选择',
     tagSelectedCount: '已选 {count} 个标签',
-    tagPickerSearch: "搜索或新建标签",
-    tagPickerInUse: "此标签仍被使用，请先移除文档上的关联再删除",
-    tagPickerDeleteConfirm: "确定删除标签“{name}”？",
+    tagPickerSearch: '搜索或新建标签',
+    tagPickerInUse: '此标签仍被使用，请先移除文档上的关联再删除',
+    tagPickerDeleteConfirm: '确定删除标签“{name}”？',
     untagged: '无标签',
     tagCreateAction: '新建标签',
     tagSearchPlaceholder: '输入标签名称关键字',
@@ -8690,8 +8789,8 @@ export default {
     channelWechat: '微信',
     channelWecom: '企业微信',
     channelFeishu: '飞书',
-    channelFeishuDrive: "飞书云盘",
-    channelLarkDrive: "Lark 云盘",
+    channelFeishuDrive: '飞书云盘',
+    channelLarkDrive: 'Lark 云盘',
     channelDingtalk: '钉钉',
     channelSlack: 'Slack',
     channelIm: 'IM 渠道',
@@ -9167,7 +9266,7 @@ export default {
   assistantEntryGuide: {
     stepOf: 'v0.9.0 新功能',
     skip: '知道了',
-    interactHint: '点击高亮入口，打开助手试试。',
+    interactHint: '点击高亮入口，打开助手试试。'
   },
   newUserGuide: {
     stepOf: '{current} / {total}',
@@ -9219,7 +9318,7 @@ export default {
       revoke: '撤销',
       revoked: '已撤销',
       revokeFailed: '撤销失败',
-      loadFailed: '加载失败',
+      loadFailed: '加载失败'
     },
     automationTask: '自动化',
     automationOpen: '打开自动化「{name}」',
@@ -9328,63 +9427,84 @@ export default {
     logoutSuccess: '已退出登录',
     myChats: '我的对话',
     apiChats: 'API 会话',
-    noSessions: '暂无对话'
+    noSessions: '暂无对话',
+    forkedFromOtherSession: '由其他会话分叉而来'
   },
-  // 图片属性的展示文案，按属性名索引（后端注册表给出属性名，这里只做翻译）。
-  // 注意：属性名里的点号要转义成下划线（contain.text → contain_text）——vue-i18n 按点号
-  // 逐段下钻，写成字面量 'contain.text' 的键永远取不到。
-  // 未翻译的属性会回落到后端注册表自带的说明，所以新增属性不会显示成空行。
   imageAttr: {
     contain_text: {
       label: '图中文字量',
       description: '图片自身承载多少正文文字，决定是否值得为它单独跑一轮 OCR。',
       values: {
-        none: { label: '无文字', description: '完全没有文字' },
-        sparse: { label: '少量文字', description: '只有少量文字 —— 图标、路牌、单个标签' },
-        block: { label: '成段正文', description: '成段正文 —— 截图、表格、文档页面' }
+        none: {
+          label: '无文字',
+          description: '完全没有文字'
+        },
+        sparse: {
+          label: '少量文字',
+          description: '只有少量文字 —— 图标、路牌、单个标签'
+        },
+        block: {
+          label: '成段正文',
+          description: '成段正文 —— 截图、表格、文档页面'
+        }
       }
     },
     contain_data_visual: {
       label: '数据可视化',
       description: '图片是否以图表、曲线、示意图或信息图的方式承载数据；这类图即使看起来文字很少，也会保留在 OCR 路径上。',
       values: {
-        'true': { label: '是', description: '是 —— 图表、曲线或示意图' },
-        'false': { label: '否', description: '否 —— 照片、插画、图标或装饰图' }
+        true: {
+          label: '是',
+          description: '是 —— 图表、曲线或示意图'
+        },
+        false: {
+          label: '否',
+          description: '否 —— 照片、插画、图标或装饰图'
+        }
       }
     },
     layout_margin: {
       label: '版面留白',
-      description:
-        '文字内容之外的部分（桌面、背景、空白）占整张画面的比例。留白大意味着可以在 OCR 之前把页面裁得更紧。',
+      description: '文字内容之外的部分（桌面、背景、空白）占整张画面的比例。留白大意味着可以在 OCR 之前把页面裁得更紧。',
       values: {
-        'none': { label: '无留白', description: '文字几乎铺满画面' },
-        'small': { label: '少量留白', description: '边缘只有一条窄边' },
-        'large': { label: '大片留白', description: '有大片非文字区域 —— 桌面、房间，或拍进来的周边环境' }
+        none: {
+          label: '无留白',
+          description: '文字几乎铺满画面'
+        },
+        small: {
+          label: '少量留白',
+          description: '边缘只有一条窄边'
+        },
+        large: {
+          label: '大片留白',
+          description: '有大片非文字区域 —— 桌面、房间，或拍进来的周边环境'
+        }
       }
     },
     layout_upright: {
       label: '文字朝向',
-      description:
-        '图中文字是否正立。歪斜或倒置的页面，值得在 OCR 之前摆正。',
+      description: '图中文字是否正立。歪斜或倒置的页面，值得在 OCR 之前摆正。',
       values: {
-        'true': { label: '正立', description: '文字方向正常' },
-        'false': { label: '非正立', description: '文字被旋转、倾斜拍摄或倒置' }
+        true: {
+          label: '正立',
+          description: '文字方向正常'
+        },
+        false: {
+          label: '非正立',
+          description: '文字被旋转、倾斜拍摄或倒置'
+        }
       }
     }
   },
-  // 流水线选择面板的覆盖文案：按流水线 id 与字段 key 索引（后端注册表给出
-  // id 与 key，这里只做翻译）。未覆盖的流水线或字段回落到后端自带的英文
-  // 说明，所以新增流水线不会显示成键名。
   imagePipeline: {
     errors: {
-      noActionEnabled: '至少开启一个解析动作，否则多模态不会处理任何内容。',
+      noActionEnabled: '至少开启一个解析动作，否则多模态不会处理任何内容。'
     },
     default: {
       name: '传统',
       note_actions: {
         label: '两项动作互相独立',
-        description:
-          '两项各自开关：关掉识别，图片仍会被描述；关掉描述，文字仍会被识别。只有两个都关掉时这张图才不会被处理 —— 所以面板不允许这种组合。',
+        description: '两项各自开关：关掉识别，图片仍会被描述；关掉描述，文字仍会被识别。只有两个都关掉时这张图才不会被处理 —— 所以面板不允许这种组合。'
       },
       description: '用户根据任务需要手动选择解析动作开关。',
       caption_enabled: {
@@ -9398,51 +9518,48 @@ export default {
       caption: {
         thinking_enabled: {
           label: '图片描述时开启思考',
-          description: '让模型在写描述前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。',
-        },
+          description: '让模型在写描述前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。'
+        }
       },
       ocr: {
         thinking_enabled: {
           label: '文字识别时开启思考',
-          description: '让模型在提取文字前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。',
-        },
+          description: '让模型在提取文字前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。'
+        }
       }
     },
     smartocr: {
       ocr_on_unobserved: {
         label: '图片属性观察失败时仍执行 OCR',
-        description:
-          '当模型未能正确观察到图片属性时，默认仍执行 OCR 兜底，以免漏掉正文文字；关闭则跳过。（采用 4B 等小参数视觉模型，或自定义的图片解析提示词与系统提示词冲突时，可能造成观察失败；8B 及以上模型的失败概率很低，不建议关闭）',
+        description: '当模型未能正确观察到图片属性时，默认仍执行 OCR 兜底，以免漏掉正文文字；关闭则跳过。（采用 4B 等小参数视觉模型，或自定义的图片解析提示词与系统提示词冲突时，可能造成观察失败；8B 及以上模型的失败概率很低，不建议关闭）'
       },
       name: '智能模式',
       note_flow: {
         label: '由观察结果决定',
-        description:
-          '先描述图片并观察属性，由属性决定是否值得再为它花一次 OCR。属性显示页面需要摆正时，会先摆正并裁掉周围环境再识别；若该步骤不可用或判定不适用，则直接用原图，绝不会比不启用更差。',
+        description: '先描述图片并观察属性，由属性决定是否值得再为它花一次 OCR。属性显示页面需要摆正时，会先摆正并裁掉周围环境再识别；若该步骤不可用或判定不适用，则直接用原图，绝不会比不启用更差。'
       },
       preprocess: {
         mode: {
           label: '文档预处理',
-          description:
-            '默认关闭。开启后，会在 OCR 前摆正并裁剪页面，增加处理耗时。自动：按观察结果判断；总是：对进入 OCR 的图片都尝试预处理；繁忙或超限时使用原图。',
+          description: '默认关闭。开启后，会在 OCR 前摆正并裁剪页面，增加处理耗时。自动：按观察结果判断；总是：对进入 OCR 的图片都尝试预处理；繁忙或超限时使用原图。',
           options: {
             auto: '自动',
             off: '关闭',
-            always: '总是',
-          },
-        },
+            always: '总是'
+          }
+        }
       },
       observation: {
         thinking_enabled: {
           label: '描述时开启思考',
-          description: '让模型在描述图片并观察属性前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。',
-        },
+          description: '让模型在描述图片并观察属性前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。'
+        }
       },
       ocr: {
         thinking_enabled: {
           label: '文字识别时开启思考',
-          description: '让模型在提取文字前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。',
-        },
+          description: '让模型在提取文字前先思考。一般情况下不需要开启思考，开启之后不仅更慢，还可能造成大模型思考内容过长截断正文输出造成任务失败。请仅在确认有必要的情况下开启。'
+        }
       },
       description: '先观察图片特征并进行图片描述，再根据图片特征决定是否调用OCR对图片进行识别，以节省模型调用次数并提升解析速度。当识别到图片为可校正的文档或标签页照片时，会在识别前自动摆正并裁剪页面，以提升 OCR 准确率；若校正失败则直接使用原图。'
     }

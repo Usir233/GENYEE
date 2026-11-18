@@ -108,7 +108,7 @@ test('rewrite uses exact folder_path and file_name, including a later list page'
 test('neutralize and rewrite leave indented code images unchanged', async () => {
   const markdown = ['    ![example](images/a.png)', '\t![example](images/b.png)', '![real](images/a.png)'].join('\n')
   const hidden = neutralizeRelativePreviewImages(markdown)
-  assert.match(hidden, /    !\[example\]\(images\/a\.png\)/)
+  assert.match(hidden, / {4}!\[example\]\(images\/a\.png\)/)
   assert.match(hidden, /\t!\[example\]\(images\/b\.png\)/)
   assert.equal(hidden.includes('![real](images/a.png)'), false)
 
@@ -120,7 +120,7 @@ test('neutralize and rewrite leave indented code images unchanged', async () => 
     }),
   })
   const rewritten = await rewriteKnowledgeMarkdownImages(markdown, 'doc', deps)
-  assert.match(rewritten.markdown, /    !\[example\]\(images\/a\.png\)/)
+  assert.match(rewritten.markdown, / {4}!\[example\]\(images\/a\.png\)/)
   assert.match(rewritten.markdown, /\t!\[example\]\(images\/b\.png\)/)
 })
 

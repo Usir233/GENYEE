@@ -25,7 +25,7 @@ export interface BrowserFile extends MentionItem {
   parseStatus: string;
 }
 
-const record = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
+const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 
 export function adaptFolderTree(response: unknown): KnowledgeFolderTree {
@@ -35,7 +35,7 @@ export function adaptFolderTree(response: unknown): KnowledgeFolderTree {
     record(node) && typeof node.path === 'string' && !!node.path && typeof node.name === 'string' &&
     count(node.document_count) && count(node.total_count) && (node.children === undefined || validNodes(node.children)));
   if (!count(tree.root_document_count) || !count(tree.total_document_count) || !validNodes(tree.folders)) throw new Error('Invalid folder tree');
-  return tree as KnowledgeFolderTree;
+  return tree as unknown as KnowledgeFolderTree;
 }
 
 export function adaptFilePage(response: unknown, kb: BrowserKnowledgeBase) {
@@ -45,11 +45,24 @@ export function adaptFilePage(response: unknown, kb: BrowserKnowledgeBase) {
   const items: BrowserFile[] = response.data.map((file: unknown) => {
     if (!record(file) || typeof file.id !== 'string' || !file.id || file.knowledge_base_id !== kb.id ||
       typeof file.folder_path !== 'string' || typeof (file.title || file.file_name) !== 'string') throw new Error('Invalid file');
+    const displayName =
+      typeof file.title === 'string' && file.title
+        ? file.title
+        : typeof file.file_name === 'string'
+          ? file.file_name
+          : '';
     return {
-      id: file.id, name: file.title || file.file_name, type: 'file', kbId: kb.id, kbName: kb.name,
-      orgName: kb.orgName, folderPath: file.folder_path, fileName: typeof file.file_name === 'string' ? file.file_name : '',
-      fileType: file.file_type || '',
-      sourceType: file.type || '', parseStatus: file.parse_status || '',
+      id: file.id,
+      name: displayName,
+      type: 'file',
+      kbId: kb.id,
+      kbName: kb.name,
+      orgName: kb.orgName,
+      folderPath: file.folder_path,
+      fileName: typeof file.file_name === 'string' ? file.file_name : '',
+      fileType: typeof file.file_type === 'string' ? file.file_type : '',
+      sourceType: typeof file.type === 'string' ? file.type : '',
+      parseStatus: typeof file.parse_status === 'string' ? file.parse_status : '',
     };
   });
   return { items: [...new Map(items.map(item => [item.id, item])).values()], total: response.total,

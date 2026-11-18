@@ -11,11 +11,11 @@ const methodKeys: Record<string, string> = {
   tab_create: 'openTab', tab_select: 'switchTab', tab_borrow: 'authorizeTab', tab_return: 'returnTab',
   request_help: 'needHelp',
 }
-function record(value: unknown): Record<string, any> {
+function record(value: unknown): Record<string, unknown> {
   if (typeof value === 'string') {
     try { value = JSON.parse(value) } catch { return {} }
   }
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 function text(value: unknown): string { return typeof value === 'string' ? value : '' }
 // Show the destination without credentials or query/fragment tokens. Never make
@@ -26,24 +26,25 @@ export function browserPageAddress(value: unknown): string {
     return ['https:', 'http:'].includes(url.protocol) ? `${url.origin}${url.pathname}` : ''
   } catch { return '' }
 }
-function sourceLocation(entry: Record<string, any>): string {
+function sourceLocation(entry: Record<string, unknown>): string {
   const address = browserPageAddress(entry.url)
   return address ? address + (Number.isInteger(entry.line) ? ':' + entry.line : '') + (Number.isInteger(entry.column) ? ':' + entry.column : '') : ''
 }
 const navigationMethods = new Set(['navigate', 'navigate_back', 'navigate_forward', 'reload', 'wait_for_navigation'])
 export function browserToolIncomplete(event: BrowserToolEvent): boolean {
-  return event.success === false || navigationMethods.has(record(event.arguments).method) && record(event.output).reached === 'timeout'
+  return event.success === false || navigationMethods.has(text(record(event.arguments).method)) && record(event.output).reached === 'timeout'
 }
 export function browserActionLabel(t: Translate, method: string): string {
   return t(`localBrowser.${methodKeys[method] || 'browserAction'}`)
 }
 export function browserToolTitle(t: Translate, event: BrowserToolEvent): string {
   const args = record(event.arguments)
-  const label = browserActionLabel(t, args.method)
+  const method = text(args.method)
+  const label = browserActionLabel(t, method)
   let target = ''
-  if (args.method === 'navigate' || args.method === 'tab_create') {
+  if (method === 'navigate' || method === 'tab_create') {
     try { target = new URL(browserPageAddress(args.url)).host } catch { /* No valid destination yet. */ }
-  } else if (args.method === 'press') {
+  } else if (method === 'press') {
     target = text(args.key).slice(0, 40)
   }
   return `${t('localBrowser.local')} · ${label}${target ? ` · ${target}` : ''}${event.pending ? '…' : browserToolIncomplete(event) ? ` · ${t('localBrowser.actionFailed')}` : ''}`
@@ -52,7 +53,7 @@ export function browserToolSummary(t: Translate, event: BrowserToolEvent): strin
   const failure = event.error || event.output
   const raw = typeof failure === 'string' ? failure : text(record(failure).message)
   if (event.pending) return t('localBrowser.actionPending')
-  if (navigationMethods.has(record(event.arguments).method) && record(event.output).reached === 'timeout') return t('localBrowser.navigationIncomplete')
+  if (navigationMethods.has(text(record(event.arguments).method)) && record(event.output).reached === 'timeout') return t('localBrowser.navigationIncomplete')
   if (event.success !== false) return t(event.success === true ? 'localBrowser.actionCompleted' : 'localBrowser.actionRecorded')
   if (/unfinished command|preview.*busy/i.test(raw)) return t('localBrowser.commandBusy')
   if (/Parameter validation failed|Invalid browser arguments|invalid_params|duration_ms/i.test(raw)) return t('localBrowser.invalidArguments')

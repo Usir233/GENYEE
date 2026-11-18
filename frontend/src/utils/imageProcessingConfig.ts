@@ -160,8 +160,17 @@ export function buildImageProcessingConfig(
  * and default otherwise. Bases saved before the selector existed have no
  * config at all and land on default, so the picker always shows a real option.
  */
+export interface KnowledgeBaseImageConfigShape {
+  image_processing_config?: {
+    image_pipeline?: string
+    image_attrs_enabled?: boolean
+    [key: string]: unknown
+  } | null
+  [key: string]: unknown
+}
+
 export function resolveImagePipelineFromKb(
-  kb: Record<string, any> | null | undefined,
+  kb: KnowledgeBaseImageConfigShape | null | undefined,
 ): string {
   const cfg = kb?.image_processing_config
   const stored = normalizeImagePipelineId((cfg?.image_pipeline as string | undefined) || '')

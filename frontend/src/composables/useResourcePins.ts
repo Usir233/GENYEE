@@ -124,6 +124,12 @@ if (typeof window !== 'undefined') {
   })
 }
 
+interface RawFavoriteRecord {
+  resource_type: ResourceType
+  resource_id: string
+  created_at?: string
+}
+
 async function fetchFavorites(type: ResourceType): Promise<void> {
   // Single-flight guard: list views mount in parallel and would otherwise
   // each fire a request. Reuse the in-flight promise instead.
@@ -132,12 +138,15 @@ async function fetchFavorites(type: ResourceType): Promise<void> {
   let requestPromise: Promise<void> | null = null
   requestPromise = (async () => {
     try {
-      const res = (await listFavorites(type)) as unknown as { success: boolean; data?: any[] }
+      const res = (await listFavorites(type)) as unknown as {
+        success: boolean
+        data?: RawFavoriteRecord[]
+      }
       if (epoch !== scopeEpoch) return
       const data = res?.data || []
-      favoritesByType[type].value = data.map((e: any) => ({
-        type: e.resource_type as ResourceType,
-        id: e.resource_id as string,
+      favoritesByType[type].value = data.map((e) => ({
+        type: e.resource_type,
+        id: e.resource_id,
         ts: e.created_at ? new Date(e.created_at).getTime() : Date.now(),
       }))
       loaded[type] = true
@@ -216,15 +225,14 @@ export function useResourcePins(): UseResourcePinsResult {
 
   const favorites = computed<PinEntry[]>(() => {
     // Merge both type lists and sort by ts desc.
-    return [...favoritesByType.kb.value, ...favoritesByType.agent.value].sort(
+    return [...favoritesByType.kb.value, ...favoritesByType.agent.value].toSorted(
       (a, b) => b.ts - a.ts
     )
   })
 
   const recents = computed<PinEntry[]>(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = recentsRevision.value
-    return readRecents().sort((a, b) => b.ts - a.ts)
+    const _revision = recentsRevision.value
+    return readRecents().toSorted((a, b) => b.ts - a.ts)
   })
 
   const isFavorite = (type: ResourceType, id: string): boolean => {

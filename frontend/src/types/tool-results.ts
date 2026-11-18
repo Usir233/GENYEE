@@ -137,7 +137,7 @@ export interface DocumentInfoDocument {
     file_size?: number;
     parse_status?: string;
     chunk_count?: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     type_icon?: string;
 }
 
@@ -191,7 +191,7 @@ export interface PlanData {
 export interface DatabaseQueryData {
     display_type: 'database_query';
     columns: string[];
-    rows: Array<Record<string, any>>;
+    rows: Array<Record<string, unknown>>;
     row_count: number;
 }
 
@@ -329,7 +329,7 @@ export interface KnowledgeChunksListDocument {
     parse_status?: string;
     chunk_count?: number;
     description?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 // Knowledge chunks list data (read_document tool; also emitted by the retired
@@ -502,10 +502,10 @@ export interface ActionData {
     description: string;
     success: boolean;
     tool_name?: string;
-    arguments?: any;
+    arguments?: unknown;
     output?: string;
     error?: string;
     details?: boolean;
     display_type?: DisplayType;
-    tool_data?: Record<string, any>;
+    tool_data?: Record<string, unknown>;
 }

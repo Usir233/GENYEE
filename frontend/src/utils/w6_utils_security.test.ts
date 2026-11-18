@@ -25,13 +25,11 @@ import {
   domPurifyAllowedUriRegexp,
   domPurifySecurityHooks,
   markdownDomPurifyConfig,
-  markdownDomPurifySecurityHooks,
 } from './markdownDomPurify'
 import {
   clearProtectedFileCache,
   createSafeImage,
   protectProviderImageSrcInHTML,
-  sanitizeSvgForDataUrl,
   setProtectedFileCacheScope,
 } from './security'
 import {

@@ -50,8 +50,12 @@ export function useSkillInstallerModel() {
     savingInstallerModel.value = true
     try {
       await persistInstallerModel(modelId)
-    } catch (error: any) {
-      MessagePlugin.error(error?.message || t('settings.sandbox.skillInstallerModelSaveFailed'))
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string } | null)?.message
+      MessagePlugin.error(msg || t('settings.sandbox.skillInstallerModelSaveFailed'))
     } finally {
       savingInstallerModel.value = false
     }

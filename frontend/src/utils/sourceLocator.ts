@@ -48,8 +48,9 @@ export type SourceLocateRequest = {
   imageDigest?: string
 }
 
-// ---------------------------------------------------------------------------
-// Normalization keeps letters, digits and numeric symbols, and folds case/width. The
+/** Han ordinal numerals (1-10, 100) used in numbered CJK list/section labels. */
+export const HAN_ORDINAL_CHARS = '\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e'
+const LEADING_LIST_LABEL_RE = new RegExp(`^\\s*[\\uff08(][${HAN_ORDINAL_CHARS}\\d]+[)\\uff09]\\s*`, 'u')
 // same projection the backend aligner uses, so Markdown syntax, whitespace and
 // punctuation differences between parsed text and the rendered original do not
 // break matching.
@@ -163,7 +164,7 @@ export function findNormalizedMatches(haystack: string, quote: string): Normaliz
   if (exact.length) return exact
   // A source list label may have been omitted by a renderer. This is the
   // only tolerated prefix difference; never extend a short fuzzy anchor.
-  const withoutLabel = quote.replace(/^\s*[（(][一二三四五六七八九十百\d]+[)）]\s*/u, '')
+  const withoutLabel = quote.replace(LEADING_LIST_LABEL_RE, '')
   if (withoutLabel === quote) return []
   needle = normalizeForMatch(withoutLabel)
   return needle.length >= 8 ? search(needle) : []
@@ -253,7 +254,7 @@ export function textFragmentUrl(url: string, quote: string): string {
     // start,end form keeps the URL short for long passages.
     const head = clean.slice(0, 40).trim()
     const tail = clean.slice(-40).trim()
-    fragment = words.length > 1 || /[　-鿿]/u.test(clean)
+    fragment = words.length > 1 || /[\u3000-\u9fff]/u.test(clean)
       ? `${encodeTextFragment(head)},${encodeTextFragment(tail)}`
       : encodeTextFragment(head)
   }

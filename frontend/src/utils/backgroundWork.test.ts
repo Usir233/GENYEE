@@ -5,7 +5,6 @@ import {
   createBackgroundWorkPoller,
 } from './backgroundWork.ts'
 import type { BackgroundWorkItem } from '../api/chat/background-work.ts'
-import { get, post } from '../utils/request.ts'
 
 test('merge keeps newest state per work_id, running first', () => {
   const existing: BackgroundWorkItem[] = [

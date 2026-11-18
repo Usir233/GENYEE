@@ -37,7 +37,6 @@ export type LocaleName = keyof typeof LOCALE_BUNDLES
 const SOURCE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SOURCE_EXTENSIONS = /\.(vue|ts|js|mjs)$/
 const TEST_FILE_PATTERN = /\.test\.(ts|mjs|js)$/
-const I18N_SOURCE_HINTS = ['$t(', 'i18n.global.t(', "t('", 't("', ".t('", '.t("'] as const
 const STATIC_KEY_PATTERNS = [
   /\$t\(\s*['"]([^'"]+)['"]/g,
   /i18n\.global\.t\(\s*['"]([^'"]+)['"]/g,
@@ -124,6 +123,19 @@ const EXTRA_PREFIXES = [
   // knowledgeEditor.wikiBrowser.gallery.attr.builtin_caption …, and
   // everything else falls back to the contract wording.
   'knowledgeEditor.wikiBrowser.gallery.attr.',
+  // Pre-seeded 6-locale keys for W6 utils and W7/W8 CJK remediation waves.
+  'preview.',
+  'agentStream.attachmentParsing.',
+  'language.autonyms.',
+  'language.shortAutonyms.',
+  'language.flags.',
+  'commandPalette.keywords.',
+  'mermaid.devTestPage.',
+  'knowledgeEditor.faqImport.exportHeaders.',
+  'knowledgeEditor.faqImport.importHeaderAliases.',
+  'knowledgeEditor.faqImport.examples.',
+  'knowledgeEditor.chunking.debug.sampleTexts.',
+  'settings.docsAnchors.',
 ] as const
 
 /** Keys that must survive pruning even when static analysis misses them. */
@@ -139,6 +151,19 @@ export const CRITICAL_LOCALE_KEYS = [
   'inviteRegister.emailPlaceholder',
   'knowledgeList.sections.tenantOthers',
   'agent.sections.tenantOthers',
+  'chat.finalAnswerPrefixList',
+  'chat.forkFromAnswerTooltip',
+  'chat.forkFromMessageTooltip',
+  'chat.forkedSessionTitle',
+  'chat.forkWaitForTurnEnd',
+  'chat.forkFailed',
+  'menu.forkedFromOtherSession',
+  'assistant.secretFieldTerms',
+  'settings.sandbox.secretPromptTerms',
+  'settings.parser.engineStatusUnknown',
+  'settings.storageBackend.loadFailed',
+  'knowledgeEditor.faqImport.booleanTrueAliases',
+  'knowledgeEditor.faqImport.booleanFalseAliases',
 ] as const
 
 function addPrefix(usage: I18nUsage, prefix: string): void {
@@ -195,7 +220,7 @@ export function collectLocaleKeys(root: unknown): Set<string> {
 
 function isAuditableSourceFile(path: string): boolean {
   if (!SOURCE_EXTENSIONS.test(path)) return false
-  if (path.includes('/i18n/locales/')) return false
+  if (path.includes('/i18n/locales/') || path.includes('/i18n/embed-locales/')) return false
   if (TEST_FILE_PATTERN.test(path)) return false
   return true
 }

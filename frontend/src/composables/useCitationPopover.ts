@@ -55,6 +55,7 @@ export function useCitationPopover(rootRef: Ref<HTMLElement | null>, options: Ci
   // request settles. Share that request within its current access scope.
   const inFlight = new Map<string, Promise<CitationChunkCacheValue>>()
   let boundRoot: HTMLElement | null = null
+  let viewportResizeObserver: ResizeObserver | null = null
   let disposed = false
 
   const cancelHover = () => {
@@ -260,6 +261,8 @@ export function useCitationPopover(rootRef: Ref<HTMLElement | null>, options: Ci
     boundRoot?.removeEventListener('click', onClick, true)
     window.removeEventListener('scroll', onViewportChange, true)
     window.removeEventListener('resize', onViewportChange, true)
+    viewportResizeObserver?.disconnect()
+    viewportResizeObserver = null
     boundRoot = null
   }
 
@@ -274,7 +277,12 @@ export function useCitationPopover(rootRef: Ref<HTMLElement | null>, options: Ci
     boundRoot.addEventListener('click', onClick, true)
     if (isChat) {
       window.addEventListener('scroll', onViewportChange, true)
-      window.addEventListener('resize', onViewportChange, true)
+      if (typeof ResizeObserver === 'function' && typeof document !== 'undefined' && document.documentElement) {
+        viewportResizeObserver = new ResizeObserver(onViewportChange)
+        viewportResizeObserver.observe(document.documentElement)
+      } else {
+        window.addEventListener('resize', onViewportChange, true)
+      }
     }
   }
 

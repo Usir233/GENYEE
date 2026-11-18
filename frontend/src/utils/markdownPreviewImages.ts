@@ -15,7 +15,7 @@ export function neutralizeRelativePreviewImages(markdown: string): string {
   const spans = relativeImageSpans(markdown)
   if (spans.length === 0) return markdown
   let rewritten = markdown
-  for (const span of [...spans].sort((a, b) => b.start - a.start)) {
+  for (const span of spans.toSorted((a, b) => b.start - a.start)) {
     rewritten = rewritten.slice(0, span.start) + PREVIEW_IMAGE_PLACEHOLDER + rewritten.slice(span.end)
   }
   return rewritten
@@ -161,7 +161,7 @@ export async function rewriteKnowledgeMarkdownImages(
   if (hrefToUrl.size === 0) return { markdown, objectUrls }
 
   let rewritten = markdown
-  const ordered = [...spans].sort((a, b) => b.start - a.start)
+  const ordered = spans.toSorted((a, b) => b.start - a.start)
   for (const span of ordered) {
     const url = hrefToUrl.get(span.href)
     if (!url) continue
