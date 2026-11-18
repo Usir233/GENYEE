@@ -1,20 +1,36 @@
 """本地解析调试脚本：直接调用 Parser 解析本地文件，不经过 gRPC 服务。
 
 用法（在仓库根目录 GENYEE 下执行）：
-    PYTHONPATH=. docreader/.venv/bin/python docreader/scripts/parse_local.py <文件路径> [--engine markitdown] [--out out.md]
+    PYTHONPATH=. docreader/.venv/bin/python \\
+        docreader/scripts/parse_local.py <文件路径> [--engine markitdown] [--out out.md]
 
 示例：
-    PYTHONPATH=. docreader/.venv/bin/python docreader/scripts/parse_local.py docreader/testdata/test.md
-    PYTHONPATH=. docreader/.venv/bin/python docreader/scripts/parse_local.py ~/Desktop/demo.pdf --out /tmp/demo.md
+    PYTHONPATH=. docreader/.venv/bin/python \\
+        docreader/scripts/parse_local.py docreader/testdata/test.md
+    PYTHONPATH=. docreader/.venv/bin/python \\
+        docreader/scripts/parse_local.py ~/Desktop/demo.pdf --out /tmp/demo.md
 """
 
 import argparse
+import base64
 import logging
 import os
 import sys
 import time
 
 from docreader.parser import Parser
+
+
+def _decode_image_payload(raw_data: str | bytes | bytearray | memoryview) -> bytes:
+    if isinstance(raw_data, bytes):
+        return raw_data
+    if isinstance(raw_data, (bytearray, memoryview)):
+        return bytes(raw_data)
+    compact = "".join(raw_data.split())
+    try:
+        return base64.b64decode(compact, validate=True)
+    except Exception:
+        return raw_data.encode("utf-8")
 
 
 def resolve_safe_image_dest(out_dir: str, ref_path: str) -> str:
@@ -93,9 +109,7 @@ def main() -> int:
     if args.scanned:
         from docreader.parser.pdf_parser import PDFScannedParser
 
-        doc = PDFScannedParser(file_name=file_name, file_type=file_type).parse_into_text(
-            content
-        )
+        doc = PDFScannedParser(file_name=file_name, file_type=file_type).parse_into_text(content)
     else:
         doc = Parser().parse_file(
             file_name=file_name,
@@ -104,6 +118,10 @@ def main() -> int:
             parser_engine=args.engine or None,
         )
     elapsed = time.monotonic() - started
+
+    if doc is None:
+        print(f"解析失败: {file_name}", file=sys.stderr)
+        return 1
 
     print("=" * 60, file=sys.stderr)
     print(f"file       : {file_name}", file=sys.stderr)
@@ -117,8 +135,6 @@ def main() -> int:
     print("=" * 60, file=sys.stderr)
 
     if args.out:
-        import base64
-
         out_dir = os.path.dirname(os.path.abspath(args.out))
         os.makedirs(out_dir, exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -126,11 +142,8 @@ def main() -> int:
         if doc.images:
             img_root = os.path.join(out_dir, "images")
             os.makedirs(img_root, exist_ok=True)
-            for ref_path, b64data in doc.images.items():
-                try:
-                    raw = base64.b64decode(b64data)
-                except Exception:
-                    raw = b64data if isinstance(b64data, bytes) else b64data.encode()
+            for ref_path, raw_data in doc.images.items():
+                raw = _decode_image_payload(raw_data)
                 dest = resolve_safe_image_dest(out_dir, ref_path)
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as imgf:

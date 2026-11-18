@@ -1,6 +1,8 @@
+import contextlib
 import logging
 import os
 import tempfile
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -14,17 +16,14 @@ def _sanitize_suffix(suffix: str) -> str:
 
 
 class TempFileContext:
-    def __init__(self, file_content: bytes, suffix: str):
-        """
-        Initialize the context
-        :param file_content: Byte data to write to file
-        :param suffix: File suffix
-        """
+    def __init__(self, file_content: bytes, suffix: str) -> None:
+        """Initialize the temporary file context."""
         self.file_content = file_content
         self.suffix = _sanitize_suffix(suffix)
-        self.file = None
+        self.file: Any = None
+        self.temp_file: Any = None
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Close and unlink the temp file. close() may re-raise a prior flush
         error (ENOSPC), so unlink must still run and cleanup errors must not
         replace the original exception.
@@ -32,19 +31,13 @@ class TempFileContext:
         temp_file = getattr(self, "temp_file", None)
         if not temp_file:
             return
-        try:
+        with contextlib.suppress(OSError):
             temp_file.close()
-        except OSError:
-            pass
-        try:
+        with contextlib.suppress(OSError):
             os.remove(temp_file.name)
-        except OSError:
-            pass
 
-    def __enter__(self):
-        """
-        Create file when entering context
-        """
+    def __enter__(self) -> str:
+        """Create file when entering context."""
         self.temp_file = tempfile.NamedTemporaryFile(suffix=self.suffix, delete=False)
         # If write/flush fails (e.g. ENOSPC), __exit__ is never called because
         # the exception escapes __enter__, so clean up here or the file leaks
@@ -56,46 +49,38 @@ class TempFileContext:
         except BaseException:
             self._cleanup()
             raise
-        logger.info(
-            f"Saved {self.suffix} content to temporary file: {self.temp_file.name}"
-        )
-        return self.temp_file.name
+        name = str(self.temp_file.name)
+        logger.info("Saved %s content to temporary file: %s", self.suffix, name)
+        return name
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Delete file when exiting context
-        """
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
+        """Delete file when exiting context."""
+        del exc_type, exc_val, exc_tb
         if getattr(self, "temp_file", None):
-            name = self.temp_file.name
+            name = str(self.temp_file.name)
             self._cleanup()
-            logger.info(f"File {name} has been deleted.")
-        # Return False to propagate exception (if any exception occurred)
+            logger.info("File %s has been deleted.", name)
         return False
 
 
 class TempDirContext:
-    def __init__(self):
-        """
-        Initialize the context
-        """
-        self.temp_dir = None
+    def __init__(self) -> None:
+        """Initialize the temporary directory context."""
+        self.temp_dir: tempfile.TemporaryDirectory[str] | None = None
 
-    def __enter__(self):
-        """
-        Create directory when entering context
-        """
+    def __enter__(self) -> str:
+        """Create directory when entering context."""
         self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-        logger.info(f"Created temporary directory: {self.temp_dir.name}")
+        logger.info("Created temporary directory: %s", self.temp_dir.name)
         return self.temp_dir.name
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Delete directory when exiting context
-        """
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
+        """Delete directory when exiting context."""
+        del exc_type, exc_val, exc_tb
         if self.temp_dir and os.path.exists(self.temp_dir.name):
+            name = self.temp_dir.name
             self.temp_dir.cleanup()
-            logger.info(f"Directory {self.temp_dir.name} has been deleted.")
-        # Return False to propagate exception (if any exception occurred)
+            logger.info("Directory %s has been deleted.", name)
         return False
 
 
@@ -103,7 +88,5 @@ if __name__ == "__main__":
     example_bytes = b"Hello, this is a test file."
     file_name = "test_file.txt"
 
-    # Using with statement
-    with TempFileContext(example_bytes, file_name) as temp_file:
-        # File operations can be performed within the context
-        print(f"Does file {file_name} exist: {os.path.exists(file_name)}")
+    with TempFileContext(example_bytes, file_name) as temp_path:
+        print(f"Does file {temp_path} exist: {os.path.exists(temp_path)}")

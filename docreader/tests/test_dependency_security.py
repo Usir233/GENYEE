@@ -3,9 +3,9 @@
 import gzip
 import io
 import pickle
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from pdfminer.high_level import extract_text
 
@@ -39,8 +39,7 @@ def _pdf_with_cmap(cmap_path):
         b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Test "
         b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> "
         b"/DW 1000 >>",
-        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n"
-        + stream + b"\nendstream",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
     ]
     data = bytearray(b"%PDF-1.4\n")
     offsets = [0]
@@ -52,8 +51,7 @@ def _pdf_with_cmap(cmap_path):
     for offset in offsets[1:]:
         data.extend(f"{offset:010} 00000 n \n".encode())
     data.extend(
-        f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\n"
-        f"startxref\n{xref}\n%%EOF\n".encode()
+        f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
     )
     return bytes(data)
 

@@ -72,6 +72,8 @@ indent-style = "space"
 
 [tool.mypy]
 python_version = "3.11"
+explicit_package_bases = true
+follow_imports = "silent"
 warn_return_any = true
 warn_unused_configs = true
 check_untyped_defs = true

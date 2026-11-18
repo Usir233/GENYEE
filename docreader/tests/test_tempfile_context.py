@@ -24,10 +24,12 @@ class TempFileContextTest(unittest.TestCase):
 
             return Wrapper()
 
-        with patch("docreader.utils.tempfile.tempfile.NamedTemporaryFile", failing_ntf):
-            with self.assertRaises(OSError):
-                with TempFileContext(b"payload", ".doc"):
-                    pass
+        with (
+            patch("docreader.utils.tempfile.tempfile.NamedTemporaryFile", failing_ntf),
+            self.assertRaises(OSError),
+            TempFileContext(b"payload", ".doc"),
+        ):
+            pass
 
         self.assertEqual(len(created), 1)
         self.assertFalse(os.path.exists(created[0]))
@@ -62,9 +64,11 @@ class TempFileContextTest(unittest.TestCase):
             return Wrapper()
 
         with patch("docreader.utils.tempfile.tempfile.NamedTemporaryFile", failing_ntf):
-            with self.assertRaises(OSError) as ctx:
-                with TempFileContext(b"payload", ".doc"):
-                    pass
+            with (
+                self.assertRaises(OSError) as ctx,
+                TempFileContext(b"payload", ".doc"),
+            ):
+                pass
             self.assertEqual(ctx.exception.errno, 28)
 
         self.assertEqual(len(created), 1)
@@ -79,9 +83,8 @@ class TempFileContextTest(unittest.TestCase):
         self.assertFalse(os.path.exists(path))
 
     def test_exception_inside_body_still_cleans_up(self):
-        with self.assertRaises(ValueError):
-            with TempFileContext(b"x", ".doc") as path:
-                raise ValueError("body")
+        with self.assertRaises(ValueError), TempFileContext(b"x", ".doc") as path:
+            raise ValueError("body")
         self.assertFalse(os.path.exists(path))
 
 

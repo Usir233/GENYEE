@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -11,6 +10,7 @@ import sys
 import tempfile
 import tomllib
 import unittest
+from pathlib import Path
 from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -25,17 +25,13 @@ def _parse_version_tuple(spec: str) -> tuple[int, ...]:
 
 
 class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
-    """Regression coverage for docreader/Makefile, generate_proto.sh, pyproject.toml, and README.md."""
+    """Regression coverage for Makefile, generate_proto.sh, pyproject.toml, and README.md."""
 
     def test_generate_proto_sh_posix_and_cwd_independent(self):
         script_src = DOCREADER_DIR / "scripts" / "generate_proto.sh"
-        sh_check = subprocess.run(
-            ["sh", "-n", str(script_src)], capture_output=True, text=True
-        )
+        sh_check = subprocess.run(["sh", "-n", str(script_src)], capture_output=True, text=True)
         self.assertEqual(sh_check.returncode, 0, sh_check.stderr)
-        bash_check = subprocess.run(
-            ["bash", "-n", str(script_src)], capture_output=True, text=True
-        )
+        bash_check = subprocess.run(["bash", "-n", str(script_src)], capture_output=True, text=True)
         self.assertEqual(bash_check.returncode, 0, bash_check.stderr)
 
         with tempfile.TemporaryDirectory(prefix="proto dir with spaces ") as tmp:
@@ -63,7 +59,8 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
                 '  case "$arg" in\n'
                 "    --grpc_python_out=*)\n"
                 '      out_dir="${arg#--grpc_python_out=}"\n'
-                '      printf "import docreader_pb2 as docreader__pb2\\n" > "${out_dir}/docreader_pb2_grpc.py"\n'
+                '      printf "import docreader_pb2 as docreader__pb2\\n"'
+                ' > "${out_dir}/docreader_pb2_grpc.py"\n'
                 "      ;;\n"
                 "  esac\n"
                 "done\n",
@@ -76,7 +73,7 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
                 if real_tool:
                     (bin_dir / tool).symlink_to(real_tool)
 
-            # Execute under POSIX /bin/sh from CWD=<tmp>/docreader (matching `make -C docreader proto`).
+            # Execute under POSIX /bin/sh from CWD=<tmp>/docreader (make -C docreader proto).
             env = {"PATH": str(bin_dir)}
             proc = subprocess.run(
                 ["/bin/sh", "./scripts/generate_proto.sh"],
@@ -88,7 +85,8 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
             self.assertEqual(
                 proc.returncode,
                 0,
-                f"generate_proto.sh failed under /bin/sh from docreader/: stdout={proc.stdout}\nstderr={proc.stderr}",
+                f"generate_proto.sh failed under /bin/sh: "
+                f"stdout={proc.stdout}\nstderr={proc.stderr}",
             )
             rewritten = (proto_dir / "docreader_pb2_grpc.py").read_text(encoding="utf-8")
             self.assertIn("from docreader.proto import docreader_pb2 as docreader__pb2", rewritten)
@@ -102,17 +100,12 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
         self.assertIn("docreader.main", makefile)
 
     def test_pyproject_grpc_floor_and_direct_runtime_dependencies(self):
-        pyproject = tomllib.loads(
-            (DOCREADER_DIR / "pyproject.toml").read_text(encoding="utf-8")
-        )
-        uv_lock = tomllib.loads(
-            (DOCREADER_DIR / "uv.lock").read_text(encoding="utf-8")
-        )
-        pb2_grpc = (DOCREADER_DIR / "proto" / "docreader_pb2_grpc.py").read_text(
-            encoding="utf-8"
-        )
+        pyproject = tomllib.loads((DOCREADER_DIR / "pyproject.toml").read_text(encoding="utf-8"))
+        uv_lock = tomllib.loads((DOCREADER_DIR / "uv.lock").read_text(encoding="utf-8"))
+        pb2_grpc = (DOCREADER_DIR / "proto" / "docreader_pb2_grpc.py").read_text(encoding="utf-8")
         m = re.search(r"GRPC_GENERATED_VERSION\s*=\s*'([^']+)'", pb2_grpc)
         self.assertIsNotNone(m, "GRPC_GENERATED_VERSION missing in docreader_pb2_grpc.py")
+        assert m is not None
         generated_ver = tuple(int(x) for x in m.group(1).split("."))
 
         deps = pyproject["project"]["dependencies"]
@@ -127,7 +120,7 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
             self.assertGreaterEqual(
                 floor,
                 generated_ver,
-                f"{grpc_pkg} floor {dep_map[grpc_pkg]!r} is lower than generated stub gate {m.group(1)}",
+                f"{grpc_pkg} floor {dep_map[grpc_pkg]!r} < stub gate {m.group(1)}",
             )
 
         for direct_pkg in ("defusedxml", "charset-normalizer", "python-pptx"):
@@ -137,9 +130,7 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
                 f"Direct runtime import {direct_pkg!r} is undeclared in docreader/pyproject.toml",
             )
 
-        docreader_lock = next(
-            p for p in uv_lock["package"] if p["name"] == "docreader"
-        )
+        docreader_lock = next(p for p in uv_lock["package"] if p["name"] == "docreader")
         locked_dep_names = {d["name"] for d in docreader_lock["dependencies"]}
         for direct_pkg in ("defusedxml", "charset-normalizer", "python-pptx"):
             self.assertIn(direct_pkg, locked_dep_names)
@@ -148,6 +139,11 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
         readme = (DOCREADER_DIR / "README.md").read_text(encoding="utf-8")
         self.assertIn("GRPC_AUTH_TOKEN", readme)
         self.assertIn("DOCREADER_ALLOW_UNAUTHENTICATED", readme)
+        self.assertIn("GRPC_TLS_CERT", readme)
+        self.assertIn("GRPC_TLS_KEY", readme)
+        self.assertNotIn("GRPC_TLS_CERT_FILE", readme)
+        self.assertNotIn("GRPC_TLS_KEY_FILE", readme)
+        self.assertNotIn("GRPC_TLS_CA_FILE", readme)
         for forbidden_secret in (
             "MINIO_SECRET_ACCESS_KEY",
             "COS_SECRET_KEY",
@@ -157,7 +153,7 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
             self.assertNotIn(
                 forbidden_secret,
                 readme,
-                f"docreader/README.md must not instruct injecting {forbidden_secret} into docreader",
+                f"docreader/README.md must not inject {forbidden_secret} into docreader",
             )
 
     def test_security_regressions_discoverable_by_unittest_without_pytest(self):
@@ -165,21 +161,114 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
             self.skipTest("docreader runtime dependencies not installed in active interpreter")
         # Even if pytest is absent from the environment, unittest discovery must
         # import and load security regression tests from both modules.
+        sec_path = DOCREADER_DIR / "tests" / "test_security_audit_fixes.py"
+        dep_path = DOCREADER_DIR / "tests" / "test_dependency_security.py"
         for mod_name, rel_path, min_cases in (
-            ("sec_audit_unittest_check", DOCREADER_DIR / "tests" / "test_security_audit_fixes.py", 15),
-            ("dep_sec_unittest_check", DOCREADER_DIR / "tests" / "test_dependency_security.py", 1),
+            ("sec_audit_unittest_check", sec_path, 14),
+            ("dep_sec_unittest_check", dep_path, 1),
         ):
             spec = importlib.util.spec_from_file_location(mod_name, rel_path)
             self.assertIsNotNone(spec)
+            assert spec is not None
             mod = importlib.util.module_from_spec(spec)
             with mock.patch.dict(sys.modules, {"pytest": None}):
-                spec.loader.exec_module(mod)  # type: ignore[union-attr]
+                assert spec.loader is not None
+                spec.loader.exec_module(mod)
             suite = unittest.defaultTestLoader.loadTestsFromModule(mod)
+            count = suite.countTestCases()
             self.assertGreaterEqual(
-                suite.countTestCases(),
+                count,
                 min_cases,
-                f"{rel_path.name} exposed only {suite.countTestCases()} unittest cases (want >= {min_cases})",
+                f"{rel_path.name} exposed only {count} unittest cases (want >= {min_cases})",
             )
+
+    def test_pyproject_mypy_explicit_package_bases_enabled(self):
+        pyproject = tomllib.loads((DOCREADER_DIR / "pyproject.toml").read_text(encoding="utf-8"))
+        mypy_cfg = pyproject.get("tool", {}).get("mypy", {})
+        self.assertIs(mypy_cfg.get("explicit_package_bases"), True)
+
+    def test_parse_local_handles_raw_image_bytes_and_none_document(self):
+        from docreader.models.document import Document
+        from docreader.scripts import parse_local
+
+        raw_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00A"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            src = tmp_path / "sample.md"
+            out_md = tmp_path / "out.md"
+            src.write_text("# Sample\n", encoding="utf-8")
+
+            fake_doc = Document(content="# Parsed\n")
+            fake_doc.images = {"images/raw.png": raw_png}  # type: ignore[dict-item]
+            with (
+                mock.patch.object(parse_local.Parser, "parse_file", return_value=fake_doc),
+                mock.patch.object(sys, "argv", ["parse_local.py", str(src), "--out", str(out_md)]),
+            ):
+                rc = parse_local.main()
+            self.assertEqual(rc, 0)
+            self.assertEqual((tmp_path / "images" / "raw.png").read_bytes(), raw_png)
+
+            with (
+                mock.patch.object(parse_local.Parser, "parse_file", return_value=None),
+                mock.patch.object(sys, "argv", ["parse_local.py", str(src)]),
+            ):
+                rc_none = parse_local.main()
+            self.assertEqual(rc_none, 1)
+
+    def test_source_wire_skips_nan_and_non_dict_locators(self):
+        from types import SimpleNamespace
+
+        from docreader.source_wire import source_blocks_to_proto
+
+        nan_loc = {"type": "pdf", "page": 1, "bbox": [float("nan")]}
+        ok_loc = {"type": "pdf", "page": 1, "bbox": [0.1, 0.2, 0.3, 0.4]}
+        doc = SimpleNamespace(
+            source_blocks=[
+                {"start": 0, "end": 5, "locator": nan_loc},
+                {"start": 0, "end": 5, "locator": ["not", "a", "dict"]},
+                {"start": 0, "end": 5, "locator": ok_loc},
+            ]
+        )
+        blocks = source_blocks_to_proto(doc)
+        self.assertEqual(len(blocks), 1)
+        self.assertNotIn("NaN", blocks[0].locator_json)
+
+    def test_auth_trims_whitespace_in_tls_paths_and_bearer_header(self):
+        from docreader.auth import AuthInterceptor, TLSConfigError, load_tls_credentials
+
+        with (
+            mock.patch.dict(
+                "os.environ",
+                {"GRPC_TLS_ENABLED": "true", "GRPC_TLS_CERT": "   ", "GRPC_TLS_KEY": "   "},
+                clear=True,
+            ),
+            self.assertRaisesRegex(TLSConfigError, "not set"),
+        ):
+            load_tls_credentials()
+
+        with mock.patch.dict(
+            "os.environ",
+            {"GRPC_AUTH_TOKEN": "0123456789abcdef"},
+            clear=True,
+        ):
+            interceptor = AuthInterceptor()
+            called = False
+
+            def continuation(_details):
+                nonlocal called
+                called = True
+                return "ok-handler"
+
+            details = type(
+                "_Details",
+                (),
+                {
+                    "method": "/docreader.DocReader/Read",
+                    "invocation_metadata": [("authorization", "Bearer   0123456789abcdef  ")],
+                },
+            )()
+            self.assertEqual(interceptor.intercept_service(continuation, details), "ok-handler")
+            self.assertTrue(called)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import platform
 import signal
 import subprocess
 import sys
-
+from typing import NoReturn
 
 PROBE = """
 import resource
@@ -23,7 +23,7 @@ assert cipher.decrypt(nonce, encrypted, b'probe') == b'docreader startup probe'
 """
 
 
-def runtime_environment():
+def runtime_environment() -> dict[str, str]:
     env = os.environ.copy()
     if platform.machine().lower() not in {"arm64", "aarch64"} or "OPENSSL_armcap" in env:
         return env
@@ -33,13 +33,21 @@ def runtime_environment():
         env["OPENSSL_armcap"] = "0"
         result = subprocess.run(command, env=env, capture_output=True, timeout=30)
         if result.returncode == 0:
-            print("DocReader: ARM OpenSSL probe raised SIGILL; using portable CPU implementations (OPENSSL_armcap=0).", file=sys.stderr, flush=True)
+            print(
+                "DocReader: ARM OpenSSL probe raised SIGILL; "
+                "using portable CPU implementations (OPENSSL_armcap=0).",
+                file=sys.stderr,
+                flush=True,
+            )
     if result.returncode != 0:
-        raise RuntimeError(f"DocReader crypto startup probe failed ({result.returncode}): {result.stderr.decode(errors='replace')}")
+        stderr_text = result.stderr.decode(errors="replace")
+        raise RuntimeError(
+            f"DocReader crypto startup probe failed ({result.returncode}): {stderr_text}"
+        )
     return env
 
 
-def main():
+def main() -> NoReturn:
     if len(sys.argv) < 2:
         raise SystemExit("DocReader entrypoint requires a command")
     os.execvpe(sys.argv[1], sys.argv[1:], runtime_environment())

@@ -6,26 +6,36 @@ registry.
 
 import json
 import re
+from typing import Any
 
 from docreader.proto.docreader_pb2 import SourceBlock
 
 _SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
 
 
-def source_blocks_to_proto(document) -> list:
+def source_blocks_to_proto(document: Any) -> list[SourceBlock]:
     """Convert a document's source blocks to their wire form.
 
     Malformed entries are skipped: positions are an optional extra and must
     never fail a parse.
     """
-    out = []
+    out: list[SourceBlock] = []
     for block in getattr(document, "source_blocks", None) or []:
         try:
-            start, end = int(block["start"]), int(block["end"])
-            locator = block["locator"]
-            if end <= start or start < 0 or not locator.get("type"):
+            raw_start = block["start"]
+            raw_end = block["end"]
+            if isinstance(raw_start, bool) or isinstance(raw_end, bool):
                 continue
-            raw_json = json.dumps(locator, ensure_ascii=False)
+            start, end = int(raw_start), int(raw_end)
+            locator = block["locator"]
+            if (
+                end <= start
+                or start < 0
+                or not isinstance(locator, dict)
+                or not locator.get("type")
+            ):
+                continue
+            raw_json = json.dumps(locator, ensure_ascii=False, allow_nan=False)
             safe_json = _SURROGATE_RE.sub("\ufffd", raw_json)
             out.append(
                 SourceBlock(

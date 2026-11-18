@@ -4,10 +4,10 @@ The gRPC handler never runs native OCR itself. A busy pool declines immediately,
 and an expired/cancelled request kills its worker before returning the slot.
 """
 
+import contextlib
 import json
 import logging
 import os
-from pathlib import Path
 import queue
 import select
 import socket
@@ -16,7 +16,10 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, cast
 
 from docreader.proto.docreader_pb2 import PreprocessImageResponse
 
@@ -38,12 +41,12 @@ class PreprocessLimits:
     # from the original image and only capped at max_edge.
     probe_edge: int = 2000
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if any(value <= 0 for value in asdict(self).values()):
             raise ValueError("Preprocessing resource limits must be positive")
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: Any) -> "PreprocessLimits":
         return cls(**{name: getattr(config, f"preprocess_{name}") for name in asdict(cls())})
 
 
@@ -55,48 +58,83 @@ class _Channel:
     """Size-bounded byte frames, with cancellable reads AND writes.
 
     Readability alone does not guarantee a complete frame. Nonblocking I/O
-    keeps supervision running if a child stalls halfway through a message.
+    keeps supervision running if a child stalls halfway through a message, and
+    ``_lock`` serializes ``select``/socket operations against ``close()`` so no
+    thread ever polls or closes a file descriptor concurrently.
     """
 
-    def __init__(self, sock):
+    def __init__(self, sock: socket.socket) -> None:
         self.socket = sock
+        self._lock = threading.Lock()
+        self._closed = False
         sock.setblocking(False)
 
-    def close(self):
-        self.socket.close()
+    def interrupt(self) -> None:
+        """Unblock peer/select without releasing the underlying file descriptor."""
+        with contextlib.suppress(OSError):
+            self.socket.shutdown(socket.SHUT_RDWR)
 
-    def poll(self, timeout):
-        return bool(select.select([self.socket], [], [], timeout)[0])
+    def close(self) -> None:
+        self.interrupt()
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            self.socket.close()
 
-    def _transfer(self, buffer, *, writing=False, check=None):
+    def poll(self, timeout: float) -> bool:
+        with self._lock:
+            if self._closed:
+                return False
+            return bool(select.select([self.socket], [], [], timeout)[0])
+
+    def _step(self, view: memoryview, *, writing: bool) -> int:
+        with self._lock:
+            if self._closed:
+                raise _Stopped("cancelled")
+            readers, writers = ([], [self.socket]) if writing else ([self.socket], [])
+            readable, writable, _ = select.select(readers, writers, [], POLL_SECONDS)
+            if not (readable or writable):
+                return 0
+            try:
+                size = self.socket.send(view) if writing else self.socket.recv_into(view)
+            except BlockingIOError:
+                return 0
+            except OSError as exc:
+                if self._closed:
+                    raise _Stopped("cancelled") from exc
+                raise EOFError("Preprocessing worker closed its channel") from exc
+            if not size:
+                raise EOFError("Preprocessing worker closed its channel")
+            return size
+
+    def _transfer(
+        self,
+        buffer: bytes | bytearray,
+        *,
+        writing: bool = False,
+        check: Callable[[], None] | None = None,
+    ) -> None:
         view = memoryview(buffer)
         while view:
             if check is not None:
                 check()
-            readers, writers = ([], [self.socket]) if writing else ([self.socket], [])
-            readable, writable, _ = select.select(readers, writers, [], POLL_SECONDS)
-            if not (readable or writable):
-                continue
-            try:
-                size = self.socket.send(view) if writing else self.socket.recv_into(view)
-            except BlockingIOError:
-                continue
-            if not size:
-                raise EOFError("Preprocessing worker closed its channel")
-            view = view[size:]
+            size = self._step(view, writing=writing)
+            if size:
+                view = view[size:]
         if check is not None:
             check()
 
-    def send_bytes(self, data, *, check=None):
+    def send_bytes(self, data: bytes, *, check: Callable[[], None] | None = None) -> None:
         if len(data) > MAX_IMAGE_BYTES:
             raise ValueError("Preprocessing message exceeds the byte limit")
         self._transfer(struct.pack("!I", len(data)), writing=True, check=check)
         self._transfer(data, writing=True, check=check)
 
-    def recv_bytes(self, *, check=None):
+    def recv_bytes(self, *, check: Callable[[], None] | None = None) -> bytes:
         header = bytearray(4)
         self._transfer(header, check=check)
-        size, = struct.unpack("!I", header)
+        (size,) = struct.unpack("!I", header)
         if size > MAX_IMAGE_BYTES:
             raise ValueError("Preprocessing message exceeds the byte limit")
         data = bytearray(size)
@@ -105,21 +143,22 @@ class _Channel:
 
 
 class _Worker:
-    def __init__(self, process, connection):
+    def __init__(self, process: subprocess.Popen[bytes], connection: _Channel) -> None:
         self.process = process
         self.connection = connection
         self.ready = False
         self.lock = threading.Lock()
 
-    def stop(self):
+    def stop(self) -> None:
         with self.lock:
+            self.connection.interrupt()
             if self.process.poll() is None:
                 self.process.kill()
             self.process.wait(timeout=2)
             self.connection.close()
 
 
-def _resident_bytes(pid):
+def _resident_bytes(pid: int) -> int:
     if sys.platform.startswith("linux"):
         with open(f"/proc/{pid}/statm", encoding="ascii") as stat:
             return int(stat.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
@@ -128,30 +167,43 @@ def _resident_bytes(pid):
         # statm read above, plus a hard address-space limit in the child.
         result = subprocess.run(
             ["/bin/ps", "-o", "rss=", "-p", str(pid)],
-            capture_output=True, text=True, timeout=0.5, check=True,
+            capture_output=True,
+            text=True,
+            timeout=0.5,
+            check=True,
         )
         return int(result.stdout.strip()) * 1024
     raise OSError("Preprocessing memory supervision requires Linux or macOS")
 
 
 class PreprocessRunner:
-    def __init__(self, limits, *, worker_module="docreader.preprocess_worker"):
+    def __init__(
+        self,
+        limits: PreprocessLimits,
+        *,
+        worker_module: str = "docreader.preprocess_worker",
+    ) -> None:
         self.limits = limits
         self._worker_module = worker_module
-        self._idle = queue.LifoQueue(limits.max_workers)
+        self._idle: queue.LifoQueue[_Worker | None] = queue.LifoQueue(limits.max_workers)
         for _ in range(limits.max_workers):
             self._idle.put_nowait(None)
         self._closed = threading.Event()
         self._lock = threading.Lock()
-        self._workers = set()
+        self._workers: set[_Worker] = set()
 
-    def _start_worker(self):
+    def _start_worker(self) -> _Worker:
         parent, child = socket.socketpair()
         env = os.environ.copy()
         # Set before Python imports numerical libraries in the child, without
         # changing the environment of ordinary document parsers.
-        for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
-                     "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        for name in (
+            "OMP_NUM_THREADS",
+            "OPENBLAS_NUM_THREADS",
+            "MKL_NUM_THREADS",
+            "VECLIB_MAXIMUM_THREADS",
+            "NUMEXPR_NUM_THREADS",
+        ):
             env[name] = str(self.limits.threads)
         env["DOCREADER_PREPROCESS_THREADS"] = str(self.limits.threads)
         try:
@@ -159,9 +211,16 @@ class PreprocessRunner:
                 if self._closed.is_set():
                     raise _Stopped("cancelled")
                 process = subprocess.Popen(
-                    [sys.executable, "-m", self._worker_module, str(child.fileno()),
-                     json.dumps(asdict(self.limits)), str(os.getpid())],
-                    pass_fds=(child.fileno(),), env=env,
+                    [
+                        sys.executable,
+                        "-m",
+                        self._worker_module,
+                        str(child.fileno()),
+                        json.dumps(asdict(self.limits)),
+                        str(os.getpid()),
+                    ],
+                    pass_fds=(child.fileno(),),
+                    env=env,
                     cwd=Path(__file__).resolve().parent.parent,
                 )
                 worker = _Worker(process, _Channel(parent))
@@ -173,7 +232,7 @@ class PreprocessRunner:
         finally:
             child.close()
 
-    def _discard(self, worker):
+    def _discard(self, worker: _Worker | None) -> bool:
         if worker is None:
             return True
         try:
@@ -186,7 +245,7 @@ class PreprocessRunner:
             self._workers.discard(worker)
         return True
 
-    def _check_request(self, context, deadline):
+    def _check_request(self, context: Any, deadline: float) -> None:
         if self._closed.is_set():
             raise _Stopped("cancelled")
         if time.monotonic() >= deadline:
@@ -194,31 +253,41 @@ class PreprocessRunner:
         if context is not None and not context.is_active():
             raise _Stopped("cancelled")
 
-    def _check_worker(self, worker):
+    def _check_worker(self, worker: _Worker) -> None:
         if worker.process.poll() is not None:
+            if self._closed.is_set():
+                raise _Stopped("cancelled")
             raise _Stopped("worker_failed")
         try:
             rss = _resident_bytes(worker.process.pid)
         except (OSError, ValueError, subprocess.SubprocessError):
+            if self._closed.is_set():
+                raise _Stopped("cancelled") from None
             # Fail closed if the worker cannot be supervised. A process that
             # exited between poll() and reading RSS is handled the same way.
             raise _Stopped("worker_failed") from None
         if rss > self.limits.memory_mb * 1024 * 1024:
             raise _Stopped("memory_limit")
 
-    def _supervisor(self, worker, context, deadline):
-        def check():
+    def _supervisor(
+        self,
+        worker: _Worker,
+        context: Any,
+        deadline: float,
+    ) -> Callable[[], None]:
+        def check() -> None:
             self._check_request(context, deadline)
             self._check_worker(worker)
+
         return check
 
-    def run(self, image, context):
+    def run(self, image: bytes, context: Any) -> PreprocessImageResponse:
         deadline = time.monotonic() + self.limits.timeout_seconds
         if context is not None:
             remaining = context.time_remaining()
             if remaining is not None:
-                deadline = min(deadline, time.monotonic() + max(0, remaining))
-        worker = None
+                deadline = min(deadline, time.monotonic() + max(0.0, float(remaining)))
+        worker: _Worker | None = None
         reusable = False
         acquired = False
         try:
@@ -244,13 +313,19 @@ class PreprocessRunner:
                     raise _Stopped("worker_failed")
                 worker.ready = True
             worker.connection.send_bytes(image, check=check)
-            response = PreprocessImageResponse.FromString(worker.connection.recv_bytes(check=check))
+            response = cast(
+                PreprocessImageResponse,
+                PreprocessImageResponse.FromString(worker.connection.recv_bytes(check=check)),
+            )
             reusable = response.status not in ("memory_limit", "failed")
             return response
         except _Stopped as exc:
             logger.info("PreprocessImage: fallback (%s)", exc)
             return PreprocessImageResponse(fallback_needed=True, status=str(exc))
         except Exception:
+            if self._closed.is_set():
+                logger.info("PreprocessImage: fallback (cancelled)")
+                return PreprocessImageResponse(fallback_needed=True, status="cancelled")
             logger.exception("PreprocessImage worker failed; keeping the original image")
             return PreprocessImageResponse(fallback_needed=True, status="worker_failed")
         finally:
@@ -263,9 +338,9 @@ class PreprocessRunner:
                 if reaped and not self._closed.is_set():
                     self._idle.put_nowait(worker)
 
-    def close(self):
-        self._closed.set()
+    def close(self) -> None:
         with self._lock:
+            self._closed.set()
             workers = list(self._workers)
         for worker in workers:
             self._discard(worker)

@@ -1,15 +1,16 @@
 import logging
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def _get_first_env(keys: Iterable[str]) -> Tuple[Optional[str], Optional[str]]:
+def _get_first_env(keys: Iterable[str]) -> tuple[str | None, str | None]:
     """Return (value, key) for the first existing env var in keys."""
     for k in keys:
         if k in os.environ:
@@ -53,6 +54,25 @@ def _positive_int_keys(keys: Iterable[str], default: int) -> int:
     if value <= 0:
         logger.warning("%s must be positive; using %d", "/".join(key_list), default)
         return default
+    return value
+
+
+def _non_negative_int(key: str, default: int) -> int:
+    value = _get_int([key], default)
+    if value < 0:
+        logger.warning("%s must be non-negative; using %d", key, default)
+        return default
+    return value
+
+
+def _clamped_int(key: str, default: int, minimum: int, maximum: int) -> int:
+    value = _get_int([key], default)
+    if value < minimum:
+        logger.warning("%s below minimum %d; clamping to %d", key, minimum, minimum)
+        return minimum
+    if value > maximum:
+        logger.warning("%s above maximum %d; clamping to %d", key, maximum, maximum)
+        return maximum
     return value
 
 
@@ -112,7 +132,9 @@ def mask_proxy_url(url: str) -> str:
             host = f"[{host}]"
         port_part = f":{parts.port}" if parts.port is not None else ""
         netloc = f"{userinfo}@{host}{port_part}" if userinfo else f"{host}{port_part}"
-        rebuilt = urlunsplit((parts.scheme if has_scheme else "", netloc, parts.path, parts.query, parts.fragment))
+        rebuilt = urlunsplit(
+            (parts.scheme if has_scheme else "", netloc, parts.path, parts.query, parts.fragment)
+        )
         if not has_scheme and rebuilt.startswith("//"):
             return rebuilt[2:]
         return rebuilt
@@ -165,6 +187,7 @@ class DocReaderConfig:
     odl_timeout_seconds: int = 120
     odl_java_max_heap_mb: int = 1024
     odl_hybrid_auth_token: str = ""
+    grpc_shutdown_grace_seconds: int = 10
 
     @property
     def grpc_max_message_size_bytes(self) -> int:
@@ -176,24 +199,26 @@ class DocReaderConfig:
 def load_config() -> DocReaderConfig:
     """Load config from environment variables (lightweight version)."""
 
-    grpc_max_workers = _positive_int_keys(
-        ["DOCREADER_GRPC_MAX_WORKERS", "GRPC_MAX_WORKERS"], 4
-    )
+    grpc_max_workers = _positive_int_keys(["DOCREADER_GRPC_MAX_WORKERS", "GRPC_MAX_WORKERS"], 4)
     grpc_max_file_size_mb = (
-        _positive_int_keys(
-            ["DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"], 50
-        )
+        _positive_int_keys(["DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"], 50)
         * 1024
         * 1024
     )
     raw_port = _get_int(["DOCREADER_GRPC_PORT", "PORT"], 50051)
-    grpc_port = raw_port if 1 <= raw_port <= 65535 else 50051
-    docx_max_pages = _get_int(["DOCREADER_DOCX_MAX_PAGES"], 0)
-    markitdown_max_workers = _get_int(["DOCREADER_MARKITDOWN_MAX_WORKERS"], 1)
+    if 1 <= raw_port <= 65535:
+        grpc_port = raw_port
+    else:
+        logger.warning("DOCREADER_GRPC_PORT/PORT %d out of range 1..65535; using 50051", raw_port)
+        grpc_port = 50051
+    grpc_shutdown_grace_seconds = _non_negative_int("DOCREADER_GRPC_SHUTDOWN_GRACE_SECONDS", 10)
+
+    docx_max_pages = _non_negative_int("DOCREADER_DOCX_MAX_PAGES", 0)
+    markitdown_max_workers = _non_negative_int("DOCREADER_MARKITDOWN_MAX_WORKERS", 1)
     markitdown_xlsx_max_table_cells = _positive_int(
         "DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS", 200_000
     )
-    odl_max_workers = _get_int(["DOCREADER_ODL_MAX_WORKERS"], 1)
+    odl_max_workers = _non_negative_int("DOCREADER_ODL_MAX_WORKERS", 1)
     odl_hybrid = _get_str(["DOCREADER_ODL_HYBRID"], "off")
     odl_hybrid_url = _get_str(
         ["DOCREADER_ODL_HYBRID_URL"],
@@ -201,16 +226,14 @@ def load_config() -> DocReaderConfig:
     )
     odl_hybrid_mode = _get_str(["DOCREADER_ODL_HYBRID_MODE"], "auto")
     odl_hybrid_fallback = _get_bool(["DOCREADER_ODL_HYBRID_FALLBACK"], False)
-    odl_markdown_with_html = _get_bool(
-        ["DOCREADER_ODL_MARKDOWN_WITH_HTML"], False
-    )
+    odl_markdown_with_html = _get_bool(["DOCREADER_ODL_MARKDOWN_WITH_HTML"], False)
     # Index only the main content of an uploaded HTML file, the way the URL
     # import path already does (trafilatura with a full-page fallback). It is
     # off by default on purpose, so upgrading never changes what a knowledge
     # base indexes for documents it already ingests: with it off every
     # uploaded HTML file is converted in full, exactly as before.
     html_main_content = _get_bool(["DOCREADER_HTML_MAIN_CONTENT"], False)
-    pdf_render_max_workers = _get_int(["DOCREADER_PDF_RENDER_MAX_WORKERS"], 1)
+    pdf_render_max_workers = _non_negative_int("DOCREADER_PDF_RENDER_MAX_WORKERS", 1)
     # Intra-document render parallelism: how many worker processes render the
     # scanned pages of a SINGLE PDF in parallel. pdfium is not thread-safe, so
     # page rendering is fanned out across processes (each opens its own
@@ -218,23 +241,17 @@ def load_config() -> DocReaderConfig:
     # CPU-constrained containers; this is the main lever to cut that wall time.
     # Default scales with CPU count but is capped so we don't oversubscribe.
     _cpu = os.cpu_count() or 1
-    pdf_render_parallelism = _positive_int(
-        "DOCREADER_PDF_RENDER_PARALLELISM", max(1, min(4, _cpu))
-    )
+    pdf_render_parallelism = _positive_int("DOCREADER_PDF_RENDER_PARALLELISM", max(1, min(4, _cpu)))
     pdf_render_dpi = _positive_int("DOCREADER_PDF_RENDER_DPI", 200)
-    pdf_jpeg_quality = _get_int(["DOCREADER_PDF_JPEG_QUALITY"], 85)
+    pdf_jpeg_quality = _clamped_int("DOCREADER_PDF_JPEG_QUALITY", 85, 1, 95)
     # Cap the long edge (px) of rendered/extracted page images. Without this,
     # PDFs declaring very large page boxes render to 100+ MP JPEGs that blow the
     # gRPC message limit (and are far higher-res than OCR needs). ~2000px keeps
     # dense CJK text legible for OCR while keeping page images well under ~1MB.
-    pdf_render_max_edge = _get_int(["DOCREADER_PDF_RENDER_MAX_EDGE"], 2000)
+    pdf_render_max_edge = _positive_int("DOCREADER_PDF_RENDER_MAX_EDGE", 2000)
 
-    external_http_proxy = _get_str(
-        ["DOCREADER_EXTERNAL_HTTP_PROXY", "EXTERNAL_HTTP_PROXY"], ""
-    )
-    external_https_proxy = _get_str(
-        ["DOCREADER_EXTERNAL_HTTPS_PROXY", "EXTERNAL_HTTPS_PROXY"], ""
-    )
+    external_http_proxy = _get_str(["DOCREADER_EXTERNAL_HTTP_PROXY", "EXTERNAL_HTTP_PROXY"], "")
+    external_https_proxy = _get_str(["DOCREADER_EXTERNAL_HTTPS_PROXY", "EXTERNAL_HTTPS_PROXY"], "")
 
     image_output_dir = _get_str(
         ["DOCREADER_IMAGE_OUTPUT_DIR", "IMAGE_OUTPUT_DIR"], "/tmp/docreader"
@@ -275,19 +292,21 @@ def load_config() -> DocReaderConfig:
         odl_hybrid_auth_token=_get_str(
             ["ODL_HYBRID_AUTH_TOKEN", "DOCREADER_ODL_HYBRID_AUTH_TOKEN"], ""
         ).strip(),
+        grpc_shutdown_grace_seconds=grpc_shutdown_grace_seconds,
     )
 
 
 CONFIG = load_config()
 
 
-def dump_config(mask_secrets: bool = True) -> Dict[str, Any]:
+def dump_config(mask_secrets: bool = True) -> dict[str, Any]:
     cfg = CONFIG
     mask_url = mask_proxy_url if mask_secrets else (lambda u: u)
-    d: Dict[str, Any] = {
+    d: dict[str, Any] = {
         "DOCREADER_GRPC_MAX_WORKERS": cfg.grpc_max_workers,
         "DOCREADER_GRPC_MAX_FILE_SIZE_MB": cfg.grpc_max_file_size_mb // (1024 * 1024),
         "DOCREADER_GRPC_PORT": cfg.grpc_port,
+        "DOCREADER_GRPC_SHUTDOWN_GRACE_SECONDS": cfg.grpc_shutdown_grace_seconds,
         "DOCREADER_DOCX_MAX_PAGES": cfg.docx_max_pages,
         "DOCREADER_MARKITDOWN_MAX_WORKERS": cfg.markitdown_max_workers,
         "DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS": cfg.markitdown_xlsx_max_table_cells,
@@ -300,9 +319,7 @@ def dump_config(mask_secrets: bool = True) -> Dict[str, Any]:
         "DOCREADER_ODL_TIMEOUT_SECONDS": cfg.odl_timeout_seconds,
         "DOCREADER_ODL_JAVA_MAX_HEAP_MB": cfg.odl_java_max_heap_mb,
         "ODL_HYBRID_AUTH_TOKEN": (
-            _mask_secret(cfg.odl_hybrid_auth_token)
-            if mask_secrets
-            else cfg.odl_hybrid_auth_token
+            _mask_secret(cfg.odl_hybrid_auth_token) if mask_secrets else cfg.odl_hybrid_auth_token
         ),
         "DOCREADER_ODL_MARKDOWN_WITH_HTML": cfg.odl_markdown_with_html,
         "DOCREADER_HTML_MAIN_CONTENT": cfg.html_main_content,

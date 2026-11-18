@@ -11,10 +11,12 @@ import os
 import re
 import socket
 from functools import lru_cache
-from typing import FrozenSet, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-RESTRICTED_HOSTNAMES: FrozenSet[str] = frozenset(
+IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+RESTRICTED_HOSTNAMES: frozenset[str] = frozenset(
     {
         "localhost",
         "127.0.0.1",
@@ -33,7 +35,7 @@ RESTRICTED_HOSTNAMES: FrozenSet[str] = frozenset(
     }
 )
 
-RESTRICTED_SUFFIXES: Tuple[str, ...] = (
+RESTRICTED_SUFFIXES: tuple[str, ...] = (
     ".local",
     ".localhost",
     ".internal",
@@ -45,7 +47,7 @@ RESTRICTED_SUFFIXES: Tuple[str, ...] = (
     ".pod.cluster.local",
 )
 
-EXTRA_RESTRICTED_CIDRS: Tuple[Union[ipaddress.IPv4Network, ipaddress.IPv6Network], ...] = tuple(
+EXTRA_RESTRICTED_CIDRS: tuple[IPNetwork, ...] = tuple(
     ipaddress.ip_network(cidr)
     for cidr in (
         "100.64.0.0/10",
@@ -64,7 +66,7 @@ EXTRA_RESTRICTED_CIDRS: Tuple[Union[ipaddress.IPv4Network, ipaddress.IPv6Network
     )
 )
 
-BLOCKED_PORTS: FrozenSet[str] = frozenset(
+BLOCKED_PORTS: frozenset[str] = frozenset(
     {
         "22",
         "23",
@@ -100,7 +102,7 @@ def _normalize_url(raw_url: str) -> str:
     return raw_url
 
 
-def normalize_hostname(raw_hostname: Optional[str]) -> Tuple[str, str]:
+def normalize_hostname(raw_hostname: str | None) -> tuple[str, str]:
     """Canonicalize FQDN trailing root dot and reject empty DNS labels (MED-14).
 
     Returns ``(normalized_hostname, error_reason)``. ``error_reason`` is empty
@@ -126,7 +128,7 @@ def normalize_hostname(raw_hostname: Optional[str]) -> Tuple[str, str]:
 
 
 @lru_cache(maxsize=1)
-def _load_whitelist() -> Tuple[FrozenSet[str], Tuple[str, ...], Tuple[Union[ipaddress.IPv4Network, ipaddress.IPv6Network], ...]]:
+def _load_whitelist() -> tuple[frozenset[str], tuple[str, ...], tuple[IPNetwork, ...]]:
     entries: list[str] = []
     for env_key in ("SSRF_WHITELIST", "SSRF_WHITELIST_EXTRA"):
         raw = os.environ.get(env_key, "")
@@ -135,7 +137,7 @@ def _load_whitelist() -> Tuple[FrozenSet[str], Tuple[str, ...], Tuple[Union[ipad
 
     exact_hosts: set[str] = set()
     suffix_hosts: list[str] = []
-    cidr_nets: list[Union[ipaddress.IPv4Network, ipaddress.IPv6Network]] = []
+    cidr_nets: list[IPNetwork] = []
     for entry in entries:
         lowered = entry.lower().rstrip(".")
         if not lowered:
@@ -197,7 +199,7 @@ def _is_ip_like_hostname(hostname: str) -> bool:
     return False
 
 
-def _is_restricted_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> Optional[str]:
+def _is_restricted_ip(ip: IPAddress) -> str | None:
     if ip.is_private:
         return "private IP address"
     if ip.is_loopback:
@@ -255,19 +257,19 @@ def _is_restricted_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -
     return None
 
 
-def _resolve_host_ips(hostname: str) -> Tuple[Tuple[Union[ipaddress.IPv4Address, ipaddress.IPv6Address], ...], Optional[str]]:
+def _resolve_host_ips(hostname: str) -> tuple[tuple[IPAddress, ...], str | None]:
     try:
         infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         return (), f"DNS resolution failed for hostname {hostname}: {exc}"
-    ips: list[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]] = []
+    ips: list[IPAddress] = []
     seen: set[str] = set()
     for info in infos:
         sockaddr = info[4]
         if not sockaddr:
             continue
         ip_str = sockaddr[0]
-        if ip_str in seen:
+        if not isinstance(ip_str, str) or ip_str in seen:
             continue
         seen.add(ip_str)
         try:
@@ -279,7 +281,7 @@ def _resolve_host_ips(hostname: str) -> Tuple[Tuple[Union[ipaddress.IPv4Address,
     return tuple(ips), None
 
 
-def is_ssrf_safe_url(raw_url: str) -> Tuple[bool, str]:
+def is_ssrf_safe_url(raw_url: str) -> tuple[bool, str]:
     """Return (safe, reason). reason is empty when safe is True."""
     if not raw_url or not raw_url.strip():
         return False, "URL is empty"
@@ -333,7 +335,10 @@ def is_ssrf_safe_url(raw_url: str) -> Tuple[bool, str]:
 
     try:
         ipaddress.ip_address(hostname_lower)
-        return False, "direct IP address access is not allowed, use domain name or add to SSRF_WHITELIST"
+        return (
+            False,
+            "direct IP address access is not allowed, use domain name or add to SSRF_WHITELIST",
+        )
     except ValueError:
         pass
 
@@ -351,13 +356,6 @@ def is_ssrf_safe_url(raw_url: str) -> Tuple[bool, str]:
                 False,
                 f"hostname {hostname_lower} resolves to restricted IP {resolved_ip}: {reason}",
             )
-
-    try:
-        port = parsed.port
-    except ValueError as exc:
-        return False, f"invalid port: {exc}"
-    if port is not None and str(port) in BLOCKED_PORTS:
-        return False, f"port {port} is blocked for security reasons"
 
     return True, ""
 

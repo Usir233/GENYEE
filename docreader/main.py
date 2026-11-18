@@ -1,66 +1,82 @@
+import base64
 import logging
 import os
 import re
 import signal
 import sys
+import threading
 import traceback
 import uuid
+from collections.abc import Generator, Iterator, Mapping
 from concurrent import futures
-from typing import Optional
+from typing import Any
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc
 from grpc_health.v1.health import HealthServicer
 from PIL import Image
 
+from docreader import config
 from docreader.auth import (
     AuthConfigError,
     AuthInterceptor,
     TLSConfigError,
     load_tls_credentials,
 )
-from docreader import config
 from docreader.config import CONFIG, redact_secrets
+from docreader.models.document import Document
 from docreader.parser import Parser
-from docreader.parser.parser import sanitize_engine_overrides
-
-# Tighten Pillow decompression-bomb pixel ceiling across all in-process parsers.
-Image.MAX_IMAGE_PIXELS = 40_000_000
-from docreader.parser.stream import ParsedDocumentStream
 from docreader.parser.concurrency import check_cancellation
+from docreader.parser.parser import sanitize_engine_overrides
+from docreader.parser.registry import registry
+from docreader.parser.stream import ParsedDocumentStream
 from docreader.preprocess import PreprocessLimits, PreprocessRunner
 from docreader.proto import docreader_pb2_grpc
-from docreader.parser.registry import registry
 from docreader.proto.docreader_pb2 import (
-    ReadRequest,
-    ReadResponse,
-    ImageRef,
-    ReadStreamMeta,
-    ReadStreamResponse,
+    GetInfoRequest,
     GetInfoResponse,
+    ImageRef,
+    ListEnginesRequest,
     ListEnginesResponse,
     ParserEngineInfo,
+    PreprocessImageRequest,
+    PreprocessImageResponse,
+    ReadRequest,
+    ReadResponse,
+    ReadStreamMeta,
+    ReadStreamResponse,
 )
 from docreader.source_wire import source_blocks_to_proto
 from docreader.utils.request import init_logging_request_id, request_id_context
 from docreader.utils.request_memory import RequestThreadPoolExecutor, track_request_size
 
+# Tighten Pillow decompression-bomb pixel ceiling across all in-process parsers.
+Image.MAX_IMAGE_PIXELS = 40_000_000
+
 _SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
+_MIME_MAP: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+}
 
 
-def to_valid_utf8_text(s: Optional[str]) -> str:
+def to_valid_utf8_text(s: str | None) -> str:
     if not s:
         return ""
     s = _SURROGATE_RE.sub("\ufffd", s)
     return s.encode("utf-8", errors="replace").decode("utf-8")
 
 
-def _safe_error_text(s: Optional[str]) -> str:
+def _safe_error_text(s: str | None) -> str:
     return to_valid_utf8_text(redact_secrets(s or ""))
 
 
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
+for _existing_handler in logging.root.handlers[:]:
+    logging.root.removeHandler(_existing_handler)
 
 handler = logging.StreamHandler(sys.stdout)
 logging.root.addHandler(handler)
@@ -75,9 +91,31 @@ logger.info("Initializing server logging, level=%s", _level_name)
 init_logging_request_id()
 
 
+def _decode_inline_image_data(raw_data: str | bytes | bytearray | memoryview) -> bytes:
+    """Decode a base64 image string or preserve already-decoded raw image bytes."""
+    if isinstance(raw_data, bytes):
+        return raw_data
+    if isinstance(raw_data, (bytearray, memoryview)):
+        return bytes(raw_data)
+    compact = "".join(raw_data.split())
+    try:
+        return base64.b64decode(compact, validate=True)
+    except Exception:
+        return raw_data.encode("utf-8")
+
+
+def _mime_for_ref(ref_path: str) -> tuple[str, str]:
+    """Return (filename, mime_type) for an image reference path."""
+    fname = os.path.basename(ref_path) or f"{uuid.uuid4().hex}.png"
+    ext = os.path.splitext(fname)[1].lower()
+    return fname, _MIME_MAP.get(ext, "application/octet-stream")
+
+
 def _resolve_images(
-    images: dict, request_id: str, storage_map: dict | None = None
-) -> tuple[str, list]:
+    images: Mapping[str, str | bytes | bytearray | memoryview] | None,
+    request_id: str,
+    storage_map: Mapping[str, Any] | None = None,
+) -> tuple[str, list[ImageRef]]:
     """Resolve document images into inline bytes for the Go App to persist.
 
     ``images`` is a dict of {relative_path: raw_data} where raw_data is
@@ -89,31 +127,14 @@ def _resolve_images(
 
     Returns ("", list[ImageRef]).  image_dir_path is always empty.
     """
-    import base64
-
+    del request_id, storage_map
     if not images:
         return "", []
 
-    mime_map = {
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".gif": "image/gif",
-        ".webp": "image/webp",
-        ".bmp": "image/bmp",
-    }
-
-    refs = []
-    for ref_path, b64data in images.items():
-        try:
-            img_bytes = base64.b64decode(b64data)
-        except Exception:
-            img_bytes = b64data.encode("utf-8") if isinstance(b64data, str) else b64data
-
-        fname = os.path.basename(ref_path) or f"{uuid.uuid4().hex}.png"
-        ext = os.path.splitext(fname)[1].lower()
-        mime = mime_map.get(ext, "application/octet-stream")
-
+    refs: list[ImageRef] = []
+    for ref_path, raw_data in images.items():
+        img_bytes = _decode_inline_image_data(raw_data)
+        fname, mime = _mime_for_ref(ref_path)
         refs.append(
             ImageRef(
                 filename=fname,
@@ -127,37 +148,17 @@ def _resolve_images(
     return "", refs
 
 
-def _mime_for_ref(ref_path: str) -> tuple[str, str]:
-    """Return (filename, mime_type) for an image reference path."""
-    mime_map = {
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".gif": "image/gif",
-        ".webp": "image/webp",
-        ".bmp": "image/bmp",
-    }
-    fname = os.path.basename(ref_path) or f"{uuid.uuid4().hex}.png"
-    ext = os.path.splitext(fname)[1].lower()
-    return fname, mime_map.get(ext, "application/octet-stream")
-
-
-def _iter_image_refs(images: dict):
+def _iter_image_refs(images: dict[str, Any]) -> Iterator[ImageRef]:
     """Yield ImageRef one at a time, freeing each source entry as we go.
 
     Used by the streaming RPC so we never hold every decoded image plus its
     base64 source in memory simultaneously (the inline path's peak-memory and
     message-size problem for large scanned PDFs).
     """
-    import base64
-
     for ref_path in list(images.keys()):
-        b64data = images.pop(ref_path)
-        try:
-            img_bytes = base64.b64decode(b64data)
-        except Exception:
-            img_bytes = b64data.encode("utf-8") if isinstance(b64data, str) else b64data
-        del b64data
+        raw_data = images.pop(ref_path)
+        img_bytes = _decode_inline_image_data(raw_data)
+        del raw_data
         fname, mime = _mime_for_ref(ref_path)
         yield ImageRef(
             filename=fname,
@@ -185,11 +186,33 @@ def _validate_file_content_size(content: bytes) -> None:
         )
 
 
+class _BoundPreprocessHandler:
+    """Callable RPC handler carrying gRPC's per-method experimental_thread_pool."""
+
+    def __init__(
+        self,
+        runner: Any,
+        executor: futures.ThreadPoolExecutor,
+    ) -> None:
+        self._runner = runner
+        self.experimental_thread_pool = executor
+
+    def __call__(
+        self,
+        request: PreprocessImageRequest,
+        context: Any,
+    ) -> PreprocessImageResponse:
+        result: PreprocessImageResponse = self._runner.run(request.image, context)
+        return result
+
+
 class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
-    def __init__(self, preprocess_runner=None):
+    def __init__(self, preprocess_runner: Any = None) -> None:
         super().__init__()
         self.parser = Parser()
-        self._preprocess_runner = preprocess_runner or PreprocessRunner(PreprocessLimits.from_config(CONFIG))
+        self._preprocess_runner = preprocess_runner or PreprocessRunner(
+            PreprocessLimits.from_config(CONFIG)
+        )
         # gRPC supports a per-method executor. Leave one admission thread free
         # to decline busy requests while the admitted calls await their child.
         # Ordinary Read/ReadStream/ListEngines RPCs retain the server's executor.
@@ -197,25 +220,31 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             max_workers=self._preprocess_runner.limits.max_workers + 1,
             thread_name_prefix="image-preprocess",
         )
+        self._preprocess_handler = _BoundPreprocessHandler(
+            self._preprocess_runner, self._preprocess_executor
+        )
 
-        def preprocess_image(request, context):
-            return self._preprocess_runner.run(request.image, context)
+    @property
+    def PreprocessImage(self) -> _BoundPreprocessHandler:
+        return self._preprocess_handler
 
-        preprocess_image.experimental_thread_pool = self._preprocess_executor
-        self.PreprocessImage = preprocess_image
-
-    def close(self):
+    def close(self) -> None:
         self._preprocess_runner.close()
         self._preprocess_executor.shutdown(wait=True, cancel_futures=True)
 
-    def GetInfo(self, request, context):
+    def GetInfo(self, request: GetInfoRequest, context: Any) -> GetInfoResponse:
         """Return metadata embedded in the image that runs this instance."""
+        del request, context
         return GetInfoResponse(
             version=os.getenv("DOCREADER_VERSION", "unknown"),
             commit_id=os.getenv("DOCREADER_COMMIT_ID", "unknown"),
         )
 
-    def _parse_request(self, request: ReadRequest, context=None):
+    def _parse_request(
+        self,
+        request: ReadRequest,
+        context: Any = None,
+    ) -> tuple[Document | None, str]:
         """Run the parser for a ReadRequest, returning (result, source_desc).
 
         Shared by the unary Read and streaming ReadStream RPCs.
@@ -226,15 +255,16 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
         engine_overrides = dict(cfg.parser_engine_overrides) if cfg else {}
 
         if request.url:
-            logger.info("Read(URL): url=%s", _safe_error_text(request.url))
-            result = self.parser.parse_url(
+            safe_url = _safe_error_text(request.url)
+            logger.info("Read(URL): url=%s", safe_url)
+            url_result = self.parser.parse_url(
                 request.url,
                 request.title,
                 parser_engine=parser_engine,
                 engine_overrides=engine_overrides,
                 context=context,
             )
-            return result, _safe_error_text(request.url)
+            return url_result, safe_url
 
         file_type = request.file_type or os.path.splitext(request.file_name)[1][1:]
         file_content = request.file_content
@@ -246,7 +276,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             file_type,
             len(file_content),
         )
-        result = self.parser.parse_file(
+        file_result = self.parser.parse_file(
             request.file_name,
             file_type,
             file_content,
@@ -254,9 +284,9 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             engine_overrides=engine_overrides,
             context=context,
         )
-        return result, request.file_name
+        return file_result, request.file_name
 
-    def Read(self, request: ReadRequest, context):
+    def Read(self, request: ReadRequest, context: Any) -> ReadResponse:
         """Unified read: file mode (file_content set) or URL mode (url set)."""
         request_id = request.request_id or str(uuid.uuid4())
 
@@ -295,31 +325,29 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 logger.info("Traceback: %s", _safe_error_text(traceback.format_exc()))
                 return ReadResponse(error=safe_exc)
 
-    def ReadStream(self, request: ReadRequest, context):
+    def ReadStream(
+        self, request: ReadRequest, context: Any
+    ) -> Generator[ReadStreamResponse, None, None]:
         """Yield metadata first, then images as each parser produces them."""
         request_id = request.request_id or str(uuid.uuid4())
 
         with request_id_context(request_id):
             _c = to_valid_utf8_text
-            parsed_stream = None
+            parsed_stream: ParsedDocumentStream | None = None
+            result: Document | None = None
             try:
-                if request.url or not callable(
-                    getattr(self.parser, "parse_file_stream", None)
-                ):
+                if request.url or not callable(getattr(self.parser, "parse_file_stream", None)):
                     result, source_desc = self._parse_request(request, context)
-                    parsed_stream = ParsedDocumentStream(
-                        document=result,
-                        image_count=len(result.images or {}),
-                    )
+                    if result is not None:
+                        parsed_stream = ParsedDocumentStream(
+                            document=result,
+                            image_count=len(result.images or {}),
+                        )
                 else:
                     cfg = request.config
                     parser_engine = cfg.parser_engine if cfg else ""
-                    engine_overrides = (
-                        dict(cfg.parser_engine_overrides) if cfg else {}
-                    )
-                    file_type = request.file_type or os.path.splitext(
-                        request.file_name
-                    )[1][1:]
+                    engine_overrides = dict(cfg.parser_engine_overrides) if cfg else {}
+                    file_type = request.file_type or os.path.splitext(request.file_name)[1][1:]
                     file_content = request.file_content
                     try:
                         track_request_size(len(file_content))
@@ -356,10 +384,11 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             # full bytes field while the client drains page images.
             del request
 
-            if not result or not result.content:
+            if parsed_stream is None or not result or not result.content:
                 error_msg = _safe_error_text(f"Failed to parse: {source_desc}")
                 logger.error(error_msg)
-                parsed_stream.close()
+                if parsed_stream is not None:
+                    parsed_stream.close()
                 yield ReadStreamResponse(meta=ReadStreamMeta(error=error_msg))
                 return
 
@@ -387,9 +416,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 for image in parsed_stream.images:
                     check_cancellation(context)
                     yield ReadStreamResponse(
-                        image=_image_ref_from_streamed_data(
-                            image.ref_path, image.image_data
-                        )
+                        image=_image_ref_from_streamed_data(image.ref_path, image.image_data)
                     )
                     sent += 1
             except Exception:
@@ -404,7 +431,8 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 sent,
             )
 
-    def ListEngines(self, request, context):
+    def ListEngines(self, request: ListEnginesRequest, context: Any) -> ListEnginesResponse:
+        del context
         raw_overrides = dict(getattr(request, "config_overrides", None) or {})
         overrides = sanitize_engine_overrides(raw_overrides, reject_forbidden=False)
         engines_data = registry.list_engines(overrides=overrides or None)
@@ -421,17 +449,18 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
         return ListEnginesResponse(engines=engines)
 
 
-def main():
+def main() -> None:
     config.print_config()
 
     try:
-        interceptors = [AuthInterceptor()]
+        interceptors: list[grpc.ServerInterceptor] = [AuthInterceptor()]
     except AuthConfigError as e:
         logger.error("Refusing to start: %s", e)
         sys.exit(1)
 
+    executor = RequestThreadPoolExecutor(max_workers=CONFIG.grpc_max_workers)
     server = grpc.server(
-        RequestThreadPoolExecutor(max_workers=CONFIG.grpc_max_workers),
+        executor,
         options=[
             ("grpc.max_send_message_length", CONFIG.grpc_max_message_size_bytes),
             ("grpc.max_receive_message_length", CONFIG.grpc_max_message_size_bytes),
@@ -448,6 +477,8 @@ def main():
     try:
         tls_credentials = load_tls_credentials()
     except TLSConfigError as e:
+        servicer.close()
+        executor.shutdown(wait=True)
         logger.error("Refusing to start: %s", e)
         sys.exit(1)
 
@@ -456,23 +487,56 @@ def main():
         logger.info("Server starting on port %d with TLS", CONFIG.grpc_port)
     else:
         server.add_insecure_port(f"[::]:{CONFIG.grpc_port}")
-        logger.warning(
-            "Server starting on port %d WITHOUT TLS (insecure mode)", CONFIG.grpc_port
-        )
+        logger.warning("Server starting on port %d WITHOUT TLS (insecure mode)", CONFIG.grpc_port)
 
     server.start()
 
     logger.info("Server started on port %d", CONFIG.grpc_port)
     logger.info("Server is ready to accept connections")
 
-    signal.signal(signal.SIGTERM, lambda _signum, _frame: server.stop(0))
+    grace_seconds = float(getattr(CONFIG, "grpc_shutdown_grace_seconds", 10))
+    stop_requested = threading.Event()
+    shutdown_started = threading.Event()
+    watcher_exiting = threading.Event()
+
+    def _begin_graceful_drain(reason: str, *, wait: bool = False) -> None:
+        if not shutdown_started.is_set():
+            shutdown_started.set()
+            logger.info(
+                "%s; entering graceful gRPC shutdown (grace=%ss)",
+                reason,
+                grace_seconds,
+            )
+            health_servicer.enter_graceful_shutdown()
+        stop_event = server.stop(grace_seconds)
+        if wait:
+            stop_event.wait()
+
+    def _shutdown_watcher() -> None:
+        stop_requested.wait()
+        if watcher_exiting.is_set():
+            return
+        _begin_graceful_drain("Received SIGTERM")
+
+    watcher = threading.Thread(
+        target=_shutdown_watcher,
+        name="docreader-sigterm-drain",
+        daemon=True,
+    )
+    watcher.start()
+
+    signal.signal(signal.SIGTERM, lambda _signum, _frame: stop_requested.set())
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Received termination signal, shutting down server")
     finally:
-        server.stop(0).wait()
+        watcher_exiting.set()
+        stop_requested.set()
+        _begin_graceful_drain("Stopping gRPC server", wait=True)
+        watcher.join(timeout=1.0)
         servicer.close()
+        executor.shutdown(wait=True)
 
 
 if __name__ == "__main__":

@@ -21,11 +21,7 @@ from docreader.proto import docreader_pb2_grpc as rpc
 
 def _anonymous_bytes():
     with open("/proc/self/status") as status:
-        return next(
-            int(line.split()[1]) * 1024
-            for line in status
-            if line.startswith("RssAnon:")
-        )
+        return next(int(line.split()[1]) * 1024 for line in status if line.startswith("RssAnon:"))
 
 
 def _serve(control):
@@ -68,9 +64,11 @@ def _serve(control):
         server.wait_for_termination = wait
         return server
 
-    with patch.object(main.grpc, "server", create_server):
-        with patch.object(main.config, "print_config"):
-            main.main()
+    with (
+        patch.object(main.grpc, "server", create_server),
+        patch.object(main.config, "print_config"),
+    ):
+        main.main()
 
 
 def _scanned_pdf(padding_bytes=0):
@@ -86,9 +84,11 @@ def _scanned_pdf(padding_bytes=0):
         b"/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>",
         b"<< /Type /XObject /Subtype /Image /Width 64 /Height 64 "
         b"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "
-        + str(len(jpeg)).encode() + b" >>\nstream\n" + jpeg + b"\nendstream",
-        b"<< /Length " + str(len(drawing)).encode()
-        + b" >>\nstream\n" + drawing + b"\nendstream",
+        + str(len(jpeg)).encode()
+        + b" >>\nstream\n"
+        + jpeg
+        + b"\nendstream",
+        b"<< /Length " + str(len(drawing)).encode() + b" >>\nstream\n" + drawing + b"\nendstream",
     ]
     # An unreferenced stream gives the request a large payload without making
     # rendering slow or requiring a checked-in binary fixture.
@@ -106,9 +106,7 @@ def _scanned_pdf(padding_bytes=0):
     output.write(b"xref\n0 7\n0000000000 65535 f \n")
     for offset in offsets:
         output.write(f"{offset:010d} 00000 n \n".encode())
-    output.write(
-        f"trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
-    )
+    output.write(f"trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode())
     return output.getvalue()
 
 
@@ -153,8 +151,9 @@ class DocReaderMemoryTest(unittest.TestCase):
                     time.sleep(0.02)
                     current = memory()
                 print(
-                    f"{label}: idle delta={(current-baseline)/1048576:.1f} MiB "
-                    "after a 64 MiB request", flush=True,
+                    f"{label}: idle delta={(current - baseline) / 1048576:.1f} MiB "
+                    "after a 64 MiB request",
+                    flush=True,
                 )
                 self.assertLess(current - baseline, 32 * 1024 * 1024)
 
@@ -174,7 +173,8 @@ class DocReaderMemoryTest(unittest.TestCase):
                         if method == "invalid PDF":
                             request = pb.ReadRequest(
                                 file_content=b"not a PDF" + b"A" * (64 * 1024 * 1024),
-                                file_name="broken.pdf", file_type="pdf",
+                                file_name="broken.pdf",
+                                file_type="pdf",
                             )
                         frames = list(stub.ReadStream(request, timeout=20))
                         if method == "invalid PDF":

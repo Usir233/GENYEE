@@ -51,33 +51,35 @@ class ReadStreamPDFTest(unittest.TestCase):
         stream = None
 
         try:
-            with patch.object(
-                pdf_parser,
-                "CONFIG",
-                replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
-            ):
-                with patch.object(
+            with (
+                patch.object(
+                    pdf_parser,
+                    "CONFIG",
+                    replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
+                ),
+                patch.object(
                     pdf_parser,
                     "_render_page_to_jpeg",
                     wraps=real_render,
-                ) as render:
-                    stream = service.ReadStream(request, None)
-                    meta = next(stream).meta
-                    self.assertEqual(meta.image_count, 2)
-                    self.assertEqual(render.call_count, 0)
+                ) as render,
+            ):
+                stream = service.ReadStream(request, None)
+                meta = next(stream).meta
+                self.assertEqual(meta.image_count, 2)
+                self.assertEqual(render.call_count, 0)
 
-                    first = next(stream).image
-                    self.assertEqual(first.filename, "scan_page_1.jpg")
-                    self.assertTrue(first.image_data.startswith(b"\xff\xd8"))
-                    self.assertEqual(render.call_count, 1)
+                first = next(stream).image
+                self.assertEqual(first.filename, "scan_page_1.jpg")
+                self.assertTrue(first.image_data.startswith(b"\xff\xd8"))
+                self.assertEqual(render.call_count, 1)
 
-                    second = next(stream).image
-                    self.assertEqual(second.filename, "scan_page_2.jpg")
-                    self.assertTrue(second.image_data.startswith(b"\xff\xd8"))
-                    self.assertEqual(render.call_count, 2)
+                second = next(stream).image
+                self.assertEqual(second.filename, "scan_page_2.jpg")
+                self.assertTrue(second.image_data.startswith(b"\xff\xd8"))
+                self.assertEqual(render.call_count, 2)
 
-                    with self.assertRaises(StopIteration):
-                        next(stream)
+                with self.assertRaises(StopIteration):
+                    next(stream)
         finally:
             if stream is not None:
                 stream.close()
@@ -103,22 +105,24 @@ class ReadStreamPDFTest(unittest.TestCase):
             return path
 
         try:
-            with patch.object(
-                pdf_parser,
-                "CONFIG",
-                replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
-            ):
-                with patch.object(
+            with (
+                patch.object(
+                    pdf_parser,
+                    "CONFIG",
+                    replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
+                ),
+                patch.object(
                     pdf_parser,
                     "_write_pdf_temp_file",
                     side_effect=record_temp_path,
-                ):
-                    stream = service.ReadStream(request, None)
-                    self.assertEqual(next(stream).meta.image_count, 2)
-                    self.assertEqual(len(temp_paths), 1)
-                    self.assertTrue(os.path.exists(temp_paths[0]))
-                    stream.close()
-                    self.assertFalse(os.path.exists(temp_paths[0]))
+                ),
+            ):
+                stream = service.ReadStream(request, None)
+                self.assertEqual(next(stream).meta.image_count, 2)
+                self.assertEqual(len(temp_paths), 1)
+                self.assertTrue(os.path.exists(temp_paths[0]))
+                stream.close()
+                self.assertFalse(os.path.exists(temp_paths[0]))
         finally:
             if stream is not None:
                 stream.close()

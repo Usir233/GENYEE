@@ -6,13 +6,23 @@ import logging
 import os
 import socket
 import sys
+from typing import TypedDict
 
 from docreader.preprocess import WORKER_IDLE_SECONDS, PreprocessLimits, _Channel
+from docreader.proto.docreader_pb2 import PreprocessImageResponse
 
 logger = logging.getLogger(__name__)
 
 
-def apply_process_limits(limits, parent_pid):
+class _PreprocessMetrics(TypedDict):
+    theta: float
+    residual: float
+    n_boxes: int
+    n_kept: int
+    flip: bool
+
+
+def apply_process_limits(limits: PreprocessLimits, parent_pid: int) -> None:
     if sys.platform.startswith("linux"):
         import ctypes
         import resource
@@ -31,13 +41,12 @@ def apply_process_limits(limits, parent_pid):
         resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
 
 
-def process_image(image, limits):
+def process_image(image: bytes, limits: PreprocessLimits) -> PreprocessImageResponse:
     import cv2
     import numpy as np
     from PIL import Image, UnidentifiedImageError
 
     from docreader.parser.image_preprocess import preprocess, warp_ordered
-    from docreader.proto.docreader_pb2 import PreprocessImageResponse
 
     Image.MAX_IMAGE_PIXELS = 40_000_000
     try:
@@ -46,6 +55,8 @@ def process_image(image, limits):
         try:
             with Image.open(io.BytesIO(image)) as header:
                 width, height = header.size
+                if width <= 0 or height <= 0:
+                    return PreprocessImageResponse(fallback_needed=True, status="undecodable")
                 if width * height > limits.max_pixels:
                     return PreprocessImageResponse(fallback_needed=True, status="image_too_large")
         except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
@@ -55,6 +66,8 @@ def process_image(image, limits):
         if bgr is None:
             return PreprocessImageResponse(fallback_needed=True, status="undecodable")
         height, width = bgr.shape[:2]
+        if width <= 0 or height <= 0:
+            return PreprocessImageResponse(fallback_needed=True, status="undecodable")
         if width * height > limits.max_pixels:
             return PreprocessImageResponse(fallback_needed=True, status="image_too_large")
 
@@ -71,16 +84,25 @@ def process_image(image, limits):
                 interpolation=cv2.INTER_AREA,
             )
         out = preprocess(probe)
-        fields = dict(
-            theta=float(out.get("theta") or 0), residual=float(out.get("residual") or 0),
-            n_boxes=int(out.get("n_boxes") or 0), n_kept=int(out.get("n_kept") or 0),
-            flip=bool(out.get("flip")),
-        )
+        fields: _PreprocessMetrics = {
+            "theta": float(out.get("theta") or 0),
+            "residual": float(out.get("residual") or 0),
+            "n_boxes": int(out.get("n_boxes") or 0),
+            "n_kept": int(out.get("n_kept") or 0),
+            "flip": bool(out.get("flip")),
+        }
         if out.get("status") != "ok" or out.get("rect") is None:
             return PreprocessImageResponse(
-                fallback_needed=True, status=str(out.get("status", "unknown")), **fields)
+                fallback_needed=True,
+                status=str(out.get("status", "unknown")),
+                **fields,
+            )
         if fields["residual"] > 2:
-            return PreprocessImageResponse(fallback_needed=True, status="low_quality", **fields)
+            return PreprocessImageResponse(
+                fallback_needed=True,
+                status="low_quality",
+                **fields,
+            )
         if probe is bgr:
             rect = out["rect"]  # the crop already came from the original
         else:
@@ -94,18 +116,28 @@ def process_image(image, limits):
         # The edge limit applies to the CROP, not to the source page: a small
         # text block keeps its pixels even when the page around it is huge.
         if rect.size == 0 or min(rect.shape[:2]) <= 0:
-            return PreprocessImageResponse(fallback_needed=True, status="low_quality", **fields)
+            return PreprocessImageResponse(
+                fallback_needed=True,
+                status="low_quality",
+                **fields,
+            )
         crop_scale = min(1.0, limits.max_edge / max(rect.shape[:2]))
         if crop_scale < 1:
             rect = cv2.resize(
                 rect,
-                (max(1, round(rect.shape[1] * crop_scale)),
-                 max(1, round(rect.shape[0] * crop_scale))),
+                (
+                    max(1, round(rect.shape[1] * crop_scale)),
+                    max(1, round(rect.shape[0] * crop_scale)),
+                ),
                 interpolation=cv2.INTER_AREA,
             )
         ok, encoded = cv2.imencode(".jpg", rect, [cv2.IMWRITE_JPEG_QUALITY, 92])
         if not ok:
-            return PreprocessImageResponse(fallback_needed=True, status="encode_failed", **fields)
+            return PreprocessImageResponse(
+                fallback_needed=True,
+                status="encode_failed",
+                **fields,
+            )
         return PreprocessImageResponse(image=encoded.tobytes(), status="ok", **fields)
     except MemoryError:
         return PreprocessImageResponse(fallback_needed=True, status="memory_limit")
@@ -114,12 +146,13 @@ def process_image(image, limits):
         return PreprocessImageResponse(fallback_needed=True, status="failed")
 
 
-def main():
+def main() -> None:
     limits = PreprocessLimits(**json.loads(sys.argv[2]))
     connection = _Channel(socket.socket(fileno=int(sys.argv[1])))
     try:
         apply_process_limits(limits, int(sys.argv[3]))
         import cv2
+
         from docreader.parser.image_preprocess import effective_thresholds
 
         cv2.setNumThreads(limits.threads)

@@ -22,7 +22,8 @@
 import hmac
 import logging
 import os
-from typing import Optional
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import grpc
 
@@ -44,7 +45,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in ("true", "1", "yes", "on")
 
 
-def load_tls_credentials() -> Optional[grpc.ServerCredentials]:
+def load_tls_credentials() -> grpc.ServerCredentials | None:
     """构建 server 端 TLS 凭据。
 
     GRPC_TLS_ENABLED=false 时返回 None；为 true 时如果配置无效会抛出
@@ -54,8 +55,8 @@ def load_tls_credentials() -> Optional[grpc.ServerCredentials]:
         logger.info("TLS disabled (GRPC_TLS_ENABLED is not 'true')")
         return None
 
-    cert_path = os.getenv("GRPC_TLS_CERT")
-    key_path = os.getenv("GRPC_TLS_KEY")
+    cert_path = (os.getenv("GRPC_TLS_CERT") or "").strip()
+    key_path = (os.getenv("GRPC_TLS_KEY") or "").strip()
 
     if not cert_path or not key_path:
         raise TLSConfigError(
@@ -71,16 +72,14 @@ def load_tls_credentials() -> Optional[grpc.ServerCredentials]:
     except OSError as e:
         raise TLSConfigError(f"failed to read TLS cert/key: {e}") from e
 
-    ca_path = os.getenv("GRPC_TLS_CA")
+    ca_path = (os.getenv("GRPC_TLS_CA") or "").strip()
     require_client_auth = _env_bool(
         "GRPC_MTLS_REQUIRE_CLIENT_CERT",
         default=bool(ca_path),
     )
 
     if require_client_auth and not ca_path:
-        raise TLSConfigError(
-            "GRPC_MTLS_REQUIRE_CLIENT_CERT=true requires GRPC_TLS_CA to be set"
-        )
+        raise TLSConfigError("GRPC_MTLS_REQUIRE_CLIENT_CERT=true requires GRPC_TLS_CA to be set")
 
     if ca_path:
         try:
@@ -113,20 +112,21 @@ _HEALTH_METHODS = frozenset(
 )
 
 
-def _make_abort_handler(original: Optional[grpc.RpcMethodHandler]) -> grpc.RpcMethodHandler:
+def _make_abort_handler(original: grpc.RpcMethodHandler | None) -> grpc.RpcMethodHandler:
     """为给定的原 handler 构造一个匹配 RPC kind 的鉴权失败 handler。
 
     如果原 handler 不可用（理论上不会发生，但作为兜底），返回 unary_unary。
     直接返回 None 而不是 set_code 也可，但显式调用 abort 能确保框架按
     UNAUTHENTICATED 收尾，且匹配 kind 防止 grpc 触发 INTERNAL。
     """
-    def _abort(_request, context):
+
+    def _abort(_request: Any, context: Any) -> Any:
         context.abort(
             grpc.StatusCode.UNAUTHENTICATED,
             "Invalid or missing authentication token",
         )
 
-    def _abort_stream(_request, context):
+    def _abort_stream(_request: Any, context: Any) -> Iterator[Any]:
         context.abort(
             grpc.StatusCode.UNAUTHENTICATED,
             "Invalid or missing authentication token",
@@ -174,10 +174,8 @@ class AuthInterceptor(grpc.ServerInterceptor):
     def __init__(self) -> None:
         token = (os.getenv("GRPC_AUTH_TOKEN") or "").strip()
         allow_unauthenticated = _env_bool("DOCREADER_ALLOW_UNAUTHENTICATED", False)
-        self.auth_token: Optional[bytes] = token.encode("utf-8") if token else None
-        self.allow_unauthenticated: bool = bool(
-            allow_unauthenticated and not self.auth_token
-        )
+        self.auth_token: bytes | None = token.encode("utf-8") if token else None
+        self.allow_unauthenticated: bool = bool(allow_unauthenticated and not self.auth_token)
         if self.auth_token:
             if len(self.auth_token) < 16:
                 logger.warning(
@@ -196,7 +194,11 @@ class AuthInterceptor(grpc.ServerInterceptor):
                 "local development/testing)"
             )
 
-    def intercept_service(self, continuation, handler_call_details):
+    def intercept_service(
+        self,
+        continuation: Callable[[Any], Any],
+        handler_call_details: Any,
+    ) -> Any:
         method = handler_call_details.method
         if method in _HEALTH_METHODS:
             return continuation(handler_call_details)
@@ -212,9 +214,11 @@ class AuthInterceptor(grpc.ServerInterceptor):
             return _make_abort_handler(original)
 
         metadata = dict(handler_call_details.invocation_metadata or [])
-        raw = metadata.get("authorization", "") or ""
+        raw_val = metadata.get("authorization", "") or ""
+        raw = raw_val.decode("utf-8", errors="ignore") if isinstance(raw_val, bytes) else raw_val
+        raw = raw.strip()
         if raw[:7].lower() == "bearer ":
-            raw = raw[7:]
+            raw = raw[7:].strip()
         token_bytes = raw.encode("utf-8")
 
         if not hmac.compare_digest(token_bytes, self.auth_token):

@@ -3,7 +3,11 @@ import os
 import unittest
 from unittest.mock import patch
 
-from docreader.utils.ssrf import is_ssrf_safe_url, reset_ssrf_whitelist_cache_for_test
+from docreader.utils.ssrf import (
+    _resolve_host_ips,
+    is_ssrf_safe_url,
+    reset_ssrf_whitelist_cache_for_test,
+)
 
 
 class TestSSRFValidation(unittest.TestCase):
@@ -23,7 +27,11 @@ class TestSSRFValidation(unittest.TestCase):
     def _whitelist_only(self, whitelist: str, only: str) -> None:
         patcher = patch.dict(
             os.environ,
-            {"SSRF_WHITELIST": whitelist, "SSRF_WHITELIST_EXTRA": "", "SSRF_DNS_WHITELIST_ONLY": only},
+            {
+                "SSRF_WHITELIST": whitelist,
+                "SSRF_WHITELIST_EXTRA": "",
+                "SSRF_DNS_WHITELIST_ONLY": only,
+            },
             clear=False,
         )
         patcher.start()
@@ -73,9 +81,10 @@ class TestSSRFValidation(unittest.TestCase):
         self.assertTrue(reason)
 
     def test_blocks_invalid_port(self):
-        with patch("docreader.utils.ssrf._resolve_host_ips", return_value=(
-            (ipaddress.ip_address("93.184.216.34"),), None
-        )):
+        with patch(
+            "docreader.utils.ssrf._resolve_host_ips",
+            return_value=((ipaddress.ip_address("93.184.216.34"),), None),
+        ):
             safe, reason = is_ssrf_safe_url("https://example.com:99999/path")
         self.assertFalse(safe)
         self.assertIn("invalid port", reason)
@@ -90,23 +99,41 @@ class TestSSRFValidation(unittest.TestCase):
         self.assertIn("restricted", reason)
 
     def test_blocks_local_use_nat64(self):
-        for address in ('64:ff9b:1::', '64:ff9b:1::a9fe:a9fe',
-                        '64:ff9b:1::808:808', '64:ff9b:1:ffff:ffff:ffff:ffff:ffff'):
-            with self.subTest(address=address), patch(
-                'docreader.utils.ssrf._resolve_host_ips',
-                return_value=((ipaddress.ip_address(address),), None),
+        for address in (
+            "64:ff9b:1::",
+            "64:ff9b:1::a9fe:a9fe",
+            "64:ff9b:1::808:808",
+            "64:ff9b:1:ffff:ffff:ffff:ffff:ffff",
+        ):
+            with (
+                self.subTest(address=address),
+                patch(
+                    "docreader.utils.ssrf._resolve_host_ips",
+                    return_value=((ipaddress.ip_address(address),), None),
+                ),
             ):
-                safe, reason = is_ssrf_safe_url('https://example.invalid/path')
+                safe, reason = is_ssrf_safe_url("https://example.invalid/path")
                 self.assertFalse(safe)
-                self.assertIn('restricted', reason)
+                self.assertIn("restricted", reason)
 
     def test_allows_public_https(self):
-        with patch("docreader.utils.ssrf._resolve_host_ips", return_value=(
-            (ipaddress.ip_address("93.184.216.34"),), None
-        )):
+        with patch(
+            "docreader.utils.ssrf._resolve_host_ips",
+            return_value=((ipaddress.ip_address("93.184.216.34"),), None),
+        ):
             safe, reason = is_ssrf_safe_url("https://example.com/article")
         self.assertTrue(safe, reason)
         self.assertEqual(reason, "")
+
+    def test_resolve_host_ips_ignores_non_string_sockaddr_family_entries(self):
+        fake_infos = [
+            (17, 1, 0, "", (999, b"\x00\x01")),
+            (2, 1, 6, "", ("93.184.216.34", 443)),
+        ]
+        with patch("docreader.utils.ssrf.socket.getaddrinfo", return_value=fake_infos):
+            ips, err = _resolve_host_ips("example.com")
+        self.assertIsNone(err)
+        self.assertEqual(ips, (ipaddress.ip_address("93.184.216.34"),))
 
 
 if __name__ == "__main__":

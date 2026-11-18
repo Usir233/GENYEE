@@ -1,29 +1,27 @@
 """Unit tests verifying remediation of audit findings DOC-01 through DOC-12."""
 
 import io
-import logging
 import os
 import tempfile
 import unittest
 import zipfile
+from typing import Any
 from unittest.mock import MagicMock
 
-from docreader.models.document import Document
-from docreader.parser.concurrency import check_cancellation, parser_worker_limit
+from docreader.parser.concurrency import check_cancellation
 from docreader.parser.docx_merge import fill_vertical_merged_cells_docx
-from docreader.parser.docx_parser import Docx, DocxParser
+from docreader.parser.docx_parser import Docx
 from docreader.parser.epub_parser import EPUBParser
 from docreader.parser.markdown_parser import MarkdownImageUtil, MarkdownParser
 from docreader.parser.markitdown_parser import MarkitdownParser
 from docreader.parser.parser import Parser
-from docreader.parser.pdf_parser import PDFParser, PDFScannedParser
+from docreader.parser.pdf_parser import PDFParser
 from docreader.parser.pptx_media import (
     _rasterize_with_imagemagick,
     list_pptx_media,
-    rasterize_media_bytes,
 )
 from docreader.parser.registry import BUILTIN_ENGINE, registry
-from docreader.parser.xlsx_repair import _rewrite_zip, sanitize_xlsx_styles
+from docreader.parser.xlsx_repair import _rewrite_zip
 from docreader.splitter.splitter import TextSplitter
 from docreader.utils.endecode import decode_bytes
 
@@ -51,7 +49,11 @@ class TestAuditRemediation(unittest.TestCase):
         self.assertIn("Hello Plain Text", doc.content)
 
     # DOC-03 (F11): Archive ZipBomb protection
-    def _create_bomb_zip(self, member_name="word/document.xml", uncompressed_size=101 * 1024 * 1024):
+    def _create_bomb_zip(
+        self,
+        member_name: str = "word/document.xml",
+        uncompressed_size: int = 101 * 1024 * 1024,
+    ) -> bytes:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(member_name, b"\x00" * uncompressed_size)
@@ -117,7 +119,7 @@ class TestAuditRemediation(unittest.TestCase):
         util = MarkdownImageUtil()
         with self.assertLogs("docreader.parser.markdown_parser", level="ERROR") as logs:
             util.extract_base64(md_text)
-        error_line = [l for l in logs.output if "Failed to decode base64 image" in l][0]
+        error_line = [line for line in logs.output if "Failed to decode base64 image" in line][0]
         self.assertIn("len=1001", error_line)
         self.assertIn("...", error_line)
         self.assertLess(len(error_line), 300)
@@ -176,7 +178,9 @@ class TestAuditRemediation(unittest.TestCase):
 
     # DOC-12 (F20): Production splitter assertions replaced
     def test_doc12_splitter_runtime_exception(self):
-        splitter = TextSplitter(separators=["\n"], chunk_size=10, chunk_overlap=0)
+        splitter: TextSplitter[Any] = TextSplitter(
+            separators=["\n"], chunk_size=10, chunk_overlap=0
+        )
         chunks = splitter.split_text("Line 1\nLine 2\nLine 3")
         self.assertTrue(len(chunks) > 0)
 

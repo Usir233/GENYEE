@@ -34,6 +34,15 @@ class TestEncodeImage(unittest.TestCase):
         with self.assertRaises(binascii.Error):
             encode_image(VALID_B64[:-3])
 
+    def test_rejects_non_base64_ascii_garbage_instead_of_partial_decode(self):
+        with self.assertRaises(ValueError):
+            encode_image("abcd!!!!")
+        self.assertEqual(encode_image("abcd!!!!", errors="ignore"), b"")
+
+    def test_allows_mime_whitespace_wrapped_base64(self):
+        wrapped = VALID_B64[:4] + "\r\n  " + VALID_B64[4:]
+        self.assertEqual(encode_image(wrapped), PNG_SIGNATURE)
+
 
 if __name__ == "__main__":
     unittest.main()

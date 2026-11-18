@@ -24,11 +24,11 @@ docreader:
 - **启动行为**: 未设置或为空白字符串时，`docreader` 会在启动阶段直接报错退出（`AuthConfigError`）。
 - **本地单测豁免**: 仅在完全隔离的本机开发/测试环境中，可显式设置 `DOCREADER_ALLOW_UNAUTHENTICATED=true` 关闭鉴权；生产部署严禁启用。
 
-#### 2. `GRPC_TLS_ENABLED` / `GRPC_TLS_CERT_FILE` / `GRPC_TLS_KEY_FILE` / `GRPC_TLS_CA_FILE`（可选）
+#### 2. `GRPC_TLS_ENABLED` / `GRPC_TLS_CERT` / `GRPC_TLS_KEY` / `GRPC_TLS_CA`（可选）
 
 - **说明**: 跨主机或零信任网络部署时启用 gRPC TLS / mTLS：
-  - `GRPC_TLS_ENABLED=true` 时需提供服务端证书 `GRPC_TLS_CERT_FILE` 与私钥 `GRPC_TLS_KEY_FILE`。
-  - 同时配置 `GRPC_TLS_CA_FILE` 时启用双向 mTLS 客户端证书校验。
+  - `GRPC_TLS_ENABLED=true` 时需提供服务端证书 `GRPC_TLS_CERT` 与私钥 `GRPC_TLS_KEY`。
+  - 同时配置 `GRPC_TLS_CA` 时启用双向 mTLS 客户端证书校验（或通过 `GRPC_MTLS_REQUIRE_CLIENT_CERT` 显式控制）。
 
 #### 3. `MAX_FILE_SIZE_MB`
 

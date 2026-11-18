@@ -4,12 +4,14 @@ Unlike Playwright route hooks, a proxy also sees redirected connections. HTTPS
 stays end-to-end encrypted; CONNECT only opens a socket to a checked numeric IP.
 An operator-configured HTTP(S) upstream proxy receives that numeric IP too.
 """
+
 from __future__ import annotations
 
 import asyncio
 import base64
 import contextlib
 import ipaddress
+from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from docreader.utils.ssrf import (
@@ -44,45 +46,61 @@ async def checked_address(url: str) -> tuple[str, int]:
 
 
 class SSRFProxy:
-    def __init__(self, upstream: str | None = None):
+    def __init__(self, upstream: str | None = None) -> None:
         self.upstream = urlsplit(upstream) if upstream else None
         if self.upstream and self.upstream.scheme not in {"http", "https"}:
             raise ValueError("browser upstream proxy must use HTTP or HTTPS")
-        self.tasks: set[asyncio.Task] = set()
-        self.server = None
+        self.tasks: set[asyncio.Task[None]] = set()
+        self.server: asyncio.AbstractServer | None = None
         self.url = ""
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> SSRFProxy:
         self.server = await asyncio.start_server(self._accept, "127.0.0.1", 0, limit=65536)
+        if not self.server.sockets:
+            raise RuntimeError("SSRFProxy server started without bound sockets")
         self.url = f"http://127.0.0.1:{self.server.sockets[0].getsockname()[1]}"
         return self
 
-    async def __aexit__(self, *_):
-        self.server.close()
-        await self.server.wait_closed()
+    async def __aexit__(self, *_exc: Any) -> None:
+        if self.server is not None:
+            self.server.close()
+            await self.server.wait_closed()
         for task in list(self.tasks):
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
 
-    def _accept(self, reader, writer):
+    def _accept(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
         task = asyncio.create_task(self._handle(reader, writer))
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
 
-    async def _connect(self, ip: str, port: int):
+    async def _connect(
+        self, ip: str, port: int
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         if not self.upstream:
             return await asyncio.wait_for(asyncio.open_connection(ip, port), 15)
         proxy = self.upstream
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(
-            proxy.hostname, proxy.port or (443 if proxy.scheme == "https" else 80),
-            ssl=True if proxy.scheme == "https" else None,
-        ), 15)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(
+                proxy.hostname,
+                proxy.port or (443 if proxy.scheme == "https" else 80),
+                ssl=True if proxy.scheme == "https" else None,
+            ),
+            15,
+        )
         try:
-            authority = f"[{ip}]:{port}" if ipaddress.ip_address(ip).version == 6 else f"{ip}:{port}"
+            authority = (
+                f"[{ip}]:{port}" if ipaddress.ip_address(ip).version == 6 else f"{ip}:{port}"
+            )
             headers = f"CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\n"
             if proxy.username is not None:
                 credentials = f"{unquote(proxy.username)}:{unquote(proxy.password or '')}"
-                headers += "Proxy-Authorization: Basic " + base64.b64encode(credentials.encode()).decode() + "\r\n"
+                encoded_creds = base64.b64encode(credentials.encode()).decode()
+                headers += f"Proxy-Authorization: Basic {encoded_creds}\r\n"
             writer.write((headers + "\r\n").encode())
             await writer.drain()
             response = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 15)
@@ -96,13 +114,19 @@ class SSRFProxy:
                 await writer.wait_closed()
             raise
 
-    async def _handle(self, reader, writer):
-        upstream_writer = None
-        relays = []
+    async def _handle(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
+        upstream_writer: asyncio.StreamWriter | None = None
+        relays: list[asyncio.Task[None]] = []
         connected = False
         try:
             header = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 15)
             lines = header.decode("latin-1").split("\r\n")
+            if "\r" in lines[0] or "\n" in lines[0]:
+                raise ValueError("invalid request line")
             method, target, version = lines[0].split(" ")
             if version not in {"HTTP/1.0", "HTTP/1.1"}:
                 raise ValueError("unsupported HTTP version")
@@ -112,6 +136,14 @@ class SSRFProxy:
                 raise ValueError("invalid CONNECT target")
             if method != "CONNECT" and parsed.scheme != "http":
                 raise ValueError("HTTPS requires CONNECT")
+            for raw_line in lines[1:]:
+                if not raw_line:
+                    continue
+                if "\r" in raw_line or "\n" in raw_line:
+                    raise ValueError("invalid header")
+                hdr_name, hdr_sep, _ = raw_line.partition(":")
+                if not hdr_sep or hdr_name.strip() != hdr_name or not hdr_name:
+                    raise ValueError("invalid header")
             ip, port = await checked_address(url)
             upstream_reader, upstream_writer = await self._connect(ip, port)
             if method == "CONNECT":
@@ -123,32 +155,54 @@ class SSRFProxy:
                 path = parsed.path or "/"
                 if parsed.query:
                     path += "?" + parsed.query
-                forwarded = [f"{method} {path} {version}", f"Host: {parsed.netloc}", "Connection: close"]
+                forwarded = [
+                    f"{method} {path} {version}",
+                    f"Host: {parsed.netloc}",
+                    "Connection: close",
+                ]
+                blocked_headers = {
+                    "host",
+                    "connection",
+                    "proxy-connection",
+                    "proxy-authorization",
+                }
                 for line in lines[1:]:
                     if not line:
                         continue
-                    name, sep, _ = line.partition(":")
-                    if not sep or name.strip() != name:
-                        raise ValueError("invalid header")
-                    if name.lower() not in {"host", "connection", "proxy-connection", "proxy-authorization"}:
+                    name, _, _ = line.partition(":")
+                    if name.lower() not in blocked_headers:
                         forwarded.append(line)
                 upstream_writer.write(("\r\n".join(forwarded) + "\r\n\r\n").encode("latin-1"))
                 await upstream_writer.drain()
             connected = True
 
-            async def relay(source, destination):
+            async def relay(
+                source: asyncio.StreamReader,
+                destination: asyncio.StreamWriter,
+            ) -> None:
                 while data := await asyncio.wait_for(source.read(65536), 60):
                     destination.write(data)
                     await destination.drain()
 
-            relays = [asyncio.create_task(relay(reader, upstream_writer)), asyncio.create_task(relay(upstream_reader, writer))]
+            relays = [
+                asyncio.create_task(relay(reader, upstream_writer)),
+                asyncio.create_task(relay(upstream_reader, writer)),
+            ]
             done, _ = await asyncio.wait(relays, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
                 task.result()
-        except (ValueError, OSError, asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
+        except (
+            ValueError,
+            OSError,
+            TimeoutError,
+            asyncio.IncompleteReadError,
+            asyncio.LimitOverrunError,
+        ):
             if not connected:
                 with contextlib.suppress(OSError):
-                    writer.write(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                    writer.write(
+                        b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    )
                     await writer.drain()
         finally:
             for task in relays:

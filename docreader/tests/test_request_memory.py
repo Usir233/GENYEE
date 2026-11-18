@@ -25,11 +25,13 @@ class RequestMemoryTest(unittest.TestCase):
         def collect():
             self.assertIsNone(references[0]())
 
-        with patch("docreader.utils.request_memory.gc.collect", side_effect=collect) as gc_collect:
-            with patch("docreader.utils.request_memory._malloc_trim") as trim:
-                with RequestThreadPoolExecutor(max_workers=1) as pool:
-                    self.assertEqual(pool.submit(rpc_task).result(), "completed")
-                    self.assertEqual(pool.submit(lambda: "small").result(), "small")
+        with (
+            patch("docreader.utils.request_memory.gc.collect", side_effect=collect) as gc_collect,
+            patch("docreader.utils.request_memory._malloc_trim") as trim,
+            RequestThreadPoolExecutor(max_workers=1) as pool,
+        ):
+            self.assertEqual(pool.submit(rpc_task).result(), "completed")
+            self.assertEqual(pool.submit(lambda: "small").result(), "small")
 
         gc_collect.assert_called_once_with()
         trim.assert_called_once_with(0)
@@ -39,11 +41,13 @@ class RequestMemoryTest(unittest.TestCase):
             track_request_size(64 * 1024 * 1024)
             raise ValueError("parse failed")
 
-        with patch("docreader.utils.request_memory.gc.collect") as gc_collect:
-            with patch("docreader.utils.request_memory._malloc_trim") as trim:
-                with RequestThreadPoolExecutor(max_workers=1) as pool:
-                    with self.assertRaisesRegex(ValueError, "parse failed"):
-                        pool.submit(rpc_task).result()
+        with (
+            patch("docreader.utils.request_memory.gc.collect") as gc_collect,
+            patch("docreader.utils.request_memory._malloc_trim") as trim,
+            RequestThreadPoolExecutor(max_workers=1) as pool,
+            self.assertRaisesRegex(ValueError, "parse failed"),
+        ):
+            pool.submit(rpc_task).result()
 
         gc_collect.assert_called_once_with()
         trim.assert_called_once_with(0)
@@ -53,19 +57,23 @@ class RequestMemoryTest(unittest.TestCase):
             track_request_size(1024)
             return 42
 
-        with patch("docreader.utils.request_memory.gc.collect") as gc_collect:
-            with patch("docreader.utils.request_memory._malloc_trim") as trim:
-                with RequestThreadPoolExecutor(max_workers=1) as pool:
-                    self.assertEqual(pool.submit(rpc_task).result(), 42)
+        with (
+            patch("docreader.utils.request_memory.gc.collect") as gc_collect,
+            patch("docreader.utils.request_memory._malloc_trim") as trim,
+            RequestThreadPoolExecutor(max_workers=1) as pool,
+        ):
+            self.assertEqual(pool.submit(rpc_task).result(), 42)
 
         gc_collect.assert_not_called()
         trim.assert_not_called()
 
     def test_collection_works_without_malloc_trim(self):
-        with patch("docreader.utils.request_memory.gc.collect") as gc_collect:
-            with patch("docreader.utils.request_memory._malloc_trim", None):
-                with RequestThreadPoolExecutor(max_workers=1) as pool:
-                    pool.submit(track_request_size, 64 * 1024 * 1024).result()
+        with (
+            patch("docreader.utils.request_memory.gc.collect") as gc_collect,
+            patch("docreader.utils.request_memory._malloc_trim", None),
+            RequestThreadPoolExecutor(max_workers=1) as pool,
+        ):
+            pool.submit(track_request_size, 64 * 1024 * 1024).result()
 
         gc_collect.assert_called_once_with()
 
@@ -78,16 +86,18 @@ class RequestMemoryTest(unittest.TestCase):
             barrier.wait(timeout=5)
             return threading.get_ident()
 
-        with patch(
-            "docreader.utils.request_memory.gc.collect",
-            side_effect=lambda: collected_on.append(threading.get_ident()),
+        with (
+            patch(
+                "docreader.utils.request_memory.gc.collect",
+                side_effect=lambda: collected_on.append(threading.get_ident()),
+            ),
+            patch("docreader.utils.request_memory._malloc_trim") as trim,
+            RequestThreadPoolExecutor(max_workers=2) as pool,
         ):
-            with patch("docreader.utils.request_memory._malloc_trim") as trim:
-                with RequestThreadPoolExecutor(max_workers=2) as pool:
-                    large = pool.submit(rpc_task, 64 * 1024 * 1024)
-                    small = pool.submit(rpc_task, 1024)
-                    large_thread = large.result()
-                    self.assertNotEqual(large_thread, small.result())
+            large = pool.submit(rpc_task, 64 * 1024 * 1024)
+            small = pool.submit(rpc_task, 1024)
+            large_thread = large.result()
+            self.assertNotEqual(large_thread, small.result())
 
         self.assertEqual(collected_on, [large_thread])
         trim.assert_called_once_with(0)

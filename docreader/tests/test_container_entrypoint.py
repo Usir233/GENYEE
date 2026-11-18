@@ -24,7 +24,10 @@ class ContainerEntrypointTest(unittest.TestCase):
 
     @patch("docreader.container_entrypoint.subprocess.run")
     def test_sigill_retries_and_verifies_portable_crypto(self, run):
-        run.side_effect = [subprocess.CompletedProcess([], -signal.SIGILL, b"", b""), subprocess.CompletedProcess([], 0, b"", b"")]
+        run.side_effect = [
+            subprocess.CompletedProcess([], -signal.SIGILL, b"", b""),
+            subprocess.CompletedProcess([], 0, b"", b""),
+        ]
         self.assertEqual(runtime_environment()["OPENSSL_armcap"], "0")
         self.assertEqual(run.call_count, 2)
         self.assertNotIn("OPENSSL_armcap", os.environ)
@@ -38,13 +41,16 @@ class ContainerEntrypointTest(unittest.TestCase):
 
     @patch("docreader.container_entrypoint.subprocess.run")
     def test_failed_portable_probe_stays_fatal(self, run):
-        run.side_effect = [subprocess.CompletedProcess([], -signal.SIGILL, b"", b""), subprocess.CompletedProcess([], 1, b"", b"encryption failed")]
+        run.side_effect = [
+            subprocess.CompletedProcess([], -signal.SIGILL, b"", b""),
+            subprocess.CompletedProcess([], 1, b"", b"encryption failed"),
+        ]
         with self.assertRaisesRegex(RuntimeError, "encryption failed"):
             runtime_environment()
 
     @patch("docreader.container_entrypoint.subprocess.run")
     def test_operator_override_is_preserved(self, run):
-        os.environ["OPENSSL_armcap"] = "0x1"
+        os.environ.update({"OPENSSL_armcap": "0x1"})
         self.assertEqual(runtime_environment()["OPENSSL_armcap"], "0x1")
         run.assert_not_called()
 
@@ -54,7 +60,10 @@ class ContainerEntrypointTest(unittest.TestCase):
         self.assertNotIn("OPENSSL_armcap", runtime_environment())
         run.assert_not_called()
 
-    @patch("docreader.container_entrypoint.subprocess.run", side_effect=subprocess.TimeoutExpired("probe", 30))
+    @patch(
+        "docreader.container_entrypoint.subprocess.run",
+        side_effect=subprocess.TimeoutExpired("probe", 30),
+    )
     def test_probe_has_bounded_startup(self, run):
         with self.assertRaises(subprocess.TimeoutExpired):
             runtime_environment()

@@ -2,11 +2,11 @@
 
 import json
 import os
-from pathlib import Path
 import socket
 import struct
 import sys
 import time
+from pathlib import Path
 
 from docreader.preprocess import PreprocessLimits, _Channel
 from docreader.proto.docreader_pb2 import PreprocessImageResponse
@@ -32,13 +32,17 @@ def main():
                 connection.socket.send(struct.pack("!I", 100))
             if command.get("check_address_limit"):
                 import resource
+
                 from docreader.preprocess_worker import apply_process_limits
 
                 limits = PreprocessLimits(**json.loads(sys.argv[2]))
                 apply_process_limits(limits, int(sys.argv[3]))
                 cap = resource.getrlimit(resource.RLIMIT_AS)
-                connection.send_bytes(PreprocessImageResponse(
-                    image=json.dumps(cap).encode(), status="ok").SerializeToString())
+                connection.send_bytes(
+                    PreprocessImageResponse(
+                        image=json.dumps(cap).encode(), status="ok"
+                    ).SerializeToString()
+                )
                 continue
             if command.get("memory"):
                 allocation = bytearray(command["memory"])

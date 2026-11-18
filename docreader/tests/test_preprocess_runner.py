@@ -1,22 +1,23 @@
 import io
 import json
 import os
-from pathlib import Path
-import tempfile
 import sys
+import tempfile
 import threading
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest.mock import patch
 
 import grpc
 import numpy as np
 from PIL import Image
 
-from docreader.preprocess import MAX_IMAGE_BYTES, PreprocessLimits, PreprocessRunner
+from docreader.preprocess import MAX_IMAGE_BYTES, PreprocessLimits, PreprocessRunner, _Channel
 from docreader.preprocess_worker import process_image
-from docreader.proto import docreader_pb2 as pb, docreader_pb2_grpc as rpc
+from docreader.proto import docreader_pb2 as pb
+from docreader.proto import docreader_pb2_grpc as rpc
 
 
 class RequestContext:
@@ -57,8 +58,9 @@ class RunnerTest(unittest.TestCase):
         self.addCleanup(self.pool.shutdown, wait=True)
 
     def runner(self, **limits):
-        runner = PreprocessRunner(PreprocessLimits(**limits),
-                                  worker_module="docreader.tests.preprocess_worker_fixture")
+        runner = PreprocessRunner(
+            PreprocessLimits(**limits), worker_module="docreader.tests.preprocess_worker_fixture"
+        )
         self.addCleanup(runner.close)
         return runner
 
@@ -88,7 +90,9 @@ class RunnerTest(unittest.TestCase):
         finally:
             release.touch()
         self.assertEqual(first.result(timeout=5).status, "ok")
-        self.assertEqual(int(runner.run(b"{}", None).image), pid, "successful calls reuse one worker")
+        self.assertEqual(
+            int(runner.run(b"{}", None).image), pid, "successful calls reuse one worker"
+        )
 
     def test_timeout_kills_running_native_work_and_releases_capacity(self):
         runner = self.runner(timeout_seconds=1.5)
@@ -157,7 +161,9 @@ class RunnerTest(unittest.TestCase):
         self.assertTrue(runner.run(b'{"crash":true}', None).fallback_needed)
         self.assertEqual(runner.run(b"{}", None).status, "ok")
 
-    @unittest.skipUnless(sys.platform.startswith("linux"), "RLIMIT_AS is enforced in Linux containers")
+    @unittest.skipUnless(
+        sys.platform.startswith("linux"), "RLIMIT_AS is enforced in Linux containers"
+    )
     def test_linux_worker_has_hard_address_space_limit(self):
         runner = self.runner(memory_mb=128)
         response = runner.run(b'{"check_address_limit":true}', None)
@@ -171,8 +177,84 @@ class RunnerTest(unittest.TestCase):
         pid = self.started_pid(started)
         runner.close()
         self.assert_reaped(pid)
-        self.assertTrue(future.result(timeout=5).fallback_needed)
+        res = future.result(timeout=5)
+        self.assertTrue(res.fallback_needed)
+        self.assertEqual(res.status, "cancelled")
         self.assertEqual(runner.run(b"{}", None).status, "cancelled")
+
+    def test_channel_close_never_races_with_active_select_fd(self):
+        import select as select_mod
+        import socket as socket_mod
+
+        parent, child = socket_mod.socketpair()
+        select_entered = threading.Event()
+        in_select = False
+        closed_during_select = False
+        bad_fds: list[int] = []
+        real_select = select_mod.select
+
+        class _TrackedSocket:
+            def __init__(self, inner: socket_mod.socket) -> None:
+                self._inner = inner
+
+            def fileno(self) -> int:
+                return self._inner.fileno()
+
+            def setblocking(self, flag: bool) -> None:
+                self._inner.setblocking(flag)
+
+            def send(self, data: bytes) -> int:
+                return self._inner.send(data)
+
+            def recv_into(self, buf: bytearray | memoryview) -> int:
+                return self._inner.recv_into(buf)
+
+            def shutdown(self, how: int) -> None:
+                self._inner.shutdown(how)
+
+            def close(self) -> None:
+                nonlocal closed_during_select
+                if in_select:
+                    closed_during_select = True
+                self._inner.close()
+
+        channel = _Channel(_TrackedSocket(parent))  # type: ignore[arg-type]
+
+        def guarded_select(rlist, wlist, xlist, timeout=None):
+            nonlocal in_select
+            for sock in (*rlist, *wlist, *xlist):
+                if sock.fileno() < 0:
+                    bad_fds.append(sock.fileno())
+            in_select = True
+            select_entered.set()
+            try:
+                return real_select(rlist, wlist, xlist, timeout)
+            finally:
+                in_select = False
+
+        errors: list[BaseException] = []
+
+        def reader_worker() -> None:
+            try:
+                channel.recv_bytes()
+            except Exception as exc:
+                errors.append(exc)
+
+        try:
+            with patch("docreader.preprocess.select.select", side_effect=guarded_select):
+                t = threading.Thread(target=reader_worker)
+                t.start()
+                self.assertTrue(select_entered.wait(timeout=2))
+                channel.close()
+                t.join(timeout=2)
+                self.assertFalse(t.is_alive())
+            self.assertFalse(closed_during_select, "socket.close() raced with active select()")
+            self.assertEqual(bad_fds, [])
+            for err in errors:
+                self.assertNotIsInstance(err, ValueError)
+        finally:
+            child.close()
+            channel.close()
 
     def test_oversized_message_is_declined_before_spawn(self):
         runner = self.runner()
@@ -196,23 +278,34 @@ class RunnerTest(unittest.TestCase):
                 with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
                     stub = rpc.DocReaderStub(channel)
                     command, started, _ = self.blocking_command()
-                    call = stub.PreprocessImage.future(pb.PreprocessImageRequest(image=command), timeout=15)
+                    call = stub.PreprocessImage.future(
+                        pb.PreprocessImageRequest(image=command), timeout=15
+                    )
                     pid = self.started_pid(started)
                     # With only one ordinary RPC thread, using the same executor
                     # for preprocessing would make this request time out.
                     response = stub.ListEngines(pb.ListEnginesRequest(), timeout=2)
                     self.assertTrue(response.engines)
-                    document = stub.Read(pb.ReadRequest(
-                        file_content=b"# Ordinary document\n\nStill readable.",
-                        file_name="ordinary.md", file_type="md"), timeout=2)
+                    document = stub.Read(
+                        pb.ReadRequest(
+                            file_content=b"# Ordinary document\n\nStill readable.",
+                            file_name="ordinary.md",
+                            file_type="md",
+                        ),
+                        timeout=2,
+                    )
                     self.assertIn("Still readable", document.markdown_content)
                     busy = stub.PreprocessImage(pb.PreprocessImageRequest(image=b"{}"), timeout=2)
                     self.assertEqual(busy.status, "busy")
                     self.assertTrue(call.cancel())
                     self.assert_reaped(pid)
                     wait_for(lambda: not runner._idle.empty())
-                    self.assertEqual(stub.PreprocessImage(
-                        pb.PreprocessImageRequest(image=b"{}"), timeout=5).status, "ok")
+                    self.assertEqual(
+                        stub.PreprocessImage(
+                            pb.PreprocessImageRequest(image=b"{}"), timeout=5
+                        ).status,
+                        "ok",
+                    )
             finally:
                 server.stop(0).wait()
 
@@ -224,7 +317,10 @@ class ImageBudgetTest(unittest.TestCase):
         return out.getvalue()
 
     def test_pixel_limit_is_checked_before_native_decode(self):
-        with patch("cv2.imdecode") as decode, patch("docreader.parser.image_preprocess.preprocess") as preprocess:
+        with (
+            patch("cv2.imdecode") as decode,
+            patch("docreader.parser.image_preprocess.preprocess") as preprocess,
+        ):
             response = process_image(self.image((20, 20)), PreprocessLimits(max_pixels=100))
         self.assertEqual(response.status, "image_too_large")
         decode.assert_not_called()
@@ -238,13 +334,20 @@ class ImageBudgetTest(unittest.TestCase):
 
         def inspect(img):
             shapes.append(img.shape[:2])
-            return {"status": "ok", "rect": np.zeros((10, 10, 3), "uint8"),
-                    "quad_input": quad_probe, "n_boxes": 4, "n_kept": 4,
-                    "residual": 0.0, "flip": False}
+            return {
+                "status": "ok",
+                "rect": np.zeros((10, 10, 3), "uint8"),
+                "quad_input": quad_probe,
+                "n_boxes": 4,
+                "n_kept": 4,
+                "residual": 0.0,
+                "flip": False,
+            }
 
         with patch("docreader.parser.image_preprocess.preprocess", side_effect=inspect):
-            response = process_image(self.image((4000, 4000)),
-                                     PreprocessLimits(probe_edge=2000, max_edge=2000))
+            response = process_image(
+                self.image((4000, 4000)), PreprocessLimits(probe_edge=2000, max_edge=2000)
+            )
         self.assertEqual(shapes, [(2000, 2000)])
         self.assertEqual(response.status, "ok")
         with Image.open(io.BytesIO(response.image)) as encoded:
@@ -254,13 +357,20 @@ class ImageBudgetTest(unittest.TestCase):
         quad_probe = np.array([[0, 0], [200, 0], [200, 200], [0, 200]], "float32")
 
         def inspect(img):
-            return {"status": "ok", "rect": np.zeros((10, 10, 3), "uint8"),
-                    "quad_input": quad_probe, "n_boxes": 4, "n_kept": 4,
-                    "residual": 0.0, "flip": False}
+            return {
+                "status": "ok",
+                "rect": np.zeros((10, 10, 3), "uint8"),
+                "quad_input": quad_probe,
+                "n_boxes": 4,
+                "n_kept": 4,
+                "residual": 0.0,
+                "flip": False,
+            }
 
         with patch("docreader.parser.image_preprocess.preprocess", side_effect=inspect):
-            response = process_image(self.image((400, 400)),
-                                     PreprocessLimits(probe_edge=200, max_edge=100))
+            response = process_image(
+                self.image((400, 400)), PreprocessLimits(probe_edge=200, max_edge=100)
+            )
         self.assertEqual(response.status, "ok")
         with Image.open(io.BytesIO(response.image)) as encoded:
             self.assertEqual(encoded.size, (100, 100))
@@ -269,8 +379,14 @@ class ImageBudgetTest(unittest.TestCase):
         rect = np.full((40, 30, 3), 200, "uint8")
 
         def inspect(img):
-            return {"status": "ok", "rect": rect, "n_boxes": 4, "n_kept": 4,
-                    "residual": 0.0, "flip": False}
+            return {
+                "status": "ok",
+                "rect": rect,
+                "n_boxes": 4,
+                "n_kept": 4,
+                "residual": 0.0,
+                "flip": False,
+            }
 
         with patch("docreader.parser.image_preprocess.preprocess", side_effect=inspect):
             response = process_image(self.image((200, 200)), PreprocessLimits(probe_edge=200))
@@ -280,8 +396,10 @@ class ImageBudgetTest(unittest.TestCase):
 
     def test_bad_image_and_declined_geometry_keep_original(self):
         self.assertTrue(process_image(b"not an image", PreprocessLimits()).fallback_needed)
-        with patch("docreader.parser.image_preprocess.preprocess",
-                   return_value={"status": "ok", "rect": object(), "residual": 3}):
+        with patch(
+            "docreader.parser.image_preprocess.preprocess",
+            return_value={"status": "ok", "rect": object(), "residual": 3},
+        ):
             response = process_image(self.image((20, 20)), PreprocessLimits())
         self.assertTrue(response.fallback_needed)
         self.assertEqual(response.status, "low_quality")
