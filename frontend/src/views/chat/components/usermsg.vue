@@ -1,10 +1,7 @@
 <template>
-    <div class="user_msg_container" ref="containerRef" :class="{ 'is-embedded': embeddedMode, 'is-actions-pinned': rewindConfirmOpen }">
-        <!-- 显示@的知识库和文件 -->
+    <div ref="containerRef" class="user_msg_container" :class="{ 'is-embedded': embeddedMode, 'is-actions-pinned': rewindConfirmOpen }">
         <div v-if="mentioned_items && mentioned_items.length > 0" class="mentioned_items">
-            <span v-for="item in mentioned_items" :key="item.id" class="mentioned_tag" :class="[
-                mentionTagClass(item)
-            ]">
+            <span v-for="item in mentioned_items" :key="item.id" class="mentioned_tag" :class="[mentionTagClass(item)]">
                 <span class="tag_icon">
                     <t-icon v-if="item.type === 'kb'" :name="item.kb_type === 'faq' ? 'chat-bubble-help' : 'folder'" />
                     <t-icon v-else :name="mentionTagIcon(item)" />
@@ -12,17 +9,28 @@
                 <span class="tag_name">{{ item.name }}</span>
             </span>
         </div>
-        <!-- 显示上传的图片 -->
         <div v-if="hasImages" class="user_images">
-            <img v-for="(img, idx) in props.images" :key="idx" :src="img.url" class="user_image_thumb"
-                @click="previewImage($event)" />
+            <img
+                v-for="(img, idx) in props.images"
+                :key="idx"
+                :src="img.url"
+                :alt="img.caption || ''"
+                class="user_image_thumb"
+                @click="previewImage($event)"
+            />
         </div>
-        <!-- 显示上传的附件 -->
         <div v-if="hasAttachments" class="user_attachments">
-            <div v-for="(att, idx) in props.attachments" :key="idx"
+            <div
+                v-for="(att, idx) in props.attachments"
+                :key="idx"
                 class="user_attachment_card"
                 :class="{ 'is-previewable': canPreviewAttachment(att) }"
-                @click="openAttachmentPreview(att)">
+                :role="canPreviewAttachment(att) ? 'button' : undefined"
+                :tabindex="canPreviewAttachment(att) ? 0 : undefined"
+                @click="openAttachmentPreview(att)"
+                @keydown.enter.prevent="openAttachmentPreview(att)"
+                @keydown.space.prevent="openAttachmentPreview(att)"
+            >
                 <ArtifactFileIcon :file-name="att.file_name" />
                 <div class="attachment_card_info">
                     <div class="attachment_card_name" :title="att.file_name">{{ att.file_name }}</div>
@@ -56,7 +64,7 @@
                     placement="top"
                     :show-arrow="false"
                     overlay-class-name="gy-popover chat-rewind-popconfirm"
-                    @visible-change="(visible) => (rewindConfirmOpen = visible)"
+                    @visible-change="(visible: boolean) => (rewindConfirmOpen = visible)"
                     @confirm="emit('rewind', messageId)"
                 >
                     <template #content>
@@ -73,95 +81,89 @@
         </div>
         <div v-if="steerFailed" class="steer-failure" role="status">
             <span>{{ t('input.messages.steerFailed') }}</span>
-            <t-tooltip :content="t('input.steerRetry')"><button type="button" :aria-label="t('input.steerRetry')" @click="emit('retry-steer')"><t-icon name="refresh" /></button></t-tooltip>
-            <t-tooltip :content="t('common.remove')"><button type="button" :aria-label="t('common.remove')" @click="emit('remove-steer')"><t-icon name="close" /></button></t-tooltip>
+            <t-tooltip :content="t('input.steerRetry')">
+                <button type="button" :aria-label="t('input.steerRetry')" @click="emit('retry-steer')"><t-icon name="refresh" /></button>
+            </t-tooltip>
+            <t-tooltip :content="t('common.remove')">
+                <button type="button" :aria-label="t('common.remove')" @click="emit('remove-steer')"><t-icon name="close" /></button>
+            </t-tooltip>
         </div>
-        <picturePreview :reviewImg="reviewImg" :reviewUrl="reviewUrl" @closePreImg="closePreImg" />
+        <PicturePreview :reviewImg="reviewImg" :reviewUrl="reviewUrl" @closePreImg="closePreImg" />
     </div>
 </template>
-<script setup>
-import { computed, ref, watch, onMounted, nextTick } from "vue";
-import { hydrateProtectedFileImages } from '@/utils/security';
-import picturePreview from '@/components/picture-preview.vue';
-import ArtifactFileIcon from './ArtifactFileIcon.vue';
-import ChatActionIcon from '@/components/ChatActionIcon.vue';
+<script setup lang="ts">
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import ChatActionIcon from '@/components/ChatActionIcon.vue';
+import PicturePreview from '@/components/PicturePreview.vue';
 import { useChatAttachmentPreviewDrawer } from '@/composables/useChatAttachmentPreviewDrawer';
-import { isPreviewableAttachment, resolveAttachmentFileType } from '@/utils/attachmentPreview';
 import { SKILL_ICON } from '@/types/mention';
+import { isPreviewableAttachment, resolveAttachmentFileType } from '@/utils/attachmentPreview';
 import { copyWithToast } from '@/utils/clipboard';
 import { formatMessageTimestamp, getConversationTimestampModel } from '@/utils/messageTimestamp';
-const emit = defineEmits(['retry-steer', 'remove-steer', 'fork', 'rewind']);
+import { hydrateProtectedFileImages } from '@/utils/security';
+import type {
+    MentionedItemInput,
+    MessageAttachmentDisplay,
+    MessageImageDisplay,
+} from '../types/chatView';
+import ArtifactFileIcon from './ArtifactFileIcon.vue';
+
+const emit = defineEmits<{
+    (event: 'retry-steer'): void;
+    (event: 'remove-steer'): void;
+    (event: 'fork', messageId: string): void;
+    (event: 'rewind', messageId: string): void;
+}>();
 
 const { t } = useI18n();
 
-const mentionTagClass = (item) => {
+const mentionTagClass = (item: MentionedItemInput): string => {
     if (item.type === 'kb') return item.kb_type === 'faq' ? 'faq-tag' : 'kb-tag';
     return `${item.type || 'file'}-tag`;
 };
 
-const mentionTagIcon = (item) => {
+const mentionTagIcon = (item: MentionedItemInput): string => {
     if (item.type === 'tag') return 'tag';
     if (item.type === 'mcp') return 'tools';
     if (item.type === 'skill') return SKILL_ICON;
     return 'file';
 };
 
-const props = defineProps({
-    steerFailed: { type: Boolean, default: false },
-    content: {
-        type: String,
-        required: false
+const props = withDefaults(
+    defineProps<{
+        steerFailed?: boolean;
+        content?: string;
+        mentioned_items?: MentionedItemInput[];
+        images?: MessageImageDisplay[];
+        attachments?: MessageAttachmentDisplay[];
+        channel?: string;
+        embeddedMode?: boolean;
+        sessionId?: string;
+        messageId?: string;
+        createdAt?: string;
+        canFork?: boolean;
+        canRewind?: boolean;
+    }>(),
+    {
+        steerFailed: false,
+        content: '',
+        mentioned_items: () => [],
+        images: () => [],
+        attachments: () => [],
+        channel: '',
+        embeddedMode: false,
+        sessionId: '',
+        messageId: '',
+        createdAt: '',
+        canFork: false,
+        canRewind: false,
     },
-    mentioned_items: {
-        type: Array,
-        required: false,
-        default: () => []
-    },
-    images: {
-        type: Array,
-        required: false,
-        default: () => []
-    },
-    attachments: {
-        type: Array,
-        required: false,
-        default: () => []
-    },
-    channel: {
-        type: String,
-        required: false,
-        default: ''
-    },
-    embeddedMode: {
-        type: Boolean,
-        default: false
-    },
-    sessionId: {
-        type: String,
-        default: ''
-    },
-    messageId: {
-        type: String,
-        default: ''
-    },
-    createdAt: {
-        type: String,
-        default: ''
-    },
-    canFork: {
-        type: Boolean,
-        default: false
-    },
-    canRewind: {
-        type: Boolean,
-        default: false
-    }
-});
+);
 
 const canFork = computed(() => props.canFork === true && !props.embeddedMode);
 const canRewind = computed(() => props.canRewind === true && !props.embeddedMode);
-const forkTooltip = '从这里分叉出新会话';
+const forkTooltip = computed(() => t('chat.forkFromMessageTooltip'));
 const timestamp = computed(() => getConversationTimestampModel(props.createdAt));
 const fullTimestamp = computed(() => formatMessageTimestamp(props.createdAt));
 const handleCopy = () => copyWithToast(props.content, 'common.copySuccess', 'common.copyFailed');
@@ -170,37 +172,23 @@ const rewindConfirmOpen = ref(false);
 
 const attachmentPreviewDrawer = useChatAttachmentPreviewDrawer();
 
-const channelLabelMap = {
-    web: () => t('chat.channelWeb'),
-    api: () => t('chat.channelApi'),
-    im: () => t('chat.channelIm'),
-};
-
-const channelLabel = computed(() => {
-    if (!props.channel) return '';
-    const label = channelLabelMap[props.channel];
-    return typeof label === 'function' ? label() : (label || props.channel);
-});
-
-const channelClass = computed(() => props.channel ? `channel-${props.channel}` : '');
-
-const containerRef = ref(null);
+const containerRef = ref<HTMLElement | null>(null);
 const hasImages = computed(() => props.images && props.images.length > 0);
 const hasAttachments = computed(() => props.attachments && props.attachments.length > 0);
 
-const formatFileSize = (bytes) => {
+const formatFileSize = (bytes?: number): string => {
     if (!bytes) return '';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const canPreviewAttachment = (attachment) => {
+const canPreviewAttachment = (attachment: MessageAttachmentDisplay): boolean => {
     return Boolean(props.sessionId) && isPreviewableAttachment(attachment);
 };
 
-const openAttachmentPreview = (attachment) => {
-    if (!canPreviewAttachment(attachment) || !attachmentPreviewDrawer) return;
+const openAttachmentPreview = (attachment: MessageAttachmentDisplay) => {
+    if (!canPreviewAttachment(attachment) || !attachmentPreviewDrawer || !attachment.id) return;
     attachmentPreviewDrawer.open({
         sessionId: props.sessionId,
         attachmentId: attachment.id,
@@ -220,8 +208,9 @@ onMounted(hydrateImages);
 const reviewImg = ref(false);
 const reviewUrl = ref('');
 
-const previewImage = (event) => {
-    const src = event.target?.src;
+const previewImage = (event: MouseEvent) => {
+    const img = event.target as HTMLImageElement | null;
+    const src = img?.src;
     if (src) {
         reviewUrl.value = src;
         reviewImg.value = true;
@@ -271,11 +260,11 @@ const closePreImg = () => {
     align-items: flex-start;
     gap: 4px;
     flex: 1 0 0;
-    border-radius: var(--app-radius-md);
-    background: var(--td-bg-color-secondarycontainer);
+    border-radius: var(--gy-radius-md);
+    background: var(--gy-surface-subtle);
     margin-left: auto;
-    color: var(--td-text-color-primary);
-    font-size: var(--app-text-xl);
+    color: var(--gy-text-primary);
+    font-size: var(--gy-text-lg);
     line-height: 1.6;
     text-align: left;
     word-break: break-word;
@@ -308,16 +297,16 @@ const closePreImg = () => {
     width: 240px;
     max-width: 100%;
     padding: 8px 12px 8px 8px;
-    border-radius: var(--app-radius-md);
-    background: var(--td-bg-color-secondarycontainer);
+    border-radius: var(--gy-radius-md);
+    background: var(--gy-surface-subtle);
     cursor: default;
 
     &.is-previewable {
         cursor: pointer;
-        transition: background var(--app-motion-fast) ease;
+        transition: background var(--gy-motion-fast) ease;
 
         &:hover {
-            background: var(--td-bg-color-secondarycontainer-hover);
+            background: var(--gy-surface-subtle-hover);
         }
     }
 
@@ -329,10 +318,10 @@ const closePreImg = () => {
     }
 
     .attachment_card_name {
-        font-size: var(--app-text-md);
+        font-size: var(--gy-text-md);
         font-weight: 500;
         line-height: 1.35;
-        color: var(--td-text-color-primary);
+        color: var(--gy-text-primary);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -340,9 +329,9 @@ const closePreImg = () => {
 
     .attachment_card_meta {
         margin-top: 2px;
-        font-size: var(--app-text-sm);
+        font-size: var(--gy-text-xs);
         line-height: 1.3;
-        color: var(--td-text-color-placeholder);
+        color: var(--gy-text-placeholder);
         white-space: nowrap;
     }
 }
@@ -351,60 +340,21 @@ const closePreImg = () => {
     width: 120px;
     height: 120px;
     object-fit: cover;
-    border-radius: var(--app-radius-sm);
+    border-radius: var(--gy-radius-xs);
     cursor: pointer;
-    border: 1px solid var(--td-border-level-2-color);
-    transition: opacity var(--app-motion-base);
+    border: 1px solid var(--gy-border-subtle);
+    transition: opacity var(--gy-motion-base);
 
     &:hover {
         opacity: 0.85;
     }
 }
-
-.channel_tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 1px 6px;
-    border-radius: 3px;
-    font-size: var(--app-text-xs);
-    font-weight: 500;
-    line-height: 18px;
-    background: var(--td-bg-color-secondarycontainer);
-    color: var(--td-text-color-placeholder);
-    border: 1px solid var(--td-border-level-2-color);
-
-    &.channel-web {
-        color: var(--td-brand-color);
-        background: var(--td-brand-color-light);
-        border-color: var(--td-brand-color-2);
-    }
-
-    &.channel-api {
-        color: var(--td-success-color);
-        background: var(--td-success-color-1);
-        border-color: var(--td-success-color-2);
-    }
-
-    &.channel-im {
-        color: var(--td-warning-color);
-        background: var(--td-warning-color-1);
-        border-color: var(--td-warning-color-2);
-    }
-}
-
-html[theme-mode="dark"] {
-    .user_msg {
-        background: var(--td-bg-color-secondarycontainer);
-        color: var(--td-text-color-primary);
-    }
-}
 </style>
 
 <style scoped>
-.steer-failure { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: var(--app-text-sm); color: var(--td-text-color-secondary); margin-bottom: 4px; }
-.steer-failure { margin-top: 6px; color: var(--td-error-color); }
-.steer-failure button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 0; border-radius: var(--app-radius-sm); background: transparent; color: inherit; cursor: pointer; }
-.steer-failure button:hover { background: var(--td-bg-color-secondarycontainer); }
+.steer-failure { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: var(--gy-text-xs); color: var(--gy-danger); margin: 6px 0 4px; }
+.steer-failure button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 0; border-radius: var(--gy-radius-xs); background: transparent; color: inherit; cursor: pointer; }
+.steer-failure button:hover { background: var(--gy-surface-subtle); }
 
 .user_msg_meta {
     display: flex;
@@ -413,14 +363,14 @@ html[theme-mode="dark"] {
     gap: 8px;
     min-height: 28px;
     padding-right: 4px;
-    color: var(--td-text-color-placeholder);
+    color: var(--gy-text-placeholder);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 140ms ease;
+    transition: opacity var(--gy-motion-fast) ease;
 }
 
 .user_msg_time {
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-xs);
     font-variant-numeric: tabular-nums;
     line-height: 20px;
 }
@@ -429,7 +379,7 @@ html[theme-mode="dark"] {
     display: flex;
     align-items: center;
     gap: 2px;
-    color: color-mix(in srgb, var(--td-text-color-primary) 55%, transparent);
+    color: color-mix(in oklab, var(--gy-text-primary) 55%, transparent);
 }
 
 .user_msg_container:hover .user_msg_meta,
@@ -447,10 +397,10 @@ html[theme-mode="dark"] {
     height: 28px;
     padding: 0;
     border: 0;
-    border-radius: var(--app-radius-sm);
+    border-radius: var(--gy-radius-xs);
     background: transparent;
     color: inherit;
-    font-size: var(--app-text-xl);
+    font-size: var(--gy-text-lg);
     cursor: pointer;
 }
 
@@ -463,12 +413,12 @@ html[theme-mode="dark"] {
 
 .user_msg_action:hover,
 .user_msg_action.is-active {
-    color: var(--td-text-color-secondary);
-    background: var(--td-bg-color-container-hover);
+    color: var(--gy-text-secondary);
+    background: var(--gy-surface-hover);
 }
 
 .user_msg_action:focus-visible {
-    outline: 2px solid var(--td-text-color-secondary);
+    outline: 2px solid var(--gy-text-secondary);
     outline-offset: 2px;
 }
 

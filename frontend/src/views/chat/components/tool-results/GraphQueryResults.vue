@@ -24,21 +24,26 @@
         :key="result.chunk_id"
         class="result-card"
       >
-        <div class="result-header" @click="toggleResult(result.chunk_id)">
-          <div class="result-title">
+        <button
+          type="button"
+          class="result-header"
+          :aria-expanded="expandedResults.includes(result.chunk_id)"
+          @click="toggleResult(result.chunk_id)"
+        >
+          <span class="result-title">
             <span class="result-index">#{{ result.result_index }}</span>
             <span class="relevance-badge" :class="getRelevanceClass(result.relevance_level)">
               {{ getRelevanceLabel(result.relevance_level) }}
             </span>
             <span class="knowledge-title">{{ result.knowledge_title }}</span>
-          </div>
-          <div class="result-meta">
+          </span>
+          <span class="result-meta">
             <span class="score">{{ (result.score * 100).toFixed(0) }}%</span>
             <span class="expand-icon" :class="{ expanded: expandedResults.includes(result.chunk_id) }">
               ▶
             </span>
-          </div>
-        </div>
+          </span>
+        </button>
         
         <div class="result-content" :class="{ expanded: expandedResults.includes(result.chunk_id) }">
           <div class="full-content">{{ result.content }}</div>
@@ -57,7 +62,7 @@ import { ref } from 'vue';
 import type { GraphQueryResultsData, RelevanceLevel } from '@/types/tool-results';
 import { useI18n } from 'vue-i18n';
 
-const props = defineProps<{
+defineProps<{
   data: GraphQueryResultsData;
 }>();
 

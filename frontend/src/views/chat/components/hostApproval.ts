@@ -2,11 +2,35 @@ import { ref } from 'vue'
 
 export const HOST_APPROVAL_KIND = 'host_command'
 
+export interface ComposerApprovalEvent {
+  type?: string
+  pending_id?: string
+  service_id?: string
+  service_name?: string
+  mcp_tool_name?: string
+  description?: string
+  args_json?: string
+  timeout_seconds?: number
+  requested_at?: number
+  tool_call_id?: string
+  kind?: string
+  host?: HostApprovalPayload
+  resolved?: boolean
+  approved?: boolean
+  reason?: string
+  resolve_reason?: string
+  timed_out?: boolean
+  canceled?: boolean
+  scope?: string
+  resolve_scope?: string
+  [key: string]: unknown
+}
+
 // The open chat reads this directly. Several tools can wait at once when
 // parallel calls are on, so this is a list keyed by pending_id, not one slot.
-export const pendingComposerApprovals = ref<Record<string, any>[]>([])
+export const pendingComposerApprovals = ref<ComposerApprovalEvent[]>([])
 
-export function showComposerApproval(event: Record<string, any>) {
+export function showComposerApproval(event: ComposerApprovalEvent) {
   const id = event?.pending_id
   if (!id) return
   const list = pendingComposerApprovals.value
@@ -22,7 +46,7 @@ export function showComposerApproval(event: Record<string, any>) {
 
 // A stored agent-step approval becomes the same timeline event the live
 // stream used, already resolved so it stays as a record.
-export function approvalEventFromRecord(record: Record<string, any>) {
+export function approvalEventFromRecord(record: ComposerApprovalEvent) {
   return {
     type: 'tool_approval_required',
     pending_id: record.pending_id,

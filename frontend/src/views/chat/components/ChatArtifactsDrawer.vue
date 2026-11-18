@@ -72,6 +72,7 @@
                     shape="square"
                     size="small"
                     :title="$t('agent.artifactDrawer.download')"
+                    :aria-label="$t('agent.artifactDrawer.download')"
                     :loading="!!downloading[previewItem.index]"
                     @click="handleDownload(previewItem)"
                 >
@@ -132,6 +133,7 @@
                     shape="square"
                     size="small"
                     :title="$t('agent.artifactDrawer.preview')"
+                    :aria-label="$t('agent.artifactDrawer.preview')"
                     @click.stop="openPreview(item)"
                 >
                     <template #icon>
@@ -144,6 +146,7 @@
                     shape="square"
                     size="small"
                     :title="$t('agent.artifactDrawer.download')"
+                    :aria-label="$t('agent.artifactDrawer.download')"
                     :loading="!!downloading[item.index]"
                     @click.stop="handleDownload(item)"
                 >
@@ -182,7 +185,7 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { downloadArtifact, listMessageArtifacts, type ArtifactMeta } from '@/api/chat'
 import { getFileIcon } from '@/utils/files'
 import { resolveFilePreviewExt } from '@/utils/filePreview'
-import DocumentPreview from '@/components/document-preview.vue'
+import DocumentPreview from '@/components/DocumentPreview.vue'
 
 const LIST_WIDTH = 440
 const PREVIEW_WIDTH_KEY = 'genyee-chat-artifact-preview-width'
@@ -331,10 +334,13 @@ async function reloadMessageArtifacts() {
     }
     loading.value = true
     try {
-        const res: any = await listMessageArtifacts(props.sessionId, props.messageId)
+        const res = await listMessageArtifacts(props.sessionId, props.messageId)
         if (seq !== loadSeq) return
-        const data = (res && (res.data || res)) as ArtifactMeta[] | undefined
-        fetched.value = Array.isArray(data) ? data : []
+        const unwrapped =
+            res && typeof res === 'object' && 'data' in res
+                ? (res as { data?: ArtifactMeta[] }).data
+                : (res as ArtifactMeta[] | undefined)
+        fetched.value = Array.isArray(unwrapped) ? unwrapped : []
         applyRequestedPreview()
     } catch (err) {
         if (seq !== loadSeq) return

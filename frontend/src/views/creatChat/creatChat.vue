@@ -32,13 +32,14 @@
                             </p>
                         </div>
                         <div class="suggested-questions-grid">
-                            <div v-for="(item, index) in suggestedQuestions" :key="item.question"
+                            <button v-for="(item, index) in suggestedQuestions" :key="item.question"
+                                type="button"
                                 class="suggested-question-card" :class="{ 'sq-card-visible': sqCardsRevealed }"
                                 :style="{ transitionDelay: sqCardsRevealed ? `${index * 50}ms` : '0ms' }"
                                 @click="handleSuggestedQuestionClick(item)">
                                 <span class="suggested-question-text">{{ item.question }}</span>
                                 <span v-if="item.source === 'faq'" class="suggested-question-badge faq">FAQ</span>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </transition>
@@ -72,7 +73,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, computed } from 'vue';
 import ContextualGuide from '@/components/ContextualGuide.vue';
-import InputField from '@/components/Input-field.vue';
+import InputField from '@/components/InputField.vue';
 import { createSessions } from "@/api/chat/index";
 import { pickHostProjectDir } from '@/utils/desktopProjectDir';
 import { projectDirBasename, shouldRenderHostProjectSettings, withOptionalProjectDir } from '@/utils/hostWorkspace';
@@ -152,7 +153,7 @@ const onAfterLeave = () => {
     }
 };
 
-const onEnter = (el: Element) => {
+const onEnter = (_el: Element) => {
     const c = sqContainerRef.value;
     if (!c) return;
     const startHeight = c.offsetHeight;
@@ -241,7 +242,9 @@ onBeforeUnmount(() => {
     suggestedQuestionsFetchId++;
 });
 
-const inputFieldRef = ref();
+const inputFieldRef = ref<{
+    triggerSend: (text: string, options?: SendMessageOptions) => void;
+} | null>(null);
 
 // The suggestion's source rides with this send to the new session's first
 // request, so the agent searches it before answering.
@@ -249,29 +252,27 @@ const handleSuggestedQuestionClick = (item: SuggestedQuestion) => {
     inputFieldRef.value?.triggerSend(item.question, { questionOrigin: questionOriginFromSuggestion(item) });
 };
 
-const sendMsg = (value: string, modelId: string, mentionedItems: any[], imageFiles: any[] = [], attachmentFiles: any[] = [], options: SendMessageOptions = {}) => {
-    createNewSession(value, modelId, mentionedItems, imageFiles, attachmentFiles, options);
+const sendMsg = (
+    value: string,
+    modelId: string,
+    mentionedItems: Array<Record<string, unknown>>,
+    imageFiles: File[] = [],
+    attachmentFiles: Array<Record<string, unknown>> = [],
+    options: SendMessageOptions = {},
+) => {
+    void createNewSession(value, modelId, mentionedItems, imageFiles, attachmentFiles, options);
 }
 
-async function createNewSession(value: string, modelId: string, mentionedItems: any[] = [], imageFiles: any[] = [], attachmentFiles: any[] = [], options: SendMessageOptions = {}) {
-    const selectedKbs = settingsStore.settings.selectedKnowledgeBases || [];
-    const selectedFiles = settingsStore.settings.selectedFiles || [];
-
-    // 构建 session 数据，包含 Agent 配置
-    const sessionData: any = {};
-
-    // 添加 Agent 配置（知识库信息在 agent_config 中）
-    sessionData.agent_config = {
-        enabled: true,
-        max_iterations: settingsStore.agentConfig.maxIterations,
-        temperature: settingsStore.agentConfig.temperature,
-        knowledge_bases: selectedKbs,  // 所有选中的知识库
-        knowledge_ids: selectedFiles,  // 所有选中的普通知识/文件
-        allowed_tools: settingsStore.agentConfig.allowedTools
-    };
-
+async function createNewSession(
+    value: string,
+    modelId: string,
+    mentionedItems: Array<Record<string, unknown>> = [],
+    imageFiles: File[] = [],
+    attachmentFiles: Array<Record<string, unknown>> = [],
+    options: SendMessageOptions = {},
+) {
     try {
-        const res = await createSessions(withOptionalProjectDir(sessionData, selectedProjectDir.value));
+        const res = await createSessions(withOptionalProjectDir({}, selectedProjectDir.value));
         if (res.data && res.data.id) {
             await navigateToSession(res.data.id, value, modelId, mentionedItems, imageFiles, attachmentFiles, options);
         } else {
@@ -284,10 +285,18 @@ async function createNewSession(value: string, modelId: string, mentionedItems: 
     }
 }
 
-const navigateToSession = async (sessionId: string, value: string, modelId: string, mentionedItems: any[], imageFiles: any[] = [], attachmentFiles: any[] = [], options: SendMessageOptions = {}) => {
+const navigateToSession = async (
+    sessionId: string,
+    value: string,
+    modelId: string,
+    mentionedItems: Array<Record<string, unknown>>,
+    imageFiles: File[] = [],
+    attachmentFiles: Array<Record<string, unknown>> = [],
+    options: SendMessageOptions = {},
+) => {
     const encodedSessionId = encodeURIComponent(sessionId);
     const now = new Date().toISOString();
-    let obj = {
+    const obj = {
         title: t('createChat.newSessionTitle'),
         path: `chat/${encodedSessionId}`,
         id: sessionId,
@@ -299,7 +308,7 @@ const navigateToSession = async (sessionId: string, value: string, modelId: stri
     usemenuStore.updataMenuChildren(obj);
     usemenuStore.changeIsFirstSession(true);
     usemenuStore.changeFirstQuery(value, mentionedItems, modelId, imageFiles, attachmentFiles, options.questionOrigin ?? null);
-    router.push(`/platform/chat/${encodedSessionId}`);
+    await router.push(`/platform/chat/${encodedSessionId}`);
 }
 
 const handleKBEditorSuccess = (kbId: string) => {
@@ -316,8 +325,9 @@ async function openProjectDir() {
     try {
         const picked = await pickHostProjectDir();
         if (picked) selectedProjectDir.value = picked;
-    } catch (e: any) {
-        MessagePlugin.error(e?.message || t('createChat.pickFailed'));
+    } catch (e: unknown) {
+        const msg = e instanceof Error && e.message ? e.message : t('createChat.pickFailed');
+        MessagePlugin.error(msg);
     } finally {
         pickingProjectDir.value = false;
     }
@@ -475,6 +485,11 @@ async function openProjectDir() {
 .sq-slide-fade-leave-to {
     opacity: 0;
     transform: translateY(-4px);
+}
+
+button.suggested-question-card {
+    font: inherit;
+    text-align: start;
 }
 
 .suggested-question-card {

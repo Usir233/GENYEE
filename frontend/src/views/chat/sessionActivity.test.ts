@@ -6,8 +6,8 @@ import { effectScope, reactive, ref, watch } from 'vue'
 import { createSessionActivityState, type SessionActivity } from '../../stores/sessionActivityState'
 
 const source = readFileSync(new URL('./index.vue', import.meta.url), 'utf8')
-const start = source.indexOf('watch([activitySessionId,')
-const end = source.indexOf('const historyLoading =', start)
+const start = source.indexOf('watch(\n  [activitySessionId,')
+const end = source.indexOf('const composerLockedRef =', start)
 assert.ok(start > 0 && end > start)
 
 function fixture() {

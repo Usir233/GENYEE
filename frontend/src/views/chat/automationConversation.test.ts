@@ -57,10 +57,16 @@ test('normal and embedded conversations keep their composer, while unknown sessi
 })
 
 test('automation history does not offer fork or rewind actions that lead back to a composer', () => {
-  const fork = source.slice(source.indexOf('function forkAffordanceOf('), source.indexOf('// One pass over the transcript'))
-  const rewind = source.slice(source.indexOf('function canRewindMessage('), source.indexOf('const FORK_PREFILL_KEY'))
+  const forkSource = readFileSync(new URL('./composables/useChatForkRewind.ts', import.meta.url), 'utf8')
+  const slice = forkSource.slice(
+    forkSource.indexOf('  function forkAffordanceOf('),
+    forkSource.indexOf('  const composerLocked ='),
+  )
+  const js = ts.transpileModule(`${slice}\n({ forkAffordanceOf, canRewindMessage })`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, alwaysStrict: false },
+  }).outputText
   for (const automation of [true, false]) {
-    const actions = runInNewContext(`${fork}\n${rewind}\n({ forkAffordanceOf, canRewindMessage })`, {
+    const actions = runInNewContext(js, {
       isAutomationSession: { value: automation }, messagesList: [],
       rewindableIds: { value: new Set(['message']) }, resolveForkAffordance: () => ({ canFork: true }),
     })

@@ -4,8 +4,15 @@ import { readFileSync } from 'node:fs'
 import { parse, compileStyle } from '@vue/compiler-sfc'
 
 const botMessage = readFileSync(new URL('./botmsg.vue', import.meta.url), 'utf8')
-const agentStream = readFileSync(new URL('./AgentStreamDisplay.vue', import.meta.url), 'utf8')
-const chatView = readFileSync(new URL('../index.vue', import.meta.url), 'utf8')
+const agentStream = [
+  readFileSync(new URL('./AgentStreamDisplay.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./stream/AgentAnswerSection.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useAgentAnswerMarkdown.ts', import.meta.url), 'utf8'),
+].join('\n')
+const chatView = [
+  readFileSync(new URL('../index.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./ChatMessageViewport.vue', import.meta.url), 'utf8'),
+].join('\n')
 const embedChat = readFileSync(new URL('../../embed/EmbedChatCore.vue', import.meta.url), 'utf8')
 const sharedStyles = readFileSync(
   new URL('../../../components/css/chat-message-shared.less', import.meta.url),
@@ -15,7 +22,7 @@ const sharedStyles = readFileSync(
 test('user action icon size compiles to a selector matching the button child', () => {
   const filename = new URL('./usermsg.vue', import.meta.url)
   const { descriptor } = parse(readFileSync(filename, 'utf8'))
-  const style = descriptor.styles.find(style => style.scoped && !style.lang)
+  const style = descriptor.styles.find((s) => s.scoped && !s.lang)
   const result = compileStyle({
     source: style.content,
     filename: filename.pathname,
@@ -23,16 +30,17 @@ test('user action icon size compiles to a selector matching the button child', (
     scoped: true,
   })
   assert.deepEqual(result.errors, [])
-  // A nested :deep() adds an extra descendant scope selector and misses
-  // the SVG rendered directly inside the action button.
-  const iconRule = result.rawResult.root.nodes.find(node =>
-    node.type === 'rule'
-    && node.selector === '.user_msg_action[data-v-user-message] .chat-action-icon',
+  const iconRule = result.rawResult.root.nodes.find(
+    (node) =>
+      node.type === 'rule' &&
+      node.selector === '.user_msg_action[data-v-user-message] .chat-action-icon',
   )
   assert.ok(iconRule, 'icon sizing must target the direct child without an extra scoped ancestor')
-  const dimensions = Object.fromEntries(iconRule.nodes
-    .filter(node => node.type === 'decl' && ['width', 'height'].includes(node.prop))
-    .map(node => [node.prop, node.value]))
+  const dimensions = Object.fromEntries(
+    iconRule.nodes
+      .filter((node) => node.type === 'decl' && ['width', 'height'].includes(node.prop))
+      .map((node) => [node.prop, node.value]),
+  )
   assert.deepEqual(dimensions, { width: '16px', height: '16px' })
 })
 
@@ -69,8 +77,6 @@ test('artifact toolbar supports the sandbox panel and session-local drawer', () 
   assert.match(botMessage, /sandboxPanel.open\('artifacts'/)
   assert.match(agentStream, /sandboxPanel.open\('artifacts'/)
   assert.match(botMessage, /v-if="hasArtifacts && embeddedMode"/)
-  // Child and standalone viewers also need a drawer. Routing behavior and
-  // child session identity are covered by AgentStreamDisplay.artifacts.test.
   assert.match(agentStream, /v-if="hasArtifacts && useArtifactDrawer/)
   assert.match(agentStream, /if \(sandboxPanel && !useArtifactDrawer\.value\)/)
 })
@@ -80,7 +86,6 @@ test('artifact toolbar uses a folder icon and replaces it while collecting', () 
   assert.match(agentStream, /answer-toolbar__artifact[\s\S]{0,800}name="folder"/)
   assert.match(botMessage, /class="answer-toolbar__artifact-spinner"/)
   assert.match(agentStream, /class="answer-toolbar__artifact-spinner"/)
-  // 旋转动画统一为 theme.css 里的全局 gy-spin
   assert.match(sharedStyles, /answer-toolbar__artifact-spinner[\s\S]{0,400}animation: gy-spin/)
   assert.doesNotMatch(botMessage, /answer-toolbar__artifact[\s\S]{0,800}:loading=/)
   assert.doesNotMatch(agentStream, /answer-toolbar__artifact[\s\S]{0,800}:loading=/)
@@ -112,7 +117,7 @@ test('conversation timestamps insert into the message flow instead of each bubbl
 test('follow-up suggestions wait until the answer is fully rendered', () => {
   assert.match(
     chatView,
-    /@render-complete-change="\(ready\) => handleAnswerRenderComplete\(session, ready\)"/,
+    /@render-complete-change="\(session, ready\) => handleAnswerRenderComplete\(session, ready\)"/,
   )
   assert.match(
     chatView,

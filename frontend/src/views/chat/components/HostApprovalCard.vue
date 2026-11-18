@@ -225,8 +225,9 @@ const submit = async (decision: 'approve' | 'reject', scope: HostApprovalScope) 
     clearComposerApproval(props.pendingId)
     MessagePlugin.success(t('agentStream.hostApproval.submitted'))
     if (res?.resumed) resumeSuspendedRun?.(props.pendingId)
-  } catch (e: any) {
-    const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.hostApproval.submitFailed')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string } | null
+    const msg = err?.response?.data?.error?.message || err?.message || t('agentStream.hostApproval.submitFailed')
     MessagePlugin.error(msg)
   } finally {
     submitting.value = false
@@ -243,7 +244,7 @@ const submit = async (decision: 'approve' | 'reject', scope: HostApprovalScope) 
   border: 1px solid var(--td-component-border);
   border-radius: var(--app-radius-xl);
   background: var(--td-bg-color-container);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--gy-shadow-md);
 
   &.is-resolved {
     box-shadow: none;

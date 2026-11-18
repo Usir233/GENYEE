@@ -7,8 +7,17 @@ const referenceDrawer = readFileSync(
   'utf8',
 )
 const legacyReferences = readFileSync(new URL('./docInfo.vue', import.meta.url), 'utf8')
-const agentStream = readFileSync(new URL('./AgentStreamDisplay.vue', import.meta.url), 'utf8')
-const chatView = readFileSync(new URL('../index.vue', import.meta.url), 'utf8')
+const agentStream = [
+  readFileSync(new URL('./AgentStreamDisplay.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./stream/AgentWikiPageDrawer.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useAgentAnswerMarkdown.ts', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useAgentToolPresentation.ts', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useAgentWikiCitations.ts', import.meta.url), 'utf8'),
+].join('\n')
+const chatView = [
+  readFileSync(new URL('../index.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../chat-index.less', import.meta.url), 'utf8'),
+].join('\n')
 
 test('reference document links open in a new tab', () => {
   assert.match(
@@ -45,15 +54,15 @@ test('agent citations recover drawer references from retrieval tool events', () 
   )
   assert.equal(
     agentStream.match(/knowledgeReferences: getReferencesForDrawer\(\)|getReferencesForDrawer\(\),/g)?.length,
-    3,
+    2,
   )
   assert.match(
     referenceDrawer,
     /watch\(highlight,[\s\S]*?scrollToHighlight\(\)/,
   )
-  assert.equal(
-    agentStream.match(/documentTitle: title,[\s\S]*?knowledgeBaseId: kbId,/g)?.length,
-    2,
+  assert.match(
+    agentStream,
+    /documentTitle: title,[\s\S]*?knowledgeBaseId: kbId,/,
   )
 })
 
@@ -85,6 +94,5 @@ test('references drawer smoothly shifts the chat area while opening', () => {
   assert.match(referenceDrawer, /\.chat-references-panel \{[\s\S]*?position: fixed;/)
   assert.match(chatView, /'has-references-panel': referencesDrawerVisible/)
   assert.match(chatView, /transition: padding-right (?:0\.3s|var\(--app-motion-slow\)) cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)/)
-  // The panel widens while showing an original document; 420px is the list width.
   assert.match(chatView, /&\.has-references-panel:not\(\.is-embedded\)[\s\S]*?padding-right:\s*var\(--references-panel-width, 420px\)/)
 })

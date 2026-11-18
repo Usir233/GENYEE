@@ -22,14 +22,17 @@ function nodes(node: any): any[] {
 }
 
 test('AgentStreamDisplay blocks javascript/data URLs in handleCitationActivate and guards openWikiDrawer against stale responses and unmount', async () => {
-  const source = readFileSync(new URL('./components/AgentStreamDisplay.vue', import.meta.url), 'utf8')
+  const source = readFileSync(new URL('./composables/useAgentWikiCitations.ts', import.meta.url), 'utf8')
 
-  // Extract handleCitationActivate and run against malicious & valid data-url values.
-  const citeStart = source.indexOf('const handleCitationActivate =')
-  const citeEnd = source.indexOf('const getKbIdForWiki =', citeStart)
+  const wailsHelper = source.slice(
+    source.indexOf('function getWailsBrowserOpenURL()'),
+    source.indexOf('export interface UseAgentWikiCitationsOptions'),
+  )
+  const citeStart = source.indexOf('  const handleCitationActivate =')
+  const citeEnd = source.indexOf('  const getKbIdForWiki =', citeStart)
   assert.notEqual(citeStart, -1)
   assert.notEqual(citeEnd, -1)
-  const citeJs = ts.transpileModule(source.slice(citeStart, citeEnd), {
+  const citeJs = ts.transpileModule(`${wailsHelper}\n${source.slice(citeStart, citeEnd)}`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   }).outputText
 
@@ -65,21 +68,16 @@ test('AgentStreamDisplay blocks javascript/data URLs in handleCitationActivate a
   handleCitationActivate({ getAttribute: () => 'https://example.com/article' })
   assert.deepEqual(browserUrls, ['https://example.com/article'])
 
-  // Extract openWikiDrawer and verify out-of-order + unmount protection.
-  const wikiStart = source.indexOf('const openWikiDrawer =')
-  const wikiEnd = source.indexOf('const wikiGraphHref =', wikiStart)
+  const wikiStart = source.indexOf('  let wikiDrawerRequestSeq = 0;')
+  const wikiEnd = source.indexOf('  const wikiGraphHref =', wikiStart)
   assert.notEqual(wikiStart, -1)
   assert.notEqual(wikiEnd, -1)
-  // Include any helper declarations immediately above openWikiDrawer if present.
-  const preWikiStart = source.lastIndexOf('watch(wikiDrawerContent', wikiStart)
-  const wikiSlice = source.slice(source.indexOf('});', preWikiStart) + 3, wikiEnd)
-  const wikiJs = ts.transpileModule(wikiSlice, {
+  const wikiJs = ts.transpileModule(source.slice(wikiStart, wikiEnd), {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   }).outputText
 
   const resolvers: Array<(v: any) => void> = []
   const wikiState = {
-    isUnmounted: false,
     currentWikiKbId: { value: '' },
     wikiDrawerPage: { value: null as any },
     wikiDrawerVisible: { value: false },
@@ -102,7 +100,6 @@ test('AgentStreamDisplay blocks javascript/data URLs in handleCitationActivate a
 test('docInfo, WebFetchResults, WebSearchResults, and KnowledgeChunksList block unsafe href protocols and sanitize chunk summary HTML', async (t: TestContext) => {
   const f = fixture(t)
 
-  // 1. docInfo.vue
   const docInfoPage = f.component(new URL('./components/docInfo.vue', import.meta.url), {
     'vue-router': { useRouter: () => ({ resolve: () => ({ href: '/kb' }) }) },
     'vue-i18n': { useI18n: () => ({ t: (k: string) => k }) },
@@ -125,7 +122,6 @@ test('docInfo, WebFetchResults, WebSearchResults, and KnowledgeChunksList block 
     'https://safe.example/doc',
   )
 
-  // 2. WebFetchResults.vue
   const fetchUrl = new URL('./components/tool-results/WebFetchResults.vue', import.meta.url)
   const fetchProps = {
     data: {
@@ -149,7 +145,6 @@ test('docInfo, WebFetchResults, WebSearchResults, and KnowledgeChunksList block 
   const fetchAnchors = nodes(renderFetch(fetchPage.vm, [], fetchProps, fetchPage.vm, {}, {})).filter((n) => n.type === 'a')
   assert.equal(fetchAnchors.length, 0, 'WebFetchResults must not render <a> for javascript: URL')
 
-  // 3. WebSearchResults.vue
   const searchUrl = new URL('./components/tool-results/WebSearchResults.vue', import.meta.url)
   const searchProps = {
     data: {
@@ -173,7 +168,6 @@ test('docInfo, WebFetchResults, WebSearchResults, and KnowledgeChunksList block 
   const searchAnchors = nodes(renderSearch(searchPage.vm, [], searchProps, searchPage.vm, {}, {})).filter((n) => n.type === 'a')
   assert.equal(searchAnchors.length, 0, 'WebSearchResults must not render <a> for javascript: URL')
 
-  // 4. KnowledgeChunksList.vue sanitizes summaryHtml
   let sanitizedCalls = 0
   const chunksPage = f.component(new URL('./components/tool-results/KnowledgeChunksList.vue', import.meta.url), {
     'vue-i18n': { useI18n: () => ({ t: () => '<img src=x onerror=alert(1)><strong>3</strong>' }) },
@@ -198,9 +192,7 @@ test('McpOAuthCard validates http(s) popup URL, severs opener, guards poll overl
     authorizationUrl: 'javascript:alert(1)',
     authorizationAttempt: 'attempt-1',
   }
-  let statusResolver: ((ok: boolean) => void) | null = null
   let statusCalls = 0
-  let resolveCalls = 0
 
   ;(f.window as any).location = { origin: 'https://app.example.com', pathname: '/chat', search: '' }
   ;(f.window as any).open = (u: string) => {
@@ -223,9 +215,9 @@ test('McpOAuthCard validates http(s) popup URL, severs opener, guards poll overl
       getMCPOAuthAuthorizeURL: async () => authUrlResponse,
       getMCPOAuthStatus: () => {
         statusCalls++
-        return new Promise<boolean>((resolve) => { statusResolver = resolve })
+        return new Promise<boolean>(() => {})
       },
-      resolveMCPOAuth: async () => { resolveCalls++ },
+      resolveMCPOAuth: async () => {},
       refreshMCPMetadata: async () => {},
     },
     '@/api/embed': {
@@ -248,12 +240,10 @@ test('McpOAuthCard validates http(s) popup URL, severs opener, guards poll overl
     requestedAt: Math.floor(Date.now() / 1000),
   })
 
-  // 1. Unsafe javascript: authorizationUrl must be rejected before window.open
   await page.vm.authorize()
   assert.equal(openedPopups.length, 0, 'javascript: OAuth URL must never be opened')
   assert.equal(page.vm.authorizing, false)
 
-  // 2. Valid https: OAuth URL severs popup.opener and guards overlapping status polls
   authUrlResponse = {
     authorizationUrl: 'https://auth.example.com/authorize?state=1',
     authorizationAttempt: 'attempt-2',
@@ -263,11 +253,9 @@ test('McpOAuthCard validates http(s) popup URL, severs opener, guards poll overl
   assert.equal(openedPopups[0].popup.opener, null, 'popup.opener must be severed to prevent reverse tabnabbing')
   assert.equal(page.vm.authorizing, true)
 
-  // Template check: Skip button must remain enabled while authorizing so user is not locked out
   const rawSource = readFileSync(url, 'utf8')
   assert.doesNotMatch(rawSource, /:disabled="canceling \|\| authorizing"\s*@click="skip"/)
 
-  // Allow skip while popup is open -> stops polling
   await page.vm.skip()
   assert.deepEqual({ ...submissions['oauth-1'] }, { authorized: false })
   assert.equal(statusCalls, 0)
@@ -314,7 +302,6 @@ test('PendingPromptDock ignores held-Enter auto-repeat and ToolApprovalCard requ
   dockPage.vm.onKeydown({ key: 'Enter', repeat: true, altKey: false, preventDefault() {} } as any)
   assert.equal(handleKeyCalls, 0, 'held-down key repeat must not cascade-submit queued HITL prompts')
 
-  // Verify ToolApprovalCard treats external MCP service with serviceId !== '' as MCP tool, NOT built-in GENYEE operation!
   const cardPage = f.component(new URL('./components/ToolApprovalCard.vue', import.meta.url), {
     'vue-i18n': { useI18n: () => ({ t: (k: string, p?: any) => `${k}:${JSON.stringify(p || {})}` }) },
     'tdesign-vue-next': { MessagePlugin: { error() {}, success() {} } },
@@ -351,11 +338,9 @@ test('PendingPromptDock ignores held-Enter auto-repeat and ToolApprovalCard requ
 test('HostApprovalCard records submission to prevent double-submit and resumes suspended runs when server reports resumed', async (t: TestContext) => {
   const f = fixture(t)
   let resolveCalls = 0
-  const resumedIds: string[] = []
   const submissions = vue.reactive<Record<string, any>>({})
 
   const HostCard = new URL('./components/HostApprovalCard.vue', import.meta.url)
-  // Provide resumeSuspendedRun via parent wrapper or check injection.
   const resumeKey = Symbol('resumeSuspendedRun')
   const page = f.component(HostCard, {
     'vue-i18n': { useI18n: () => ({ t: (k: string) => k }) },
@@ -379,7 +364,6 @@ test('HostApprovalCard records submission to prevent double-submit and resumes s
     resolved: false,
   })
 
-  // Test double-submit prevention even before props.resolved flips from SSE
   await page.vm.submit('approve', 'once')
   await page.vm.submit('approve', 'once')
   assert.equal(resolveCalls, 1, 'HostApprovalCard must block duplicate submit after local submission')
@@ -391,14 +375,16 @@ test('HostApprovalCard records submission to prevent double-submit and resumes s
 })
 
 test('chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resumeSuspendedRun loops when chatLoadVersion advances on leave/unmount', async () => {
-  const source = readFileSync(new URL('./index.vue', import.meta.url), 'utf8')
+  const followSource = readFileSync(new URL('./composables/useChatFollowUpSuggestions.ts', import.meta.url), 'utf8')
+  const steerSource = readFileSync(new URL('./composables/useChatSteerQueue.ts', import.meta.url), 'utf8')
+  const recoverySource = readFileSync(new URL('./composables/useChatIncompleteRecovery.ts', import.meta.url), 'utf8')
 
-  const followStart = source.indexOf('const loadFollowUpSuggestions = async')
-  const followEnd = source.indexOf('const recordSuggestionEvent =', followStart)
-  const attachStart = source.indexOf('const attachSteerFollowUp = async')
-  const attachEnd = source.indexOf('const sendMsg = async', attachStart)
-  const resumeStart = source.indexOf('let attachingResumedRun = false;')
-  const resumeEnd = source.indexOf('provide(resumeSuspendedRunKey', resumeStart)
+  const followStart = followSource.indexOf('  const loadFollowUpSuggestions = async')
+  const followEnd = followSource.indexOf('  const recordSuggestionEvent =', followStart)
+  const attachStart = steerSource.indexOf('  let attachingSteerFollowUp = false;')
+  const attachEnd = steerSource.indexOf('  const flushSteerAfterTurn = async', attachStart)
+  const resumeStart = recoverySource.indexOf('  let attachingResumedRun = false;')
+  const resumeEnd = recoverySource.indexOf('  const isAttachingResumedRun =', resumeStart)
 
   let suggestionPolls = 0
   let messageListPolls = 0
@@ -413,7 +399,7 @@ test('chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resum
     chatLoadVersion: 1,
     isAutomationSession: { value: false },
     resolveAssistantMessageId: (m: any) => m.id,
-    session_id: { value: 'sess-1' },
+    sessionIdRef: { value: 'sess-1' },
     isAwaitingInput: () => false,
     ensureMessageSuggestions: async () => ({ data: { status: 'generating' } }),
     getMessageSuggestions: async () => {
@@ -421,7 +407,6 @@ test('chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resum
       return { data: { status: 'generating' } }
     },
     steerQueue: { value: [{ steer_id: 's1', content: 'next', failed: false }] },
-    attachingSteerFollowUp: false,
     isReplying: { value: false },
     loading: { value: false },
     getMessageList: async () => {
@@ -439,27 +424,32 @@ test('chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resum
     isPromptCard: () => true,
     persistedAssistantId: (m: any) => m.id,
     prepareResumedMessage: () => {},
-    error: { value: 'not ready' },
+    streamError: { value: 'not ready' },
     setTimeout: (fn: () => void) => { timerCallback = fn; return 1 },
     console: { warn() {}, error() {} },
   }
 
-  const fns = vm.runInNewContext(
-    `${source.slice(followStart, followEnd)}\n${source.slice(attachStart, attachEnd)}\n${source.slice(resumeStart, resumeEnd)}\n({ loadFollowUpSuggestions, attachSteerFollowUp, resumeSuspendedRun, advance: () => { chatLoadVersion++ } })`,
-    ctx,
-  )
+  const combinedTs = `
+    const getLoadVersion = () => chatLoadVersion;
+    ${followSource.slice(followStart, followEnd)}
+    ${steerSource.slice(attachStart, attachEnd)}
+    ${recoverySource.slice(resumeStart, resumeEnd)}
+    ({ loadFollowUpSuggestions, attachSteerFollowUp, resumeSuspendedRun, advance: () => { chatLoadVersion++; } })
+  `
+  const combinedJs = ts.transpileModule(combinedTs, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText
+  const fns = vm.runInNewContext(combinedJs, ctx)
 
-  // 1. loadFollowUpSuggestions stops when chatLoadVersion increments (even though session_id stays 'sess-1'!)
   const msg: any = { id: 'm1' }
   const pFollow = fns.loadFollowUpSuggestions(msg, true)
   await Promise.resolve()
   await Promise.resolve()
-  fns.advance() // simulate onBeforeRouteLeave / onUnmounted
+  fns.advance()
   runTimer()
   await pFollow
   assert.equal(suggestionPolls, 0, 'loadFollowUpSuggestions must abort after chatLoadVersion increments')
 
-  // 2. attachSteerFollowUp stops when chatLoadVersion increments
   const pAttach = fns.attachSteerFollowUp('completed-1')
   await Promise.resolve()
   await Promise.resolve()
@@ -469,7 +459,6 @@ test('chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resum
   await pAttach
   assert.equal(messageListPolls, 1, 'attachSteerFollowUp must abort polling after chatLoadVersion increments')
 
-  // 3. resumeSuspendedRun stops before startStream when chatLoadVersion increments
   ctx.isReplying.value = false
   const pResume = fns.resumeSuspendedRun('p-1')
   fns.advance()
@@ -501,7 +490,7 @@ test('ChatArtifactsDrawer guards listMessageArtifacts against out-of-order loads
       formatArtifactSize: () => '',
     },
     '@/utils/filePreview': { resolveFilePreviewExt: () => 'md' },
-    '@/components/document-preview.vue': { default: {} },
+    '@/components/DocumentPreview.vue': { default: {} },
     './ArtifactFileIcon.vue': { default: {} },
   }, props)
 
@@ -509,7 +498,6 @@ test('ChatArtifactsDrawer guards listMessageArtifacts against out-of-order loads
   await flush()
   assert.equal(resolvers.length, 1)
 
-  // Switch messageId while drawer is open -> must refetch and ignore stale msg-1 response!
   drawer.vm.$.props.messageId = 'msg-2'
   await flush()
   assert.equal(resolvers.length, 2, 'changing messageId while open must reload artifacts')
@@ -520,7 +508,6 @@ test('ChatArtifactsDrawer guards listMessageArtifacts against out-of-order loads
   await flush()
   assert.equal(drawer.vm.items[0]?.file_name, 'msg2-fresh.md', 'stale listMessageArtifacts response must be ignored')
 
-  // Verify botmsg.vue binds @click.capture="handleMarkdownImageClick" on parentMd so v-if toggles never drop listener
   const botmsgSource = readFileSync(new URL('./components/botmsg.vue', import.meta.url), 'utf8')
   assert.match(botmsgSource, /ref="parentMd"[^>]*@click\.capture="handleMarkdownImageClick"/)
 })

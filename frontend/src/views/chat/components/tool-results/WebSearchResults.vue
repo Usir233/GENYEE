@@ -80,21 +80,20 @@ const safeHttpUrl = (raw?: string): string => {
   }
 };
 
-// Group results by source first, then by domain if source is missing
-type Group = { key: string; label: string; items: WebSearchResultItem[] };
+type SourcedWebResultItem = WebSearchResultItem & { source?: string };
+type Group = { key: string; label: string; items: SourcedWebResultItem[] };
 const groupedResults = computed<Group[]>(() => {
-  const list = results.value || [];
+  const list = (results.value || []) as SourcedWebResultItem[];
   const groupsMap: Record<string, Group> = {};
   for (const item of list) {
-    const source = (item as any).source as string | undefined;
+    const source = item.source;
     let key = '';
     let label = '';
     if (source && source.trim()) {
       key = `src:${source.trim()}`;
       label = source.trim();
     } else {
-      // fallback to domain
-      const url = (item as any).url as string | undefined;
+      const url = item.url;
       const hostname = url ? safeHostname(url) : t('chat.otherSource');
       key = `dom:${hostname}`;
       label = hostname;
@@ -104,12 +103,11 @@ const groupedResults = computed<Group[]>(() => {
     }
     groupsMap[key].items.push(item);
   }
-  // Keep original order by first occurrence
   const ordered: Group[] = [];
   const seen = new Set<string>();
   for (const item of list) {
-    const source = (item as any).source as string | undefined;
-    const url = (item as any).url as string | undefined;
+    const source = item.source;
+    const url = item.url;
     const hostname = url ? safeHostname(url) : t('chat.otherSource');
     const key = source && source.trim() ? `src:${source.trim()}` : `dom:${hostname}`;
     if (!seen.has(key)) {
@@ -120,15 +118,6 @@ const groupedResults = computed<Group[]>(() => {
   return ordered;
 });
 
-const formatUrl = (url: string): string => {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.hostname + urlObj.pathname;
-  } catch {
-    return url;
-  }
-};
-
 const safeHostname = (url: string): string => {
   try {
     const urlObj = new URL(url);
@@ -136,12 +125,6 @@ const safeHostname = (url: string): string => {
   } catch {
     return t('chat.otherSource');
   }
-};
-
-const truncateContent = (content: string, maxLength: number = 300): string => {
-  if (!content) return '';
-  if (content.length <= maxLength) return content;
-  return content.substring(0, maxLength) + '...';
 };
 
 const formatDate = (dateStr: string): string => {

@@ -26,7 +26,7 @@
 
     <div class="info-section">
       <div class="action-buttons">
-        <button class="action-button" @click="copyToClipboard">
+        <button type="button" class="action-button" @click="copyToClipboard">
           📋 {{ $t('chat.copyContent') }}
         </button>
       </div>
@@ -36,14 +36,11 @@
 
 <script setup lang="ts">
 import type { ChunkDetailData } from '@/types/tool-results';
-import { useI18n } from 'vue-i18n';
 import { copyToClipboard as copyTextToClipboard } from '@/utils/clipboard';
 
 const props = defineProps<{
   data: ChunkDetailData;
 }>();
-
-const { t } = useI18n();
 
 const copyToClipboard = () => {
   void copyTextToClipboard(props.data.content);

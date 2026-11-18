@@ -109,9 +109,16 @@ const props = defineProps<{
 
 const { t } = useI18n();
 
+const isCreatedWrite = computed(
+  () =>
+    props.data.display_type === 'wiki_write_page' &&
+    'action' in props.data &&
+    (props.data as { action?: string }).action === 'created',
+);
+
 const actionIcon = computed(() => {
   switch (props.data.display_type) {
-    case 'wiki_write_page': return (props.data as any).action === 'created' ? '✦' : '✎';
+    case 'wiki_write_page': return isCreatedWrite.value ? '✦' : '✎';
     case 'wiki_replace_text': return '⇄';
     case 'wiki_rename_page': return '↻';
     case 'wiki_delete_page': return '✕';
@@ -122,7 +129,7 @@ const actionIcon = computed(() => {
 const actionClass = computed(() => {
   switch (props.data.display_type) {
     case 'wiki_write_page':
-      return (props.data as any).action === 'created' ? 'created' : 'updated';
+      return isCreatedWrite.value ? 'created' : 'updated';
     case 'wiki_replace_text': return 'updated';
     case 'wiki_rename_page': return 'renamed';
     case 'wiki_delete_page': return 'deleted';
@@ -133,7 +140,7 @@ const actionClass = computed(() => {
 const actionLabel = computed(() => {
   switch (props.data.display_type) {
     case 'wiki_write_page':
-      return (props.data as any).action === 'created'
+      return isCreatedWrite.value
         ? t('chat.wikiActionCreated')
         : t('chat.wikiActionUpdated');
     case 'wiki_replace_text': return t('chat.wikiActionUpdated');
@@ -179,66 +186,66 @@ const headerTitle = computed(() => {
     flex-shrink: 0;
 
     &.created {
-      color: var(--td-success-color);
-      background: rgba(0, 168, 112, 0.1);
+      color: var(--gy-success);
+      background: var(--gy-success-soft);
     }
     &.updated {
-      color: var(--td-brand-color);
-      background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
+      color: var(--gy-brand);
+      background: color-mix(in oklab, var(--gy-brand) 10%, transparent);
     }
     &.renamed {
-      color: var(--td-warning-color);
-      background: rgba(255, 152, 0, 0.1);
+      color: var(--gy-warning);
+      background: var(--gy-warning-soft);
     }
     &.deleted {
-      color: var(--td-error-color);
-      background: rgba(227, 77, 89, 0.1);
+      color: var(--gy-danger);
+      background: var(--gy-danger-soft);
     }
   }
 
   .wiki-title-text {
-    font-size: var(--app-text-md);
+    font-size: var(--gy-text-md);
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--gy-text-primary);
   }
 }
 
 .action-badge {
-  font-size: var(--app-text-xs);
+  font-size: var(--gy-text-2xs);
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: var(--app-radius-lg);
+  border-radius: var(--gy-radius-lg);
   line-height: 1.5;
 
   &.created {
-    color: var(--td-success-color);
-    background: rgba(0, 168, 112, 0.1);
-    border: 1px solid rgba(0, 168, 112, 0.2);
+    color: var(--gy-success);
+    background: var(--gy-success-soft);
+    border: 1px solid color-mix(in oklab, var(--gy-success) 20%, transparent);
   }
   &.updated {
-    color: var(--td-brand-color);
-    background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--td-brand-color) 20%, transparent);
+    color: var(--gy-brand);
+    background: color-mix(in oklab, var(--gy-brand) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--gy-brand) 20%, transparent);
   }
   &.renamed {
-    color: var(--td-warning-color);
-    background: rgba(255, 152, 0, 0.1);
-    border: 1px solid rgba(255, 152, 0, 0.2);
+    color: var(--gy-warning);
+    background: var(--gy-warning-soft);
+    border: 1px solid color-mix(in oklab, var(--gy-warning) 20%, transparent);
   }
   &.deleted {
-    color: var(--td-error-color);
-    background: rgba(227, 77, 89, 0.1);
-    border: 1px solid rgba(227, 77, 89, 0.2);
+    color: var(--gy-danger);
+    background: var(--gy-danger-soft);
+    border: 1px solid color-mix(in oklab, var(--gy-danger) 20%, transparent);
   }
 }
 
 .diff-block {
   margin-top: 8px;
   border: 1px solid @card-border;
-  border-radius: var(--app-radius-xs);
+  border-radius: var(--gy-radius-xs);
   overflow: hidden;
   font-family: var(--app-font-family-mono);
-  font-size: var(--app-text-sm);
+  font-size: var(--gy-text-xs);
 }
 
 .diff-line {
@@ -248,13 +255,13 @@ const headerTitle = computed(() => {
   line-height: 1.5;
 
   &.diff-old {
-    background: rgba(227, 77, 89, 0.06);
-    color: var(--td-error-color);
+    background: var(--gy-danger-soft);
+    color: var(--gy-danger);
     border-bottom: 1px solid @card-border;
   }
   &.diff-new {
-    background: rgba(0, 168, 112, 0.06);
-    color: var(--td-success-color);
+    background: var(--gy-success-soft);
+    color: var(--gy-success);
   }
 }
 

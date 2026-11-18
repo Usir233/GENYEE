@@ -8,25 +8,48 @@ import ts from 'typescript'
 import { reactive } from 'vue'
 import { previewSteerMessage, discardSteerPreview, forkAfterInjectedUser, reconcileSteerMessageId, persistedAssistantId } from '../../utils/steerStreamFork.ts'
 
-const source = readFileSync(new URL('./index.vue', import.meta.url), 'utf8')
-const handlers = source.slice(source.indexOf('const dropSteerQueueItem ='), source.indexOf('let attachingSteerFollowUp ='))
+const source = readFileSync(new URL('./composables/useChatSteerQueue.ts', import.meta.url), 'utf8')
+const helpersTs = source.slice(
+  source.indexOf('function getErrorStatus('),
+  source.indexOf('export interface UseChatSteerQueueOptions'),
+)
+const handlersTs = source.slice(
+  source.indexOf('  const dropSteerQueueItem ='),
+  source.indexOf('  let attachingSteerFollowUp ='),
+)
+const handlersJs = ts.transpileModule(
+  `${helpersTs}\nconst sessionIdRef = session_id;\n${handlersTs}\n({ handleSteerMsg, handlePromoteSteer, handleRetrySteer, handleRemoveSteer })`,
+  { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
+).outputText
+
 const deferred = () => {
   let resolve, reject
   const promise = new Promise((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
+
 function harness(overrides = {}) {
   const state = {
-    session_id: { value: 'session' }, currentAssistantMessageId: { value: 'assistant' },
-    isReplying: { value: true }, isStreaming: { value: true },
+    session_id: { value: 'session' },
+    currentAssistantMessageId: { value: 'assistant' },
+    isReplying: { value: true },
+    isStreaming: { value: true },
     composerLocked: { value: false },
-    steerQueue: { value: [] }, messagesList: reactive([]), crypto: webcrypto, makeSteerClientId,
-    previewSteerMessage, discardSteerPreview, reconcileSteerMessageId,
-    scrollToBottom() {}, sendMsg() { throw new Error('must not start a second run') },
-    MessagePlugin: { info() {}, error() {} }, t: key => key,
-    console: { error() {} }, ...overrides,
+    steerQueue: { value: [] },
+    messagesList: reactive([]),
+    crypto: webcrypto,
+    makeSteerClientId,
+    previewSteerMessage,
+    discardSteerPreview,
+    reconcileSteerMessageId,
+    scrollToBottom() {},
+    sendMsg() { throw new Error('must not start a second run') },
+    MessagePlugin: { info() {}, error() {} },
+    t: (key) => key,
+    console: { error() {} },
+    ...overrides,
   }
-  const actions = vm.runInNewContext(`${handlers}\n({ handleSteerMsg, handlePromoteSteer, handleRetrySteer, handleRemoveSteer })`, state)
+  const actions = vm.runInNewContext(handlersJs, state)
   return { ...actions, state }
 }
 
@@ -42,7 +65,8 @@ test('locked composer drops a steer without touching the queue', async () => {
 })
 
 test('default after stays below; promotion immediately moves it into the transcript', async () => {
-  const request = deferred(), promote = deferred()
+  const request = deferred()
+  const promote = deferred()
   const h = harness({ steerSession: () => request.promise, promoteSteerSession: () => promote.promise })
   const sending = h.handleSteerMsg('queued')
   const item = h.state.steerQueue.value[0]
@@ -52,7 +76,7 @@ test('default after stays below; promotion immediately moves it into the transcr
   await sending
   const promoting = h.handlePromoteSteer(item.steer_id)
   assert.equal(item.delivery, 'inject')
-  assert.equal(h.state.steerQueue.value.filter(q => q.delivery === 'after').length, 0)
+  assert.equal(h.state.steerQueue.value.filter((q) => q.delivery === 'after').length, 0)
   assert.equal(h.state.messagesList[0].content, 'queued')
   promote.resolve({ status: 'queued' })
   await promoting
@@ -67,20 +91,22 @@ test('direct inject shows immediately and an early SSE receipt does not duplicat
   const item = h.state.steerQueue.value[0]
   assert.equal(h.state.messagesList[1].content, '补充')
   forkAfterInjectedUser(h.state.messagesList, assistant, h.state.messagesList[1], item.steer_id)
-  h.state.steerQueue.value.splice(0, 1) // onUserMessageInjected receipt
+  h.state.steerQueue.value.splice(0, 1)
   request.resolve({ status: 'queued', steer_id: item.steer_id })
   await sending
-  assert.equal(h.state.messagesList.filter(m => m.role === 'user').length, 1)
+  assert.equal(h.state.messagesList.filter((m) => m.role === 'user').length, 1)
   assert.equal(h.state.steerQueue.value.length, 0)
 })
 
 test('failed inject retries with the same ID and bubble', async () => {
   const ids = []
-  const h = harness({ steerSession: async (...args) => {
-    ids.push(args[5])
-    if (ids.length === 1) throw new Error('network')
-    return { status: 'queued', steer_id: args[5] }
-  } })
+  const h = harness({
+    steerSession: async (...args) => {
+      ids.push(args[5])
+      if (ids.length === 1) throw new Error('network')
+      return { status: 'queued', steer_id: args[5] }
+    },
+  })
   await h.handleSteerMsg('补充', [], 'inject')
   assert.equal(h.state.messagesList[0]._steerFailed, true)
   await h.handleRetrySteer(ids[0])
@@ -90,10 +116,14 @@ test('failed inject retries with the same ID and bubble', async () => {
 })
 
 test('a lost HTTP response after a delivery receipt does not report a failed send', async () => {
-  const request = deferred(), errors = []
-  const h = harness({ steerSession: () => request.promise, MessagePlugin: { info() {}, error: message => errors.push(message) } })
+  const request = deferred()
+  const errors = []
+  const h = harness({
+    steerSession: () => request.promise,
+    MessagePlugin: { info() {}, error: (message) => errors.push(message) },
+  })
   const sending = h.handleSteerMsg('补充', [], 'inject')
-  h.state.steerQueue.value.splice(0, 1) // receipt already removed the item
+  h.state.steerQueue.value.splice(0, 1)
   request.reject(new Error('response lost'))
   await sending
   assert.equal(errors.length, 0)
@@ -111,7 +141,10 @@ const streamSource = readFileSync(new URL('../../composables/useChatStreamHandle
 const receiptStart = streamSource.indexOf("case 'user_message_injected': {")
 const receiptEnd = streamSource.indexOf("case 'complete':", receiptStart)
 assert.ok(receiptStart >= 0 && receiptEnd > receiptStart)
-const consolidation = streamSource.slice(streamSource.indexOf('const consolidateCollaborationStatus ='), streamSource.indexOf('const reconstructEventStreamFromSteps ='))
+const consolidation = streamSource.slice(
+  streamSource.indexOf('const consolidateCollaborationStatus ='),
+  streamSource.indexOf('const reconstructEventStreamFromSteps ='),
+)
 const receipt = ts.transpile(`() => { ${consolidation}
 switch ('user_message_injected') {
   ${streamSource.slice(receiptStart, receiptEnd)}
@@ -120,12 +153,18 @@ switch ('user_message_injected') {
 function receiveInjection(h, steerId, userId) {
   vm.runInNewContext(receipt, {
     messagesList: h.state.messagesList,
-    message: h.state.messagesList.findLast(m => m.role === 'assistant'),
+    message: h.state.messagesList.findLast((m) => m.role === 'assistant'),
     dataPayload: { steer_id: steerId, user_message_id: userId, content: '写到Docx' },
-    data: {}, dataId: 'request', replaySegments: new Map(),
-    forkAfterInjectedUser, persistedAssistantId, log() {}, emitMessageCreated() {}, onAgentChunkBound() {},
+    data: {},
+    dataId: 'request',
+    replaySegments: new Map(),
+    forkAfterInjectedUser,
+    persistedAssistantId,
+    log() {},
+    emitMessageCreated() {},
+    onAgentChunkBound() {},
     onUserMessageInjected(id) {
-      const index = h.state.steerQueue.value.findIndex(item => item.steer_id === id)
+      const index = h.state.steerQueue.value.findIndex((item) => item.steer_id === id)
       if (index >= 0) h.state.steerQueue.value.splice(index, 1)
     },
   })()
@@ -141,18 +180,19 @@ for (const receiptFirst of [false, true]) {
     request.resolve({ status: 'queued', steer_id: 'server-steer' })
     await sending
     if (!receiptFirst) receiveInjection(h, 'server-steer', 'persisted-user')
-    const users = h.state.messagesList.filter(m => m.role === 'user')
+    const users = h.state.messagesList.filter((m) => m.role === 'user')
     assert.equal(users.length, 1)
     assert.equal(users[0].id, 'persisted-user')
     assert.equal(users[0]._steerPending, undefined)
     assert.equal(users[0].mentioned_items[0].id, 'mention')
     assert.equal(h.state.steerQueue.value.length, 0)
-    assert.deepEqual(h.state.messagesList.map(m => m.role), ['assistant', 'user', 'assistant'])
+    assert.deepEqual(h.state.messagesList.map((m) => m.role), ['assistant', 'user', 'assistant'])
   })
 }
 
 test('concurrent identical injects reconcile by their HTTP receipts without merging distinct messages', async () => {
-  const first = deferred(), second = deferred()
+  const first = deferred()
+  const second = deferred()
   let calls = 0
   const h = harness({ steerSession: () => (++calls === 1 ? first.promise : second.promise) })
   h.state.messagesList.push({ id: 'assistant', role: 'assistant', request_id: 'request', is_completed: false })
@@ -164,7 +204,7 @@ test('concurrent identical injects reconcile by their HTTP receipts without merg
   await sendingSecond
   first.resolve({ status: 'queued', steer_id: 'server-first' })
   await sendingFirst
-  const users = h.state.messagesList.filter(m => m.role === 'user')
-  assert.deepEqual(users.map(m => [m.id, m.mentioned_items[0].id]), [['user-first', 'first'], ['user-second', 'second']])
+  const users = h.state.messagesList.filter((m) => m.role === 'user')
+  assert.deepEqual(users.map((m) => [m.id, m.mentioned_items[0].id]), [['user-first', 'first'], ['user-second', 'second']])
   assert.equal(h.state.steerQueue.value.length, 0)
 })

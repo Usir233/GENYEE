@@ -5,16 +5,16 @@ import test from 'node:test'
 import { createBackgroundWorkPoller } from '../../utils/backgroundWork.ts'
 
 test('chat page retries its first failed background query and stops after a confirmed empty list', async (t) => {
-  const source = readFileSync(new URL('./index.vue', import.meta.url), 'utf8')
-  const start = source.indexOf('const backgroundPoller = createBackgroundWorkPoller(')
-  const end = source.indexOf('\nfunction startBackgroundWork()', start)
+  const source = readFileSync(new URL('./composables/useChatBackgroundWork.ts', import.meta.url), 'utf8')
+  const start = source.indexOf('  const backgroundPoller = createBackgroundWorkPoller(')
+  const end = source.indexOf('\n  function startBackgroundWork()', start)
   assert.ok(start >= 0 && end > start)
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let calls = 0
   const backgroundItems = { value: [] as any[] }
   const running = [{ work_id: 'sj_0123', kind: 'shell', title: 'build', state: 'running' }]
   const poller = runInNewContext(`${source.slice(start, end)}\nbackgroundPoller`, {
-    session_id: { value: 's' }, backgroundItems,
+    sessionIdRef: { value: 's' }, backgroundItems,
     createBackgroundWorkPoller: (options: Parameters<typeof createBackgroundWorkPoller>[0]) =>
       createBackgroundWorkPoller({ ...options, intervalMs: 10 }),
     listBackgroundWork: async () => {

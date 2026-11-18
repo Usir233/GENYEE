@@ -6,7 +6,15 @@
         :key="indexKey(index, item)"
         class="result-card"
       >
-        <div class="result-header" @click="toggleCard(index)">
+        <div
+          class="result-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="isExpanded(index)"
+          @click="toggleCard(index)"
+          @keydown.enter.prevent="toggleCard(index)"
+          @keydown.space.prevent="toggleCard(index)"
+        >
           <div class="result-title">
             <span class="result-index">#{{ index + 1 }}</span>
             <a
@@ -99,7 +107,7 @@
               <div v-else class="content-preview">
                 {{ truncate(item.raw_content) }}
               </div>
-              <button class="action-button" @click.stop="toggleRaw(index)">
+              <button type="button" class="action-button" @click.stop="toggleRaw(index)">
                 {{ isRawExpanded(index) ? $t('chat.collapseRaw') : $t('chat.expandRaw') }}
               </button>
             </div>
@@ -311,8 +319,8 @@ const indexKey = (index: number, item: WebFetchResultItem): string => {
   }
 
   &.status-skipped {
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--td-text-color-secondary);
+    background: var(--gy-surface-subtle);
+    color: var(--gy-text-secondary);
   }
 
   &.method {

@@ -81,7 +81,7 @@ import ChatTimelineIcon from '@/components/ChatTimelineIcon.vue'
 import { computed, inject, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
-import { listCredentialVault, submitSecureForm } from '@/api/credentialVault'
+import { listCredentialVault, submitSecureForm } from '@/api/credential-vault'
 import { resumeSuspendedRunKey } from '@/utils/suspendedRun'
 import { usePromptCountdown } from '@/composables/usePromptCountdown'
 import { markPromptSubmitted, promptSubmission, usePromptDock } from '@/composables/usePromptDock'
@@ -213,12 +213,18 @@ const submit = async (decline: boolean) => {
     const { resumed } = await submitSecureForm(props.pendingId, body)
     markPromptSubmitted(props.pendingId, { declined: decline })
     if (resumed) resumeSuspendedRun?.(props.pendingId)
-  } catch (e: any) {
-    if (e?.response?.data?.saved || e?.saved) {
+  } catch (e: unknown) {
+    const errObj = e && typeof e === 'object' ? (e as {
+      saved?: boolean
+      message?: string
+      error?: { message?: string }
+      response?: { data?: { saved?: boolean; error?: { message?: string } } }
+    }) : undefined
+    if (errObj?.response?.data?.saved || errObj?.saved) {
       MessagePlugin.warning(t('agentStream.secureForm.savedButClosed'))
       markPromptSubmitted(props.pendingId, { declined: false })
     } else {
-      MessagePlugin.error(e?.response?.data?.error?.message || e?.error?.message || e?.message
+      MessagePlugin.error(errObj?.response?.data?.error?.message || errObj?.error?.message || errObj?.message
         || t('agentStream.secureForm.submitFailed'))
     }
   } finally {

@@ -7,11 +7,18 @@ import { computed, ref } from 'vue'
 import { useDeferredTimelineCompletion } from '../../../composables/useChatScrollFollow'
 import { foldProgressIntoThinking } from '../../../utils/agentTimelinePresentation'
 
-const source = readFileSync(new URL('./AgentStreamDisplay.vue', import.meta.url), 'utf8')
+const displaySource = readFileSync(new URL('./AgentStreamDisplay.vue', import.meta.url), 'utf8')
+const timelineSource = readFileSync(new URL('../composables/useAgentTimelineEvents.ts', import.meta.url), 'utf8')
 
 test('delegated work keeps progress and approvals in one chronological stream and restores the completed steps fold without duplicating child entry points', () => {
-  const collapse = source.slice(source.indexOf('const shouldShowCollapsedSteps ='), source.indexOf('// Once the steps collapse'))
-  const display = source.slice(source.indexOf('const displayEvents ='), source.indexOf('const isPageLinkEvent ='))
+  const collapse = timelineSource.slice(
+    timelineSource.indexOf('const shouldShowCollapsedSteps ='),
+    timelineSource.indexOf('// Once the steps collapse'),
+  )
+  const display = timelineSource.slice(
+    timelineSource.indexOf('const displayEvents ='),
+    timelineSource.indexOf('// Get unique key for event'),
+  )
   const done = ref(false)
   const delegated = ref(false)
   const expanded = ref(false)
@@ -25,9 +32,17 @@ test('delegated work keeps progress and approvals in one chronological stream an
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   }).outputText
   const state = vm.runInNewContext(code, {
-    computed, props: { ragMode: false }, hasCollaborationTasks: delegated, showIntermediateSteps: expanded,
-    eventStream: stream, isConversationDone: done, intermediateStepsCount: ref(2), readingHistory, timelineCompleted: useDeferredTimelineCompletion(done, readingHistory),
-    buildFullEventList: foldProgressIntoThinking, finalContent: ref(null),
+    computed,
+    props: { ragMode: false },
+    hasCollaborationTasks: delegated,
+    showIntermediateSteps: expanded,
+    eventStream: stream,
+    isConversationDone: done,
+    intermediateStepsCount: ref(2),
+    readingHistory,
+    timelineCompleted: useDeferredTimelineCompletion(done, readingHistory),
+    buildFullEventList: foldProgressIntoThinking,
+    finalContent: ref(null),
     hideApprovalFromTimeline: (event: { type?: string; kind?: string; host?: unknown; resolved?: boolean }) => {
       if (event?.type === 'tool_approval_resolved') return true
       if (event?.type !== 'tool_approval_required') return false
@@ -59,7 +74,7 @@ test('delegated work keeps progress and approvals in one chronological stream an
   expanded.value = true
   assert.deepEqual(Array.from(state.displayEvents.value, (e: any) => e.type), ['answer'])
   expanded.value = false
-  stream.value = stream.value.filter(e => e.type !== 'answer')
+  stream.value = stream.value.filter((e) => e.type !== 'answer')
   assert.equal(state.displayEvents.value.length, 0)
   expanded.value = true
   assert.equal(state.displayEvents.value.length, 0)
@@ -70,16 +85,15 @@ test('delegated work keeps progress and approvals in one chronological stream an
 })
 
 test('the template has no second latest-progress outlet above the timeline', () => {
-  assert.doesNotMatch(source, /CollaborationProgress|latestParentProgress/)
+  assert.doesNotMatch(displaySource, /CollaborationProgress|latestParentProgress/)
 })
 
-
 test('live child waiting uses the timeline tail icon and existing pending shimmer', () => {
-  const template = source.slice(0, source.indexOf('</template>\n\n<script'))
+  const template = displaySource.slice(0, displaySource.indexOf('</template>\n\n<script'))
   const tail = template.slice(template.indexOf('<!-- One live tail node'), template.indexOf('<!-- 引用 hover'))
   assert.match(tail, /v-if="showAgentActivityIndicator \|\| childActivity"/)
   assert.match(tail, /class="tree-child tree-child-last streaming-loading-node"/)
-  assert.match(tail, /role="status" aria-live="polite"/)
+  assert.match(tail, /role="status"[\s\S]*?aria-live="polite"/)
   assert.match(tail, /class="action-card action-pending"/)
   assert.match(tail, /<ChatTimelineIcon class="action-title-icon" name="lightbulb"/)
   assert.match(tail, /class="action-name"/)
@@ -88,14 +102,25 @@ test('live child waiting uses the timeline tail icon and existing pending shimme
 })
 
 test('thinking resumes after child waiting and resolved approval', () => {
-  const snippet = source.slice(source.indexOf('const hasPendingStreamingActivity ='), source.indexOf('const isStreamingTimelineEvent ='))
-  const events = ref<any[]>([]), done = ref(false), wait = ref('finished'), answering = ref(false)
+  const snippet = timelineSource.slice(
+    timelineSource.indexOf('const hasPendingStreamingActivity ='),
+    timelineSource.indexOf('const isStreamingTimelineEvent ='),
+  )
+  const events = ref<any[]>([])
+  const done = ref(false)
+  const wait = ref('finished')
+  const answering = ref(false)
   const code = ts.transpileModule(`${snippet}\n({ showAgentActivityIndicator })`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   }).outputText
   const state = vm.runInNewContext(code, {
-    computed, displayEvents: events, isSegmentDone: done, hasCollaborationTasks: ref(true),
-    props: { ragMode: false }, hasAnswerStarted: answering, collaborationWait: wait,
+    computed,
+    displayEvents: events,
+    isSegmentDone: done,
+    hasCollaborationTasks: ref(true),
+    props: { ragMode: false },
+    hasAnswerStarted: answering,
+    collaborationWait: wait,
     isThinkingActive: () => false,
     isUnresolvedCollaborationPrompt: (event: any) => event.type === 'tool_approval_required' && !event.resolved,
   })

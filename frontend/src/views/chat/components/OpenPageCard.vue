@@ -113,7 +113,7 @@ function activate() {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-md);
   background: var(--td-bg-color-secondarycontainer);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--gy-shadow-sm);
   font: inherit;
   text-align: left;
   color: inherit;

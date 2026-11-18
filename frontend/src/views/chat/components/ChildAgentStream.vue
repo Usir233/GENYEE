@@ -31,14 +31,14 @@ import { useI18n } from 'vue-i18n'
 import ChatTimelineIcon from '@/components/ChatTimelineIcon.vue'
 import { useChatScrollFollow } from '@/composables/useChatScrollFollow'
 import { getMessageList } from '@/api/chat'
-import { useStream } from '@/api/chat/streame'
+import { useStream } from '@/api/chat/stream'
 import { isAwaitingInput, useChatStreamHandler, type ChatMessage } from '@/composables/useChatStreamHandler'
 import { isCollaborationTaskActive, type CollaborationTaskView } from '@/utils/collaborationDisplay'
 const AgentStreamDisplay = defineAsyncComponent(() => import('./AgentStreamDisplay.vue'))
 const props = defineProps<{ task: CollaborationTaskView; active?: boolean }>()
 const { t } = useI18n()
 const messages = reactive<ChatMessage[]>([])
-const latestAssignment = computed(() => [...messages].reverse().find(message => message.role === 'user'))
+const latestAssignment = computed(() => messages.findLast(message => message.role === 'user'))
 const viewport = ref<HTMLElement | null>(null)
 const loading = ref(false)
 const isReplying = ref(false)
@@ -86,18 +86,24 @@ async function refresh() {
     failure.value = ''
     // Suspended messages are settled for rendering, but may resume on the same
     // message ID. Never mistake that presentation flag for a terminal task.
-    const latest = [...messages].reverse().find(m => m.role === 'assistant')
+    const latest = messages.findLast(m => m.role === 'assistant')
     const waiting = isAwaitingInput(latest)
     const pending = latest && (!latest.is_completed || waiting) ? latest : undefined
     if (pending && (!waiting || props.task.status === 'running')) {
       currentAssistantMessageId.value = String(pending.id)
-      if (waiting) handler.prepareResumedMessage(pending, String((pending.pending_prompt as any)?.id || ''))
+      const promptId =
+        pending.pending_prompt && typeof pending.pending_prompt === 'object' && 'id' in pending.pending_prompt
+          ? String((pending.pending_prompt as { id?: unknown }).id || '')
+          : ''
+      if (waiting) handler.prepareResumedMessage(pending, promptId)
       await stream.startStream({ session_id: props.task.sessionId, query: String(pending.id),
         method: 'GET', url: '/api/v1/sessions/continue-stream' })
       if (!closed && stream.error.value) failure.value = stream.error.value
     }
-  } catch (error: any) {
-    if (!closed) failure.value = error?.message || t('common.error')
+  } catch (error: unknown) {
+    if (!closed) {
+      failure.value = error instanceof Error && error.message ? error.message : t('common.error')
+    }
   } finally {
     refreshing = false
     loading.value = false

@@ -53,7 +53,9 @@ watch(() => props.activeId, () => nextTick(() => {
 <style scoped lang="less">
 .child-agent-tabs { display: flex; align-items: center; flex-shrink: 0; gap: 4px; padding: 6px 12px; border-bottom: 1px solid var(--td-component-border); min-width: 0; }
 .child-agent-tabs-scroll { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.child-agent-tabs-scroll::-webkit-scrollbar { display: none; }
+@supports not (scrollbar-color: auto) {
+  .child-agent-tabs-scroll::-webkit-scrollbar { display: none; }
+}
 .child-agent-tab-entry { display: flex; align-items: center; flex-shrink: 0; border-radius: var(--app-radius-sm); }
 .child-agent-tab { display: flex; align-items: center; gap: 7px; padding: 7px 10px; border: 0; border-radius: var(--app-radius-sm); background: transparent; color: var(--td-text-color-secondary); font: inherit; font-size: var(--app-text-md); line-height: 1.4; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
 .child-agent-tabs.in-header { flex: 1; min-width: 0; border: 0; padding: 0; gap: 4px; }

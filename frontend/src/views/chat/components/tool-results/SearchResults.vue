@@ -25,20 +25,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { SearchResultsData, SearchResultItem, RelevanceLevel } from '@/types/tool-results';
-import { getMatchTypeIcon } from '@/utils/tool-icons';
+import type { SearchResultsData } from '@/types/tool-results';
 import ResultRow from './ResultRow.vue';
-import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   data: SearchResultsData;
-  arguments?: Record<string, any> | string;
+  arguments?: Record<string, unknown> | string;
 }>();
 
-const { t } = useI18n();
-
 const results = computed(() => props.data.results || []);
-const kbCounts = computed(() => props.data.kb_counts);
 
 interface GroupedResult {
   key: string;
@@ -103,7 +98,7 @@ const parsedArguments = computed(() => {
 // explicit sub-queries passed to the search tool.
 const highlightQuery = computed(() => {
   const parts: string[] = [];
-  const args = parsedArguments.value;
+  const args = parsedArguments.value as Record<string, unknown> | null;
   if (args && typeof args === 'object') {
     if (typeof args.query === 'string') parts.push(args.query);
     if (Array.isArray(args.queries)) {
@@ -113,43 +108,6 @@ const highlightQuery = computed(() => {
   if (parts.length === 0 && props.data.query) parts.push(props.data.query);
   return parts.join(' ');
 });
-
-// Check if there are search parameters to display (excluding query parameters which are in title)
-const hasSearchParams = computed(() => {
-  const args = parsedArguments.value;
-  if (!args || typeof args !== 'object') return false;
-  
-  return !!(
-    (Array.isArray(args.knowledge_base_ids) && args.knowledge_base_ids.length > 0) ||
-    args.top_k || args.vector_threshold || args.keyword_threshold || args.min_score);
-});
-
-const hasOtherParams = computed(() => {
-  const args = parsedArguments.value;
-  if (!args || typeof args !== 'object') return false;
-  return !!(args.top_k || args.vector_threshold || args.keyword_threshold || args.min_score);
-});
-
-
-const getRelevanceClass = (level: RelevanceLevel): string => {
-  const classMap: Record<RelevanceLevel, string> = {
-    'High Relevance': 'high',
-    'Medium Relevance': 'medium',
-    'Low Relevance': 'low',
-    'Weak Relevance': 'weak',
-  };
-  return classMap[level] || 'weak';
-};
-
-const getRelevanceLabel = (level: RelevanceLevel): string => {
-  const labelMap: Record<RelevanceLevel, string> = {
-    'High Relevance': t('chat.relevanceHigh'),
-    'Medium Relevance': t('chat.relevanceMedium'),
-    'Low Relevance': t('chat.relevanceLow'),
-    'Weak Relevance': t('chat.relevanceWeak'),
-  };
-  return labelMap[level] || level;
-};
 </script>
 
 <style lang="less" scoped>

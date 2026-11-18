@@ -419,8 +419,9 @@ const submit = async (decision: 'approve' | 'reject') => {
     markPromptSubmitted(props.pendingId, { approved: decision === 'approve' })
     MessagePlugin.success(t('agentStream.toolApproval.submitted'))
     if (resumed) resumeSuspendedRun?.(props.pendingId)
-  } catch (e: any) {
-    const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.toolApproval.submitFailed')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string } | null
+    const msg = err?.response?.data?.error?.message || err?.message || t('agentStream.toolApproval.submitFailed')
     MessagePlugin.error(msg)
   } finally {
     submitting.value = false

@@ -7,11 +7,11 @@
         @pointerup="stopDrag" @pointercancel="stopDrag" @lostpointercapture="stopDrag">
         <BrowserIcon class="preview-browser-icon" width="16" height="16" />
         <strong :title="pageAddress || t('localBrowser.controlScope')">{{ pageHost || t('localBrowser.local') }}</strong>
-        <button v-if="!(status.needs_help && status.action === 'tab_borrow')" class="preview-popout"
+        <button v-if="!(status.needs_help && status.action === 'tab_borrow')" type="button" class="preview-popout"
           :disabled="!status.connected || !status.task_id || busy || status.stopping"
           :title="t('localBrowser.locateWindow')" :aria-label="t('localBrowser.locateWindow')"
           @pointerdown.stop @click="act('focus')"><t-icon name="jump" size="15px" /></button>
-        <button v-if="pipSupported" class="preview-popout" :disabled="pipOpening"
+        <button v-if="pipSupported" type="button" class="preview-popout" :disabled="pipOpening"
           :title="t(pipTarget ? 'localBrowser.pipReturn' : 'localBrowser.pipOpen')"
           :aria-label="t(pipTarget ? 'localBrowser.pipReturn' : 'localBrowser.pipOpen')"
           @pointerdown.stop @click="togglePictureInPicture"><t-icon :name="pipTarget ? 'fullscreen-exit' : 'fullscreen'" size="15px" /></button>
@@ -25,7 +25,7 @@
           <t-icon name="jump" />{{ t('localBrowser.locateWindow') }}
         </t-button>
       </section>
-      <button v-if="!(status.needs_help && status.action === 'tab_borrow')" class="preview-image" :class="{ 'is-empty': !preview }"
+      <button v-if="!(status.needs_help && status.action === 'tab_borrow')" type="button" class="preview-image" :class="{ 'is-empty': !preview }"
         :disabled="!status.connected || !status.task_id || busy || status.stopping"
         :aria-label="t('localBrowser.locateWindow')" :title="t('localBrowser.locateWindow')" @click="act('focus')">
         <img v-if="preview" :src="preview" :alt="t('localBrowser.preview')" />
@@ -38,14 +38,14 @@
         <span class="preview-status" :class="{ live: status.connected && !status.paused && !status.stopping && !status.needs_help && !status.idle && !previewStale, attention: status.needs_help || status.paused }"
           :title="statusDetail" role="status"><i /><span>{{ statusLabel }}</span></span>
         <div class="preview-actions">
-          <button v-if="status.connected" class="preview-control"
+          <button v-if="status.connected" type="button" class="preview-control"
             :aria-label="t(status.paused ? 'localBrowser.resume' : 'localBrowser.pause')"
             :title="t(status.paused ? 'localBrowser.resume' : 'localBrowser.pauseHint')"
             :disabled="busy || status.stopping" @click="act(status.paused ? 'resume' : 'pause')">
             <t-icon :name="status.paused ? 'play' : 'pause'" size="14px" />{{ t(status.paused ? 'localBrowser.resumeShort' : 'localBrowser.pauseShort') }}
           </button>
-          <button v-else class="preview-control" @click="openBrowserSettings">{{ t('localBrowser.settingsTitle') }}</button>
-          <button class="preview-control" :title="t('localBrowser.stopHint')" :aria-label="t('localBrowser.stop')"
+          <button v-else type="button" class="preview-control" @click="openBrowserSettings">{{ t('localBrowser.settingsTitle') }}</button>
+          <button type="button" class="preview-control" :title="t('localBrowser.stopHint')" :aria-label="t('localBrowser.stop')"
             :disabled="busy || status.stopping" @click="act('stop')"><t-icon name="stop" size="14px" />{{ t('localBrowser.stopShort') }}</button>
         </div>
       </div>
@@ -112,7 +112,9 @@ async function act(action: string) {
   try {
     const result = await post<{ data: typeof status.value }>(endpoint, { action }, { timeout: 45000, signal: controller.signal })
     if (alive) { status.value = result.data; if (action === 'stop') preview.value = '' }
-  } catch (e: any) { if (alive) error.value = e?.message || t('localBrowser.failed') }
+  } catch (e: unknown) {
+    if (alive) error.value = e instanceof Error && e.message ? e.message : t('localBrowser.failed')
+  }
   finally { if (alive) busy.value = false }
 }
 let polling = false
@@ -152,8 +154,8 @@ onBeforeUnmount(() => { alive = false; document.removeEventListener('visibilityc
 .browser-task-preview {
   position: absolute; right: 20px; bottom: 16px; width: 320px; max-width: calc(100% - 40px);
   max-height: calc(100% - 24px); box-sizing: border-box; z-index: 5; overflow: auto;
-  background: var(--td-bg-color-container); border: 1px solid var(--td-component-stroke);
-  border-radius: 12px; box-shadow: 0 8px 28px #18252014, 0 2px 6px #18252008;
+  background: var(--gy-surface); border: 1px solid var(--gy-border-stroke);
+  border-radius: var(--gy-radius-xl); box-shadow: var(--gy-shadow-md);
 }
 .preview-heading {
   display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 9px 0 12px;
@@ -189,10 +191,10 @@ onBeforeUnmount(() => { alive = false; document.removeEventListener('visibilityc
 .preview-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
 .preview-control, .preview-popout {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  min-width: 28px; min-height: 28px; padding: 4px; border: 0; border-radius: 6px;
-  font: inherit; font-size: var(--app-text-xs); background: transparent;
-  color: var(--td-text-color-secondary); cursor: pointer; flex-shrink: 0;
-  transition: background-color .16s, color .16s;
+  min-width: 28px; min-height: 28px; padding: 4px; border: 0; border-radius: var(--gy-radius-sm);
+  font: inherit; font-size: var(--gy-text-2xs); background: transparent;
+  color: var(--gy-text-secondary); cursor: pointer; flex-shrink: 0;
+  transition: background-color var(--gy-motion-fast), color var(--gy-motion-fast);
 }
 .preview-control { box-sizing: border-box; padding: 4px 8px; border: 1px solid var(--td-component-stroke); font-size: var(--app-text-sm); line-height: 18px; color: var(--td-text-color-primary); }
 .preview-control :deep(.t-icon) { flex-shrink: 0; color: var(--td-text-color-secondary); }

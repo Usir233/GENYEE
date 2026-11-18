@@ -84,10 +84,10 @@ const blocks = computed(() => {
   flex-direction: column;
   max-height: 420px;
   max-width: 500px;
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-md);
-  background: var(--td-bg-color-container);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--gy-border-stroke);
+  border-radius: var(--gy-radius-md);
+  background: var(--gy-surface);
+  box-shadow: var(--gy-shadow-md);
   word-wrap: break-word;
   word-break: break-word;
   overflow: hidden;
@@ -133,10 +133,10 @@ const blocks = computed(() => {
   }
 
   :deep(.search-highlight) {
-    background: rgba(255, 213, 0, 0.35);
+    background: var(--gy-highlight-bg);
     color: inherit;
     padding: 0 1px;
-    border-radius: 2px;
+    border-radius: var(--gy-radius-xs);
     font-weight: 500;
   }
 

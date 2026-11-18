@@ -33,7 +33,7 @@ test('creatChat clears debounced suggested-question timer on unmount and URL-enc
     'vue-i18n': { useI18n: () => ({ t: (k: string) => k }) },
     'tdesign-vue-next': { MessagePlugin: { error() {} } },
     '@/components/ContextualGuide.vue': { default: {} },
-    '@/components/Input-field.vue': { default: {} },
+    '@/components/InputField.vue': { default: {} },
     '@/api/chat/index': { createSessions: async () => ({ data: { id: 'sess/1?x=1' } }) },
     '@/utils/desktopProjectDir': { pickHostProjectDir: async () => '' },
     '@/utils/hostWorkspace': {

@@ -189,6 +189,11 @@ watch(open, (isOpen) => {
   }
 })
 
+function extractOAuthError(e: unknown, fallback: string): string {
+  const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string } | null
+  return err?.response?.data?.error?.message || err?.message || fallback
+}
+
 const skip = async () => {
   if (!open.value || canceling.value) return
   canceling.value = true
@@ -209,9 +214,8 @@ const skip = async () => {
       await cancelMCPOAuth(props.pendingId)
     }
     markPromptSubmitted(props.pendingId, { authorized: false })
-  } catch (e: any) {
-    const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.mcpOAuth.skipFailed')
-    MessagePlugin.error(msg)
+  } catch (e: unknown) {
+    MessagePlugin.error(extractOAuthError(e, t('agentStream.mcpOAuth.skipFailed')))
   } finally {
     canceling.value = false
   }
@@ -325,9 +329,8 @@ const authorize = async () => {
             }
             markPromptSubmitted(props.pendingId, { authorized: true })
             MessagePlugin.success(t('agentStream.mcpOAuth.authorizedToast'))
-          } catch (e: any) {
-            const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.mcpOAuth.resumeFailed')
-            MessagePlugin.error(msg)
+          } catch (e: unknown) {
+            MessagePlugin.error(extractOAuthError(e, t('agentStream.mcpOAuth.resumeFailed')))
           }
           authorizing.value = false
         } else if (closed) {
@@ -339,9 +342,8 @@ const authorize = async () => {
         pollingStatus = false
       }
     }, 1500)
-  } catch (e: any) {
-    const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.mcpOAuth.startFailed')
-    MessagePlugin.error(msg)
+  } catch (e: unknown) {
+    MessagePlugin.error(extractOAuthError(e, t('agentStream.mcpOAuth.startFailed')))
     authorizing.value = false
   }
 }

@@ -124,7 +124,7 @@ defineExpose({ start })
   position: relative;
   width: 100%;
   height: 100%;
-  background: #1e1e1e;
+  background: var(--gy-surface-code);
   overflow: hidden;
 }
 
@@ -139,7 +139,7 @@ defineExpose({ start })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(30, 30, 30, 0.92);
+  background: var(--gy-surface-overlay);
 }
 
 .sandbox-desktop__overlay-card {
@@ -150,7 +150,7 @@ defineExpose({ start })
   max-width: 320px;
   padding: 24px;
   text-align: center;
-  color: #d8d8d8;
+  color: var(--gy-text-secondary);
 }
 
 .sandbox-desktop__overlay-text {

@@ -1,38 +1,55 @@
 <template>
-    <div class="refer" :class="{ 'refer-timeline': timelineMode }"
-        v-if="session.knowledge_references && session.knowledge_references.length">
-        <div class="refer_header" v-if="!contentOnly" @click="referBoxSwitch">
-            <div class="refer_title">
+    <div
+        v-if="session?.knowledge_references && session.knowledge_references.length"
+        class="refer"
+        :class="{ 'refer-timeline': timelineMode }"
+    >
+        <button
+            v-if="!contentOnly"
+            type="button"
+            class="refer_header"
+            :aria-expanded="showReferBox"
+            @click="referBoxSwitch"
+        >
+            <span class="refer_title">
                 <t-icon v-if="!timelineMode" name="file" class="refer-title-icon" />
                 <span>{{ headerText }}</span>
-                <div class="refer_show_icon">
+                <span class="refer_show_icon">
                     <t-icon :name="showReferBox ? 'chevron-down' : 'chevron-right'" />
-                </div>
-            </div>
-        </div>
-        <div class="refer_box" v-show="contentOnly || showReferBox">
-            <!-- Web search references (ungrouped) -->
+                </span>
+            </span>
+        </button>
+        <div v-show="contentOnly || showReferBox" class="refer_box">
             <div v-for="(item, index) in webSearchRefs" :key="'web-' + index">
-                <a :href="getWebSearchUrl(item)" target="_blank" rel="noopener noreferrer" class="doc doc-web"
-                    @click.stop>
-                    {{ webSearchRefs.length < 2 ? getWebSearchDisplayText(item) : `${index + 1}.
-                        ${getWebSearchDisplayText(item)}` }} </a>
+                <a
+                    :href="getWebSearchUrl(item)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="doc doc-web"
+                    @click.stop
+                >
+                    {{ webSearchRefs.length < 2 ? getWebSearchDisplayText(item) : `${index + 1}. ${getWebSearchDisplayText(item)}` }}
+                </a>
             </div>
 
-            <!-- Knowledge references grouped by document -->
             <div v-for="(group, gIdx) in groupedKnowledgeRefs" :key="'grp-' + gIdx" class="doc-group">
-                <div class="doc-group-header" @click="toggleGroup(group.key)">
-                    <div class="doc-group-left">
+                <div class="doc-group-header">
+                    <button
+                        type="button"
+                        class="doc-group-left"
+                        :aria-expanded="Boolean(expandedGroups[group.key])"
+                        @click="toggleGroup(group.key)"
+                    >
                         <t-icon name="file" size="14px" class="doc-group-icon" />
                         <span class="doc-group-title" :title="group.title">{{ group.title }}</span>
-                        <span class="doc-group-count">{{ $t('chat.referenceChunkCount', { count: group.chunks.length })
-                            }}</span>
-                    </div>
-                    <div class="doc-group-actions" v-if="!embeddedMode && group.knowledgeBaseId" @click.stop>
+                        <span class="doc-group-count">{{ $t('chat.referenceChunkCount', { count: group.chunks.length }) }}</span>
+                    </button>
+                    <div v-if="!embeddedMode && group.knowledgeBaseId" class="doc-group-actions" @click.stop>
                         <t-tooltip :content="$t('chat.navigateToDocument')">
                             <a
                                 class="doc-group-navigate"
                                 :href="getDocumentHref(group)"
+                                :aria-label="$t('chat.navigateToDocument')"
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
@@ -41,10 +58,15 @@
                         </t-tooltip>
                     </div>
                 </div>
-                <div class="doc-group-chunks" v-show="expandedGroups[group.key]">
+                <div v-show="expandedGroups[group.key]" class="doc-group-chunks">
                     <div v-for="(chunk, cIdx) in group.chunks" :key="'chunk-' + cIdx" class="doc-chunk-item">
-                        <t-popup overlayClassName="refer-to-layer" placement="bottom-left" width="400"
-                            :showArrow="false" trigger="click">
+                        <t-popup
+                            overlayClassName="refer-to-layer"
+                            placement="bottom-left"
+                            width="400"
+                            :showArrow="false"
+                            trigger="click"
+                        >
                             <template #content>
                                 <ContentPopup :content="safeProcessContent(chunk.content)" :is-html="true" />
                             </template>
@@ -59,43 +81,55 @@
         </div>
     </div>
 </template>
-<script setup>
-import { computed, ref, reactive } from "vue";
-import { useRouter } from 'vue-router';
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+import { useChatReferencesDrawer } from '@/composables/useChatReferencesDrawer';
+import type { KnowledgeReferenceLike } from '@/utils/referenceSources';
 import { sanitizeHTML } from '@/utils/security';
 import ContentPopup from './tool-results/ContentPopup.vue';
-import { useChatReferencesDrawer } from '@/composables/useChatReferencesDrawer';
+
+export interface DocInfoReference extends KnowledgeReferenceLike {
+    knowledge_filename?: string;
+    metadata?: {
+        url?: string;
+        title?: string;
+        [key: string]: unknown;
+    };
+}
+
+export interface DocInfoGroup {
+    key: string;
+    title: string;
+    knowledgeId?: string;
+    knowledgeBaseId?: string;
+    chunks: DocInfoReference[];
+}
 
 const router = useRouter();
 const { t } = useI18n();
 const referencesDrawer = useChatReferencesDrawer();
 
-const props = defineProps({
-    content: {
-        type: String,
-        required: false
+const props = withDefaults(
+    defineProps<{
+        content?: string;
+        session?: { knowledge_references?: DocInfoReference[] };
+        embeddedMode?: boolean;
+        timelineMode?: boolean;
+        contentOnly?: boolean;
+    }>(),
+    {
+        content: '',
+        session: () => ({}),
+        embeddedMode: false,
+        timelineMode: false,
+        contentOnly: false,
     },
-    session: {
-        type: Object,
-        required: false
-    },
-    embeddedMode: {
-        type: Boolean,
-        default: false
-    },
-    timelineMode: {
-        type: Boolean,
-        default: false
-    },
-    contentOnly: {
-        type: Boolean,
-        default: false
-    }
-});
+);
 
 const showReferBox = ref(false);
-const expandedGroups = reactive({});
+const expandedGroups = reactive<Record<string, boolean>>({});
 
 const referBoxSwitch = () => {
     const refs = props.session?.knowledge_references;
@@ -106,37 +140,39 @@ const referBoxSwitch = () => {
     showReferBox.value = !showReferBox.value;
 };
 
-const toggleGroup = (key) => {
+const toggleGroup = (key: string) => {
     expandedGroups[key] = !expandedGroups[key];
 };
 
-const webSearchRefs = computed(() => {
+const webSearchRefs = computed<DocInfoReference[]>(() => {
     if (!props.session?.knowledge_references) return [];
-    return props.session.knowledge_references.filter(item => item.chunk_type === 'web_search');
+    return props.session.knowledge_references.filter((item) => item.chunk_type === 'web_search');
 });
 
-const knowledgeRefs = computed(() => {
+const knowledgeRefs = computed<DocInfoReference[]>(() => {
     if (!props.session?.knowledge_references) return [];
-    return props.session.knowledge_references.filter(item => item.chunk_type !== 'web_search');
+    return props.session.knowledge_references.filter((item) => item.chunk_type !== 'web_search');
 });
 
-const groupedKnowledgeRefs = computed(() => {
+const groupedKnowledgeRefs = computed<DocInfoGroup[]>(() => {
     const refs = knowledgeRefs.value;
     if (!refs.length) return [];
 
-    const groupMap = new Map();
+    const groupMap = new Map<string, DocInfoGroup>();
     for (const item of refs) {
-        const key = item.knowledge_id || item.knowledge_title || item.id;
-        if (!groupMap.has(key)) {
-            groupMap.set(key, {
+        const key = String(item.knowledge_id || item.knowledge_title || item.id || '');
+        let existing = groupMap.get(key);
+        if (!existing) {
+            existing = {
                 key,
-                title: item.knowledge_title || item.knowledge_filename || key,
+                title: String(item.knowledge_title || item.knowledge_filename || key),
                 knowledgeId: item.knowledge_id,
                 knowledgeBaseId: item.knowledge_base_id,
                 chunks: [],
-            });
+            };
+            groupMap.set(key, existing);
         }
-        groupMap.get(key).chunks.push(item);
+        existing.chunks.push(item);
     }
     return Array.from(groupMap.values());
 });
@@ -157,47 +193,48 @@ const headerText = computed(() => {
     return t('chat.referencesTitle', { count: total });
 });
 
-const safeProcessContent = (content) => {
+const safeProcessContent = (content?: string): string => {
     if (!content) return '';
     const sanitized = sanitizeHTML(content);
     return sanitized.replace(/\n/g, '<br/>');
 };
 
-const truncateContent = (content, maxLen) => {
+const truncateContent = (content: string | undefined, maxLen: number): string => {
     if (!content) return '';
     const text = content.replace(/\n/g, ' ').trim();
     if (text.length <= maxLen) return text;
-    return text.slice(0, maxLen) + '...';
+    return `${text.slice(0, maxLen)}...`;
 };
 
-const getDocumentHref = (group) => {
+const getDocumentHref = (group: DocInfoGroup): string => {
     if (!group.knowledgeBaseId) return '';
-    const query = {};
+    const query: Record<string, string> = {};
     if (group.knowledgeId) {
         query.knowledge_id = group.knowledgeId;
     }
     return router.resolve({
         path: `/platform/knowledge-bases/${group.knowledgeBaseId}`,
-        query
+        query,
     }).href;
 };
 
-const getWebSearchUrl = (item) => {
+const getWebSearchUrl = (item?: DocInfoReference | null): string => {
     const rawUrl = typeof item?.metadata?.url === 'string' ? item.metadata.url.trim() : '';
     if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
         return rawUrl;
     }
-    if (item.id && (item.id.startsWith('http://') || item.id.startsWith('https://'))) {
-        return item.id;
+    const itemId = typeof item?.id === 'string' ? item.id : '';
+    if (itemId && (itemId.startsWith('http://') || itemId.startsWith('https://'))) {
+        return itemId;
     }
     return '#';
 };
 
-const getWebSearchDisplayText = (item) => {
+const getWebSearchDisplayText = (item: DocInfoReference): string => {
     if (item.knowledge_title) {
         return item.knowledge_title;
     }
-    if (item.metadata?.title) {
+    if (typeof item.metadata?.title === 'string' && item.metadata.title) {
         return item.metadata.title;
     }
     const url = getWebSearchUrl(item);
@@ -214,30 +251,31 @@ const getWebSearchDisplayText = (item) => {
 </script>
 <style lang="less" scoped>
 .refer {
-    --refer-brand-4: color-mix(in srgb, var(--td-brand-color) 4%, transparent);
-    --refer-brand-8: color-mix(in srgb, var(--td-brand-color) 8%, transparent);
-    --refer-brand-12: color-mix(in srgb, var(--td-brand-color) 12%, transparent);
+    --refer-brand-4: color-mix(in oklab, var(--gy-brand) 4%, transparent);
+    --refer-brand-8: color-mix(in oklab, var(--gy-brand) 8%, transparent);
+    --refer-brand-12: color-mix(in oklab, var(--gy-brand) 12%, transparent);
 
     display: flex;
     flex-direction: column;
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-xs);
     width: 100%;
-    border-radius: var(--app-radius-md);
-    background-color: var(--td-bg-color-container);
-    border: .5px solid var(--td-component-stroke);
+    border-radius: var(--gy-radius-md);
+    background-color: var(--gy-surface);
+    border: 0.5px solid var(--gy-border-stroke);
     box-shadow: 0 2px 4px var(--refer-brand-8);
     box-sizing: border-box;
     overflow: hidden;
-    box-sizing: border-box;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color var(--gy-motion-base) cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow var(--gy-motion-base) cubic-bezier(0.4, 0, 0.2, 1);
     margin-bottom: 8px;
 
     &.refer-timeline {
         --td-brand-color: var(--td-text-color-placeholder);
-        --embed-primary: var(--td-text-color-placeholder);
-        --refer-brand-4: color-mix(in srgb, var(--td-text-color-primary) 4%, transparent);
-        --refer-brand-8: color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
-        --refer-brand-12: color-mix(in srgb, var(--td-text-color-primary) 8%, transparent);
+        --gy-brand: var(--gy-text-placeholder);
+        --embed-primary: var(--gy-text-placeholder);
+        --refer-brand-4: color-mix(in oklab, var(--gy-text-primary) 4%, transparent);
+        --refer-brand-8: color-mix(in oklab, var(--gy-text-primary) 6%, transparent);
+        --refer-brand-12: color-mix(in oklab, var(--gy-text-primary) 8%, transparent);
 
         width: 100%;
         border-radius: 0;
@@ -245,15 +283,15 @@ const getWebSearchDisplayText = (item) => {
         border: 0;
         box-shadow: none;
         margin-bottom: 0;
-        font-size: var(--app-text-md);
+        font-size: var(--gy-text-md);
 
         .refer_header {
             padding: 0;
             font-weight: 400;
-            color: var(--td-text-color-secondary);
+            color: var(--gy-text-secondary);
 
             .refer_title span {
-                font-size: var(--app-text-base);
+                font-size: var(--gy-text-base);
                 white-space: normal;
             }
         }
@@ -263,7 +301,7 @@ const getWebSearchDisplayText = (item) => {
         }
 
         .refer_show_icon {
-            color: var(--td-text-color-placeholder);
+            color: var(--gy-text-placeholder);
         }
 
         .refer_box {
@@ -280,43 +318,49 @@ const getWebSearchDisplayText = (item) => {
         }
 
         .doc-group-title {
-            color: var(--td-text-color-secondary);
+            color: var(--gy-text-secondary);
             font-weight: 400;
-            font-size: var(--app-text-md);
+            font-size: var(--gy-text-md);
             max-width: min(520px, 100%);
         }
 
         .doc-group-count,
         .doc-chunk-text,
         .doc-chunk-index {
-            font-size: var(--app-text-sm);
+            font-size: var(--gy-text-xs);
         }
 
         .doc-group-icon {
-            color: var(--td-text-color-placeholder);
+            color: var(--gy-text-placeholder);
         }
 
         .doc-group-navigate {
-            color: var(--td-text-color-placeholder);
+            color: var(--gy-text-placeholder);
         }
 
         .doc {
-            color: var(--td-text-color-secondary);
-            border-bottom-color: color-mix(in srgb, var(--td-text-color-secondary) 30%, transparent);
+            color: var(--gy-text-secondary);
+            border-bottom-color: color-mix(in oklab, var(--gy-text-secondary) 30%, transparent);
         }
 
         .doc-chunk-item .doc-chunk-text:hover {
             background-color: var(--refer-brand-4);
-            color: var(--td-text-color-secondary);
+            color: var(--gy-text-secondary);
         }
     }
 
     .refer_header {
         display: flex;
         align-items: center;
+        width: 100%;
         padding: 6px 14px;
-        color: var(--td-text-color-primary);
+        border: 0;
+        background: transparent;
+        font: inherit;
+        text-align: start;
+        color: var(--gy-text-primary);
         font-weight: 500;
+        cursor: pointer;
 
         .refer_title {
             display: inline-flex;
@@ -326,27 +370,26 @@ const getWebSearchDisplayText = (item) => {
 
             span {
                 white-space: nowrap;
-                font-size: var(--app-text-sm);
+                font-size: var(--gy-text-xs);
             }
         }
 
         .refer_show_icon {
-            font-size: var(--app-text-base);
+            font-size: var(--gy-text-base);
             padding: 0 2px 1px 2px;
-            color: var(--td-brand-color);
+            color: var(--gy-brand);
             flex-shrink: 0;
         }
     }
 
     .refer_header:hover {
         background-color: var(--refer-brand-4);
-        cursor: pointer;
     }
 
     .refer_box {
         padding: 4px 14px 8px 14px;
         flex-direction: column;
-        border-top: 1px solid var(--td-bg-color-secondarycontainer);
+        border-top: 1px solid var(--gy-surface-subtle);
     }
 }
 
@@ -355,12 +398,12 @@ const getWebSearchDisplayText = (item) => {
     height: 16px;
     margin-right: 8px;
     flex-shrink: 0;
-    color: var(--embed-primary, var(--td-brand-color));
+    color: var(--embed-primary, var(--gy-brand));
 }
 
 .doc {
     text-decoration: none;
-    color: var(--td-brand-color);
+    color: var(--gy-brand);
     cursor: pointer;
     display: inline-block;
     white-space: nowrap;
@@ -369,12 +412,12 @@ const getWebSearchDisplayText = (item) => {
     text-overflow: ellipsis;
     line-height: 20px;
     padding: 2px 0;
-    transition: all var(--app-motion-base) ease;
-    border-bottom: 1px dashed var(--td-brand-color);
+    transition: background-color var(--gy-motion-base) ease, padding-right var(--gy-motion-base) ease;
+    border-bottom: 1px dashed var(--gy-brand);
 
     &:hover {
         background-color: var(--refer-brand-8);
-        border-radius: 3px;
+        border-radius: var(--gy-radius-xs);
         padding-right: 4px;
     }
 
@@ -391,10 +434,9 @@ const getWebSearchDisplayText = (item) => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 4px 4px;
-        border-radius: var(--app-radius-xs);
-        cursor: pointer;
-        transition: background-color var(--app-motion-fast) ease;
+        padding: 4px;
+        border-radius: var(--gy-radius-xs);
+        transition: background-color var(--gy-motion-fast) ease;
 
         &:hover {
             background-color: var(--refer-brand-4);
@@ -405,22 +447,22 @@ const getWebSearchDisplayText = (item) => {
             align-items: center;
             min-width: 0;
             flex: 1;
-        }
-
-        .doc-group-arrow {
-            color: var(--td-text-color-placeholder);
-            flex-shrink: 0;
-            margin-left: 4px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            text-align: start;
+            cursor: pointer;
         }
 
         .doc-group-icon {
-            color: var(--td-brand-color);
+            color: var(--gy-brand);
             flex-shrink: 0;
             margin-right: 6px;
         }
 
         .doc-group-title {
-            color: var(--td-text-color-primary);
+            color: var(--gy-text-primary);
             font-weight: 500;
             white-space: nowrap;
             overflow: hidden;
@@ -429,8 +471,8 @@ const getWebSearchDisplayText = (item) => {
         }
 
         .doc-group-count {
-            color: var(--td-text-color-placeholder);
-            font-size: var(--app-text-xs);
+            color: var(--gy-text-placeholder);
+            font-size: var(--gy-text-2xs);
             margin-left: 6px;
             white-space: nowrap;
             flex-shrink: 0;
@@ -447,11 +489,11 @@ const getWebSearchDisplayText = (item) => {
             justify-content: center;
             width: 22px;
             height: 22px;
-            border-radius: var(--app-radius-xs);
-            color: var(--td-brand-color);
+            border-radius: var(--gy-radius-xs);
+            color: var(--gy-brand);
             cursor: pointer;
             text-decoration: none;
-            transition: all var(--app-motion-fast) ease;
+            transition: background-color var(--gy-motion-fast) ease;
 
             &:hover {
                 background-color: var(--refer-brand-12);
@@ -467,25 +509,25 @@ const getWebSearchDisplayText = (item) => {
 .doc-chunk-item {
     .doc-chunk-text {
         display: block;
-        color: var(--td-text-color-secondary);
-        font-size: var(--app-text-sm);
+        color: var(--gy-text-secondary);
+        font-size: var(--gy-text-xs);
         line-height: 18px;
         padding: 3px 6px;
-        border-radius: var(--app-radius-xs);
+        border-radius: var(--gy-radius-xs);
         cursor: pointer;
-        transition: background-color var(--app-motion-fast) ease;
+        transition: background-color var(--gy-motion-fast) ease;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
 
         &:hover {
             background-color: var(--refer-brand-4);
-            color: var(--td-brand-color);
+            color: var(--gy-brand);
         }
 
         .doc-chunk-index {
-            color: var(--td-text-color-placeholder);
-            font-size: var(--app-text-xs);
+            color: var(--gy-text-placeholder);
+            font-size: var(--gy-text-2xs);
             margin-right: 4px;
         }
     }

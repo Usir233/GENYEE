@@ -177,46 +177,58 @@ import ImageViewResult from './tool-results/ImageViewResult.vue';
 import OperationsResult from './tool-results/OperationsResult.vue';
 import GENYEEDocResult from './tool-results/GENYEEDocResult.vue';
 
+interface WorkWaitItem {
+  work_id?: string | number;
+  result?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 interface Props {
   success?: boolean;
   displayType?: DisplayType;
-  toolData?: Record<string, any>;
+  toolData?: Record<string, unknown>;
   output?: string;
-  arguments?: Record<string, any>;
+  arguments?: Record<string, unknown>;
 }
 
 const props = withDefaults(defineProps<Props>(), { success: undefined });
 
 const displayType = computed(() => props.displayType);
-const toolData = computed(() => props.toolData || {});
+const toolData = computed<Record<string, unknown>>(() => props.toolData || {});
 const output = computed(() => props.output || '');
-const toolArguments = computed(() => props.arguments || {});
+const toolArguments = computed<Record<string, unknown>>(() => props.arguments || {});
 
-const shellExecData = computed(() => {
+const shellExecData = computed<Record<string, unknown>>(() => {
   const nested = toolData.value.shell_job
-  if (nested && typeof nested === 'object' && !Array.isArray(nested)) return nested
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>
+  }
   return toolData.value
 })
 const shellExecOutput = computed(() => (
   shellExecData.value === toolData.value ? output.value : ''
 ))
 
-const workItems = computed(() => {
+const workItems = computed<WorkWaitItem[]>(() => {
   const data = toolData.value
-  if (Array.isArray(data.items)) return data.items
+  if (Array.isArray(data.items)) return data.items as WorkWaitItem[]
   const nested = data.work
-  if (nested && typeof nested === 'object' && Array.isArray(nested.items)) return nested.items
+  if (nested && typeof nested === 'object' && Array.isArray((nested as { items?: unknown }).items)) {
+    return (nested as { items: WorkWaitItem[] }).items
+  }
   return []
 })
 const workNote = computed(() => {
   const data = toolData.value
   if (typeof data.note === 'string' && data.note) return data.note
   const nested = data.work
-  if (nested && typeof nested === 'object' && typeof nested.note === 'string') return nested.note
+  if (nested && typeof nested === 'object' && typeof (nested as { note?: unknown }).note === 'string') {
+    return (nested as { note: string }).note
+  }
   return ''
 })
 
-function shellItemResult(item: Record<string, any>) {
+function shellItemResult(item: WorkWaitItem): Record<string, unknown> {
   const result = item?.result
   if (result && typeof result === 'object') return result
   return {}
@@ -280,26 +292,31 @@ function shellItemResult(item: Record<string, any>) {
       max-height: 400px;
       overflow-y: auto;
       overflow-x: auto;
-      background: var(--td-bg-color-container);
+      background: var(--gy-surface);
       display: block;
+      scrollbar-width: thin;
+      scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-      // 滚动条样式
-      &::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
+      @supports not (scrollbar-color: auto) {
+        scrollbar-width: auto;
 
-      &::-webkit-scrollbar-track {
-        background: var(--td-bg-color-secondarycontainer);
-        border-radius: var(--app-radius-xs);
-      }
+        &::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
 
-      &::-webkit-scrollbar-thumb {
-        background: var(--td-component-border);
-        border-radius: var(--app-radius-xs);
+        &::-webkit-scrollbar-track {
+          background: var(--gy-scrollbar-track);
+          border-radius: var(--gy-radius-xs);
+        }
 
-        &:hover {
-          background: var(--td-text-color-placeholder);
+        &::-webkit-scrollbar-thumb {
+          background: var(--gy-scrollbar-thumb);
+          border-radius: var(--gy-radius-xs);
+
+          &:hover {
+            background: var(--gy-scrollbar-thumb-hover);
+          }
         }
       }
     }

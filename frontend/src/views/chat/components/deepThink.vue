@@ -1,8 +1,13 @@
 <template>
-    <div class='deep-think'>
-        <div class="think-header" @click="toggleFold">
-            <div class="think-title">
-                <span v-if="deepSession.thinking" class="thinking-status">
+    <div class="deep-think">
+        <button
+            type="button"
+            class="think-header"
+            :aria-expanded="!isFold || Boolean(deepSession?.thinking)"
+            @click="toggleFold"
+        >
+            <span class="think-title">
+                <span v-if="deepSession?.thinking" class="thinking-status">
                     <span class="thinking-indicator">
                         <span class="indicator-dot"></span>
                         <span class="indicator-ring"></span>
@@ -10,58 +15,52 @@
                     <span class="thinking-text">{{ $t('chat.thinking') }}</span>
                 </span>
                 <span v-else class="done-status">
-                    <img class="done-icon" src="@/assets/img/Frame3718.svg" :alt="$t('chat.deepThoughtAlt')">
+                    <img class="done-icon" src="@/assets/img/Frame3718.svg" :alt="$t('chat.deepThoughtAlt')" />
                     <span class="done-text">{{ $t('chat.deepThoughtCompleted') }}</span>
                 </span>
-            </div>
-            <div class="toggle-icon-wrapper">
+            </span>
+            <span class="toggle-icon-wrapper">
                 <t-icon :name="isFold ? 'chevron-down' : 'chevron-up'" class="toggle-icon" />
-            </div>
-        </div>
-        <div class="think-content" v-show="!isFold || deepSession.thinking">
-            <div ref="contentInnerRef" class="content-inner">{{ deepSession.thinkContent }}</div>
+            </span>
+        </button>
+        <div v-show="!isFold || deepSession?.thinking" class="think-content">
+            <div ref="contentInnerRef" class="content-inner">{{ deepSession?.thinkContent }}</div>
         </div>
     </div>
 </template>
-<script setup>
-import { watch, ref, onMounted, nextTick } from 'vue';
-import { useI18n } from 'vue-i18n';
+<script setup lang="ts">
+import { nextTick, onMounted, ref, watch } from 'vue';
 
-const isFold = ref(false)
-const contentInnerRef = ref(null)
-const { t } = useI18n()
-const props = defineProps({
-    // 必填项
-    deepSession: {
-        type: Object,
-        required: false
-    }
-});
+export interface DeepThinkSession {
+    thinking?: boolean;
+    thinkContent?: string;
+}
 
-// 初始化时检查：如果 thinking 已完成（从历史记录加载），默认折叠
+const isFold = ref(false);
+const contentInnerRef = ref<HTMLElement | null>(null);
+
+const props = defineProps<{
+    deepSession?: DeepThinkSession;
+}>();
+
 onMounted(() => {
     if (props.deepSession?.thinking === false) {
         isFold.value = true;
     }
 });
 
-// 监听 thinking 状态变化，自动折叠
 watch(
     () => props.deepSession?.thinking,
     (newVal, oldVal) => {
-        // 当 thinking 从 true 变为 false 时，自动折叠 thinking 内容
-        // 只在流式输出场景下触发（oldVal 为 true）
         if (oldVal === true && newVal === false) {
             isFold.value = true;
         }
-    }
+    },
 );
 
-// 监听内容变化，自动滚动到底部
 watch(
     () => props.deepSession?.thinkContent,
     () => {
-        // 只在 thinking 进行中时滚动
         if (props.deepSession?.thinking) {
             nextTick(() => {
                 if (contentInnerRef.value) {
@@ -69,43 +68,48 @@ watch(
                 }
             });
         }
-    }
+    },
 );
 
 const toggleFold = () => {
-    // 只有 thinking 完成后才能折叠/展开
     if (!props.deepSession?.thinking) {
         isFold.value = !isFold.value;
     }
-}
+};
 </script>
 <style lang="less" scoped>
 .deep-think {
     display: flex;
     flex-direction: column;
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-xs);
     width: 100%;
-    border-radius: var(--app-radius-md);
-    background-color: var(--td-bg-color-container);
-    border: .5px solid var(--td-component-stroke);
-    box-shadow: 0 2px 4px color-mix(in srgb, var(--td-brand-color) 8%, transparent);
+    border-radius: var(--gy-radius-md);
+    background-color: var(--gy-surface);
+    border: 0.5px solid var(--gy-border-stroke);
+    box-shadow: 0 2px 4px color-mix(in oklab, var(--gy-brand) 8%, transparent);
     overflow: hidden;
     box-sizing: border-box;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    margin: -8px 0px 10px 0px;
+    transition: border-color var(--gy-motion-base) cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow var(--gy-motion-base) cubic-bezier(0.4, 0, 0.2, 1);
+    margin: -8px 0 10px 0;
 
     .think-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        width: 100%;
         padding: 6px 14px;
-        color: var(--td-text-color-primary);
+        border: 0;
+        background: transparent;
+        font: inherit;
+        text-align: start;
+        color: var(--gy-text-primary);
         font-weight: 500;
         cursor: pointer;
         user-select: none;
 
         &:hover {
-            background-color: color-mix(in srgb, var(--td-brand-color) 4%, transparent);
+            background-color: color-mix(in oklab, var(--gy-brand) 4%, transparent);
         }
 
         .think-title {
@@ -129,24 +133,24 @@ const toggleFold = () => {
                 .indicator-dot {
                     width: 6px;
                     height: 6px;
-                    border-radius: 50%;
-                    background: var(--td-brand-color);
+                    border-radius: var(--gy-radius-circle);
+                    background: var(--gy-brand);
                     animation: pulse-dot 1.8s ease-in-out infinite;
                 }
 
                 .indicator-ring {
                     position: absolute;
                     inset: 0;
-                    border-radius: 50%;
-                    border: 1.5px solid var(--td-brand-color);
+                    border-radius: var(--gy-radius-circle);
+                    border: 1.5px solid var(--gy-brand);
                     opacity: 0;
                     animation: pulse-ring 1.8s ease-out infinite;
                 }
             }
 
             .thinking-text {
-                font-size: var(--app-text-sm);
-                color: var(--td-text-color-primary);
+                font-size: var(--gy-text-xs);
+                color: var(--gy-text-primary);
                 white-space: nowrap;
             }
         }
@@ -162,50 +166,61 @@ const toggleFold = () => {
             }
 
             .done-text {
-                font-size: var(--app-text-sm);
-                color: var(--td-text-color-primary);
+                font-size: var(--gy-text-xs);
+                color: var(--gy-text-primary);
                 white-space: nowrap;
             }
         }
 
         .toggle-icon-wrapper {
-            font-size: var(--app-text-base);
+            font-size: var(--gy-text-base);
             padding: 0 2px 1px 2px;
-            color: var(--td-brand-color);
+            color: var(--gy-brand);
 
             .toggle-icon {
-                transition: transform var(--app-motion-base);
+                transition: transform var(--gy-motion-base);
             }
         }
     }
 
     .think-content {
-        border-top: 1px solid var(--td-bg-color-secondarycontainer);
+        border-top: 1px solid var(--gy-surface-subtle);
 
         .content-inner {
             padding: 8px 14px;
-            font-size: var(--app-text-sm);
+            font-size: var(--gy-text-xs);
             line-height: 1.6;
-            color: var(--td-text-color-secondary);
+            color: var(--gy-text-secondary);
             max-height: 200px;
             overflow-y: auto;
             word-break: break-word;
             white-space: pre-wrap;
+            scrollbar-width: thin;
+            scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-            &::-webkit-scrollbar {
-                width: 4px;
-            }
+            @supports not (scrollbar-color: auto) {
+                scrollbar-width: auto;
 
-            &::-webkit-scrollbar-thumb {
-                background: rgba(0, 0, 0, 0.1);
-                border-radius: 2px;
+                &::-webkit-scrollbar {
+                    width: 4px;
+                }
+
+                &::-webkit-scrollbar-track {
+                    background: var(--gy-scrollbar-track);
+                }
+
+                &::-webkit-scrollbar-thumb {
+                    background: var(--gy-scrollbar-thumb);
+                    border-radius: var(--gy-radius-xs);
+                }
             }
         }
     }
 }
 
 @keyframes pulse-dot {
-    0%, 100% {
+    0%,
+    100% {
         transform: scale(0.85);
         opacity: 0.6;
     }
@@ -223,16 +238,6 @@ const toggleFold = () => {
     100% {
         transform: scale(1.2);
         opacity: 0;
-    }
-}
-
-html[theme-mode="dark"] {
-    .deep-think {
-        .think-content .content-inner {
-            &::-webkit-scrollbar-thumb {
-                background: rgba(255, 255, 255, 0.15);
-            }
-        }
     }
 }
 </style>

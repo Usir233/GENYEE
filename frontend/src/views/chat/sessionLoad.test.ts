@@ -1,17 +1,21 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import ts from 'typescript'
 import { computed, ref } from 'vue'
 import { historyHasMoreAfterAttempt } from '../../utils/historyPagination'
 
 // Exercise the page's actual load and route handlers with deferred transports.
 const source = readFileSync(new URL('./index.vue', import.meta.url), 'utf8')
-function block(from: string, to: string) {
-  const start = source.indexOf(from)
-  const end = source.indexOf(to, start)
+const steerSource = readFileSync(new URL('./composables/useChatSteerQueue.ts', import.meta.url), 'utf8')
+
+function block(text: string, from: string, to: string) {
+  const start = text.indexOf(from)
+  const end = text.indexOf(to, start)
   assert(start >= 0 && end > start, `Missing load boundary: ${from}`)
-  return source.slice(start, end)
+  return text.slice(start, end)
 }
+
 function deferred<T = any>() {
   let resolve!: (value: T) => void
   let reject!: (error: Error) => void
@@ -21,7 +25,9 @@ function deferred<T = any>() {
   })
   return { promise, resolve, reject }
 }
+
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve))
+
 function fixture(
   options: {
     session?: (id: string) => Promise<any>
@@ -35,12 +41,12 @@ function fixture(
   let dispose!: () => void
   let leave!: (...args: any[]) => void
   let update!: (...args: any[]) => void
-  const rows: any[] = [],
-    hydrated: any[] = [],
-    calls: any[] = [],
-    streams: any[] = [],
-    errors: any[] = [],
-    sent: any[] = []
+  const rows: any[] = []
+  const hydrated: any[] = []
+  const calls: any[] = []
+  const streams: any[] = []
+  const errors: any[] = []
+  const sent: any[] = []
   const context: Record<string, any> = {
     ref,
     computed,
@@ -81,16 +87,17 @@ function fixture(
     sessionActivity: { detach() {}, update() {} },
     activitySessionId: ref('A'),
     stopStream() {},
+    stopRecoverPoll() {},
+    scrollTopDebounceTimer: null,
     referencesDrawer: { close() {} },
     fullContent: ref(''),
-    recoverPollTimer: null,
     isImRecovering: ref(false),
     window: { removeEventListener() {} },
     SESSION_MUTATION_EVENT: 'mutation',
     backgroundPoller: { dispose() {} },
     clearComposerApproval() {},
     loadFollowUpSuggestions() {},
-    findLastMessage: (predicate: (row: any) => boolean) => [...rows].reverse().find(predicate),
+    findLastMessage: (predicate: (row: any) => boolean) => rows.findLast(predicate),
     persistedAssistantId: (row: any) => row.id,
     previewSteerMessage: (_rows: any[], item: any) => rows.push({ id: item.steer_id }),
     startStream: async (request: any) => {
@@ -111,33 +118,40 @@ function fixture(
     'loading',
     'isReplying',
     'userHasScrolledUp',
-  ])
+  ]) {
     context[name] = ref(name === 'hasMoreHistory')
+  }
   context.created_at = ref('')
   context.currentAssistantMessageId = ref('')
   context.limit = ref(20)
-  let afterHistory!: () => Promise<void>
+  const afterHistoryHolder: { fn?: () => Promise<void> } = {}
   context.handleMsgList = async (batch: any[]) => {
     rows.push(...batch)
-    await afterHistory()
+    await afterHistoryHolder.fn?.()
   }
-  const after = block('    onAfterMsgList: async () => {', '    onAgentQuery: ')
-    .replace('    onAfterMsgList: ', 'const afterHistory = ')
+  const after = block(source, '  onAfterMsgList: async () => {', '  onAgentQuery: ')
+    .replace('  onAfterMsgList: ', 'const afterHistory = ')
     .replace(/,\s*$/, ';\n')
-  const code =
-    block('const currentSession = ref(null);', 'const isAutomationSession = ') +
-    block('const loadSessionAndHydrate = ', 'const inputFieldRef = ref();') +
-    block('const hydrateSteerQueue = ', 'const {\n    findLastMessage,') +
-    block('watch([() => route.params]', 'const scrollFollow = ') +
-    block('const getmsgList = ', '// 发送消息') +
+  const rawTs =
+    block(source, 'const currentSession = ', 'const isAutomationSession = ') +
+    'const sessionIdRef = session_id;\nconst getLoadVersion = () => chatLoadVersion;\n' +
+    block(source, 'const loadSessionAndHydrate = ', 'const inputFieldRef = ') +
+    block(steerSource, '  const hydrateSteerQueue = ', '  const handleStopConfirmed = ') +
+    block(source, 'const getmsgList = ', 'watch([() => route.params]') +
+    block(source, 'watch([() => route.params]', 'let scrollTopDebounceTimer') +
     after +
-    block('const handleSessionMutation = ', 'onBeforeMount(') +
-    block('const sendMsg = ', '    const reasoningEffort = ') +
-    'recordSend(value); };\n' +
-    block('const clearData = ', '</script>') +
-    '\nreturn { currentSession, loadSessionAndHydrate, getmsgList, afterHistory, hydrateSteerQueue, handleSessionMutation, sendMsg, clearData };'
-  const page = new Function(...Object.keys(context), code)(...Object.values(context))
-  afterHistory = page.afterHistory
+    block(source, 'const handleSessionMutation = ', 'onBeforeMount(') +
+    block(source, 'async function sendMsg(', '  const reasoningEffort = ') +
+    '  recordSend(value);\n}\n' +
+    block(source, 'const clearData = ', '</script>')
+  const transpiled = ts.transpileModule(
+    `${rawTs}\nreturn { currentSession, loadSessionAndHydrate, getmsgList, afterHistory, hydrateSteerQueue, handleSessionMutation, sendMsg, clearData };`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
+  ).outputText
+  const page = new Function(...Object.keys(context), transpiled)(
+    ...Object.values(context),
+  )
+  afterHistoryHolder.fn = page.afterHistory
   return {
     page,
     context,
@@ -227,8 +241,8 @@ test('obsolete route hydration does not start another request for the current ch
 })
 
 test('an old history completion cannot release the new visit loading flags', async () => {
-  const oldPage = deferred(),
-    currentPage = deferred()
+  const oldPage = deferred()
+  const currentPage = deferred()
   const f = fixture({
     messages: async (query) => (query.session_id === 'A' ? oldPage.promise : currentPage.promise),
   })
@@ -264,8 +278,8 @@ test('an obsolete failed page leaves the current visit and its pagination state 
 
 test('leaving or disposing the page invalidates pending detail and history writes', async () => {
   for (const action of ['leave', 'dispose'] as const) {
-    const detail = deferred(),
-      history = deferred()
+    const detail = deferred()
+    const history = deferred()
     const f = fixture({ session: () => detail.promise, messages: () => history.promise })
     const pending = [f.page.loadSessionAndHydrate('A'), f.page.getmsgList({ session_id: 'A' })]
     f[action]()
@@ -282,7 +296,6 @@ test('a stale queue restore cannot inject messages or resume a stream in another
   const queue = deferred()
   const f = fixture({ queue: () => queue.promise })
   const old = f.page.getmsgList({ session_id: 'A' })
-  // Trigger the real post-history callback with an incomplete assistant.
   f.rows.push({ id: 'A-assistant', role: 'assistant', is_completed: false })
   const after = f.page.afterHistory()
   await f.change('B')

@@ -164,12 +164,12 @@ const actionLabel = computed(() => {
             return t('chat.sandbox.start');
         case 'needs_provision':
             return t('chat.sandbox.createAndStart');
+        // no_sandbox 说的是"智能体没配沙箱后端，无处可建"。用户去配好后应该能
+        // 直接重试，而不是只能关掉面板再打开——那是个没有任何操作入口的死角。
         case 'error':
         case 'exited':
         case 'idle':
         case 'unauthorized':
-        // no_sandbox 说的是"智能体没配沙箱后端，无处可建"。用户去配好后应该能
-        // 直接重试，而不是只能关掉面板再打开——那是个没有任何操作入口的死角。
         case 'no_sandbox':
             return t('chat.sandbox.retry');
         default:

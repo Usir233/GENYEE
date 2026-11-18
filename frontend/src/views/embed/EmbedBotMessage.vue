@@ -261,7 +261,7 @@ onMounted(() => {
   padding: 10px 12px;
   border-radius: var(--app-radius-md);
   background: var(--td-bg-color-container);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--gy-shadow-md);
   font-size: var(--app-text-sm);
   line-height: 1.5;
   color: var(--td-text-color-primary);

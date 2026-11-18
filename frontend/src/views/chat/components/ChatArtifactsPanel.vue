@@ -170,7 +170,7 @@ import {
 } from '@/utils/sessionArtifacts'
 import { useChatSandboxPanel, type ArtifactPanelFocusState } from '@/composables/useChatSandboxPanel'
 import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
-import DocumentPreview from '@/components/document-preview.vue'
+import DocumentPreview from '@/components/DocumentPreview.vue'
 import ArtifactFileIcon from './ArtifactFileIcon.vue'
 
 const props = withDefaults(

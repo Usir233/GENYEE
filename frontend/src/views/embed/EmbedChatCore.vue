@@ -74,9 +74,9 @@
               :embed-visitor-id="visitorId"
             />
             <FollowUpSuggestions v-if="!session.suggestionsDismissed"
-              :suggestion-set="session.suggestionSet as any"
+              :suggestion-set="asSuggestionSet(session.suggestionSet)"
               :loading="Boolean(session.suggestionLoading)"
-              :allow-regenerate="Boolean((session.suggestionSet as any)?.allow_regenerate)"
+              :allow-regenerate="Boolean(asSuggestionSet(session.suggestionSet)?.allow_regenerate)"
               @select="(item) => handleFollowUpSelect(session, item)"
               @regenerate="loadFollowUpSuggestions(session, true, true)"
               @impression="(set) => recordFollowUpEvent(set, 'impression')"
@@ -92,11 +92,12 @@
     </div>
 
     <transition name="scroll-btn-fade">
-      <div v-show="userHasScrolledUp" class="scroll-to-bottom-btn" @click="onClickScrollToBottom" aria-label="scroll to bottom">
+      <button v-show="userHasScrolledUp" type="button" class="scroll-to-bottom-btn"
+        :aria-label="t('common.backToBottom', 'Scroll to bottom')" @click="onClickScrollToBottom">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-      </div>
+      </button>
     </transition>
 
     <div class="embed-chat__input">
@@ -242,6 +243,10 @@ function asEmbedAttachments(value: unknown): EmbedAttachment[] | undefined {
   return Array.isArray(value) ? value as EmbedAttachment[] : undefined
 }
 
+function asSuggestionSet(value: unknown): MessageSuggestionSet | null {
+  return value && typeof value === 'object' ? (value as MessageSuggestionSet) : null
+}
+
 const embedWebSearchStorageKey = () => `genyee-embed-web-search:${props.channelId}`
 
 const readStoredWebSearchEnabled = () => {
@@ -285,7 +290,6 @@ const {
   shouldShowGlobalTypingIndicator,
   getUserQuery,
   handleScroll,
-  scrollToBottom,
   onClickScrollToBottom,
   sendMsg,
   handleStopGeneration,
@@ -481,19 +485,24 @@ watch(
     background: var(--td-bg-color-container);
     text-align: left;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--gy-shadow-sm);
     transition: border-color var(--app-motion-fast) ease, box-shadow var(--app-motion-fast) ease, background var(--app-motion-fast) ease;
 
     &:hover {
       border-color: color-mix(in srgb, var(--td-text-color-primary) 10%, var(--td-component-stroke));
       background: color-mix(in srgb, var(--td-text-color-primary) 4%, var(--td-bg-color-container));
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      box-shadow: var(--gy-shadow-sm);
     }
 
     &--skeleton {
       height: 40px;
       cursor: default;
-      background: linear-gradient(90deg, #f0f0f0 25%, #e6e6e6 50%, #f0f0f0 75%);
+      background: linear-gradient(
+        90deg,
+        var(--gy-surface-subtle) 25%,
+        var(--gy-surface-component) 50%,
+        var(--gy-surface-subtle) 75%
+      );
       background-size: 200% 100%;
       animation: sk-shimmer 1.2s ease-in-out infinite;
       border: none;
@@ -533,7 +542,7 @@ watch(
       var(--td-component-stroke)
     );
     border-radius: 4px 14px 14px 14px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: var(--gy-shadow-sm);
   }
 }
 
@@ -603,7 +612,12 @@ watch(
 .sk-line {
   height: 14px;
   border-radius: var(--app-radius-sm);
-  background: linear-gradient(90deg, #f0f0f0 25%, #e6e6e6 50%, #f0f0f0 75%);
+  background: linear-gradient(
+    90deg,
+    var(--gy-surface-subtle) 25%,
+    var(--gy-surface-component) 50%,
+    var(--gy-surface-subtle) 75%
+  );
   background-size: 200% 100%;
   animation: sk-shimmer 1.2s ease-in-out infinite;
 }
@@ -617,6 +631,8 @@ watch(
 }
 
 .scroll-to-bottom-btn {
+  appearance: none;
+  padding: 0;
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -627,7 +643,7 @@ watch(
   border-radius: 50%;
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--gy-shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -34,10 +34,10 @@ interface Props {
   data: DatabaseQueryData;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const { t } = useI18n();
 
-const formatValue = (value: any): string => {
+const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return t('chat.nullValuePlaceholder');
   }

@@ -220,8 +220,9 @@ const submit = async (decline: boolean) => {
       : resolveAgentPrompt(props.pendingId, 'ask_user', response))
     markPromptSubmitted(props.pendingId, response)
     if (resumed) resumeSuspendedRun?.(props.pendingId)
-  } catch (e: any) {
-    const msg = e?.response?.data?.error?.message || e?.error?.message || e?.message
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: { message?: string } } }; error?: { message?: string }; message?: string } | null
+    const msg = err?.response?.data?.error?.message || err?.error?.message || err?.message
       || t('agentStream.askUser.submitFailed')
     MessagePlugin.error(msg)
   } finally {

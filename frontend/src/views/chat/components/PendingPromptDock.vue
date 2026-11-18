@@ -36,9 +36,9 @@
             :delegated-task="prompt.delegated_task" :args-json="prompt.args_json" :grant-scope="prompt.grant_scope"
             :grant-lapsed="prompt.grant_lapsed" />
           <SecureFormCard v-else-if="prompt.type === 'agent_prompt_required' && prompt.kind === 'secure_form'"
-            :ref="(el) => setCard(prompt, el)" variant="dock" v-bind="timing(prompt)" :request="prompt.request" />
+            :ref="(el) => setCard(prompt, el)" variant="dock" v-bind="timing(prompt)" :request="asSecureFormRequest(prompt.request)" />
           <AskUserCard v-else-if="prompt.type === 'agent_prompt_required'" :ref="(el) => setCard(prompt, el)"
-            variant="dock" v-bind="{ ...timing(prompt), ...authProps }" :request="prompt.request" />
+            variant="dock" v-bind="{ ...timing(prompt), ...authProps }" :request="asAskUserQuestion(prompt.request)" />
           <McpOAuthCard v-else :ref="(el) => setCard(prompt, el)" variant="dock" v-bind="authProps"
             :pending-id="prompt.pending_id" :service-id="prompt.service_id || ''"
             :service-name="prompt.service_name || ''" :mcp-tool-name="prompt.mcp_tool_name || ''"
@@ -52,8 +52,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { usePromptDock } from '@/composables/usePromptDock'
+import { usePromptDock, type PromptEvent } from '@/composables/usePromptDock'
+import type { AskUserQuestion } from '@/utils/askUser'
 import { isTextEntry } from '@/utils/promptKeys'
+import type { SecureFormRequest } from '@/utils/secureForm'
 import AskUserCard from './AskUserCard.vue'
 import McpOAuthCard from './McpOAuthCard.vue'
 import SecureFormCard from './SecureFormCard.vue'
@@ -68,15 +70,37 @@ const props = defineProps<{
   embedVisitorId?: string
 }>()
 
-type Prompt = Record<string, any>
+interface DockedPrompt extends PromptEvent {
+  pending_id: string
+  service_id?: string
+  service_name?: string
+  mcp_tool_name?: string
+  description?: string
+  delegated_task?: string
+  args_json?: string
+  grant_scope?: string
+  grant_lapsed?: string
+  timeout_seconds?: number
+  hot_wait_seconds?: number
+  suspendable?: boolean
+  suspended?: boolean
+  expires_at?: string
+  requested_at?: number
+  request?: unknown
+}
 type DockCard = { handleKey?: (e: KeyboardEvent) => boolean }
+
+const asAskUserQuestion = (req: unknown): AskUserQuestion | undefined =>
+  req && typeof req === 'object' ? (req as AskUserQuestion) : undefined
+const asSecureFormRequest = (req: unknown): SecureFormRequest | undefined =>
+  req && typeof req === 'object' ? (req as SecureFormRequest) : undefined
 
 const { t } = useI18n()
 const dock = usePromptDock()
 const root = ref<HTMLElement | null>(null)
 const cards = new Map<string, DockCard>()
 
-const prompts = computed<Prompt[]>(() => dock?.prompts.value || [])
+const prompts = computed<DockedPrompt[]>(() => (dock?.prompts.value || []) as DockedPrompt[])
 const collapsed = computed(() => Boolean(dock?.collapsed.value))
 const activeId = computed(() => {
   const chosen = dock?.activeId.value
@@ -94,7 +118,7 @@ const authProps = computed(() => ({
   embedVisitorId: props.embedVisitorId,
 }))
 
-const timing = (p: Prompt) => ({
+const timing = (p: DockedPrompt) => ({
   pendingId: p.pending_id,
   timeoutSeconds: p.timeout_seconds,
   hotWaitSeconds: p.hot_wait_seconds,
@@ -124,7 +148,7 @@ const icon = computed(() => {
   }
 })
 
-const setCard = (prompt: Prompt, el: unknown) => {
+const setCard = (prompt: DockedPrompt, el: unknown) => {
   if (el) cards.set(prompt.pending_id, el as DockCard)
   else cards.delete(prompt.pending_id)
 }
@@ -183,7 +207,7 @@ watch(() => prompts.value.map((p) => p.pending_id), (ids, previous = []) => {
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-xl);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--gy-shadow-sm);
   outline: none;
   transition: border-color var(--app-motion-fast) ease;
 

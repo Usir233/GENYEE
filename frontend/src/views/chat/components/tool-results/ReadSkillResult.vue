@@ -118,15 +118,25 @@ const bodyLabel = computed(() =>
   color: var(--td-text-color-primary);
   white-space: pre-wrap;
   word-break: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--td-component-border);
-    border-radius: var(--app-radius-xs);
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--gy-scrollbar-track);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--gy-scrollbar-thumb);
+      border-radius: var(--gy-radius-xs);
+    }
   }
 }
 </style>
