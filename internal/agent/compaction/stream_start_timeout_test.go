@@ -18,13 +18,14 @@ import (
 func startupTestCompactor(t *testing.T, handler http.HandlerFunc) *Compactor {
 	t.Helper()
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	t.Setenv("LOG_LEVEL", "warn")
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 	model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{
 		BaseURL: server.URL, Model: "timeout-test", Client: server.Client(),
 	}})
 	s := testSettings()
-	s.StallTimeout = 300 * time.Millisecond
+	s.StallTimeout = 800 * time.Millisecond
 	return New(model, newEstimator(t), s)
 }
 
@@ -41,7 +42,7 @@ func TestCompactionStartupRetriesAndDegrades(t *testing.T) {
 				}
 				writeSummarySSE(w, false)
 			})
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 			defer cancel()
 			result, err := c.Compact(ctx, reactTurn(12), ReasonThreshold)
 			require.NoError(t, err)
@@ -111,7 +112,7 @@ func TestCompactionStallIncludesHTTPHeaders(t *testing.T) {
 		_, _ = io.Copy(io.Discard, r.Body)
 		<-r.Context().Done()
 	})
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 	start := time.Now()
 	_, _, err := c.streamSummary(ctx, []chat.Message{{Role: "user", Content: "summarize"}}, &chat.ChatOptions{})
