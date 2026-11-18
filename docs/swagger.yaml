@@ -604,12 +604,14 @@ definitions:
     - 1008
     - 1009
     - 1010
+    - 1011
     - 2000
     - 2001
     - 2002
     - 2003
     - 2004
     - 2005
+    - 2006
     - 2100
     - 2101
     - 2102
@@ -618,6 +620,7 @@ definitions:
     - 2201
     - 2300
     - 2400
+    - 2500
     type: integer
     x-enum-varnames:
     - ErrBadRequest
@@ -631,12 +634,14 @@ definitions:
     - ErrServiceUnavailable
     - ErrTimeout
     - ErrValidation
+    - ErrRequestEntityTooLarge
     - ErrTenantNotFound
     - ErrTenantAlreadyExists
     - ErrTenantInactive
     - ErrTenantNameRequired
     - ErrTenantInvalidStatus
     - ErrTenantCreationDisabled
+    - ErrTenantRequired
     - ErrAgentMissingThinkingModel
     - ErrAgentMissingAllowedTools
     - ErrAgentInvalidMaxIterations
@@ -645,6 +650,7 @@ definitions:
     - ErrVectorStoreUnavailable
     - ErrModelInUse
     - ErrImportPrerequisiteMissing
+    - ErrWikiVersionConflict
   github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata:
     properties:
       configured:
@@ -942,7 +948,7 @@ definitions:
       credentials:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig'
       deleted_at:
-        $ref: '#/definitions/gorm.DeletedAt'
+        type: string
       description:
         type: string
         x-agent: true
@@ -2511,6 +2517,9 @@ definitions:
       updated_at:
         description: Chunk last update time
         type: string
+      video_info:
+        description: 视频信息，存储为 JSON（对应 chunks.video_info 列）
+        type: string
     type: object
   github_com_Usir233_GENYEE_internal_types.ChunkFlags:
     enum:
@@ -2765,7 +2774,8 @@ definitions:
         description: 'optional: 0=never, 1, 7, 30; default 7'
         type: integer
       member_limit:
-        description: 'optional: max members; 0=unlimited; default 50'
+        description: MemberLimit is the optional max member count (0=unlimited; default
+          50).
         type: integer
       name:
         maxLength: 255
@@ -4040,6 +4050,18 @@ definitions:
           the user's own record.
         type: object
     type: object
+  github_com_Usir233_GENYEE_internal_types.GeneratedQuestion:
+    properties:
+      content_revision:
+        description: 该问题对应的 Chunk 内容版本
+        type: integer
+      id:
+        description: 唯一标识，用于构造 source_id
+        type: string
+      question:
+        description: 问题内容
+        type: string
+    type: object
   github_com_Usir233_GENYEE_internal_types.GenerationMetrics:
     properties:
       bleu1:
@@ -4403,8 +4425,8 @@ definitions:
   github_com_Usir233_GENYEE_internal_types.IndexConfig:
     properties:
       buckets_num:
-        description: 'Doris: number of buckets per table (DISTRIBUTED BY HASH ...
-          BUCKETS N)'
+        description: BucketsNum sets Doris buckets per table (DISTRIBUTED BY HASH
+          ... BUCKETS N).
         type: integer
       collection_name:
         description: Milvus
@@ -4413,26 +4435,28 @@ definitions:
         description: Qdrant, Weaviate
         type: string
       desired_shard_count:
-        description: 'Weaviate: number of shards per collection'
+        description: DesiredShardCount sets Weaviate shards per collection.
         type: integer
       hnsw_ef_construction:
-        description: 'OpenSearch: HNSW index-build candidate list size'
+        description: HNSWEFConstruction sets OpenSearch HNSW index-build candidate
+          list size.
         type: integer
       hnsw_ef_search:
-        description: 'OpenSearch: HNSW search candidate list size (faiss; lucene reads
-          at query time)'
+        description: HNSWEFSearch sets OpenSearch HNSW search candidate list size
+          (faiss; lucene reads at query time).
         type: integer
       hnsw_m:
         description: |-
           --- OpenSearch k-NN HNSW fields ---
           All omitempty so other engines' serialized IndexConfig is unchanged.
           Zero / empty values fall back to the driver defaults in buildInternalCfg.
+          HNSWM sets OpenSearch HNSW graph degree (M).
         type: integer
       index_name:
         description: '--- Existing fields ---'
         type: string
       knn_engine:
-        description: 'OpenSearch: k-NN backend ("lucene" | "faiss")'
+        description: KNNEngine selects the OpenSearch k-NN backend ("lucene" | "faiss").
         type: string
       number_of_replicas:
         description: ES, OpenSearch
@@ -4441,19 +4465,22 @@ definitions:
         description: ES, OpenSearch
         type: integer
       replica_number:
-        description: Milvus LoadCollection / Tencent VectorDB CreateCollection replicas
+        description: ReplicaNumber sets Milvus LoadCollection / Tencent VectorDB CreateCollection
+          replicas.
         type: integer
       replication_factor:
-        description: 'Qdrant, Weaviate: number of replicas'
+        description: ReplicationFactor sets Qdrant / Weaviate replica count.
         type: integer
       replication_num:
-        description: 'Doris: replication_num PROPERTIES'
+        description: ReplicationNum sets Doris replication_num PROPERTIES.
         type: integer
       shard_number:
-        description: '--- Scalability fields ---'
+        description: |-
+          --- Scalability fields ---
+          ShardNumber sets Qdrant shards per collection.
         type: integer
       shards_num:
-        description: 'Milvus: number of shards per collection (CreateCollection)'
+        description: ShardsNum sets Milvus shards per collection (CreateCollection).
         type: integer
     type: object
   github_com_Usir233_GENYEE_internal_types.IndexingStrategy:
@@ -4513,7 +4540,8 @@ definitions:
       role:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole'
-        description: 'Optional: requested role (admin/editor/viewer); default viewer'
+        description: Role is the optional requested role (admin/editor/viewer); default
+          viewer.
     required:
     - organization_id
     type: object
@@ -5258,10 +5286,11 @@ definitions:
       knowledge_count:
         type: integer
       my_permission:
-        description: Effective permission for current user = min(Permission, MyRoleInOrg)
+        description: MyPermission is the effective permission for the current user
+          = min(Permission, MyRoleInOrg).
         type: string
       my_role_in_org:
-        description: Current user's role in this organization (admin/editor/viewer)
+        description: MyRoleInOrg is the current user's role in this organization (admin/editor/viewer).
         type: string
       organization_id:
         type: string
@@ -5373,7 +5402,7 @@ definitions:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig'
       chunking_config:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig'
-      enable_multimodel:
+      enable_multimodal:
         type: boolean
       extract_config:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ExtractConfig'
@@ -6301,7 +6330,7 @@ definitions:
         description: Absolute path inside the sandbox (used for diff)
         type: string
       url:
-        description: Storage URL (provider://path); persisted, not sent to client
+        description: Storage URL (provider://path); persisted
         type: string
     type: object
   github_com_Usir233_GENYEE_internal_types.MessageAttachment:
@@ -6502,7 +6531,8 @@ definitions:
       extra_config:
         additionalProperties:
           type: string
-        description: Provider-specific configuration
+        description: ExtraConfig stores provider-specific configuration key-value
+          pairs.
         type: object
       interface_type:
         type: string
@@ -6517,10 +6547,12 @@ definitions:
       max_output_tokens:
         type: integer
       parameter_size:
-        description: Ollama model parameter size (e.g., "7B", "13B", "70B")
+        description: ParameterSize is the Ollama model parameter size (e.g., "7B",
+          "13B", "70B").
         type: string
       provider:
-        description: 'Provider identifier: openai, aliyun, zhipu, generic'
+        description: Provider identifies the model provider (e.g., openai, aliyun,
+          zhipu, generic).
         type: string
       spec:
         allOf:
@@ -6530,7 +6562,8 @@ definitions:
           flags and the flat protocol compat object. Everything omitted is
           inherited from the vendor catalog (see internal/models/catalog).
       supports_vision:
-        description: Whether the model accepts image/multimodal input
+        description: SupportsVision reports whether the model accepts image/multimodal
+          input.
         type: boolean
     type: object
   github_com_Usir233_GENYEE_internal_types.ModelSource:
@@ -7131,7 +7164,8 @@ definitions:
         description: 4.0+：flash/basic/standard/advanced，空为服务端默认
         type: string
       mineru_vlm_server_url:
-        description: vLLM 服务器地址 (vlm-http-client / hybrid-http-client)
+        description: MinerUVLMServerURL is the vLLM server URL (vlm-http-client /
+          hybrid-http-client).
         type: string
       odl_hybrid:
         description: OpenDataLoader PDF (docreader engine); hybrid requires opendataloader-pdf-hybrid
@@ -7168,21 +7202,21 @@ definitions:
     type: object
   github_com_Usir233_GENYEE_internal_types.ParserEngineInfo:
     properties:
-      Available:
+      available:
         type: boolean
         x-agent: available
-      Description:
+      description:
         type: string
         x-agent: description
-      FileTypes:
+      file_types:
         items:
           type: string
         type: array
         x-agent: file_types
-      Name:
+      name:
         type: string
         x-agent: engine
-      UnavailableReason:
+      unavailable_reason:
         type: string
         x-agent: unavailable_reason
     type: object
@@ -7689,8 +7723,8 @@ definitions:
       role:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole'
-        description: 'Optional: role to assign when approving; overrides applicant''s
-          requested role'
+        description: Role is the optional role to assign when approving; overrides
+          applicant's requested role.
     type: object
   github_com_Usir233_GENYEE_internal_types.RuntimeTaskAction:
     enum:
@@ -7975,6 +8009,15 @@ definitions:
       end_at:
         description: End at
         type: integer
+      evidence_handles:
+        description: |-
+          EvidenceHandles records storage references that citation sources of this
+          result expose to the model even though merge scoping kept them out of
+          Content and ImageInfo. The message-scoped file proxy reads them as
+          retrieval evidence (#5069); prompts and UI do not consume them.
+        items:
+          type: string
+        type: array
       id:
         description: ID
         type: string
@@ -8146,8 +8189,7 @@ definitions:
           session sent a question (agent, model, KB scope, web search, MCPs).
           Persisted on every successful POST to /knowledge-chat or /agent-chat so
           that reopening the session can restore the original request context to
-          the chat UI. Stored in the legacy sessions.agent_config JSONB column to
-          avoid a new migration; the shape used today is `SessionLastRequestState`.
+          the chat UI.
       owner_auth_source:
         description: |-
           OwnerAuthSource records, server-side, how UserID was authenticated when
@@ -8296,8 +8338,7 @@ definitions:
           session sent a question (agent, model, KB scope, web search, MCPs).
           Persisted on every successful POST to /knowledge-chat or /agent-chat so
           that reopening the session can restore the original request context to
-          the chat UI. Stored in the legacy sessions.agent_config JSONB column to
-          avoid a new migration; the shape used today is `SessionLastRequestState`.
+          the chat UI.
       owner_auth_source:
         description: |-
           OwnerAuthSource records, server-side, how UserID was authenticated when
@@ -8625,7 +8666,8 @@ definitions:
       cos:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.COSEngineConfig'
       default_provider:
-        description: '"local", "minio", "cos", "tos", "s3", "oss", "ks3", "obs"'
+        description: DefaultProvider is one of "local", "minio", "cos", "tos", "s3",
+          "oss", "ks3", or "obs".
         type: string
       ks3:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.KS3EngineConfig'
@@ -8660,8 +8702,8 @@ definitions:
       role:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole'
-        description: 'Optional: role the applicant requests (admin/editor/viewer);
-          default viewer'
+        description: Role is the optional role the applicant requests (admin/editor/viewer);
+          default viewer.
     required:
     - invite_code
     type: object
@@ -9321,9 +9363,11 @@ definitions:
       provider_metadata:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ToolCallMetadata'
-        description: Provider-specific tool-call state for replay
+        description: ProviderMetadata stores provider-specific tool-call state for
+          replay.
       reflection:
-        description: Agent's reflection on this tool call result (if enabled)
+        description: Reflection holds the agent's reflection on this tool call result
+          (if enabled).
         type: string
       result:
         allOf:
@@ -9762,8 +9806,9 @@ definitions:
         description: 'Deprecated: Use WebSearchProviderEntity.Parameters.APIKey instead.'
         type: string
       proxy_url:
-        description: Optional per-request proxy override; normally empty — use WebSearchProviderEntity.Parameters.proxy_url.
-          Merged at call time when set.
+        description: |-
+          ProxyURL is an optional per-request proxy override; normally empty — use
+          WebSearchProviderEntity.Parameters.proxy_url. Merged at call time when set.
         type: string
       rerank_model_id:
         description: 重排模型ID（用于RAG压缩）
@@ -9855,7 +9900,8 @@ definitions:
         type: object
       proxy_url:
         description: |-
-          Optional HTTP/HTTPS proxy URL for outbound search requests (e.g. http://host:port); validated with utils.ValidateURLForSSRF.
+          Optional HTTP/HTTPS proxy URL for outbound search requests (e.g. http://host:port);
+          validated with utils.ValidateURLForSSRF.
           Does not replace the search API endpoint; only tunnels traffic to the official APIs.
         type: string
     type: object
@@ -10869,6 +10915,9 @@ definitions:
       updated_at:
         description: Chunk last update time
         type: string
+      video_info:
+        description: 视频信息，存储为 JSON（对应 chunks.video_info 列）
+        type: string
     type: object
   internal_handler.AgentWriteResponse:
     properties:
@@ -11085,7 +11134,7 @@ definitions:
     properties:
       channel:
         type: string
-      enable_multimodel:
+      enable_multimodal:
         type: boolean
       file_name:
         type: string
@@ -11167,6 +11216,22 @@ definitions:
     - source
     - type
     type: object
+  internal_handler.CreateProviderRequest:
+    properties:
+      description:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      parameters:
+        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderParameters'
+      provider:
+        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderType'
+    required:
+    - name
+    - provider
+    type: object
   internal_handler.CreateStoreRequest:
     properties:
       connection_config:
@@ -11185,9 +11250,6 @@ definitions:
   internal_handler.CreateSystemUserResponse:
     properties:
       generated_password:
-        description: |-
-          GeneratedPassword is the plaintext password when the server
-          auto-generated one. Absent when the caller supplied the password.
         type: string
       user:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo'
@@ -11277,17 +11339,17 @@ definitions:
     type: object
   internal_handler.DownloadTask:
     properties:
-      endTime:
+      end_time:
         type: string
       id:
         type: string
       message:
         type: string
-      modelName:
+      model_name:
         type: string
       progress:
         type: number
-      startTime:
+      start_time:
         type: string
       status:
         description: pending, downloading, completed, failed
@@ -11533,12 +11595,12 @@ definitions:
     type: object
   internal_handler.InitializationRequest:
     properties:
-      documentSplitting:
+      document_splitting:
         properties:
-          chunkOverlap:
+          chunk_overlap:
             minimum: 0
             type: integer
-          chunkSize:
+          chunk_size:
             maximum: 10000
             minimum: 100
             type: integer
@@ -11548,82 +11610,82 @@ definitions:
             minItems: 1
             type: array
         required:
-        - chunkSize
+        - chunk_size
         - separators
         type: object
       embedding:
         properties:
-          apiKey:
+          api_key:
             type: string
-          baseUrl:
+          base_url:
             type: string
           dimension:
             description: 添加embedding维度字段
             type: integer
-          modelName:
+          model_name:
             type: string
           source:
             type: string
         required:
-        - modelName
+        - model_name
         - source
         type: object
       llm:
         properties:
-          apiKey:
+          api_key:
             type: string
-          baseUrl:
+          base_url:
             type: string
-          modelName:
+          model_name:
             type: string
           source:
             type: string
         required:
-        - modelName
+        - model_name
         - source
         type: object
       multimodal:
         properties:
           cos:
             properties:
-              appId:
+              app_id:
                 type: string
-              bucketName:
+              bucket_name:
                 type: string
-              pathPrefix:
+              path_prefix:
                 type: string
               region:
                 type: string
-              secretId:
+              secret_id:
                 type: string
-              secretKey:
+              secret_key:
                 type: string
             type: object
           enabled:
             type: boolean
           minio:
             properties:
-              bucketName:
+              bucket_name:
                 type: string
-              pathPrefix:
+              path_prefix:
                 type: string
             type: object
-          storageType:
+          storage_type:
             type: string
           vlm:
             properties:
-              apiKey:
+              api_key:
                 type: string
-              baseUrl:
+              base_url:
                 type: string
-              interfaceType:
+              interface_type:
                 description: '"ollama" or "openai"'
                 type: string
-              modelName:
+              model_name:
                 type: string
             type: object
         type: object
-      nodeExtract:
+      node_extract:
         properties:
           enabled:
             type: boolean
@@ -11656,26 +11718,26 @@ definitions:
           text:
             type: string
         type: object
-      questionGeneration:
+      question_generation:
         properties:
           enabled:
             type: boolean
-          questionCount:
+          question_count:
             type: integer
         type: object
       rerank:
         properties:
-          apiKey:
+          api_key:
             type: string
-          baseUrl:
+          base_url:
             type: string
           enabled:
             type: boolean
-          modelName:
+          model_name:
             type: string
         type: object
     required:
-    - documentSplitting
+    - document_splitting
     - embedding
     - llm
     type: object
@@ -11690,24 +11752,24 @@ definitions:
           model_id:
             type: string
         type: object
-      documentSplitting:
+      document_splitting:
         description: 文档分块配置
         properties:
-          childChunkSize:
+          child_chunk_size:
             type: integer
-          chunkOverlap:
+          chunk_overlap:
             type: integer
-          chunkSize:
+          chunk_size:
             type: integer
-          enableParentChild:
+          enable_parent_child:
             type: boolean
           languages:
             items:
               type: string
             type: array
-          parentChunkSize:
+          parent_chunk_size:
             type: integer
-          parserEngineRules:
+          parser_engine_rules:
             items:
               $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule'
             type: array
@@ -11723,26 +11785,26 @@ definitions:
               Without that distinction, users could set strategy="auto" once
               but never reset it back to legacy / unset.
             type: string
-          tableMetadataInstructions:
+          table_metadata_instructions:
             type: string
-          tokenLimit:
+          token_limit:
             type: integer
         type: object
-      embeddingModelId:
+      embedding_model_id:
         description: optional when RAG indexing is disabled
         type: string
-      llmModelId:
+      llm_model_id:
         type: string
       multimodal:
-        description: 多模态配置（仅模型相关；存储引擎在 storageProvider 中配置）
+        description: 多模态配置（仅模型相关；存储引擎在 storage_provider 中配置）
         properties:
           enabled:
             type: boolean
         type: object
-      nodeExtract:
+      node_extract:
         description: 知识图谱配置
         properties:
-          customInstructions:
+          custom_instructions:
             type: string
           enabled:
             type: boolean
@@ -11761,21 +11823,21 @@ definitions:
           text:
             type: string
         type: object
-      questionGeneration:
+      question_generation:
         description: 问题生成配置
         properties:
-          customInstructions:
+          custom_instructions:
             type: string
           enabled:
             type: boolean
-          modelId:
+          model_id:
             type: string
-          questionCount:
+          question_count:
             type: integer
         type: object
-      storageBackendId:
+      storage_backend_id:
         type: string
-      storageProvider:
+      storage_provider:
         description: 存储引擎选择（"local" | "minio" | "cos"），影响文档上传与文档内图片存储，参数从全局设置读取
         type: string
       vlm_config:
@@ -11798,7 +11860,7 @@ definitions:
             type: string
         type: object
     required:
-    - llmModelId
+    - llm_model_id
     type: object
   internal_handler.KnowledgeBaseView:
     properties:
@@ -12452,14 +12514,14 @@ definitions:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_models_api.API'
       auth:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_models_providers.AuthStyle'
-      credentialLabels:
+      credential_labels:
         description: |-
           CredentialLabels rename the primary credential input for the model
           types that do not take a plain API key (signed rerank APIs).
         items:
           $ref: '#/definitions/github_com_Usir233_GENYEE_internal_models_providers.CredentialLabel'
         type: array
-      defaultUrls:
+      default_urls:
         additionalProperties:
           type: string
         type: object
@@ -12471,7 +12533,7 @@ definitions:
         additionalProperties:
           type: string
         type: object
-      extraFields:
+      extra_fields:
         items:
           $ref: '#/definitions/github_com_Usir233_GENYEE_internal_models_providers.ExtraField'
         type: array
@@ -12485,7 +12547,7 @@ definitions:
         additionalProperties:
           type: string
         type: object
-      modelTypes:
+      model_types:
         items:
           type: string
         type: array
@@ -12498,7 +12560,7 @@ definitions:
         x-agent-detail: true
       order:
         type: integer
-      requiresAuth:
+      requires_auth:
         type: boolean
         x-agent: requires_auth
       thinking:
@@ -12511,26 +12573,26 @@ definitions:
     type: object
   internal_handler.ModelTestRequest:
     properties:
-      apiKey:
+      api_key:
         type: string
-      appSecret:
+      app_secret:
         description: AppSecret 用于 LKEAP / Volcengine Rerank 等需要第二段密钥的场景（对应模型 Parameters.AppSecret）。
         type: string
-      baseUrl:
+      base_url:
         type: string
-      customHeaders:
+      custom_headers:
         additionalProperties:
           type: string
         type: object
       dimension:
         type: integer
-      extraConfig:
+      extra_config:
         additionalProperties:
           type: string
         type: object
-      interfaceType:
+      interface_type:
         type: string
-      modelId:
+      model_id:
         description: |-
           ModelID, when set, instructs the handler to substitute any missing
           secrets (APIKey, AppSecret via ExtraConfig) from the stored model
@@ -12541,7 +12603,7 @@ definitions:
           stored values, so a user can validate a new endpoint against the
           existing credentials in one click.
         type: string
-      modelName:
+      model_name:
         type: string
       provider:
         type: string
@@ -12550,10 +12612,10 @@ definitions:
         type: string
       spec:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride'
-      supportsDimensionOverride:
+      supports_dimension_override:
         type: boolean
     required:
-    - modelName
+    - model_name
     type: object
   internal_handler.MoveKnowledgeRequest:
     properties:
@@ -13054,26 +13116,26 @@ definitions:
     type: object
   internal_handler.RemoteModelCheckRequest:
     properties:
-      apiKey:
+      api_key:
         type: string
-      appSecret:
+      app_secret:
         description: AppSecret 用于 LKEAP / Volcengine Rerank 等需要第二段密钥的场景（对应模型 Parameters.AppSecret）。
         type: string
-      baseUrl:
+      base_url:
         type: string
-      customHeaders:
+      custom_headers:
         additionalProperties:
           type: string
         type: object
       dimension:
         type: integer
-      extraConfig:
+      extra_config:
         additionalProperties:
           type: string
         type: object
-      interfaceType:
+      interface_type:
         type: string
-      modelId:
+      model_id:
         description: |-
           ModelID, when set, instructs the handler to substitute any missing
           secrets (APIKey, AppSecret via ExtraConfig) from the stored model
@@ -13084,7 +13146,7 @@ definitions:
           stored values, so a user can validate a new endpoint against the
           existing credentials in one click.
         type: string
-      modelName:
+      model_name:
         type: string
       provider:
         type: string
@@ -13093,10 +13155,10 @@ definitions:
         type: string
       spec:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride'
-      supportsDimensionOverride:
+      supports_dimension_override:
         type: boolean
     required:
-    - modelName
+    - model_name
     type: object
   internal_handler.RenameKnowledgeFolderRequest:
     properties:
@@ -13224,8 +13286,6 @@ definitions:
         type: array
     type: object
   internal_handler.RuntimeWorkerPool:
-    description: Return every row in the system_settings table (system-scope, not
-      workspace-scoped). SystemAdmin only.
     properties:
       active:
         description: live workers assigned to this pool
@@ -13775,11 +13835,7 @@ definitions:
     type: object
   internal_handler.UpdateSystemSettingRequest:
     properties:
-      value:
-        description: |-
-          Value is intentionally `any` (decoded as float64 / string / bool /
-          etc. by the JSON unmarshaller). Service.encodeForType normalises
-          these against the registry's declared type and rejects mismatches.
+      value: {}
     type: object
   internal_handler.UpdateTagRequest:
     properties:
@@ -13791,6 +13847,23 @@ definitions:
         x-agent: true
       sort_order:
         type: integer
+    type: object
+  internal_handler.UpsertGeneratedQuestionRequest:
+    properties:
+      question:
+        type: string
+      question_id:
+        type: string
+    required:
+    - question
+    type: object
+  internal_handler.ValidateImagePipelinesRequest:
+    properties:
+      params:
+        additionalProperties: {}
+        type: object
+      pipeline_id:
+        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ImagePipelineID'
     type: object
   internal_handler.ValidateTokenResponse:
     properties:
@@ -13829,11 +13902,6 @@ definitions:
       success:
         type: boolean
         x-agent: true
-    type: object
-  internal_handler.WikiErrorResponse:
-    properties:
-      error:
-        type: string
     type: object
   internal_handler.WikiMessageResponse:
     properties:
@@ -14252,6 +14320,21 @@ definitions:
       updated_at:
         type: string
     type: object
+  internal_handler.sandboxTemplateQueryRequest:
+    properties:
+      config:
+        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.TenantSandboxConfig'
+      config_id:
+        type: string
+      ensure_desktop:
+        type: boolean
+      ensure_standard:
+        type: boolean
+      replace_desktop:
+        type: boolean
+      replace_standard:
+        type: boolean
+    type: object
   internal_handler.skillAccepted:
     properties:
       skill_id:
@@ -14371,6 +14454,23 @@ definitions:
     - name
     - provider
     type: object
+  internal_handler.tenantAPIKeyCreateRequest:
+    properties:
+      capabilities:
+        items:
+          type: string
+        type: array
+      expires_at_unix:
+        type: integer
+      full_access:
+        type: boolean
+      knowledge_base_ids:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
   internal_handler.tenantAPIKeyCreateResponse:
     properties:
       api_key:
@@ -14426,6 +14526,23 @@ definitions:
         type: string
       scope_type:
         $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.APIKeyScopeType'
+    type: object
+  internal_handler.tenantAPIKeyUpdateRequest:
+    properties:
+      capabilities:
+        items:
+          type: string
+        type: array
+      expires_at_unix:
+        type: integer
+      full_access:
+        type: boolean
+      knowledge_base_ids:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
     type: object
   internal_handler.updateLastFAQImportResultDisplayStatusRequest:
     properties:
@@ -15665,6 +15782,162 @@ paths:
         risk: write
         target: agent.get
       x-agent-hint: Copies an agent, settings included; the copy belongs to the user.
+  /agents/{id}/embed-channels:
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取智能体的网页嵌入渠道列表
+      tags:
+      - 网页嵌入
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Embed channel config
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 创建网页嵌入渠道
+      tags:
+      - 网页嵌入
+  /agents/{id}/im-channels:
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取智能体的 IM 渠道列表
+      tags:
+      - IM 渠道
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: IM channel config
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 创建 IM 渠道
+      tags:
+      - IM 渠道
+  /agents/{id}/shares:
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取智能体的共享列表
+      tags:
+      - 组织管理
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Share request
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 共享智能体到组织
+      tags:
+      - 组织管理
   /agents/{id}/shares/{share_id}:
     delete:
       description: 从智能体的共享列表中移除指定共享关系
@@ -16220,7 +16493,7 @@ paths:
         required: true
         schema:
           properties:
-            refreshToken:
+            refresh_token:
               type: string
           type: object
       produces:
@@ -16924,18 +17197,15 @@ paths:
         "400":
           description: 请求参数错误
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "413":
           description: 文本超过预览限制
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "504":
           description: 分块超时
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       - ApiKeyAuth: []
@@ -17320,7 +17590,80 @@ paths:
       summary: 删除生成的问题
       tags:
       - 分块管理
-  /datasource:
+    put:
+      consumes:
+      - application/json
+      description: 为指定分块创建或更新生成的问题并同步向量索引
+      parameters:
+      - description: 分块ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 问题内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpsertGeneratedQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 生成的问题
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.GeneratedQuestion'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 新增或更新分块生成的问题
+      tags:
+      - 分块管理
+  /chunks/by-id/{id}/questions/regenerate:
+    post:
+      consumes:
+      - application/json
+      description: 为当前分块版本重新生成辅助检索问题
+      parameters:
+      - description: 分块ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 生成的问题列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.GeneratedQuestion'
+                  type: array
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 重新生成分块辅助问题
+      tags:
+      - 分块管理
+  /data-sources:
     get:
       description: List all data sources for a specific knowledge base
       parameters:
@@ -17342,9 +17685,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 获取数据源列表
       tags:
       - DataSource
@@ -17370,17 +17711,15 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource'
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Create a new data source
       tags:
       - DataSource
-  /datasource/{id}:
+  /data-sources/{id}:
     delete:
       description: Delete a data source (soft delete)
       parameters:
@@ -17395,9 +17734,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Delete a data source
       tags:
       - DataSource
@@ -17420,9 +17757,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 获取数据源详情
       tags:
       - DataSource
@@ -17454,17 +17789,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource'
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Update a data source
       tags:
       - DataSource
-  /datasource/{id}/credentials:
+  /data-sources/{id}/credentials:
     put:
       consumes:
       - application/json
@@ -17508,7 +17841,7 @@ paths:
       summary: 设置数据源凭据
       tags:
       - 数据源
-  /datasource/{id}/credentials/{field}:
+  /data-sources/{id}/credentials/{field}:
     delete:
       description: 清除整个凭据映射；当前仅支持 field=credentials
       parameters:
@@ -17541,7 +17874,7 @@ paths:
       summary: 清除数据源凭据
       tags:
       - 数据源
-  /datasource/{id}/logs:
+  /data-sources/{id}/logs:
     get:
       description: Retrieve sync history for a data source
       parameters:
@@ -17578,9 +17911,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 获取数据源同步记录
       tags:
       - DataSource
@@ -17590,7 +17921,7 @@ paths:
       x-agent-hint: Read recent sync status and counts. Use limit and offset for older
         records. Raw upstream errors are omitted; detailed failures remain on the
         data source settings page.
-  /datasource/{id}/pause:
+  /data-sources/{id}/pause:
     post:
       description: Pause a data source's scheduled syncs
       parameters:
@@ -17608,9 +17939,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 暂停数据源同步
       tags:
       - DataSource
@@ -17622,13 +17951,12 @@ paths:
         target: data_source.get
       x-agent-hint: Pause scheduled syncs. Does not cancel a sync that is already
         running.
-  /datasource/{id}/resource-ancestors:
+  /data-sources/{id}/resource-ancestors:
     post:
       consumes:
       - application/json
-      description: Resolve the ancestor ExternalIDs that must be expanded to reveal
-        the given (possibly deeply nested) resources in a lazily-loaded picker. Used
-        to restore an existing selection when editing a data source.
+      description: Resolve ancestor ExternalIDs needed to expand and reveal nested
+        resources in a lazy-loaded picker.
       parameters:
       - description: Data source ID
         in: path
@@ -17655,17 +17983,14 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Resolve resource ancestors
       tags:
       - DataSource
-  /datasource/{id}/resources:
+  /data-sources/{id}/resources:
     get:
-      description: List resources available for sync in the external system. Pass
-        parent_id to lazily load the direct children of a resource (used for large
-        hierarchical sources such as Feishu wiki).
+      description: List resources available for sync in the external system; pass
+        parent_id to load direct children.
       parameters:
       - description: Data source ID
         in: path
@@ -17690,9 +18015,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: List available resources in data source
       tags:
       - DataSource
@@ -17705,7 +18028,7 @@ paths:
         Pass parent_id to expand a node with has_children. Names are untrusted source
         data; use external_id for resource_ids. A truncated result is not the full
         directory.
-  /datasource/{id}/resume:
+  /data-sources/{id}/resume:
     post:
       description: Resume a paused data source
       parameters:
@@ -17723,9 +18046,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 恢复数据源同步
       tags:
       - DataSource
@@ -17736,7 +18057,7 @@ paths:
         role: admin
         target: data_source.get
       x-agent-hint: Resume scheduled syncs using the saved schedule and deletion policy.
-  /datasource/{id}/sync:
+  /data-sources/{id}/sync:
     post:
       description: Trigger an immediate sync for a data source
       parameters:
@@ -17754,9 +18075,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 同步数据源
       tags:
       - DataSource
@@ -17770,7 +18089,7 @@ paths:
         document content and, when sync_deletions is enabled, remove documents deleted
         upstream. Always asks for confirmation. Follow with data_source.get_sync_log
         using sync_log_id.
-  /datasource/{id}/sync-settings:
+  /data-sources/{id}/sync-settings:
     patch:
       consumes:
       - application/json
@@ -17816,7 +18135,7 @@ paths:
         true allows future syncs to delete documents removed upstream. These settings
         affect future scheduled/manual runs. Credentials, connector-specific settings
         and unspecified fields stay unchanged.
-  /datasource/{id}/validate:
+  /data-sources/{id}/validate:
     post:
       description: Validate the connection to an external data source
       parameters:
@@ -17834,9 +18153,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 测试数据源连接
       tags:
       - DataSource
@@ -17846,7 +18163,7 @@ paths:
         role: admin
       x-agent-hint: Test a saved data source using its stored credentials; no credentials
         are accepted or returned.
-  /datasource/logs/{log_id}:
+  /data-sources/logs/{log_id}:
     get:
       description: Retrieve a specific sync log entry
       parameters:
@@ -17866,9 +18183,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 获取数据源同步进度
       tags:
       - DataSource
@@ -17879,7 +18194,7 @@ paths:
         data_source.sync or data_source.list_sync_logs. A started job is not a completed
         sync. Raw upstream errors are omitted; detailed failures remain on the data
         source settings page.
-  /datasource/types:
+  /data-sources/types:
     get:
       description: Get list of available data source connectors
       produces:
@@ -17894,7 +18209,7 @@ paths:
       summary: Get available connectors
       tags:
       - DataSource
-  /datasource/validate-credentials:
+  /data-sources/validate-credentials:
     post:
       consumes:
       - application/json
@@ -17918,13 +18233,166 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Test connection with raw credentials (no persistence)
       tags:
       - DataSource
-  /evaluation/:
+  /embed-channels:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取空间下所有网页嵌入渠道
+      tags:
+      - 网页嵌入
+  /embed-channels/{channel_id}:
+    delete:
+      parameters:
+      - description: Embed channel ID
+        in: path
+        name: channel_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 删除网页嵌入渠道
+      tags:
+      - 网页嵌入
+    get:
+      parameters:
+      - description: Embed channel ID
+        in: path
+        name: channel_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取网页嵌入渠道详情
+      tags:
+      - 网页嵌入
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Embed channel ID
+        in: path
+        name: channel_id
+        required: true
+        type: string
+      - description: Updated config
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 更新网页嵌入渠道
+      tags:
+      - 网页嵌入
+  /embed-channels/{channel_id}/preview-session:
+    post:
+      parameters:
+      - description: Embed channel ID
+        in: path
+        name: channel_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 签发网页嵌入预览会话令牌
+      tags:
+      - 网页嵌入
+  /embed-channels/{channel_id}/rotate-token:
+    post:
+      parameters:
+      - description: Embed channel ID
+        in: path
+        name: channel_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 轮换网页嵌入渠道发布令牌
+      tags:
+      - 网页嵌入
+  /embed-channels/{channel_id}/stats:
+    get:
+      parameters:
+      - description: Embed channel ID
+        in: path
+        name: channel_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取网页嵌入渠道统计信息
+      tags:
+      - 网页嵌入
+  /evaluation:
     get:
       consumes:
       - application/json
@@ -18023,6 +18491,32 @@ paths:
       summary: 获取FAQ导入进度
       tags:
       - FAQ管理
+  /im-channels:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取当前工作空间的全部 IM 渠道列表
+      tags:
+      - IM 渠道
   /im-channels/{id}:
     delete:
       description: 删除指定 IM 渠道
@@ -18211,6 +18705,51 @@ paths:
       summary: 获取图片属性字典
       tags:
       - 知识库
+  /image-pipelines:
+    get:
+      description: 返回所有已注册的图片处理流水线及其配置字段元数据。全局只读，不绑定知识库。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.DataResponse'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取图片处理流水线列表
+      tags:
+      - 知识库
+  /image-pipelines/validate:
+    post:
+      consumes:
+      - application/json
+      description: 根据指定流水线的规则校验参数组合是否合法，不持久化任何配置。
+      parameters:
+      - description: 流水线与参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.ValidateImagePipelinesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.DataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 校验图片处理流水线参数
+      tags:
+      - 知识库
   /initialization/asr/check:
     post:
       consumes:
@@ -18241,7 +18780,7 @@ paths:
       summary: 检查ASR模型
       tags:
       - 初始化
-  /initialization/config/{kbId}:
+  /initialization/config/{kb_id}:
     get:
       consumes:
       - application/json
@@ -18249,7 +18788,7 @@ paths:
       parameters:
       - description: 知识库ID
         in: path
-        name: kbId
+        name: kb_id
         required: true
         type: string
       produces:
@@ -18277,7 +18816,7 @@ paths:
       parameters:
       - description: 知识库ID
         in: path
-        name: kbId
+        name: kb_id
         required: true
         type: string
       - description: 配置请求
@@ -18425,7 +18964,7 @@ paths:
       summary: 提取文本关系
       tags:
       - 初始化
-  /initialization/initialize/{kbId}:
+  /initialization/initialize/{kb_id}:
     post:
       consumes:
       - application/json
@@ -18433,7 +18972,7 @@ paths:
       parameters:
       - description: 知识库ID
         in: path
-        name: kbId
+        name: kb_id
         required: true
         type: string
       - description: 初始化请求
@@ -18512,7 +19051,7 @@ paths:
       summary: 测试多模态功能
       tags:
       - 初始化
-  /initialization/ollama/download/progress/{taskId}:
+  /initialization/ollama/download/progress/{task_id}:
     get:
       consumes:
       - application/json
@@ -18520,7 +19059,7 @@ paths:
       parameters:
       - description: 任务ID
         in: path
-        name: taskId
+        name: task_id
         required: true
         type: string
       produces:
@@ -18640,7 +19179,7 @@ paths:
         required: true
         schema:
           properties:
-            modelName:
+            model_name:
               type: string
           type: object
       produces:
@@ -19348,33 +19887,31 @@ paths:
     post:
       consumes:
       - application/json
-      description: |-
-        异步批量更新或插入FAQ条目。支持 dry_run 模式（设置 dry_run=true），异步验证不实际导入。
-        dry_run 模式是异步操作，返回 task_id，通过 /faq/import/progress/{task_id} 查询进度和结果。
-        验证内容包括：1) 条目基本格式 2) 重复问题（批次内和知识库已有） 3) 内容安全检查。
+      description: 同步创建单个FAQ条目
       parameters:
       - description: 知识库ID
         in: path
         name: id
         required: true
         type: string
-      - description: 批量操作请求
+        x-agent: knowledge_base_id
+      - description: FAQ条目
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.FAQBatchUpsertPayload'
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload'
       produces:
       - application/json
       responses:
         "200":
-          description: 任务ID
+          description: 创建的FAQ条目
           schema:
             allOf:
             - $ref: '#/definitions/internal_handler.DataResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_handler.TaskIDData'
+                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry'
               type: object
         "400":
           description: 请求参数错误
@@ -19383,9 +19920,16 @@ paths:
       security:
       - Bearer: []
       - ApiKeyAuth: []
-      summary: 批量更新/插入FAQ条目
+      summary: 创建单个FAQ条目
       tags:
       - FAQ管理
+      x-agent:
+        id: faq.create_entry
+        label: name
+        risk: write
+        target: knowledge_base.get
+      x-agent-hint: Adds one FAQ entry. Questions already used by another entry are
+        refused.
   /knowledge-bases/{id}/faq/entries/{entry_id}:
     get:
       consumes:
@@ -19544,6 +20088,48 @@ paths:
         risk: write
         target: faq.get_entry
       x-agent-hint: Adds phrasings to an entry and keeps everything else.
+  /knowledge-bases/{id}/faq/entries/batch:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        异步批量更新或插入FAQ条目。支持 dry_run 模式（设置 dry_run=true），异步验证不实际导入。
+        dry_run 模式是异步操作，返回 task_id，通过 /faq/import/progress/{task_id} 查询进度和结果。
+        验证内容包括：1) 条目基本格式 2) 重复问题（批次内和知识库已有） 3) 内容安全检查。
+      parameters:
+      - description: 知识库ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 批量操作请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.FAQBatchUpsertPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 任务ID
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.TaskIDData'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 批量更新/插入FAQ条目
+      tags:
+      - FAQ管理
   /knowledge-bases/{id}/faq/entries/export:
     get:
       consumes:
@@ -19645,53 +20231,6 @@ paths:
       summary: 批量更新FAQ标签
       tags:
       - FAQ管理
-  /knowledge-bases/{id}/faq/entry:
-    post:
-      consumes:
-      - application/json
-      description: 同步创建单个FAQ条目
-      parameters:
-      - description: 知识库ID
-        in: path
-        name: id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: FAQ条目
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 创建的FAQ条目
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_handler.DataResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry'
-              type: object
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 创建单个FAQ条目
-      tags:
-      - FAQ管理
-      x-agent:
-        id: faq.create_entry
-        label: name
-        risk: write
-        target: knowledge_base.get
-      x-agent-hint: Adds one FAQ entry. Questions already used by another entry are
-        refused.
   /knowledge-bases/{id}/faq/import/last-result/display:
     put:
       consumes:
@@ -19771,6 +20310,38 @@ paths:
       summary: 搜索FAQ
       tags:
       - FAQ管理
+  /knowledge-bases/{id}/gallery-config:
+    get:
+      consumes:
+      - application/json
+      description: 返回知识库解析后的图库属性来源、属性定义及使用策略、检索模式与各字段状态。
+      parameters:
+      - description: 知识库 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 图库配置
+          schema:
+            $ref: '#/definitions/internal_handler.DataResponse'
+        "403":
+          description: 无权访问知识库
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: 知识库不存在
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取知识库图库配置
+      tags:
+      - knowledge
   /knowledge-bases/{id}/graph-search:
     post:
       consumes:
@@ -19965,7 +20536,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: 浏览某知识库内的全部图片资产，支持关键字搜索（caption/OCR 文本）、按图片属性筛选（attr_filters / attr_rules）与排序分页。
+      description: 浏览某知识库内的全部图片资产，支持关键字搜索、按图片属性筛选与排序分页。
       parameters:
       - description: 知识库 ID
         in: path
@@ -20039,8 +20610,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 与 GET /images 同义，筛选参数改经 JSON body 传递：knowledge_ids 不再受 URL 长度限制（上限
-        1000），供来源文档全选使用。
+      description: 与 GET /images 同义，筛选参数经 JSON body 传递（knowledge_ids 上限 1000）。
       parameters:
       - description: 知识库 ID
         in: path
@@ -20313,7 +20883,7 @@ paths:
         type: file
       - description: 自定义文件名
         in: formData
-        name: fileName
+        name: file_name
         type: string
       - description: 元数据JSON
         in: formData
@@ -20321,7 +20891,7 @@ paths:
         type: string
       - description: 启用多模态处理
         in: formData
-        name: enable_multimodel
+        name: enable_multimodal
         type: boolean
       - description: 分类ID列表，逗号分隔
         in: formData
@@ -20350,8 +20920,7 @@ paths:
         "409":
           description: 文件重复
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       - ApiKeyAuth: []
@@ -20536,8 +21105,7 @@ paths:
         "409":
           description: URL重复
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       - ApiKeyAuth: []
@@ -21068,6 +21636,860 @@ paths:
         target: knowledge_base.get
       x-agent-hint: Renames a tag. tag_id comes from knowledge_base.list_tags. A field
         left out is kept.
+  /knowledge-bases/{id}/wiki/auto-fix:
+    post:
+      description: Automatically fix fixable wiki issues (broken links, etc.)
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.AutoFixResponse'
+      security:
+      - Bearer: []
+      summary: Auto-fix wiki issues
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/folders:
+    get:
+      description: Retrieve direct child folders (parent_id empty = root) with page
+        counts and has-children flags.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Parent folder id (empty = root)
+        in: query
+        name: parent_id
+        type: string
+        x-agent: true
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: List wiki folders
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.list_folders
+        max_items: 200
+        risk: read
+        root: folders
+      x-agent-hint: Direct child folders of parent_id (omit it for the top level),
+        up to 200, with page counts; has_children tells whether to look deeper.
+    post:
+      consumes:
+      - application/json
+      description: Create a new (initially empty) directory node under parent_id
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Folder data
+        in: body
+        name: folder
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Create a wiki folder
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.create_folder
+        label: name
+        risk: write
+        target: knowledge_base.get
+      x-agent-hint: Creates an empty Wiki folder under parent_id (omit it for the
+        top level).
+  /knowledge-bases/{id}/wiki/folders/{folder_id}:
+    delete:
+      description: Delete a folder that has no pages and no child folders
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Folder ID
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Delete an empty wiki folder
+      tags:
+      - Wiki
+    put:
+      consumes:
+      - application/json
+      description: Rename or reparent a folder and recompute cached paths across its
+        subtree and pages.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Folder ID
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      - description: Folder update
+        in: body
+        name: folder
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Rename or move a wiki folder
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/graph:
+    get:
+      description: |-
+        Returns a slice of the wiki link graph for visualization. Supports
+        `mode=overview` (top-N most-connected pages, default) and
+        `mode=ego` (BFS neighborhood of a center slug) to keep response
+        size tractable for knowledge bases with tens of thousands of pages.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: overview (default) | ego
+        in: query
+        name: mode
+        type: string
+      - description: Center slug for ego mode
+        in: query
+        name: center
+        type: string
+      - description: Ego BFS depth (1-3, default 1)
+        in: query
+        name: depth
+        type: integer
+      - description: Comma-separated page_type allow-list
+        in: query
+        name: types
+        type: string
+      - description: Max nodes to return (default 500, max 2000)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphData'
+      security:
+      - Bearer: []
+      summary: Get wiki link graph
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/index:
+    get:
+      description: |-
+        Returns the wiki index as intro text plus per-type paginated
+        directory groups. The heavy directory markdown that used to
+        live in wiki_pages.content was replaced with this structured
+        response so a KB with tens of thousands of pages no longer
+        materializes megabytes of TEXT on every index open.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Comma-separated page types (default: all content types)'
+        in: query
+        name: types
+        type: string
+      - description: Per-group window size, 1-200 (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque offset cursor from previous response
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexResponse'
+      security:
+      - Bearer: []
+      summary: Get wiki index view
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/issues:
+    get:
+      description: List issues flagged on wiki pages with optional filtering
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Filter by page slug
+        in: query
+        name: slug
+        type: string
+        x-agent: true
+      - description: Filter by status
+        enum:
+        - pending
+        - ignored
+        - resolved
+        in: query
+        name: status
+        type: string
+        x-agent: true
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageIssue'
+            type: array
+        "400":
+          description: Not a Wiki knowledge base, or no access
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: List wiki page issues
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.list_issues
+        risk: read
+      x-agent-hint: Descriptions come from users or ingest and may be wrong; check
+        them against the page and its sources.
+  /knowledge-bases/{id}/wiki/issues/{issue_id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Update the status of a flagged wiki page issue
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Issue ID
+        in: path
+        name: issue_id
+        required: true
+        type: string
+      - description: 'New status {''status'': ''ignored''}'
+        in: body
+        name: status
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Update wiki page issue status
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/lint:
+    get:
+      description: Perform a comprehensive health check on the wiki
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintReport'
+        "400":
+          description: Not a Wiki knowledge base, or no access
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Run wiki lint
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.lint
+        risk: read
+        root: issues
+      x-agent-hint: health_score is 0-100. auto_fixable issues are structural; fix
+        content problems with the Wiki tools.
+  /knowledge-bases/{id}/wiki/move-page:
+    put:
+      consumes:
+      - application/json
+      description: Relocate a page by slug into a folder (folder_id empty = root)
+        and recompute its category path.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Move target
+        in: body
+        name: move
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageMoveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Move a wiki page into a folder
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.move_page
+        label: title
+        risk: write
+        target: wiki.get_page
+      x-agent-hint: Files a Wiki page under a folder from wiki.list_folders; an empty
+        folder_id moves it to the top level. Content is unchanged.
+  /knowledge-bases/{id}/wiki/pages:
+    get:
+      description: List wiki pages with optional filtering and pagination
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Filter by page type; comma-separated for multiple (e.g. entity,concept)
+        in: query
+        name: page_type
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Full-text search
+        in: query
+        name: query
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Sort field
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order (asc/desc)
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: List wiki pages
+      tags:
+      - Wiki
+    post:
+      consumes:
+      - application/json
+      description: Create a new wiki page in the knowledge base
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Wiki page data
+        in: body
+        name: page
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Create a wiki page
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/pages/{slug}:
+    delete:
+      description: Soft-delete a wiki page by slug
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Delete a wiki page
+      tags:
+      - Wiki
+    get:
+      description: Retrieve a wiki page by its slug, including titles of existing
+        backlinks
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Page slug
+        in: path
+        name: slug
+        required: true
+        type: string
+        x-agent: true
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageDetail'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Get a wiki page by slug
+      tags:
+      - Wiki
+      x-agent:
+        catch_all: slug
+        id: wiki.get_page
+        risk: read
+      x-agent-hint: A Wiki page's title, type, status, folder and version. Read its
+        content with the document tools instead.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Partially update a wiki page by slug. Absent fields keep
+        their stored value. When `version` is > 0 it acts as an
+        optimistic-lock guard: a mismatch with the stored version
+        returns 409 together with the current version so the client
+        can reload and re-apply.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: page
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Update a wiki page
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/rebuild-links:
+    post:
+      description: Re-parse all pages and rebuild bidirectional link references
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.WikiMessageResponse'
+        "400":
+          description: Not a Wiki knowledge base, or no access
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Rebuild wiki links
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.rebuild_links
+        label: name
+        risk: write
+        target: knowledge_base.get
+      x-agent-hint: Use when wiki.lint reports link problems that do not match the
+        page content.
+  /knowledge-bases/{id}/wiki/revert:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Rolls the page (slug in the body, like move-page) back to
+        the content of the given stored revision. Applied as a
+        regular edit: the pre-revert state is snapshotted and the
+        version advances.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Revert target
+        in: body
+        name: revert
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Revert a wiki page to an earlier revision
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.revert
+        label: title
+        risk: write
+        target: wiki.get_page
+      x-agent-hint: Restores a Wiki page to a version from wiki.list_revisions. Read
+        that version with content_version first. The restore is saved as a new version,
+        so it can be undone the same way.
+  /knowledge-bases/{id}/wiki/revisions/{slug}:
+    get:
+      description: |-
+        Returns the stored historical snapshots for a page, newest
+        first (content omitted), plus the current version. Passing
+        `version` returns that single snapshot with full content.
+        `content_version` keeps this list envelope and includes that
+        one revision's content.
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      - description: Page slug
+        in: path
+        name: slug
+        required: true
+        type: string
+        x-agent: true
+      - description: Return this single revision with content
+        in: query
+        name: version
+        type: integer
+      - description: Include this stored revision's content in the list envelope
+        in: query
+        minimum: 1
+        name: content_version
+        type: integer
+        x-agent: true
+      - description: Page size (default 50, max 200)
+        in: query
+        name: limit
+        type: integer
+        x-agent: true
+        x-agent-maximum: "50"
+      - description: Offset into the newest-first list
+        in: query
+        name: offset
+        type: integer
+        x-agent: true
+        x-agent-maximum: "10000"
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevisionListResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: List wiki page revisions
+      tags:
+      - Wiki
+      x-agent:
+        catch_all: slug
+        id: wiki.list_revisions
+        risk: read
+        root: revisions
+      x-agent-hint: Earlier versions of a Wiki page, newest first. Pass content_version
+        to read one stored revision's content before wiki.revert. The current page
+        is not in this list.
+  /knowledge-bases/{id}/wiki/search:
+    get:
+      description: Full-text search over wiki pages
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Max results (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
+            type: array
+      security:
+      - Bearer: []
+      summary: Search wiki pages
+      tags:
+      - Wiki
+  /knowledge-bases/{id}/wiki/stats:
+    get:
+      description: Returns aggregate statistics about the wiki
+      parameters:
+      - description: Knowledge base ID
+        in: path
+        name: id
+        required: true
+        type: string
+        x-agent: knowledge_base_id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiStats'
+        "400":
+          description: Not a Wiki knowledge base, or no access
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      summary: Get wiki statistics
+      tags:
+      - Wiki
+      x-agent:
+        id: wiki.get_stats
+        risk: read
   /knowledge-bases/copy:
     post:
       consumes:
@@ -21381,8 +22803,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 取消进行中的知识解析任务。当前已写入的 chunk / 索引保留，可通过 reparse 接口重新触发解析。已完成 / 已失败
-        / 删除中的知识不支持取消。
+      description: 取消进行中的知识解析任务；已写入分块保留，可通过 reparse 重新解析。终态或删除中的知识不支持取消。
       parameters:
       - description: 知识ID
         in: path
@@ -21484,6 +22905,47 @@ paths:
       summary: 预览知识文件
       tags:
       - 知识管理
+  /knowledge/{id}/regenerate-summary:
+    post:
+      consumes:
+      - application/json
+      description: 在分块或元数据编辑后刷新或重新触发知识条目的文档摘要生成。
+      parameters:
+      - description: 知识ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新后的知识
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: 知识不存在
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 重新生成知识摘要
+      tags:
+      - 知识管理
   /knowledge/{id}/reparse:
     post:
       consumes:
@@ -21542,8 +23004,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: 返回该知识在解析流水线的 trace tree（root → stage → subspan）：每段状态、耗时、input/output、错误码、langfuse_trace_id。支持
-        ?attempt=N 查看历史尝试；不传则返回最新尝试。前端用于渲染时间线 + 多模态/embedding 子节点 + 一键跳转 Langfuse。
+      description: 返回该知识在解析流水线的 trace tree（root → stage → subspan）：每段状态、耗时、错误码与追踪
+        ID；支持 ?attempt=N 查看历史尝试。
       parameters:
       - description: 知识ID
         in: path
@@ -21587,11 +23049,53 @@ paths:
         risk: read
       x-agent-hint: 'Use when a document is stuck or failed: tells a stalled parse
         from a running one, names the failed stage.'
+  /knowledge/{id}/stages:
+    get:
+      consumes:
+      - application/json
+      description: 与 GET /knowledge/{id}/spans 返回结构一致的只读别名接口，不重复声明 x-agent 操作 ID。
+      parameters:
+      - description: 知识ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 指定尝试号；省略或非正数=最新
+        in: query
+        minimum: 1
+        name: attempt
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.KnowledgeSpansData'
+              type: object
+        "403":
+          description: 无权访问所属知识库
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: 知识不存在
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取知识文档解析阶段状态（/spans 兼容别名）
+      tags:
+      - 知识管理
   /knowledge/batch:
     get:
       consumes:
       - application/json
-      description: 根据ID列表批量获取知识条目。可选 kb_id：指定时按该知识库校验权限并用于共享知识库的空间解析；可选 agent_id：使用共享智能体时传此参数，后端按智能体所属空间查询（用于刷新后恢复共享知识库下的文件）
+      description: 根据ID列表批量获取知识条目；可选 kb_id 或共享 agent_id 限定空间范围与访问校验。
       parameters:
       - collectionFormat: csv
         description: 知识ID列表
@@ -21724,7 +23228,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 批量修改知识条目所属文件夹。文件夹由路径推导而来，因此目标路径不存在时会自动创建；空路径表示知识库顶层。仅调整归类，不会重新解析文档
+      description: 批量修改知识条目所属文件夹；目标路径不存在时自动创建，空路径表示顶层，不重新解析文档。
       parameters:
       - description: 移动请求
         in: body
@@ -21942,9 +23446,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Search knowledge files by keyword. Pass recent=true without a keyword
-        to browse recent files. When agent_id is set (shared agent), scope is the
-        agent's configured knowledge bases.
+      description: Search knowledge files by keyword (or pass recent=true); optional
+        agent_id scopes to shared agent KBs.
       parameters:
       - description: Keyword to search
         in: query
@@ -21994,7 +23497,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: 批量更新知识条目的标签。传 updates，或传 knowledge_ids 与 tag_ids。可选 kb_id：指定时按该知识库校验编辑权限并用于共享知识库的空间解析
+      description: 批量更新知识条目的标签（传 updates 或 knowledge_ids + tag_ids）；可选 kb_id 指定知识库范围。
       parameters:
       - description: 标签更新请求
         in: body
@@ -22034,861 +23537,6 @@ paths:
         tags with knowledge.get or knowledge.list first and pass the full resulting
         list. tag_ids come from knowledge_base.list_tags; an empty tag_ids clears
         every tag. It does not delete documents.
-  /knowledgebase/{kb_id}/wiki/auto-fix:
-    post:
-      description: Automatically fix fixable wiki issues (broken links, etc.)
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_handler.AutoFixResponse'
-      security:
-      - Bearer: []
-      summary: Auto-fix wiki issues
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/folders:
-    get:
-      description: Retrieve the direct child folders of a parent folder (parent_id
-        empty = root level), each with its page count and a has-children flag for
-        the directory tree.
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Parent folder id (empty = root)
-        in: query
-        name: parent_id
-        type: string
-        x-agent: true
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: List wiki folders
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.list_folders
-        max_items: 200
-        risk: read
-        root: folders
-      x-agent-hint: Direct child folders of parent_id (omit it for the top level),
-        up to 200, with page counts; has_children tells whether to look deeper.
-    post:
-      consumes:
-      - application/json
-      description: Create a new (initially empty) directory node under parent_id
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Folder data
-        in: body
-        name: folder
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderCreateRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Create a wiki folder
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.create_folder
-        label: name
-        risk: write
-        target: knowledge_base.get
-      x-agent-hint: Creates an empty Wiki folder under parent_id (omit it for the
-        top level).
-  /knowledgebase/{kb_id}/wiki/folders/{folder_id}:
-    delete:
-      description: Delete a folder that has no pages and no child folders
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Folder ID
-        in: path
-        name: folder_id
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Delete an empty wiki folder
-      tags:
-      - Wiki
-    put:
-      consumes:
-      - application/json
-      description: Rename and/or reparent a folder; the whole subtree's paths and
-        the affected pages' cached paths are recomputed
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Folder ID
-        in: path
-        name: folder_id
-        required: true
-        type: string
-      - description: Folder update
-        in: body
-        name: folder
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderUpdateRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Rename or move a wiki folder
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/graph:
-    get:
-      description: |-
-        Returns a slice of the wiki link graph for visualization. Supports
-        `mode=overview` (top-N most-connected pages, default) and
-        `mode=ego` (BFS neighborhood of a center slug) to keep response
-        size tractable for knowledge bases with tens of thousands of pages.
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: overview (default) | ego
-        in: query
-        name: mode
-        type: string
-      - description: Center slug for ego mode
-        in: query
-        name: center
-        type: string
-      - description: Ego BFS depth (1-3, default 1)
-        in: query
-        name: depth
-        type: integer
-      - description: Comma-separated page_type allow-list
-        in: query
-        name: types
-        type: string
-      - description: Max nodes to return (default 500, max 2000)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphData'
-      security:
-      - Bearer: []
-      summary: Get wiki link graph
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/index:
-    get:
-      description: |-
-        Returns the wiki index as intro text plus per-type paginated
-        directory groups. The heavy directory markdown that used to
-        live in wiki_pages.content was replaced with this structured
-        response so a KB with tens of thousands of pages no longer
-        materializes megabytes of TEXT on every index open.
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: 'Comma-separated page types (default: all content types)'
-        in: query
-        name: types
-        type: string
-      - description: Per-group window size, 1-200 (default 50)
-        in: query
-        name: limit
-        type: integer
-      - description: Opaque offset cursor from previous response
-        in: query
-        name: cursor
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexResponse'
-      security:
-      - Bearer: []
-      summary: Get wiki index view
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/issues:
-    get:
-      description: List issues flagged on wiki pages with optional filtering
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Filter by page slug
-        in: query
-        name: slug
-        type: string
-        x-agent: true
-      - description: Filter by status
-        enum:
-        - pending
-        - ignored
-        - resolved
-        in: query
-        name: status
-        type: string
-        x-agent: true
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageIssue'
-            type: array
-        "400":
-          description: Not a Wiki knowledge base, or no access
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-      security:
-      - Bearer: []
-      summary: List wiki page issues
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.list_issues
-        risk: read
-      x-agent-hint: Descriptions come from users or ingest and may be wrong; check
-        them against the page and its sources.
-  /knowledgebase/{kb_id}/wiki/issues/{issue_id}/status:
-    put:
-      consumes:
-      - application/json
-      description: Update the status of a flagged wiki page issue
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Issue ID
-        in: path
-        name: issue_id
-        required: true
-        type: string
-      - description: 'New status {''status'': ''ignored''}'
-        in: body
-        name: status
-        required: true
-        schema:
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Update wiki page issue status
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/lint:
-    get:
-      description: Perform a comprehensive health check on the wiki
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintReport'
-        "400":
-          description: Not a Wiki knowledge base, or no access
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-      security:
-      - Bearer: []
-      summary: Run wiki lint
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.lint
-        risk: read
-        root: issues
-      x-agent-hint: health_score is 0-100. auto_fixable issues are structural; fix
-        content problems with the Wiki tools.
-  /knowledgebase/{kb_id}/wiki/move-page:
-    put:
-      consumes:
-      - application/json
-      description: Relocate a page (identified by slug in the body) into a folder
-        (folder_id empty = root); the page's cached category path is recomputed
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Move target
-        in: body
-        name: move
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageMoveRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Move a wiki page into a folder
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.move_page
-        label: title
-        risk: write
-        target: wiki.get_page
-      x-agent-hint: Files a Wiki page under a folder from wiki.list_folders; an empty
-        folder_id moves it to the top level. Content is unchanged.
-  /knowledgebase/{kb_id}/wiki/pages:
-    get:
-      description: List wiki pages with optional filtering and pagination
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Filter by page type; comma-separated for multiple (e.g. entity,concept)
-        in: query
-        name: page_type
-        type: string
-      - description: Filter by status
-        in: query
-        name: status
-        type: string
-      - description: Full-text search
-        in: query
-        name: query
-        type: string
-      - description: Page number
-        in: query
-        name: page
-        type: integer
-      - description: Page size
-        in: query
-        name: page_size
-        type: integer
-      - description: Sort field
-        in: query
-        name: sort_by
-        type: string
-      - description: Sort order (asc/desc)
-        in: query
-        name: sort_order
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: List wiki pages
-      tags:
-      - Wiki
-    post:
-      consumes:
-      - application/json
-      description: Create a new wiki page in the knowledge base
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Wiki page data
-        in: body
-        name: page
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Create a wiki page
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/pages/{slug}:
-    delete:
-      description: Soft-delete a wiki page by slug
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Page slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Delete a wiki page
-      tags:
-      - Wiki
-    get:
-      description: Retrieve a wiki page by its slug, including titles of existing
-        backlinks
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Page slug
-        in: path
-        name: slug
-        required: true
-        type: string
-        x-agent: true
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageDetail'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Get a wiki page by slug
-      tags:
-      - Wiki
-      x-agent:
-        catch_all: slug
-        id: wiki.get_page
-        risk: read
-      x-agent-hint: A Wiki page's title, type, status, folder and version. Read its
-        content with the document tools instead.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Partially update a wiki page by slug. Absent fields keep
-        their stored value. When `version` is > 0 it acts as an
-        optimistic-lock guard: a mismatch with the stored version
-        returns 409 together with the current version so the client
-        can reload and re-apply.
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Page slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Fields to update
-        in: body
-        name: page
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageUpdateRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Update a wiki page
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/rebuild-links:
-    post:
-      description: Re-parse all pages and rebuild bidirectional link references
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_handler.WikiMessageResponse'
-        "400":
-          description: Not a Wiki knowledge base, or no access
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-      security:
-      - Bearer: []
-      summary: Rebuild wiki links
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.rebuild_links
-        label: name
-        risk: write
-        target: knowledge_base.get
-      x-agent-hint: Use when wiki.lint reports link problems that do not match the
-        page content.
-  /knowledgebase/{kb_id}/wiki/revert:
-    post:
-      consumes:
-      - application/json
-      description: |-
-        Rolls the page (slug in the body, like move-page) back to
-        the content of the given stored revision. Applied as a
-        regular edit: the pre-revert state is snapshotted and the
-        version advances.
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Revert target
-        in: body
-        name: revert
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevertRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: Revert a wiki page to an earlier revision
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.revert
-        label: title
-        risk: write
-        target: wiki.get_page
-      x-agent-hint: Restores a Wiki page to a version from wiki.list_revisions. Read
-        that version with content_version first. The restore is saved as a new version,
-        so it can be undone the same way.
-  /knowledgebase/{kb_id}/wiki/revisions/{slug}:
-    get:
-      description: |-
-        Returns the stored historical snapshots for a page, newest
-        first (content omitted), plus the current version. Passing
-        `version` returns that single snapshot with full content.
-        `content_version` keeps this list envelope and includes that
-        one revision's content.
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      - description: Page slug
-        in: path
-        name: slug
-        required: true
-        type: string
-        x-agent: true
-      - description: Return this single revision with content
-        in: query
-        name: version
-        type: integer
-      - description: Include this stored revision's content in the list envelope
-        in: query
-        minimum: 1
-        name: content_version
-        type: integer
-        x-agent: true
-      - description: Page size (default 50, max 200)
-        in: query
-        name: limit
-        type: integer
-        x-agent: true
-        x-agent-maximum: "50"
-      - description: Offset into the newest-first list
-        in: query
-        name: offset
-        type: integer
-        x-agent: true
-        x-agent-maximum: "10000"
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevisionListResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      summary: List wiki page revisions
-      tags:
-      - Wiki
-      x-agent:
-        catch_all: slug
-        id: wiki.list_revisions
-        risk: read
-        root: revisions
-      x-agent-hint: Earlier versions of a Wiki page, newest first. Pass content_version
-        to read one stored revision's content before wiki.revert. The current page
-        is not in this list.
-  /knowledgebase/{kb_id}/wiki/search:
-    get:
-      description: Full-text search over wiki pages
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-      - description: Search query
-        in: query
-        name: q
-        required: true
-        type: string
-      - description: Max results (default 10)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage'
-            type: array
-      security:
-      - Bearer: []
-      summary: Search wiki pages
-      tags:
-      - Wiki
-  /knowledgebase/{kb_id}/wiki/stats:
-    get:
-      description: Returns aggregate statistics about the wiki
-      parameters:
-      - description: Knowledge base ID
-        in: path
-        name: kb_id
-        required: true
-        type: string
-        x-agent: knowledge_base_id
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WikiStats'
-        "400":
-          description: Not a Wiki knowledge base, or no access
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_handler.WikiErrorResponse'
-      security:
-      - Bearer: []
-      summary: Get wiki statistics
-      tags:
-      - Wiki
-      x-agent:
-        id: wiki.get_stats
-        risk: read
   /mcp-endpoints:
     get:
       produces:
@@ -23701,6 +24349,28 @@ paths:
         whether it works. success false comes with the reason in message; oauth_required
         means the user must authorize it in the MCP settings. List its tools with
         mcp_service.list_tools.
+  /mcp-services/{id}/tool-approvals:
+    get:
+      parameters:
+      - description: MCP service ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取 MCP 工具审批策略列表
+      tags:
+      - MCP服务
   /mcp-services/{id}/tool-approvals/{tool_name}:
     put:
       consumes:
@@ -23794,6 +24464,36 @@ paths:
         is needed; to synchronize it use mcp_service.refresh_metadata. Use it to check
         that a service can do what an agent needs before binding it. An error means
         the service is unreachable; mcp_service.test says why.
+  /mcp-services/{id}/usage-instructions/generate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: MCP service ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Generation options
+        in: body
+        name: request
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 生成 MCP 服务使用说明
+      tags:
+      - MCP服务
   /me/credential-vault:
     get:
       description: 只返回元数据（站点、域名、用户名、最近使用时间），不返回密码。available 表示服务端是否可以保存凭据。
@@ -23894,10 +24594,10 @@ paths:
       - Me
   /me/env-vars:
     get:
-      description: List every sandbox config of this workspace with the caller's own
-        config-wide variables and the credentials its skills declared, each reporting
-        whether it is unset, filled in workspace-wide, or filled in by the caller.
-        Values are never returned.
+      description: |-
+        List every sandbox config of this workspace with the caller's own config-wide variables and the
+        credentials its skills declared, each reporting whether it is unset, filled in workspace-wide, or
+        filled in by the caller. Values are never returned.
       produces:
       - application/json
       responses:
@@ -23953,9 +24653,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Store the caller's own value for one variable on a sandbox config.
-        It is injected into every skill script and shell command this caller's turns
-        run on that config.
+      description: |-
+        Store the caller's own value for one variable on a sandbox config. It is injected into every skill
+        script and shell command this caller's turns run on that config.
       parameters:
       - description: Sandbox config, variable name and value
         in: body
@@ -24011,9 +24711,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Store the caller's own value for one variable the skill declared.
-        It overrides the workspace-wide value for this caller only, and is injected
-        only into executions that name this skill.
+      description: |-
+        Store the caller's own value for one variable the skill declared. It overrides the workspace-wide
+        value for this caller only, and is injected only into executions that name this skill.
       parameters:
       - description: Skill, variable name and value
         in: body
@@ -24037,6 +24737,68 @@ paths:
       summary: Set one of my skill credentials
       tags:
       - Me
+  /me/favorites:
+    get:
+      description: Lists this user's starred resources in the current workspace for
+        a given type
+      parameters:
+      - description: Resource type (kb | agent)
+        in: query
+        name: type
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.UserResourceFavorite'
+                  type: array
+              type: object
+      summary: List my favorites
+      tags:
+      - User
+    post:
+      parameters:
+      - description: Type + id
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.AddFavoriteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.SuccessResponse'
+      summary: Star a resource
+      tags:
+      - User
+  /me/favorites/{type}/{id}:
+    delete:
+      parameters:
+      - description: Resource type
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Resource id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.SuccessResponse'
+      summary: Unstar a resource
+      tags:
+      - User
   /me/invitations:
     get:
       description: 返回当前登录用户的待接受邀请（默认仅 pending），用于头像入口和 /invitations 收件箱页。
@@ -25097,6 +25859,36 @@ paths:
       summary: 移除模型的单个凭据字段
       tags:
       - 模型管理
+  /models/{id}/debug:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Debug options
+        in: body
+        name: request
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 调试已保存的模型连接
+      tags:
+      - 模型管理
   /models/catalog/resolve:
     get:
       description: 根据厂商、模型名、Base URL 与 extra_config 返回目录解析结果（协议、思考等级、上下文等），供模型编辑器实时展示
@@ -26085,8 +26877,9 @@ paths:
       - SandboxConfig
   /sandbox-configs/{id}:
     delete:
-      description: Soft-delete a sandbox backend config. force=true only overrides
-        unverifiable provider inventory, never confirmed live sandboxes.
+      description: |-
+        Soft-delete a sandbox backend config. force=true only overrides unverifiable provider inventory,
+        never confirmed live sandboxes.
       parameters:
       - description: Sandbox config ID
         in: path
@@ -26158,8 +26951,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update a sandbox backend config. Identity-field changes are refused
-        while the config owns live or paused sandboxes.
+      description: |-
+        Update a sandbox backend config. Identity-field changes are refused while the config owns live or
+        paused sandboxes.
       parameters:
       - description: Sandbox config ID
         in: path
@@ -26376,7 +27170,7 @@ paths:
         runs fetched code as root in the sandbox image, so it always asks the user.
         It takes minutes: tell the user it started, then check it with skill.get_installed.
         Enable it for an agent with agent.update selected_skills once it is ready.'
-  /sandbox-configs/{id}/skills/{skillId}:
+  /sandbox-configs/{id}/skills/{skill_id}:
     delete:
       description: |-
         Remove a skill from the config's image. The removal rebuilds
@@ -26391,7 +27185,7 @@ paths:
         x-agent: sandbox_config_id
       - description: Skill ID from skill.list_installed
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
         x-agent: skill_id
@@ -26442,7 +27236,7 @@ paths:
         x-agent: sandbox_config_id
       - description: Skill ID from skill.list_installed
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
         x-agent: skill_id
@@ -26483,9 +27277,10 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Show or hide an installed skill and set the workspace-wide values
-        of the environment variables it declared. Either field may be sent, or both.
-        The files stay in the image either way; removal is a separate flow.
+      description: |-
+        Show or hide an installed skill and set the workspace-wide values of the environment variables it
+        declared. Either field may be sent, or both. The files stay in the image either way; removal is a
+        separate flow.
       parameters:
       - description: Sandbox config ID
         in: path
@@ -26495,7 +27290,7 @@ paths:
         x-agent: sandbox_config_id
       - description: Skill ID from skill.list_installed
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
         x-agent: skill_id
@@ -26545,7 +27340,7 @@ paths:
       x-agent-hint: 'Shows or hides an installed skill for every agent on that sandbox;
         the files stay installed. Environment values are not set here: the user enters
         them in the skill settings.'
-  /sandbox-configs/{id}/skills/{skillId}/files:
+  /sandbox-configs/{id}/skills/{skill_id}/files:
     get:
       description: List files in the stored skill bundle without starting a sandbox.
       parameters:
@@ -26556,7 +27351,7 @@ paths:
         type: string
       - description: Skill ID
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
       produces:
@@ -26588,7 +27383,7 @@ paths:
       summary: List files of an installed skill
       tags:
       - SandboxConfig
-  /sandbox-configs/{id}/skills/{skillId}/files/content:
+  /sandbox-configs/{id}/skills/{skill_id}/files/content:
     get:
       description: Read one skill file as UTF-8, a small base64 image, or binary.
       parameters:
@@ -26599,7 +27394,7 @@ paths:
         type: string
       - description: Skill ID
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
       - description: Skill-root-relative file path
@@ -26638,7 +27433,69 @@ paths:
       summary: Read one file of an installed skill
       tags:
       - SandboxConfig
-  /sandbox-configs/{id}/skills/{skillId}/install-events:
+  /sandbox-configs/{id}/skills/{skill_id}/guidance:
+    get:
+      parameters:
+      - description: Sandbox config ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Skill ID
+        in: path
+        name: skill_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取技能安装引导列表
+      tags:
+      - 沙箱技能
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sandbox config ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Skill ID
+        in: path
+        name: skill_id
+        required: true
+        type: string
+      - description: Guidance payload
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 发送技能安装引导指令
+      tags:
+      - 沙箱技能
+  /sandbox-configs/{id}/skills/{skill_id}/install-events:
     get:
       description: |-
         Server-sent progress for one install or removal. The stream
@@ -26653,7 +27510,7 @@ paths:
         type: string
       - description: Skill ID
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
       produces:
@@ -26678,7 +27535,7 @@ paths:
       summary: Follow an install or removal
       tags:
       - SandboxConfig
-  /sandbox-configs/{id}/skills/{skillId}/reinstall:
+  /sandbox-configs/{id}/skills/{skill_id}/reinstall:
     post:
       description: Retry a failed install from the stored archive; does not re-upload.
       parameters:
@@ -26689,7 +27546,7 @@ paths:
         type: string
       - description: Skill ID
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
       produces:
@@ -26719,12 +27576,12 @@ paths:
       summary: Retry a skill install
       tags:
       - SandboxConfig
-  /sandbox-configs/{id}/skills/{skillId}/stop:
+  /sandbox-configs/{id}/skills/{skill_id}/stop:
     post:
-      description: Abort an in-flight install so the operator can retry or uninstall.
-        After a process restart the row may still say installing with no live process;
-        this rewrites it immediately instead of waiting for the stuck-run reaper.
-        Removal is not stopped.
+      description: |-
+        Abort an in-flight install so the operator can retry or uninstall. After a process restart the row
+        may still say installing with no live process; this rewrites it immediately instead of waiting for
+        the stuck-run reaper. Removal is not stopped.
       parameters:
       - description: Sandbox config ID
         in: path
@@ -26733,7 +27590,7 @@ paths:
         type: string
       - description: Skill ID
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
       produces:
@@ -26767,7 +27624,7 @@ paths:
       summary: Stop a skill install
       tags:
       - SandboxConfig
-  /sandbox-configs/{id}/skills/{skillId}/transcript:
+  /sandbox-configs/{id}/skills/{skill_id}/transcript:
     get:
       description: |-
         Server-sent replay of everything the installer agent did — the
@@ -26785,7 +27642,7 @@ paths:
         type: string
       - description: Skill ID
         in: path
-        name: skillId
+        name: skill_id
         required: true
         type: string
       produces:
@@ -26882,6 +27739,57 @@ paths:
       summary: Release a shared user sandbox
       tags:
       - SandboxConfig
+  /sandbox-configs/templates/query:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Template query
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.sandboxTemplateQueryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 查询沙箱模板列表
+      tags:
+      - 沙箱配置
+  /sandbox-configs/workspace-policy:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Workspace policy
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 设置空间沙箱脚本策略
+      tags:
+      - 沙箱配置
   /sessions:
     get:
       consumes:
@@ -27069,140 +27977,13 @@ paths:
       summary: 更新会话
       tags:
       - 会话
-  /sessions/{id}/messages:
-    delete:
-      consumes:
-      - application/json
-      description: 删除会话中的所有消息，同时清除 LLM 上下文和聊天历史知识库条目。会话本身保留。
-      parameters:
-      - description: 会话ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 清空成功
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "404":
-          description: 会话不存在
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 清空会话消息
-      tags:
-      - 会话
-  /sessions/{id}/pin:
-    delete:
-      description: 取消指定会话的置顶
-      parameters:
-      - description: 会话ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 取消置顶成功
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: 会话不存在
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 取消置顶会话
-      tags:
-      - 会话
-  /sessions/{id}/steer:
-    get:
-      description: 刷新页面后用来恢复输入框上方的队列。没有正在运行的 turn 时返回空列表。
-      parameters:
-      - description: 会话 ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "503":
-          description: 活 turn 查询失败，可重试
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 列出当前运行中尚未消费的排队消息
-      tags:
-      - 问答
-  /sessions/{id}/steer/{steer_id}:
-    delete:
-      description: 从当前运行的排队列表里去掉一条，不再注入也不再作为 follow-up 发出。
-      parameters:
-      - description: 会话 ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: 排队消息 ID
-        in: path
-        name: steer_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-        "503":
-          description: 活 turn 查询失败，可重试
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 删除一条排队中的消息
-      tags:
-      - 问答
-  /sessions/{session_id}/artifacts:
+  /sessions/{id}/artifacts:
     get:
       description: 返回本会话中所有 assistant 消息产生的技能产物元数据（不含 URL）
       parameters:
       - description: 会话ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       produces:
@@ -27222,7 +28003,207 @@ paths:
       summary: 列出会话生成的产物文件
       tags:
       - 会话
-  /sessions/{session_id}/fork:
+  /sessions/{id}/attachments:
+    get:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取会话临时附件列表
+      tags:
+      - 会话
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 上传会话临时附件
+      tags:
+      - 会话
+  /sessions/{id}/attachments/{attachment_id}:
+    delete:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 附件 ID
+        in: path
+        name: attachment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 删除会话临时附件
+      tags:
+      - 会话
+    get:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 附件 ID
+        in: path
+        name: attachment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取会话临时附件详情
+      tags:
+      - 会话
+  /sessions/{id}/attachments/{attachment_id}/preview:
+    get:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 附件 ID
+        in: path
+        name: attachment_id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 预览会话临时附件内容
+      tags:
+      - 会话
+  /sessions/{id}/background-work:
+    get:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取会话后台任务列表
+      tags:
+      - 会话
+  /sessions/{id}/background-work/{work_id}:
+    get:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 后台任务 ID
+        in: path
+        name: work_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取会话后台任务详情
+      tags:
+      - 会话
+  /sessions/{id}/background-work/{work_id}/cancel:
+    post:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 后台任务 ID
+        in: path
+        name: work_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 取消会话后台任务
+      tags:
+      - 会话
+  /sessions/{id}/fork:
     post:
       consumes:
       - application/json
@@ -27230,7 +28211,7 @@ paths:
       parameters:
       - description: 源会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 分叉请求
@@ -27265,7 +28246,7 @@ paths:
       summary: 分叉会话
       tags:
       - 会话
-  /sessions/{session_id}/generate_title:
+  /sessions/{id}/generate-title:
     post:
       consumes:
       - application/json
@@ -27273,7 +28254,7 @@ paths:
       parameters:
       - description: 会话ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 生成请求
@@ -27300,16 +28281,157 @@ paths:
       summary: 生成会话标题
       tags:
       - 会话
-  /sessions/{session_id}/messages/{message_id}/artifacts:
+  /sessions/{id}/host-approval-mode:
+    get:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 获取会话宿主机审批模式
+      tags:
+      - 会话
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Approval mode
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: 设置会话宿主机审批模式
+      tags:
+      - 会话
+  /sessions/{id}/local-browser:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Browser action
+        in: body
+        name: request
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取或操作会话本地浏览器连接
+      tags:
+      - 会话
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Browser action
+        in: body
+        name: request
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取或操作会话本地浏览器连接
+      tags:
+      - 会话
+  /sessions/{id}/messages:
+    delete:
+      consumes:
+      - application/json
+      description: 删除会话中的所有消息，同时清除 LLM 上下文和聊天历史知识库条目。会话本身保留。
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 清空成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "404":
+          description: 会话不存在
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 清空会话消息
+      tags:
+      - 会话
+  /sessions/{id}/messages/{message_id}/artifacts:
     get:
       responses: {}
-  /sessions/{session_id}/messages/{message_id}/artifacts/{index}:
+  /sessions/{id}/messages/{message_id}/artifacts/{index}:
     delete:
       description: 删除某条 assistant 消息生成的单个文件；all_versions=true 时连同本会话中该文件的所有历史版本一并删除
       parameters:
       - description: 会话ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 消息ID
@@ -27343,15 +28465,15 @@ paths:
       summary: 删除会话中的产物文件
       tags:
       - 会话
-  /sessions/{session_id}/messages/{message_id}/artifacts/{index}/download:
+  /sessions/{id}/messages/{message_id}/artifacts/{index}/download:
     get:
       responses: {}
-  /sessions/{session_id}/messages/{message_id}/suggestions:
+  /sessions/{id}/messages/{message_id}/suggestions:
     get:
       parameters:
       - description: 会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 助手消息 ID
@@ -27384,7 +28506,7 @@ paths:
       parameters:
       - description: 会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 助手消息 ID
@@ -27424,13 +28546,39 @@ paths:
       summary: 确保生成回答后推荐问题
       tags:
       - 会话
-  /sessions/{session_id}/pin:
+  /sessions/{id}/pin:
+    delete:
+      description: 取消指定会话的置顶
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 取消置顶成功
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 会话不存在
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 取消置顶会话
+      tags:
+      - 会话
     post:
       description: 将指定会话置顶（用户维度）
       parameters:
       - description: 会话ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       produces:
@@ -27451,7 +28599,7 @@ paths:
       summary: 置顶会话
       tags:
       - 会话
-  /sessions/{session_id}/rewind:
+  /sessions/{id}/rewind:
     post:
       consumes:
       - application/json
@@ -27459,7 +28607,7 @@ paths:
       parameters:
       - description: 会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 回滚请求
@@ -27498,7 +28646,100 @@ paths:
       summary: 回滚会话
       tags:
       - 会话
-  /sessions/{session_id}/steer:
+  /sessions/{id}/sandbox/desktop-ticket:
+    post:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 签发沙箱远程桌面连接票据
+      tags:
+      - 会话
+  /sessions/{id}/sandbox/desktop/activity:
+    post:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 上报沙箱远程桌面交互活跃状态
+      tags:
+      - 会话
+  /sessions/{id}/sandbox/terminal-ticket:
+    post:
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 签发沙箱终端连接票据
+      tags:
+      - 会话
+  /sessions/{id}/steer:
+    get:
+      description: 刷新页面后用来恢复输入框上方的队列。没有正在运行的 turn 时返回空列表。
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "503":
+          description: 活 turn 查询失败，可重试
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 列出当前运行中尚未消费的排队消息
+      tags:
+      - 问答
     post:
       consumes:
       - application/json
@@ -27506,7 +28747,7 @@ paths:
       parameters:
       - description: 会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 追加消息
@@ -27541,13 +28782,49 @@ paths:
       summary: 向运行中的对话追加消息
       tags:
       - 问答
-  /sessions/{session_id}/steer/{steer_id}/inject:
+  /sessions/{id}/steer/{steer_id}:
+    delete:
+      description: 从当前运行的排队列表里去掉一条，不再注入也不再作为 follow-up 发出。
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 排队消息 ID
+        in: path
+        name: steer_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "503":
+          description: 活 turn 查询失败，可重试
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 删除一条排队中的消息
+      tags:
+      - 问答
+  /sessions/{id}/steer/{steer_id}/inject:
     post:
       description: 把一条 delivery=after 的排队消息改为 inject，运行中的 agent 会在下一轮边界读到它。
       parameters:
       - description: 会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 排队消息 ID
@@ -27581,7 +28858,7 @@ paths:
       summary: 将排队消息改为立即注入
       tags:
       - 问答
-  /sessions/{session_id}/stop:
+  /sessions/{id}/stop:
     post:
       consumes:
       - application/json
@@ -27589,7 +28866,7 @@ paths:
       parameters:
       - description: 会话ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 停止请求
@@ -27616,7 +28893,7 @@ paths:
       summary: 停止生成
       tags:
       - 问答
-  /sessions/{session_id}/suggestion-events:
+  /sessions/{id}/suggestion-events:
     post:
       consumes:
       - application/json
@@ -27624,7 +28901,7 @@ paths:
       parameters:
       - description: 会话 ID
         in: path
-        name: session_id
+        name: id
         required: true
         type: string
       - description: 事件
@@ -27784,6 +29061,32 @@ paths:
       summary: 获取我可访问的共享智能体
       tags:
       - 组织
+  /shared-agents/disabled:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Disable toggle payload
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 设置空间级禁用共享智能体状态
+      tags:
+      - 组织管理
   /shared-knowledge-bases:
     get:
       description: 获取通过组织共享给当前用户的所有知识库
@@ -28052,9 +29355,9 @@ paths:
         skill.list_installed.
   /storage-backends:
     get:
-      description: List all storage backend instances for the current workspace, with
-        credentials masked. The workspace default backend id is returned alongside
-        the list.
+      description: |-
+        List all storage backend instances for the current workspace, with credentials masked. The
+        workspace default backend id is returned alongside the list.
       produces:
       - application/json
       responses:
@@ -28076,9 +29379,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Register a new object/file storage instance for the current workspace.
-        The configuration is validated and a connectivity test is run before the backend
-        is persisted.
+      description: |-
+        Register a new object/file storage instance for the current workspace. The configuration is
+        validated and a connectivity test is run before the backend is persisted.
       parameters:
       - description: Storage backend configuration
         in: body
@@ -28119,9 +29422,9 @@ paths:
       - StorageBackend
   /storage-backends/{id}:
     delete:
-      description: Soft-delete a storage backend. A backend that is the workspace
-        default, still bound to knowledge bases, environment-sourced, or a legacy
-        alias cannot be deleted.
+      description: |-
+        Soft-delete a storage backend. A backend that is the workspace default, still bound to knowledge
+        bases, environment-sourced, or a legacy alias cannot be deleted.
       parameters:
       - description: Storage backend ID
         in: path
@@ -28193,10 +29496,11 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update a storage backend's mutable fields (name, credentials, status).
-        Provider and physical location (endpoint, region, bucket, path prefix) are
-        immutable; use storage migration to move data. Environment-sourced backends
-        are read-only. Redacted secret placeholders preserve the stored credentials.
+      description: |-
+        Update a storage backend's mutable fields (name, credentials, status). Provider and physical
+        location (endpoint, region, bucket, path prefix) are immutable; use storage migration to move data.
+        Environment-sourced backends are read-only. Redacted secret placeholders preserve the stored
+        credentials.
       parameters:
       - description: Storage backend ID
         in: path
@@ -28243,9 +29547,9 @@ paths:
       - StorageBackend
   /storage-backends/{id}/default:
     put:
-      description: Mark a storage backend as the workspace default. Only an active
-        backend can become the default. New knowledge bases without an explicit binding
-        use the default.
+      description: |-
+        Mark a storage backend as the workspace default. Only an active backend can become the default. New
+        knowledge bases without an explicit binding use the default.
       parameters:
       - description: Storage backend ID
         in: path
@@ -28280,9 +29584,9 @@ paths:
       - StorageBackend
   /storage-backends/{id}/test:
     post:
-      description: Test connectivity of an existing saved storage backend using its
-        stored credentials. Returns success=false with a sanitized error message on
-        failure (the HTTP status stays 200).
+      description: |-
+        Test connectivity of an existing saved storage backend using its stored credentials. Returns
+        success=false with a sanitized error message on failure (the HTTP status stays 200).
       parameters:
       - description: Storage backend ID
         in: path
@@ -28315,9 +29619,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Test connectivity for the provided storage configuration without
-        persisting it. Returns success=false with a sanitized error message on failure
-        (the HTTP status stays 200).
+      description: |-
+        Test connectivity for the provided storage configuration without persisting it. Returns
+        success=false with a sanitized error message on failure (the HTTP status stays 200).
       parameters:
       - description: Storage backend configuration to test
         in: body
@@ -28349,8 +29653,9 @@ paths:
       - StorageBackend
   /storage-backends/types:
     get:
-      description: Return the storage provider types allowed by STORAGE_ALLOW_LIST
-        for UI form generation (e.g. local, minio, cos, tos, s3, oss, ks3, obs).
+      description: |-
+        Return the storage provider types allowed by STORAGE_ALLOW_LIST for UI form generation (e.g. local,
+        minio, cos, tos, s3, oss, ks3, obs).
       produces:
       - application/json
       responses:
@@ -28397,8 +29702,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a capability-scoped key that may target any workspace through
-        X-Tenant-ID. The plaintext token is returned once. Human SystemAdmin only.
+      description: |-
+        Creates a capability-scoped key that may target any workspace through X-Tenant-ID. The plaintext
+        token is returned once. Human SystemAdmin only.
       parameters:
       - description: Platform API key
         in: body
@@ -28446,8 +29752,9 @@ paths:
       - System Admin
   /system/admin/audit-log:
     get:
-      description: 返回 system-scope（tenant_id=0）的审计事件，覆盖 system.setting_changed / system.admin_promoted
-        / system.admin_revoked 等 SystemAdmin 操作。按 id 倒序的游标分页。
+      description: |-
+        返回 system-scope（tenant_id=0）的审计事件，覆盖 system.setting_changed / system.admin_promoted /
+        system.admin_revoked 等 SystemAdmin 操作。按 id 倒序的游标分页。
       parameters:
       - description: 游标：返回 id 小于此值的记录（默认从最新开始）
         in: query
@@ -28488,11 +29795,8 @@ paths:
       - 审计日志
   /system/admin/list:
     get:
-      description: |-
-        Retrieve a paginated list of users with system administrator
-        privileges (SystemAdmin only). Supports `offset` (default 0)
-        and `limit` (default 50, max 200) query parameters. Walks the
-        partial-friendly idx_users_is_system_admin index.
+      description: Retrieve a paginated list of users with system administrator privileges
+        (SystemAdmin only).
       parameters:
       - default: 0
         description: Page offset
@@ -28521,8 +29825,7 @@ paths:
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 查询系统管理员（List system administrators）
       tags:
       - System Admin
@@ -28550,18 +29853,15 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: Forbidden
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "503":
           description: Service Unavailable
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       summary: Get the system model catalog
@@ -28571,9 +29871,8 @@ paths:
       consumes:
       - application/json
       description: |-
-        System administrator JWT only; API keys are not accepted. Validates and publishes a new overlay
-        revision using the current version and baseline. Stale values return 409. To restore a historical
-        configuration, submit its overlay with the current version and baseline.
+        System administrator JWT only; API keys are not accepted. Validates and saves the overlay with
+        optimistic concurrency on version and baseline, refreshes this replica, and notifies other replicas.
       parameters:
       - description: Version, baseline and overlay object (max 1 MiB)
         in: body
@@ -28591,28 +29890,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: Forbidden
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "409":
           description: Conflict
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       summary: Publish a model catalog overlay
@@ -28625,7 +29919,7 @@ paths:
       description: |-
         System administrator JWT only; API keys are not accepted. Validates the overlay without publishing
         it. Supply the current version and baseline; stale values return 409. The response contains the
-        candidate effective catalog and normalized overlay; history, builtin and deployment are null.
+        candidate effective catalog and normalized overlay; history, built-in and deployment layers are empty.
       parameters:
       - description: Version, baseline and overlay object (max 1 MiB)
         in: body
@@ -28643,28 +29937,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: Forbidden
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "409":
           description: Conflict
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       summary: Preview a model catalog overlay
@@ -28695,18 +29984,15 @@ paths:
         "400":
           description: Bad request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "404":
           description: User not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Promote a user to system administrator
       tags:
       - System Admin
@@ -28717,9 +30003,7 @@ paths:
       description: |-
         Remove system administrator privileges from a user (SystemAdmin only).
         Two safety guards: the caller cannot revoke their own privileges,
-        and revoking the last remaining system admin is rejected — both
-        prevent a SystemAdmin from accidentally locking the platform out
-        of system-level administration. Idempotent on already-non-admin users.
+        and revoking the last remaining system admin is rejected.
       parameters:
       - description: User revocation request
         in: body
@@ -28737,18 +30021,15 @@ paths:
         "400":
           description: Bad request / would remove last admin / self-revoke
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "404":
           description: User not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Revoke system administrator privileges from a user
       tags:
       - System Admin
@@ -28800,15 +30081,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       summary: List document ingestion and durable Wiki progress
@@ -28839,9 +30116,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       summary: Read a document's current stages and historical failures
@@ -28876,18 +30151,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "503":
           description: Service Unavailable
           schema:
-            allOf:
-            - $ref: '#/definitions/internal_handler.DataResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_application_service.DocumentWikiStartResult'
-              type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       security:
       - Bearer: []
       summary: Request immediate Wiki work for existing durable document operations
@@ -29027,6 +30295,26 @@ paths:
       summary: Run a safe runtime task action
       tags:
       - System Admin
+  /system/admin/settings:
+    get:
+      description: Return every row in the system_settings table (system-scope, not
+        workspace-scoped). SystemAdmin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: list of settings
+          schema:
+            items:
+              $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.SystemSetting'
+            type: array
+        "403":
+          description: 'Forbidden: not a system admin'
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      summary: List all system settings
+      tags:
+      - System Admin
   /system/admin/settings-summary:
     get:
       description: 返回已注册的系统设置及脱敏值，可按完整设置键过滤
@@ -29061,11 +30349,8 @@ paths:
         reset settings.'
   /system/admin/settings/{key}:
     delete:
-      description: |-
-        Removes the DB override for :key so the 3-tier resolver
-        falls back to the environment variable (when configured)
-        or the in-code default. Idempotent — resetting a key
-        that was never persisted returns 200.
+      description: Removes the DB override for :key so the 3-tier resolver falls back
+        to ENV or built-in default.
       parameters:
       - description: Setting key
         in: path
@@ -29080,20 +30365,18 @@ paths:
         "400":
           description: Unknown key
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "500":
           description: DB write failed
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Reset a system setting to ENV / built-in default
       tags:
       - System Admin
     get:
       description: |-
-        Returns the row matching :key. 404 when the key is unknown
-        to the registry; 200 with the row when known.
+        Returns the row matching :key. 404 when the key is unknown to the registry; 200 with the row when
+        known.
       parameters:
       - description: Setting key (e.g. file.max_size_mb)
         in: path
@@ -29110,24 +30393,19 @@ paths:
         "400":
           description: Unknown key
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "404":
           description: Key registered but DB row absent
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Get a single system setting by key
       tags:
       - System Admin
     put:
       consumes:
       - application/json
-      description: |-
-        Persist a new value for :key. Service validates the
-        rawValue against the registry's declared value_type and
-        rejects mismatches with 400. SystemAdmin only. Emits an
-        audit row (action=system.setting_changed) on success.
+      description: Persist a new value for :key. SystemAdmin only. Emits an audit
+        row on success.
       parameters:
       - description: Setting key
         in: path
@@ -29150,24 +30428,18 @@ paths:
         "400":
           description: Bad request / unknown key / type mismatch
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Update a system setting value
       tags:
       - System Admin
   /system/admin/tenants/apply-default-storage-quota:
     post:
-      description: |-
-        Resolves the MB override or legacy GB default (DB > ENV > default per setting)
-        and writes the effective byte quota to every existing workspace. Bypasses
-        the per-workspace PUT whitelist, which forbids storage_quota
-        edits by Owners. SystemAdmin only.
-        Idempotent — running twice with the same setting is a no-op.
+      description: Resolves the default storage quota and writes the effective byte
+        quota to every existing workspace.
       produces:
       - application/json
       responses:
@@ -29178,17 +30450,14 @@ paths:
         "500":
           description: DB write failed
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Apply the default storage quota to every existing workspace
       tags:
       - System Admin
   /system/admin/users:
     get:
-      description: |-
-        Retrieve a paginated list of every user across tenants (SystemAdmin only).
-        Supports `offset` (default 0) and `limit` (default 50, max 200).
-        Password/hashes are never serialised — only the redacted UserInfo shape.
+      description: Retrieve a paginated list of every user across tenants (SystemAdmin
+        only).
       parameters:
       - default: 0
         description: Page offset
@@ -29217,8 +30486,7 @@ paths:
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: 查询平台用户（List platform users）
       tags:
       - System Admin
@@ -29236,13 +30504,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: |-
-        Provision a new local user account (SystemAdmin only).
-        When `password` is omitted or null, a cryptographically random
-        password is generated (OIDC-style crypto/rand + base64url)
-        and returned once in the response body. Any provided value,
-        including empty string, is policy-checked. Tenant provisioning
-        follows the shared auth.default_tenant_mode policy.
+      description: Provision a new local user account (SystemAdmin only).
       parameters:
       - description: User creation request
         in: body
@@ -29264,23 +30526,19 @@ paths:
         "400":
           description: Invalid request or weak password
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "409":
           description: Email and username refer to conflicting identities
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "500":
           description: Internal error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Create a new user (SystemAdmin)
       tags:
       - System Admin
@@ -29288,9 +30546,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: |-
-        Replace another user's local password and revoke all of their existing sessions (SystemAdmin only).
-        A system administrator cannot reset their own password through this endpoint; self-service password change still requires the old password.
+      description: Replace another user's local password and revoke all of their existing
+        sessions (SystemAdmin only).
       parameters:
       - description: Password reset request
         in: body
@@ -29308,18 +30565,15 @@ paths:
         "400":
           description: Invalid request, weak password, or self reset
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "403":
           description: 'Forbidden: not a system admin'
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "404":
           description: User not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Reset another user's password
       tags:
       - System Admin
@@ -29347,13 +30601,11 @@ paths:
         "400":
           description: Self-disable / last-admin guard
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
         "404":
           description: User not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
       summary: Enable or disable a user account
       tags:
       - System Admin
@@ -29387,6 +30639,21 @@ paths:
         "200":
           description: OK
       summary: 重连文档解析服务
+      tags:
+      - 系统
+  /system/host-project-dir:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: 选择宿主机项目目录（Desktop）
       tags:
       - 系统
   /system/info:
@@ -29672,6 +30939,127 @@ paths:
       summary: 更新空间
       tags:
       - 空间管理
+  /tenants/{id}/api-keys:
+    get:
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_handler.tenantAPIKeyResponse'
+                  type: array
+              type: object
+      security:
+      - Bearer: []
+      summary: List workspace API keys
+      tags:
+      - 空间管理
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: API key config
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.tenantAPIKeyCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.tenantAPIKeyCreateResponse'
+              type: object
+      security:
+      - Bearer: []
+      summary: Create workspace API key
+      tags:
+      - 空间管理
+  /tenants/{id}/api-keys/{key_id}:
+    delete:
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: API key ID
+        in: path
+        name: key_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.SuccessResponse'
+      security:
+      - Bearer: []
+      summary: Delete workspace API key
+      tags:
+      - 空间管理
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: API key ID
+        in: path
+        name: key_id
+        required: true
+        type: integer
+      - description: Updated API key config
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.tenantAPIKeyUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_handler.tenantAPIKeyResponse'
+              type: object
+      security:
+      - Bearer: []
+      summary: Update workspace API key
+      tags:
+      - 空间管理
   /tenants/{id}/api-principal-config:
     get:
       consumes:
@@ -29876,8 +31264,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Owner 通过邮箱邀请已注册用户加入空间。开启 tenant.auto_accept_invitation 后被邀请人立即自动加入（响应为成员结构），否则需在
-        /me/invitations 接受后成为成员。
+      description: |-
+        Owner 通过邮箱邀请已注册用户加入空间。开启 tenant.auto_accept_invitation 后被邀请人立即自动加入（响应为成员结构），否则需在 /me/invitations
+        接受后成为成员。
       parameters:
       - description: 空间 ID
         in: path
@@ -30311,60 +31700,6 @@ paths:
       summary: 更新空间KV配置
       tags:
       - 空间管理
-  /tenants/kv/prompt-templates:
-    get:
-      consumes:
-      - application/json
-      description: 获取系统配置的提示词模板列表
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 提示词模板配置
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_handler.DataResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplatesConfig'
-              type: object
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 获取提示词模板
-      tags:
-      - 空间管理
-  /tenants/kv/web-search-config:
-    get:
-      consumes:
-      - application/json
-      description: 获取空间的网络搜索配置
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 网络搜索配置
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_handler.DataResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchConfig'
-              type: object
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 获取空间网络搜索配置
-      tags:
-      - 空间管理
   /tenants/search:
     get:
       consumes:
@@ -30413,72 +31748,11 @@ paths:
       summary: 搜索空间
       tags:
       - 空间管理
-  /user/favorites:
-    get:
-      description: Lists this user's starred resources in the current workspace for
-        a given type
-      parameters:
-      - description: Resource type (kb | agent)
-        in: query
-        name: type
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_handler.DataResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.UserResourceFavorite'
-                  type: array
-              type: object
-      summary: List my favorites
-      tags:
-      - User
-    post:
-      parameters:
-      - description: Type + id
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handler.AddFavoriteRequest'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_handler.SuccessResponse'
-      summary: Star a resource
-      tags:
-      - User
-  /user/favorites/{type}/{id}:
-    delete:
-      parameters:
-      - description: Resource type
-        in: path
-        name: type
-        required: true
-        type: string
-      - description: Resource id
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_handler.SuccessResponse'
-      summary: Unstar a resource
-      tags:
-      - User
   /vector-stores:
     get:
-      description: List all vector stores for the current workspace, including environment-configured
-        and user-created stores
+      description: |-
+        List all vector stores for the current workspace, including environment-configured and user-created
+        stores
       produces:
       - application/json
       responses:
@@ -30623,8 +31897,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update a vector store (name only). Engine type, connection config,
-        and index config are immutable. Env stores cannot be modified.
+      description: |-
+        Update a vector store (name only). Engine type, connection config, and index config are immutable.
+        Env stores cannot be modified.
       parameters:
       - description: Vector store ID
         in: path
@@ -30668,8 +31943,9 @@ paths:
       - VectorStore
   /vector-stores/{id}/test:
     post:
-      description: Test connectivity of an existing saved or env store. Returns detected
-        server version. For DB stores, the version is automatically saved to connection_config.
+      description: |-
+        Test connectivity of an existing saved or env store. Returns detected server version. For DB
+        stores, the version is automatically saved to connection_config.
       parameters:
       - description: Vector store ID
         in: path
@@ -30784,6 +32060,43 @@ paths:
       x-agent-hint: Lists configured search services and the workspace default. Use
         these IDs for agent.update web_search_provider_id. No provider-wide enable
         switch exists; web_search_enabled is an agent setting.
+    post:
+      consumes:
+      - application/json
+      description: 创建新的联网搜索服务商配置
+      parameters:
+      - description: Provider 配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.CreateProviderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建的 Provider
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_handler.DataResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderResponse'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError'
+      security:
+      - Bearer: []
+      - ApiKeyAuth: []
+      summary: 创建网络搜索 Provider
+      tags:
+      - 网络搜索
   /web-search-providers/{id}:
     delete:
       description: 删除指定 provider 配置
@@ -31108,29 +32421,6 @@ paths:
       x-agent:
         id: web_search_provider.list_types
         risk: read
-  /web-search/providers:
-    get:
-      description: 返回所有已注册的网络搜索 provider（含元数据）
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: provider 列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_handler.DataResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderTypeInfo'
-                  type: array
-              type: object
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 获取可用网络搜索 Provider 列表
-      tags:
-      - 网络搜索
   /wechat/qrcode:
     post:
       description: 申请一个用于扫码登录绑定的微信二维码（无请求体）

@@ -30,6 +30,7 @@ type cargoPackage struct {
 	ManifestPath                       string `json:"manifest_path"`
 	LicenseFile                        string `json:"license_file"`
 }
+
 type fileNotice struct {
 	Path       string `json:"path"`
 	SHA256     string `json:"sha256"`
@@ -38,7 +39,7 @@ type fileNotice struct {
 	data       []byte
 }
 
-var missingLicense = errors.New("no original license text")
+var errMissingLicense = errors.New("no original license text")
 
 type packageNotice struct {
 	Name     string       `json:"name"`
@@ -48,6 +49,7 @@ type packageNotice struct {
 	Checksum string       `json:"checksum,omitempty"`
 	Licenses []fileNotice `json:"licenses"`
 }
+
 type manifest struct {
 	SchemaVersion int             `json:"schemaVersion"`
 	Target        string          `json:"target"`
@@ -79,7 +81,11 @@ func lockChecksums(data []byte) (map[string]string, error) {
 		}
 		key := fields["name"] + "@" + fields["version"] + "@" + fields["source"]
 		decoded, err := hex.DecodeString(fields["checksum"])
-		if err != nil || len(decoded) != sha256.Size || fields["name"] == "" || fields["version"] == "" || fields["source"] == "" {
+		if err != nil ||
+			len(decoded) != sha256.Size ||
+			fields["name"] == "" ||
+			fields["version"] == "" ||
+			fields["source"] == "" {
 			return fmt.Errorf("invalid Cargo.lock package checksum")
 		}
 		if _, ok := checksums[key]; ok {
@@ -155,7 +161,11 @@ func collect(root, explicit, prefix string, allFiles bool) ([]fileNotice, error)
 		}
 		if entry.IsDir() {
 			// Generated notices must never be included in their own next run.
-			if rel != "." && (entry.Name() == "target" || entry.Name() == ".git" || filepath.ToSlash(rel) == "licenses/rust" || entry.Name() == "patched-anydoc") {
+			name := entry.Name()
+			if rel != "." && (name == "target" ||
+				name == ".git" ||
+				filepath.ToSlash(rel) == "licenses/rust" ||
+				name == "patched-anydoc") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -173,11 +183,17 @@ func collect(root, explicit, prefix string, allFiles bool) ([]fileNotice, error)
 		if len(data) == 0 || !utf8.Valid(data) {
 			return fmt.Errorf("empty or non-UTF8 notice: %s", path)
 		}
-		files = append(files, fileNotice{Path: filepath.ToSlash(rel), SHA256: digest(data), BundlePath: prefix + "/" + filepath.ToSlash(rel), data: data})
+		relSlash := filepath.ToSlash(rel)
+		files = append(files, fileNotice{
+			Path:       relSlash,
+			SHA256:     digest(data),
+			BundlePath: prefix + "/" + relSlash,
+			data:       data,
+		})
 		return nil
 	})
 	if err == nil && len(files) == 0 {
-		err = fmt.Errorf("%w in %s", missingLicense, root)
+		err = fmt.Errorf("%w in %s", errMissingLicense, root)
 	}
 	if explicit != "" {
 		found := false
@@ -222,7 +238,13 @@ func supplemental(root string, pkg packageNotice) ([]fileNotice, error) {
 		if len(data) == 0 || !utf8.Valid(data) || digest(data) != item.SHA256 {
 			return nil, fmt.Errorf("supplemental license checksum mismatch: %s", item.File)
 		}
-		files = append(files, fileNotice{Path: item.Path, Source: item.Source, SHA256: item.SHA256, BundlePath: "originals/" + pkg.Name + "-" + pkg.Version + "/" + item.Path, data: data})
+		files = append(files, fileNotice{
+			Path:       item.Path,
+			Source:     item.Source,
+			SHA256:     item.SHA256,
+			BundlePath: "originals/" + pkg.Name + "-" + pkg.Version + "/" + item.Path,
+			data:       data,
+		})
 	}
 	return files, nil
 }
@@ -264,7 +286,7 @@ func verifyRegistryOriginals(data []byte, pkg packageNotice) error {
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	archive := tar.NewReader(gz)
 	for {
 		header, err := archive.Next()
@@ -278,7 +300,7 @@ func verifyRegistryOriginals(data []byte, pkg packageNotice) error {
 		if !ok {
 			continue
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		if header.Typeflag != tar.TypeReg && header.Typeflag != 0 {
 			return fmt.Errorf("registry original is not a regular file: %s", header.Name)
 		}
 		h := sha256.New()
@@ -319,7 +341,10 @@ func validateDestination(crate, destination string) error {
 			return fmt.Errorf("refusing to replace a non-generated directory: %w", err)
 		}
 		var prior manifest
-		if json.Unmarshal(data, &prior) != nil || prior.SchemaVersion != 1 || prior.Target == "" || len(prior.Packages) == 0 {
+		if json.Unmarshal(data, &prior) != nil ||
+			prior.SchemaVersion != 1 ||
+			prior.Target == "" ||
+			len(prior.Packages) == 0 {
 			return fmt.Errorf("refusing to replace an unrecognized notice directory")
 		}
 	}
@@ -330,7 +355,9 @@ func run() error {
 	manifestPath := flag.String("manifest", "", "Cargo.toml path")
 	target := flag.String("target", "", "Rust target triple")
 	destination := flag.String("output", "", "Generated notice directory")
-	printTargetDirectory := flag.Bool("print-target-dir", false, "Print only Cargo's resolved target directory to stdout")
+	printTargetDirectory := flag.Bool(
+		"print-target-dir", false, "Print only Cargo's resolved target directory to stdout",
+	)
 	flag.Parse()
 	if *manifestPath == "" || *target == "" || *destination == "" || flag.NArg() != 0 {
 		return fmt.Errorf("--manifest, --target and --output are required")
@@ -354,7 +381,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	raw, err := output("cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", *target, "--manifest-path", absManifest)
+	raw, err := output(
+		"cargo", "metadata", "--locked", "--format-version", "1",
+		"--filter-platform", *target, "--manifest-path", absManifest,
+	)
 	if err != nil {
 		return err
 	}
@@ -372,11 +402,12 @@ func run() error {
 	if err = json.Unmarshal(raw, &metadata); err != nil {
 		return err
 	}
-	if *printTargetDirectory && (!filepath.IsAbs(metadata.TargetDirectory) || strings.ContainsAny(metadata.TargetDirectory, "\r\n")) {
-		return fmt.Errorf("Cargo metadata returned an invalid absolute target directory")
+	if *printTargetDirectory &&
+		(!filepath.IsAbs(metadata.TargetDirectory) || strings.ContainsAny(metadata.TargetDirectory, "\r\n")) {
+		return fmt.Errorf("cargo metadata returned an invalid absolute target directory")
 	}
 	if metadata.Resolve.Root == "" {
-		return fmt.Errorf("Cargo graph has no root")
+		return fmt.Errorf("cargo graph has no root")
 	}
 	nodes := map[string][]string{}
 	for _, node := range metadata.Resolve.Nodes {
@@ -394,13 +425,23 @@ func run() error {
 		}
 	}
 	visit(metadata.Resolve.Root)
-	result := manifest{SchemaVersion: 1, Target: *target, Scope: "Cargo locked target graph, including build dependencies; original license files only", LockSHA256: digest(lock)}
+	result := manifest{
+		SchemaVersion: 1,
+		Target:        *target,
+		Scope:         "Cargo locked target graph, including build dependencies; original license files only",
+		LockSHA256:    digest(lock),
+	}
 	for _, pkg := range metadata.Packages {
 		if !reachable[pkg.ID] {
 			continue
 		}
 		root := filepath.Dir(pkg.ManifestPath)
-		notice := packageNotice{Name: pkg.Name, Version: pkg.Version, Source: pkg.Source, License: pkg.License}
+		notice := packageNotice{
+			Name:    pkg.Name,
+			Version: pkg.Version,
+			Source:  pkg.Source,
+			License: pkg.License,
+		}
 		var registryArchive []byte
 		if pkg.Source == "" {
 			notice.Source = "local patched source distributed in third_party/anydoc-go"
@@ -415,7 +456,9 @@ func run() error {
 			// Registry archives are already downloaded by cargo metadata. Hash
 			// them again to retain independently checked release provenance.
 			registry := filepath.Dir(filepath.Dir(filepath.Dir(root)))
-			archive := filepath.Join(registry, "cache", filepath.Base(filepath.Dir(root)), pkg.Name+"-"+pkg.Version+".crate")
+			archive := filepath.Join(
+				registry, "cache", filepath.Base(filepath.Dir(root)), pkg.Name+"-"+pkg.Version+".crate",
+			)
 			data, readErr := os.ReadFile(archive)
 			if readErr != nil {
 				return readErr
@@ -433,7 +476,7 @@ func run() error {
 			}
 		}
 		notice.Licenses, err = collect(root, explicit, "originals/"+pkg.Name+"-"+pkg.Version, false)
-		if errors.Is(err, missingLicense) && explicit == "" {
+		if errors.Is(err, errMissingLicense) && explicit == "" {
 			notice.Licenses, err = supplemental(filepath.Dir(filepath.Dir(filepath.Dir(absManifest))), notice)
 		}
 		if err != nil {
@@ -465,7 +508,11 @@ func run() error {
 	// document attributes bundled standard-library third parties; LICENSE alone
 	// would not cover those contributors.
 	doc := filepath.Join(strings.TrimSpace(string(sysroot)), "share/doc/rust")
-	result.Runtime = packageNotice{Name: "rust-standard-library", Version: strings.TrimSpace(string(version)), Source: "installed Rust toolchain"}
+	result.Runtime = packageNotice{
+		Name:    "rust-standard-library",
+		Version: strings.TrimSpace(string(version)),
+		Source:  "installed Rust toolchain",
+	}
 	for _, name := range []string{"COPYRIGHT-library.html"} {
 		data, readErr := os.ReadFile(filepath.Join(doc, name))
 		if readErr != nil {
@@ -474,7 +521,12 @@ func run() error {
 		if len(data) == 0 || !utf8.Valid(data) {
 			return fmt.Errorf("invalid Rust copyright file")
 		}
-		result.Runtime.Licenses = append(result.Runtime.Licenses, fileNotice{Path: name, SHA256: digest(data), BundlePath: "originals/rust-runtime/" + name, data: data})
+		result.Runtime.Licenses = append(result.Runtime.Licenses, fileNotice{
+			Path:       name,
+			SHA256:     digest(data),
+			BundlePath: "originals/rust-runtime/" + name,
+			data:       data,
+		})
 	}
 	runtimeFiles, err := collect(filepath.Join(doc, "licenses"), "", "originals/rust-runtime/licenses", true)
 	if err != nil {
@@ -483,22 +535,22 @@ func run() error {
 	result.Runtime.Licenses = append(result.Runtime.Licenses, runtimeFiles...)
 	// Build a complete new tree before publishing it, so errors cannot leave a
 	// half-populated output that later Go packaging would mistake for success.
-	if err = os.MkdirAll(filepath.Dir(*destination), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(*destination), 0o755); err != nil {
 		return err
 	}
 	stage, err := os.MkdirTemp(filepath.Dir(*destination), ".rust-notices-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(stage)
+	defer func() { _ = os.RemoveAll(stage) }()
 	all := append(append([]packageNotice{}, result.Packages...), result.Runtime)
 	for _, pkg := range all {
 		for _, file := range pkg.Licenses {
 			path := filepath.Join(stage, filepath.FromSlash(file.BundlePath))
-			if err = os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			if err = os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return err
 			}
-			if err = os.WriteFile(path, file.data, 0644); err != nil {
+			if err = os.WriteFile(path, file.data, 0o644); err != nil {
 				return err
 			}
 		}
@@ -507,7 +559,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err = os.WriteFile(filepath.Join(stage, "rust-dependencies.json"), append(data, '\n'), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(stage, "rust-dependencies.json"), append(data, '\n'), 0o644); err != nil {
 		return err
 	}
 	if err = os.RemoveAll(*destination); err != nil {

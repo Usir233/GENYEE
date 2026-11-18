@@ -197,6 +197,17 @@ func (h *IMHandler) ListIMChannels(c *gin.Context) {
 // ListAllIMChannels lists every IM channel in the current tenant, across
 // agents, for the cross-agent overview page. Credentials are intentionally
 // NOT included in the response.
+//
+// ListAllIMChannels godoc
+// @Summary      获取当前工作空间的全部 IM 渠道列表
+// @Tags         IM 渠道
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /im-channels [get]
 func (h *IMHandler) ListAllIMChannels(c *gin.Context) {
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {

@@ -45,9 +45,10 @@ def has_main_guard(tree):
 
 assert has_main_guard(gen_tree), "generate.py must guard file generation under if __name__ == '__main__':"
 assert has_main_guard(spot_tree), "spotlights.py must guard file generation under if __name__ == '__main__':"
-assert "27 家厂商" not in gen_src and "27 vendors" not in gen_src and "27 ベンダー" not in gen_src and "27개 벤더" not in gen_src, (
-    "generate.py still hardcodes stale 27 built-in model vendors instead of 30"
-)
+for stale in ("27 家厂商", "27 vendors", "27 ベンダー", "27개 벤더"):
+    assert stale not in gen_src, (
+        "generate.py still hardcodes stale 27 built-in model vendors instead of 30"
+    )
 assert "30 家厂商" in gen_src and "30 vendors" in gen_src, "generate.py must list 30 built-in model vendors"
 assert "ImageFont.load_default" in gen_src or "DejaVuSans" in gen_src, (
     "generate.py must provide non-macOS font fallback when Arial.ttf is absent"

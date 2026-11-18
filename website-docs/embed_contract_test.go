@@ -62,7 +62,9 @@ func TestW7DOC02_EmbeddedDocsRuntimeAndSecurityContracts(t *testing.T) {
 	if strings.Contains(config, "minioadmin / minioadmin") || strings.Contains(config, "neo4j / password") {
 		t.Error("04-configuration.md documents removed weak default credentials for MinIO/Neo4j")
 	}
-	for _, required := range []string{"GENYEE_CHROME_EXTENSION_URL", "GENYEE_CLAWHUB_SKILL_URL", "zh-TW", "builtin-genyee-assistant"} {
+	for _, required := range []string{
+		"GENYEE_CHROME_EXTENSION_URL", "GENYEE_CLAWHUB_SKILL_URL", "zh-TW", "builtin-genyee-assistant",
+	} {
 		if !strings.Contains(config, required) {
 			t.Errorf("04-configuration.md missing %s", required)
 		}
@@ -94,7 +96,8 @@ func TestW7DOC02_EmbeddedDocsRuntimeAndSecurityContracts(t *testing.T) {
 	}
 
 	embedDoc := readEmbeddedPage(t, "03-features/13-embed-channel.md")
-	if strings.Contains(embedDoc, `HMAC-SHA256(channel.PublishToken, "{channel_id}|{session_id}")`) || !strings.Contains(embedDoc, "embed-session:v2") {
+	if strings.Contains(embedDoc, `HMAC-SHA256(channel.PublishToken, "{channel_id}|{session_id}")`) ||
+		!strings.Contains(embedDoc, "embed-session:v2") {
 		t.Error("13-embed-channel.md must document embed-session:v2 HMAC keyed by SYSTEM_SIGNING_KEY / SYSTEM_AES_KEY")
 	}
 
@@ -143,11 +146,15 @@ func TestW7DOC03_EmbeddedAPIClientsAndDevContracts(t *testing.T) {
 
 	apiKnowledge := readEmbeddedPage(t, "04-api/02-api-knowledge.md")
 	if strings.Contains(apiKnowledge, "预览解析后的文件内容。权限：Viewer+，KB read") {
-		t.Error("02-api-knowledge.md misdocuments GET /knowledge/:id/preview as Viewer+ instead of Contributor+ & KB write")
+		t.Error(
+			"02-api-knowledge.md misdocuments GET /knowledge/:id/preview as Viewer+ instead of Contributor+ & KB write",
+		)
 	}
 
 	apiAgent := readEmbeddedPage(t, "04-api/02-api-agent-mcp.md")
-	for _, route := range []string{"/api/v1/agent/prompts/:prompt_id", "/api/v1/agent/secure-forms/:prompt_id", "/api/v1/agent/grants"} {
+	for _, route := range []string{
+		"/api/v1/agent/prompts/:prompt_id", "/api/v1/agent/secure-forms/:prompt_id", "/api/v1/agent/grants",
+	} {
 		if !strings.Contains(apiAgent, route) {
 			t.Errorf("02-api-agent-mcp.md missing %s", route)
 		}
@@ -197,7 +204,7 @@ func TestW7DOC03_EmbeddedAPIClientsAndDevContracts(t *testing.T) {
 	idx36 := strings.Index(dbSchema, "| 000036 |")
 	idx37 := strings.Index(dbSchema, "| 000037–000039 |")
 	idx53 := strings.Index(dbSchema, "| 000053 |")
-	if idx36 < 0 || idx37 < 0 || idx53 < 0 || !(idx36 < idx37 && idx37 < idx53) {
+	if idx36 < 0 || idx37 < 0 || idx53 < 0 || idx36 >= idx37 || idx37 >= idx53 {
 		t.Error("02-database-schema.md places SQLite 000053 out of chronological order before 000037")
 	}
 

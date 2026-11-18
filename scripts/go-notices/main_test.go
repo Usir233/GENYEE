@@ -12,10 +12,10 @@ import (
 func fixture(t *testing.T, root, path, contents string) {
 	t.Helper()
 	file := filepath.Join(root, filepath.FromSlash(path))
-	if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(file, []byte(contents), 0644); err != nil {
+	if err := os.WriteFile(file, []byte(contents), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -30,8 +30,18 @@ func TestOriginalTreeAndDeterministicManifest(t *testing.T) {
 	if err != nil || len(files) != 3 {
 		t.Fatalf("files=%+v error=%v", files, err)
 	}
-	result := manifest{SchemaVersion: 1, GOOS: "linux", GOARCH: "amd64", CGOEnabled: "1",
-		Modules: []moduleNotice{{Path: "example.com/native", Version: "v1.0.0", Sum: "h1:fixture", Licenses: files}}}
+	result := manifest{
+		SchemaVersion: 1,
+		GOOS:          "linux",
+		GOARCH:        "amd64",
+		CGOEnabled:    "1",
+		Modules: []moduleNotice{{
+			Path:     "example.com/native",
+			Version:  "v1.0.0",
+			Sum:      "h1:fixture",
+			Licenses: files,
+		}},
+	}
 	first, second := filepath.Join(t.TempDir(), "first"), filepath.Join(t.TempDir(), "second")
 	if err := writeBundle(first, result); err != nil {
 		t.Fatal(err)
@@ -69,10 +79,18 @@ func TestOriginalTreeAndDeterministicManifest(t *testing.T) {
 func TestRuntimeIncludesVendorAndExcludesTestAndCompilerOnlyNotices(t *testing.T) {
 	root := t.TempDir()
 	fixture(t, root, "src/crypto/x509/testdata/UserNotice.crt", "\x00\xff")
-	for _, path := range []string{"LICENSE", "src/vendor/example/LICENSE", "src/crypto/active/LICENSE", "src/cmd/vendor/unused/LICENSE", "src/runtime/testdata/fixture/LICENSE", "src/unused/LICENSE"} {
+	for _, path := range []string{
+		"LICENSE",
+		"src/vendor/example/LICENSE",
+		"src/crypto/active/LICENSE",
+		"src/cmd/vendor/unused/LICENSE",
+		"src/runtime/testdata/fixture/LICENSE",
+		"src/unused/LICENSE",
+	} {
 		fixture(t, root, path, path)
 	}
-	files, err := runtimeLicenses(root, "go1.fixture", map[string]bool{filepath.Join(root, "src/crypto/active"): true})
+	activeDirs := map[string]bool{filepath.Join(root, "src/crypto/active"): true}
+	files, err := runtimeLicenses(root, "go1.fixture", activeDirs)
 	if err != nil || len(files) != 3 {
 		t.Fatalf("files=%+v error=%v", files, err)
 	}
@@ -91,19 +109,23 @@ func TestRuntimeIncludesVendorAndExcludesTestAndCompilerOnlyNotices(t *testing.T
 
 func TestMissingLicenseAndChangedFallbackIdentityFail(t *testing.T) {
 	root := t.TempDir()
-	if _, err := supplementalLicense(root, &module{Path: "example.com/unknown", Version: "v1"}, "modules/x"); err == nil {
+	unknownMod := &module{Path: "example.com/unknown", Version: "v1"}
+	if _, err := supplementalLicense(root, unknownMod, "modules/x"); err == nil {
 		t.Fatal("unknown missing license accepted")
 	}
+	const sqliteVecPath = "github.com/asg017/sqlite-vec-go-bindings"
+	const sqliteVecSum = "h1:Nx0jAzyS38XpkKznJ9xQjFXz2X9tI7KqjwVxV8RNoww="
 	for _, mod := range []*module{
-		{Path: "github.com/asg017/sqlite-vec-go-bindings", Version: "v0.1.7", Sum: "h1:Nx0jAzyS38XpkKznJ9xQjFXz2X9tI7KqjwVxV8RNoww="},
-		{Path: "github.com/asg017/sqlite-vec-go-bindings", Version: "v0.1.6", Sum: "h1:changed"},
+		{Path: sqliteVecPath, Version: "v0.1.7", Sum: sqliteVecSum},
+		{Path: sqliteVecPath, Version: "v0.1.6", Sum: "h1:changed"},
 	} {
 		if _, err := supplementalLicense(root, mod, "modules/x"); err == nil {
 			t.Fatal("unreviewed fallback accepted")
 		}
 	}
 	fixture(t, root, "licenses/go-supplemental/sqlite-vec-v0.1.6-LICENSE-MIT.txt", "changed")
-	_, err := supplementalLicense(root, &module{Path: "github.com/asg017/sqlite-vec-go-bindings", Version: "v0.1.6", Sum: "h1:Nx0jAzyS38XpkKznJ9xQjFXz2X9tI7KqjwVxV8RNoww="}, "modules/x")
+	validMod := &module{Path: sqliteVecPath, Version: "v0.1.6", Sum: sqliteVecSum}
+	_, err := supplementalLicense(root, validMod, "modules/x")
 	if err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("expected fallback hash failure, got %v", err)
 	}
@@ -128,7 +150,11 @@ func TestDuckDBNativeSnapshotAndVersionGuards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mod := &module{Path: "github.com/duckdb/duckdb-go-bindings", Version: "v0.10502.0", Sum: "h1:Uhg/dfvPLQv4cH35lMD48hqUcdOh2Z7bcuykjr4qnOA="}
+	mod := &module{
+		Path:    "github.com/duckdb/duckdb-go-bindings",
+		Version: "v0.10502.0",
+		Sum:     "h1:Uhg/dfvPLQv4cH35lMD48hqUcdOh2Z7bcuykjr4qnOA=",
+	}
 	files, err := duckDBNativeLicenses(root, mod, "modules/duckdb")
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +162,12 @@ func TestDuckDBNativeSnapshotAndVersionGuards(t *testing.T) {
 	if len(files) != 33 {
 		t.Fatalf("got %d native originals", len(files))
 	}
-	for _, name := range []string{"third_party/mbedtls/LICENSE", "third_party/re2/LICENSE", "extension/icu/third_party/icu/LICENSE", "extension/tpcds/dsdgen/dsdgen-c/date.cpp.legal-notice.txt"} {
+	for _, name := range []string{
+		"third_party/mbedtls/LICENSE",
+		"third_party/re2/LICENSE",
+		"extension/icu/third_party/icu/LICENSE",
+		"extension/tpcds/dsdgen/dsdgen-c/date.cpp.legal-notice.txt",
+	} {
 		found := false
 		for _, file := range files {
 			if strings.HasSuffix(file.Path, name) && len(file.data) > 0 {
@@ -160,10 +191,24 @@ func TestRustGateValidatesTargetAndOriginalHashes(t *testing.T) {
 	}
 	license := "Original Rust crate license\n"
 	fixture(t, root, "licenses/rust/originals/example/LICENSE", license)
-	entry := map[string]any{"name": "example", "version": "1.0.0", "licenses": []licenseFile{{Path: "LICENSE", SHA256: digest([]byte(license)), BundlePath: "originals/example/LICENSE"}}}
+	entry := map[string]any{
+		"name":    "example",
+		"version": "1.0.0",
+		"licenses": []licenseFile{{
+			Path:       "LICENSE",
+			SHA256:     digest([]byte(license)),
+			BundlePath: "originals/example/LICENSE",
+		}},
+	}
 	lock := "fixture Cargo.lock\n"
 	fixture(t, root, "Cargo.lock", lock)
-	metadata := map[string]any{"schemaVersion": 1, "target": "aarch64-apple-darwin", "lockSha256": digest([]byte(lock)), "packages": []any{entry}, "runtime": entry}
+	metadata := map[string]any{
+		"schemaVersion": 1,
+		"target":        "aarch64-apple-darwin",
+		"lockSha256":    digest([]byte(lock)),
+		"packages":      []any{entry},
+		"runtime":       entry,
+	}
 	data, _ := json.Marshal(metadata)
 	fixture(t, root, "licenses/rust/rust-dependencies.json", string(data))
 	if err := verifyRustNative(root, "darwin", "arm64"); err != nil {
@@ -178,7 +223,8 @@ func TestRustGateValidatesTargetAndOriginalHashes(t *testing.T) {
 	}
 	fixture(t, root, "Cargo.lock", lock)
 	fixture(t, root, "licenses/rust/originals/example/LICENSE", "changed")
-	if err := verifyRustNative(root, "darwin", "arm64"); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+	if err := verifyRustNative(root, "darwin", "arm64"); err == nil ||
+		!strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("expected original integrity error, got %v", err)
 	}
 }

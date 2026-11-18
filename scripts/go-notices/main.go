@@ -30,11 +30,13 @@ type build struct {
 	Package string `json:"package"`
 	Tags    string `json:"tags"`
 }
+
 type module struct {
 	Path, Version, Dir, Sum string
 	Main                    bool
 	Replace                 *module
 }
+
 type goPackage struct {
 	ImportPath       string
 	Dir              string
@@ -42,6 +44,7 @@ type goPackage struct {
 	Module           *module
 	Error            *struct{ Err string }
 }
+
 type licenseFile struct {
 	Path       string `json:"path"`
 	SHA256     string `json:"sha256"`
@@ -49,6 +52,7 @@ type licenseFile struct {
 	Source     string `json:"source,omitempty"`
 	data       []byte
 }
+
 type moduleNotice struct {
 	Path              string        `json:"path"`
 	Version           string        `json:"version"`
@@ -59,10 +63,12 @@ type moduleNotice struct {
 	Packages          []string      `json:"packages"`
 	Licenses          []licenseFile `json:"licenses"`
 }
+
 type runtimeNotice struct {
 	Version  string        `json:"version"`
 	Licenses []licenseFile `json:"licenses"`
 }
+
 type manifest struct {
 	SchemaVersion int            `json:"schemaVersion"`
 	Scope         string         `json:"scope"`
@@ -127,7 +133,11 @@ func parseBuild(spec string) (build, error) {
 	return b, nil
 }
 
-func collectModules(root string, env []string, builds []build) (map[string]*module, map[string]map[string]bool, map[string]bool, error) {
+func collectModules(
+	root string,
+	env []string,
+	builds []build,
+) (map[string]*module, map[string]map[string]bool, map[string]bool, error) {
 	modules := map[string]*module{}
 	packages := map[string]map[string]bool{}
 	standardDirs := map[string]bool{}
@@ -177,10 +187,16 @@ func collectModules(root string, env []string, builds []build) (map[string]*modu
 	return modules, packages, standardDirs, nil
 }
 
+var nonNoticeSuffixes = []string{
+	".GO", ".C", ".H", ".CC", ".CPP", ".JS", ".TS", ".PY", ".SH",
+	".CRT", ".DER", ".PEM", ".KEY", ".P12", ".PFX", ".PNG", ".JPG",
+	".PDF", ".A", ".SO", ".DLL", ".DYLIB",
+}
+
 func licensePath(path string) bool {
 	parts := strings.Split(filepath.ToSlash(path), "/")
 	name := strings.ToUpper(parts[len(parts)-1])
-	for _, suffix := range []string{".GO", ".C", ".H", ".CC", ".CPP", ".JS", ".TS", ".PY", ".SH", ".CRT", ".DER", ".PEM", ".KEY", ".P12", ".PFX", ".PNG", ".JPG", ".PDF", ".A", ".SO", ".DLL", ".DYLIB"} {
+	for _, suffix := range nonNoticeSuffixes {
 		if strings.HasSuffix(name, suffix) {
 			return false
 		}
@@ -207,17 +223,22 @@ func runtimeLicenses(root, version string, standardDirs map[string]bool) ([]lice
 	}
 	var selected []licenseFile
 	coreLicense := false
+	sep := string(filepath.Separator)
 	for _, file := range files {
 		if file.Path == "LICENSE" {
 			coreLicense = true
 		}
-		if strings.HasPrefix(file.Path, "src/cmd/") || strings.Contains(file.Path, "/testdata/") || strings.HasPrefix(file.Path, "test/") {
+		if strings.HasPrefix(file.Path, "src/cmd/") ||
+			strings.Contains(file.Path, "/testdata/") ||
+			strings.HasPrefix(file.Path, "test/") {
 			continue
 		}
 		include := file.Path == "LICENSE" || file.Path == "PATENTS" || strings.HasPrefix(file.Path, "src/vendor/")
 		parent := filepath.Dir(filepath.Join(root, filepath.FromSlash(file.Path)))
 		for directory := range standardDirs {
-			if directory == parent || strings.HasPrefix(directory, parent+string(filepath.Separator)) || strings.HasPrefix(parent, directory+string(filepath.Separator)) {
+			if directory == parent ||
+				strings.HasPrefix(directory, parent+sep) ||
+				strings.HasPrefix(parent, directory+sep) {
 				include = true
 			}
 		}
@@ -226,7 +247,7 @@ func runtimeLicenses(root, version string, standardDirs map[string]bool) ([]lice
 		}
 	}
 	if !coreLicense {
-		return nil, errors.New("Go runtime LICENSE is missing")
+		return nil, errors.New("go runtime LICENSE is missing")
 	}
 	return selected, nil
 }
@@ -260,7 +281,8 @@ func collectLicensesFiltered(directory, prefix string, skipDirectory func(string
 			if skipDirectory != nil && skipDirectory(filepath.ToSlash(rel)) {
 				return filepath.SkipDir
 			}
-			if path != directory && (entry.Name() == ".git" || entry.Name() == "node_modules" || entry.Name() == "target") {
+			name := entry.Name()
+			if path != directory && (name == ".git" || name == "node_modules" || name == "target") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -279,7 +301,13 @@ func collectLicensesFiltered(directory, prefix string, skipDirectory func(string
 		if len(bytes.TrimSpace(data)) == 0 || !utf8.Valid(data) {
 			return fmt.Errorf("empty or non-UTF8 license file: %s", path)
 		}
-		files = append(files, licenseFile{Path: filepath.ToSlash(rel), SHA256: digest(data), BundlePath: prefix + "/" + filepath.ToSlash(rel), data: data})
+		relSlash := filepath.ToSlash(rel)
+		files = append(files, licenseFile{
+			Path:       relSlash,
+			SHA256:     digest(data),
+			BundlePath: prefix + "/" + relSlash,
+			data:       data,
+		})
 		return nil
 	})
 	return files, err
@@ -313,7 +341,7 @@ func localSourceDigest(directory string) (string, error) {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(h, "%s\x00%s\n", filepath.ToSlash(rel), digest(data))
+		_, _ = fmt.Fprintf(h, "%s\x00%s\n", filepath.ToSlash(rel), digest(data))
 		return nil
 	})
 	return hex.EncodeToString(h.Sum(nil)), err
@@ -322,10 +350,14 @@ func localSourceDigest(directory string) (string, error) {
 func supplementalLicense(root string, source *module, prefix string) ([]licenseFile, error) {
 	// This archive publishes only a reference to the upstream project's MIT
 	// license. Pin all three identities; a changed module needs a new review.
-	if source.Path != "github.com/asg017/sqlite-vec-go-bindings" || source.Version != "v0.1.6" || source.Sum != "h1:Nx0jAzyS38XpkKznJ9xQjFXz2X9tI7KqjwVxV8RNoww=" {
+	const wantSum = "h1:Nx0jAzyS38XpkKznJ9xQjFXz2X9tI7KqjwVxV8RNoww="
+	if source.Path != "github.com/asg017/sqlite-vec-go-bindings" ||
+		source.Version != "v0.1.6" ||
+		source.Sum != wantSum {
 		return nil, fmt.Errorf("no original license text for %s@%s", source.Path, source.Version)
 	}
-	data, err := os.ReadFile(filepath.Join(root, "licenses/go-supplemental/sqlite-vec-v0.1.6-LICENSE-MIT.txt"))
+	suppPath := filepath.Join(root, "licenses/go-supplemental/sqlite-vec-v0.1.6-LICENSE-MIT.txt")
+	data, err := os.ReadFile(suppPath)
 	if err != nil {
 		return nil, err
 	}
@@ -333,12 +365,21 @@ func supplementalLicense(root string, source *module, prefix string) ([]licenseF
 	if digest(data) != sha {
 		return nil, errors.New("sqlite-vec supplemental license checksum mismatch")
 	}
-	return []licenseFile{{Path: "LICENSE-MIT", SHA256: sha, BundlePath: prefix + "/LICENSE-MIT", Source: "https://raw.githubusercontent.com/asg017/sqlite-vec/v0.1.6/LICENSE-MIT", data: data}}, nil
+	return []licenseFile{{
+		Path:       "LICENSE-MIT",
+		SHA256:     sha,
+		BundlePath: prefix + "/LICENSE-MIT",
+		Source:     "https://raw.githubusercontent.com/asg017/sqlite-vec/v0.1.6/LICENSE-MIT",
+		data:       data,
+	}}, nil
 }
 
 func duckDBNativeLicenses(root string, source *module, prefix string) ([]licenseFile, error) {
-	if source.Path != "github.com/duckdb/duckdb-go-bindings" || source.Version != "v0.10502.0" || source.Sum != "h1:Uhg/dfvPLQv4cH35lMD48hqUcdOh2Z7bcuykjr4qnOA=" {
-		return nil, errors.New("DuckDB bindings changed; review and update native dependency notices")
+	const wantSum = "h1:Uhg/dfvPLQv4cH35lMD48hqUcdOh2Z7bcuykjr4qnOA="
+	if source.Path != "github.com/duckdb/duckdb-go-bindings" ||
+		source.Version != "v0.10502.0" ||
+		source.Sum != wantSum {
+		return nil, errors.New("duckdb bindings changed; review and update native dependency notices")
 	}
 	directory := filepath.Join(root, "licenses/go-supplemental/duckdb-v1.5.2")
 	metadata, err := os.ReadFile(filepath.Join(directory, "source-manifest.json"))
@@ -347,7 +388,7 @@ func duckDBNativeLicenses(root string, source *module, prefix string) ([]license
 	}
 	const manifestSHA = "f538ed9466e3a83e12a6ec175455192e2e44e98317e803869a5d9f84d2a31651"
 	if digest(metadata) != manifestSHA {
-		return nil, errors.New("DuckDB native source manifest checksum mismatch")
+		return nil, errors.New("duckdb native source manifest checksum mismatch")
 	}
 	var index struct {
 		Files []struct{ Path, SHA256, Source string }
@@ -356,7 +397,12 @@ func duckDBNativeLicenses(root string, source *module, prefix string) ([]license
 		return nil, err
 	}
 	prefix += "/native/duckdb-v1.5.2"
-	files := []licenseFile{{Path: "native/duckdb-v1.5.2/source-manifest.json", BundlePath: prefix + "/source-manifest.json", SHA256: manifestSHA, data: metadata}}
+	files := []licenseFile{{
+		Path:       "native/duckdb-v1.5.2/source-manifest.json",
+		BundlePath: prefix + "/source-manifest.json",
+		SHA256:     manifestSHA,
+		data:       metadata,
+	}}
 	for _, file := range index.Files {
 		path, err := safePath(directory, file.Path)
 		if err != nil {
@@ -367,9 +413,15 @@ func duckDBNativeLicenses(root string, source *module, prefix string) ([]license
 			return nil, err
 		}
 		if digest(data) != file.SHA256 {
-			return nil, fmt.Errorf("DuckDB native license checksum mismatch: %s", file.Path)
+			return nil, fmt.Errorf("duckdb native license checksum mismatch: %s", file.Path)
 		}
-		files = append(files, licenseFile{Path: "native/duckdb-v1.5.2/" + file.Path, BundlePath: prefix + "/" + file.Path, SHA256: file.SHA256, Source: file.Source, data: data})
+		files = append(files, licenseFile{
+			Path:       "native/duckdb-v1.5.2/" + file.Path,
+			BundlePath: prefix + "/" + file.Path,
+			SHA256:     file.SHA256,
+			Source:     file.Source,
+			data:       data,
+		})
 	}
 	return files, nil
 }
@@ -393,7 +445,10 @@ func verifyRustNative(directory, goos, goarch string) error {
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		return fmt.Errorf("invalid Rust dependency manifest: %w", err)
 	}
-	if metadata.SchemaVersion != 1 || len(metadata.Packages) == 0 || len(metadata.LockSHA256) != 64 || len(metadata.Runtime.Licenses) == 0 {
+	if metadata.SchemaVersion != 1 ||
+		len(metadata.Packages) == 0 ||
+		len(metadata.LockSHA256) != 64 ||
+		len(metadata.Runtime.Licenses) == 0 {
 		return errors.New("incomplete Rust dependency manifest")
 	}
 	lock, err := os.ReadFile(filepath.Join(directory, "Cargo.lock"))
@@ -401,20 +456,24 @@ func verifyRustNative(directory, goos, goarch string) error {
 		return fmt.Errorf("anydoc Cargo.lock unavailable: %w", err)
 	}
 	if digest(lock) != metadata.LockSHA256 {
-		return errors.New("Rust notice bundle is stale: Cargo.lock checksum changed")
+		return errors.New("rust notice bundle is stale: Cargo.lock checksum changed")
 	}
 	arch := map[string]string{"amd64": "x86_64", "arm64": "aarch64"}[goarch]
-	osTarget := map[string]string{"darwin": "apple-darwin", "linux": "unknown-linux-", "windows": "pc-windows-"}[goos]
+	osTarget := map[string]string{
+		"darwin":  "apple-darwin",
+		"linux":   "unknown-linux-",
+		"windows": "pc-windows-",
+	}[goos]
 	if arch == "" || osTarget == "" || !strings.HasPrefix(metadata.Target, arch+"-"+osTarget) {
-		return fmt.Errorf("Rust notice target %q does not match Go target %s/%s", metadata.Target, goos, goarch)
+		return fmt.Errorf("rust notice target %q does not match Go target %s/%s", metadata.Target, goos, goarch)
 	}
 	for _, pkg := range append(metadata.Packages, metadata.Runtime) {
 		if pkg.Name == "" || pkg.Version == "" || len(pkg.Licenses) == 0 {
-			return errors.New("Rust component lacks identity or license originals")
+			return errors.New("rust component lacks identity or license originals")
 		}
 		for _, file := range pkg.Licenses {
 			if !strings.HasPrefix(file.BundlePath, "originals/") {
-				return fmt.Errorf("Rust original outside originals/: %s", file.BundlePath)
+				return fmt.Errorf("rust original outside originals/: %s", file.BundlePath)
 			}
 			path, err := safePath(root, file.BundlePath)
 			if err != nil {
@@ -425,21 +484,27 @@ func verifyRustNative(directory, goos, goarch string) error {
 				return err
 			}
 			if !info.Mode().IsRegular() {
-				return fmt.Errorf("Rust original is not a regular file: %s", file.BundlePath)
+				return fmt.Errorf("rust original is not a regular file: %s", file.BundlePath)
 			}
 			original, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
 			if digest(original) != file.SHA256 {
-				return fmt.Errorf("Rust original checksum mismatch: %s", file.BundlePath)
+				return fmt.Errorf("rust original checksum mismatch: %s", file.BundlePath)
 			}
 		}
 	}
 	return nil
 }
 
-func moduleNotices(root string, modules map[string]*module, packages map[string]map[string]bool, requireRust bool, goos, goarch string) ([]moduleNotice, error) {
+func moduleNotices(
+	root string,
+	modules map[string]*module,
+	packages map[string]map[string]bool,
+	requireRust bool,
+	goos, goarch string,
+) ([]moduleNotice, error) {
 	keys := make([]string, 0, len(modules))
 	for key := range modules {
 		keys = append(keys, key)
@@ -463,10 +528,17 @@ func moduleNotices(root string, modules map[string]*module, packages map[string]
 				return nil, err
 			}
 		}
-		if strings.HasPrefix(original.Path, "github.com/duckdb/duckdb-go-bindings/lib/") && original.Version != "v0.10502.0" {
-			return nil, errors.New("DuckDB native module version changed; review its upstream license snapshot")
+		if strings.HasPrefix(original.Path, "github.com/duckdb/duckdb-go-bindings/lib/") &&
+			original.Version != "v0.10502.0" {
+			return nil, errors.New("duckdb native module version changed; review its upstream license snapshot")
 		}
-		notice := moduleNotice{Path: original.Path, Version: original.Version, SourcePath: source.Path, SourceVersion: source.Version, Sum: source.Sum}
+		notice := moduleNotice{
+			Path:          original.Path,
+			Version:       original.Version,
+			SourcePath:    source.Path,
+			SourceVersion: source.Version,
+			Sum:           source.Sum,
+		}
 		if source.Version == "" {
 			rel, err := filepath.Rel(root, source.Dir)
 			if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -512,16 +584,19 @@ func writeBundle(output string, result manifest) error {
 	if _, err := os.Stat(output); !os.IsNotExist(err) {
 		return fmt.Errorf("output must be a new directory: %s", output)
 	}
-	if err := os.MkdirAll(filepath.Dir(output), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 		return err
 	}
 	stage, err := os.MkdirTemp(filepath.Dir(output), ".go-notices-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(stage)
+	defer func() { _ = os.RemoveAll(stage) }()
 	var text bytes.Buffer
-	fmt.Fprintln(&text, "GO DEPENDENCY LICENSES AND NOTICES\nOriginal license and copyright files for the specified build graphs and Go toolchain.\nSee go-dependencies.json for module versions, verified source checksums and original file paths.")
+	const headerText = "GO DEPENDENCY LICENSES AND NOTICES\n" +
+		"Original license and copyright files for the specified build graphs and Go toolchain.\n" +
+		"See go-dependencies.json for module versions, verified source checksums and original file paths."
+	fmt.Fprintln(&text, headerText)
 	writeFiles := func(label string, files []licenseFile) error {
 		fmt.Fprintf(&text, "\n%s\n%s\n", strings.Repeat("=", 80), label)
 		for _, file := range files {
@@ -529,10 +604,10 @@ func writeBundle(output string, result manifest) error {
 			if err != nil {
 				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(dest, file.data, 0644); err != nil {
+			if err := os.WriteFile(dest, file.data, 0o644); err != nil {
 				return err
 			}
 			fmt.Fprintf(&text, "\n--- %s ---\n", file.BundlePath)
@@ -554,10 +629,10 @@ func writeBundle(output string, result manifest) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(stage, "go-dependencies.json"), append(metadata, '\n'), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(stage, "go-dependencies.json"), append(metadata, '\n'), 0o644); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(stage, "go-third-party-notices.txt"), text.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(stage, "go-third-party-notices.txt"), text.Bytes(), 0o644); err != nil {
 		return err
 	}
 	return os.Rename(stage, output)
@@ -583,7 +658,15 @@ func run() error {
 	if len(specs) == 0 {
 		specs = targets{"./cmd/server="}
 	}
-	result := manifest{SchemaVersion: 1, Scope: "Go build package graphs, runtime, and module-bundled native notices; not a complete operating-system or container SBOM", GOOS: *goos, GOARCH: *goarch, CGOEnabled: *cgo}
+	const manifestScope = "Go build package graphs, runtime, and module-bundled native notices; " +
+		"not a complete operating-system or container SBOM"
+	result := manifest{
+		SchemaVersion: 1,
+		Scope:         manifestScope,
+		GOOS:          *goos,
+		GOARCH:        *goarch,
+		CGOEnabled:    *cgo,
+	}
 	requireRust := false
 	for _, spec := range specs {
 		b, err := parseBuild(spec)
@@ -619,7 +702,7 @@ func run() error {
 		return err
 	}
 	if toolchain.GOROOT == "" || toolchain.GOVERSION == "" {
-		return errors.New("Go toolchain source/version unavailable")
+		return errors.New("go toolchain source/version unavailable")
 	}
 	result.Runtime.Version = toolchain.GOVERSION
 	result.Runtime.Licenses, err = runtimeLicenses(toolchain.GOROOT, toolchain.GOVERSION, standardDirs)
@@ -627,12 +710,15 @@ func run() error {
 		return err
 	}
 	if len(result.Runtime.Licenses) == 0 {
-		return errors.New("Go runtime license missing")
+		return errors.New("go runtime license missing")
 	}
 	if err := writeBundle(*output, result); err != nil {
 		return err
 	}
-	fmt.Printf("Go notices: %d linked modules, %d runtime/vendor notice files -> %s\n", len(result.Modules), len(result.Runtime.Licenses), *output)
+	fmt.Printf(
+		"Go notices: %d linked modules, %d runtime/vendor notice files -> %s\n",
+		len(result.Modules), len(result.Runtime.Licenses), *output,
+	)
 	return nil
 }
 

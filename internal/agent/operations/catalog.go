@@ -322,10 +322,9 @@ var (
 // here on purpose. Catalog construction fails otherwise, so a careless
 // annotation is caught by tests rather than review.
 var allowedRouteAreas = map[string]bool{
-	"knowledge-bases":        true,
+	"knowledge-bases":        true, // Knowledge bases, FAQ, and Wiki
 	"shared-knowledge-bases": true,
 	"knowledge":              true,
-	"knowledgebase":          true, // Wiki
 	"chunks":                 true,
 	"faq":                    true,
 	"agents":                 true,
@@ -341,7 +340,7 @@ var allowedRouteAreas = map[string]bool{
 	"mcp-services":         true,
 	"web-search-providers": true,
 	// Saved data sources: status, connection tests, sync settings and control.
-	"datasource": true,
+	"data-sources": true,
 	// Sandbox configs hold provider credentials; see sandboxSkillsRoute.
 	"sandbox-configs": true,
 	// The caller's own conversations, read-only; see readOnlyRouteAreas.

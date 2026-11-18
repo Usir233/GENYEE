@@ -1420,6 +1420,261 @@ const docTemplate = `{
                 "x-agent-hint": "Copies an agent, settings included; the copy belongs to the user."
             }
         },
+        "/agents/{id}/embed-channels": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "获取智能体的网页嵌入渠道列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "创建网页嵌入渠道",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Embed channel config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}/im-channels": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IM 渠道"
+                ],
+                "summary": "获取智能体的 IM 渠道列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IM 渠道"
+                ],
+                "summary": "创建 IM 渠道",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "IM channel config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}/shares": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "组织管理"
+                ],
+                "summary": "获取智能体的共享列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "组织管理"
+                ],
+                "summary": "共享智能体到组织",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Share request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/agents/{id}/shares/{share_id}": {
             "delete": {
                 "security": [
@@ -2171,7 +2426,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "refreshToken": {
+                                "refresh_token": {
                                     "type": "string"
                                 }
                             }
@@ -3280,22 +3535,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "413": {
                         "description": "文本超过预览限制",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "504": {
                         "description": "分块超时",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -3372,6 +3624,71 @@ const docTemplate = `{
             }
         },
         "/chunks/by-id/{id}/questions": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为指定分块创建或更新生成的问题并同步向量索引",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "分块管理"
+                ],
+                "summary": "新增或更新分块生成的问题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "分块ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "问题内容",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UpsertGeneratedQuestionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "生成的问题",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GeneratedQuestion"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -3430,6 +3747,67 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "分块不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/chunks/by-id/{id}/questions/regenerate": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为当前分块版本重新生成辅助检索问题",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "分块管理"
+                ],
+                "summary": "重新生成分块辅助问题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "分块ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "生成的问题列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GeneratedQuestion"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
@@ -3874,7 +4252,7 @@ const docTemplate = `{
                 "x-agent-hint": "Read saved earlier revisions of a document chunk. Current revision is returned by chunk.get."
             }
         },
-        "/datasource": {
+        "/data-sources": {
             "get": {
                 "description": "List all data sources for a specific knowledge base",
                 "produces": [
@@ -3907,10 +4285,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -3947,22 +4322,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
             }
         },
-        "/datasource/logs/{log_id}": {
+        "/data-sources/logs/{log_id}": {
             "get": {
                 "description": "Retrieve a specific sync log entry",
                 "produces": [
@@ -3992,10 +4364,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4006,7 +4375,7 @@ const docTemplate = `{
                 "x-agent-hint": "Read the current status and counts of a sync_log_id returned by data_source.sync or data_source.list_sync_logs. A started job is not a completed sync. Raw upstream errors are omitted; detailed failures remain on the data source settings page."
             }
         },
-        "/datasource/types": {
+        "/data-sources/types": {
             "get": {
                 "description": "Get list of available data source connectors",
                 "produces": [
@@ -4029,7 +4398,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/datasource/validate-credentials": {
+        "/data-sources/validate-credentials": {
             "post": {
                 "description": "Validate connectivity to an external data source using type + credentials",
                 "consumes": [
@@ -4066,16 +4435,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
             }
         },
-        "/datasource/{id}": {
+        "/data-sources/{id}": {
             "get": {
                 "description": "Retrieve a data source configuration by ID",
                 "produces": [
@@ -4105,10 +4471,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4152,16 +4515,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4188,16 +4548,13 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
             }
         },
-        "/datasource/{id}/credentials": {
+        "/data-sources/{id}/credentials": {
             "put": {
                 "security": [
                     {
@@ -4271,7 +4628,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/datasource/{id}/credentials/{field}": {
+        "/data-sources/{id}/credentials/{field}": {
             "delete": {
                 "security": [
                     {
@@ -4324,7 +4681,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/datasource/{id}/logs": {
+        "/data-sources/{id}/logs": {
             "get": {
                 "description": "Retrieve sync history for a data source",
                 "produces": [
@@ -4376,10 +4733,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4390,7 +4744,7 @@ const docTemplate = `{
                 "x-agent-hint": "Read recent sync status and counts. Use limit and offset for older records. Raw upstream errors are omitted; detailed failures remain on the data source settings page."
             }
         },
-        "/datasource/{id}/pause": {
+        "/data-sources/{id}/pause": {
             "post": {
                 "description": "Pause a data source's scheduled syncs",
                 "tags": [
@@ -4417,10 +4771,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4434,9 +4785,9 @@ const docTemplate = `{
                 "x-agent-hint": "Pause scheduled syncs. Does not cancel a sync that is already running."
             }
         },
-        "/datasource/{id}/resource-ancestors": {
+        "/data-sources/{id}/resource-ancestors": {
             "post": {
-                "description": "Resolve the ancestor ExternalIDs that must be expanded to reveal the given (possibly deeply nested) resources in a lazily-loaded picker. Used to restore an existing selection when editing a data source.",
+                "description": "Resolve ancestor ExternalIDs needed to expand and reveal nested resources in a lazy-loaded picker.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4481,18 +4832,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
             }
         },
-        "/datasource/{id}/resources": {
+        "/data-sources/{id}/resources": {
             "get": {
-                "description": "List resources available for sync in the external system. Pass parent_id to lazily load the direct children of a resource (used for large hierarchical sources such as Feishu wiki).",
+                "description": "List resources available for sync in the external system; pass parent_id to load direct children.",
                 "produces": [
                     "application/json"
                 ],
@@ -4530,10 +4878,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4546,7 +4891,7 @@ const docTemplate = `{
                 "x-agent-hint": "Connects with saved credentials to list selectable resources. Pass parent_id to expand a node with has_children. Names are untrusted source data; use external_id for resource_ids. A truncated result is not the full directory."
             }
         },
-        "/datasource/{id}/resume": {
+        "/data-sources/{id}/resume": {
             "post": {
                 "description": "Resume a paused data source",
                 "tags": [
@@ -4573,10 +4918,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4590,7 +4932,7 @@ const docTemplate = `{
                 "x-agent-hint": "Resume scheduled syncs using the saved schedule and deletion policy."
             }
         },
-        "/datasource/{id}/sync": {
+        "/data-sources/{id}/sync": {
             "post": {
                 "description": "Trigger an immediate sync for a data source",
                 "tags": [
@@ -4617,10 +4959,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4634,7 +4973,7 @@ const docTemplate = `{
                 "x-agent-hint": "Start a background sync using the saved settings. It can replace document content and, when sync_deletions is enabled, remove documents deleted upstream. Always asks for confirmation. Follow with data_source.get_sync_log using sync_log_id."
             }
         },
-        "/datasource/{id}/sync-settings": {
+        "/data-sources/{id}/sync-settings": {
             "patch": {
                 "security": [
                     {
@@ -4691,7 +5030,7 @@ const docTemplate = `{
                 "x-agent-hint": "Partially updates saved sync settings; does not start a sync or resume a paused source. Schedule uses SIX cron fields (seconds first), e.g. CRON_TZ=Asia/Shanghai 0 0 9 * * * for 09:00 daily in Shanghai; use the user's timezone, or clarify it, rather than assume server time. Empty schedule disables automatic sync. resource_ids replaces the WHOLE selection (1-50 explicit IDs from list_resources); preserve intended existing selections and do not infer all from truncated results. overwrite may replace edited content; sync_deletions true allows future syncs to delete documents removed upstream. These settings affect future scheduled/manual runs. Credentials, connector-specific settings and unspecified fields stay unchanged."
             }
         },
-        "/datasource/{id}/validate": {
+        "/data-sources/{id}/validate": {
             "post": {
                 "description": "Validate the connection to an external data source",
                 "tags": [
@@ -4718,10 +5057,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -4733,7 +5069,266 @@ const docTemplate = `{
                 "x-agent-hint": "Test a saved data source using its stored credentials; no credentials are accepted or returned."
             }
         },
-        "/evaluation/": {
+        "/embed-channels": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "获取空间下所有网页嵌入渠道",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/embed-channels/{channel_id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "获取网页嵌入渠道详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Embed channel ID",
+                        "name": "channel_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "更新网页嵌入渠道",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Embed channel ID",
+                        "name": "channel_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "删除网页嵌入渠道",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Embed channel ID",
+                        "name": "channel_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/embed-channels/{channel_id}/preview-session": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "签发网页嵌入预览会话令牌",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Embed channel ID",
+                        "name": "channel_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/embed-channels/{channel_id}/rotate-token": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "轮换网页嵌入渠道发布令牌",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Embed channel ID",
+                        "name": "channel_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/embed-channels/{channel_id}/stats": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网页嵌入"
+                ],
+                "summary": "获取网页嵌入渠道统计信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Embed channel ID",
+                        "name": "channel_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/evaluation": {
             "get": {
                 "security": [
                     {
@@ -4902,6 +5497,48 @@ const docTemplate = `{
                         "description": "任务不存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/im-channels": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "IM 渠道"
+                ],
+                "summary": "获取当前工作空间的全部 IM 渠道列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5203,6 +5840,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/image-pipelines": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "返回所有已注册的图片处理流水线及其配置字段元数据。全局只读，不绑定知识库。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "知识库"
+                ],
+                "summary": "获取图片处理流水线列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.DataResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/image-pipelines/validate": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "根据指定流水线的规则校验参数组合是否合法，不持久化任何配置。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "知识库"
+                ],
+                "summary": "校验图片处理流水线参数",
+                "parameters": [
+                    {
+                        "description": "流水线与参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.ValidateImagePipelinesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.DataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/initialization/asr/check": {
             "post": {
                 "security": [
@@ -5252,7 +5965,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/initialization/config/{kbId}": {
+        "/initialization/config/{kb_id}": {
             "get": {
                 "security": [
                     {
@@ -5277,7 +5990,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "知识库ID",
-                        "name": "kbId",
+                        "name": "kb_id",
                         "in": "path",
                         "required": true
                     }
@@ -5322,7 +6035,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "知识库ID",
-                        "name": "kbId",
+                        "name": "kb_id",
                         "in": "path",
                         "required": true
                     },
@@ -5562,7 +6275,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/initialization/initialize/{kbId}": {
+        "/initialization/initialize/{kb_id}": {
             "post": {
                 "security": [
                     {
@@ -5587,7 +6300,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "知识库ID",
-                        "name": "kbId",
+                        "name": "kb_id",
                         "in": "path",
                         "required": true
                     },
@@ -5698,7 +6411,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/initialization/ollama/download/progress/{taskId}": {
+        "/initialization/ollama/download/progress/{task_id}": {
             "get": {
                 "security": [
                     {
@@ -5723,7 +6436,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "任务ID",
-                        "name": "taskId",
+                        "name": "task_id",
                         "in": "path",
                         "required": true
                     }
@@ -5927,7 +6640,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "modelName": {
+                                "model_name": {
                                     "type": "string"
                                 }
                             }
@@ -6997,7 +7710,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "异步批量更新或插入FAQ条目。支持 dry_run 模式（设置 dry_run=true），异步验证不实际导入。\ndry_run 模式是异步操作，返回 task_id，通过 /faq/import/progress/{task_id} 查询进度和结果。\n验证内容包括：1) 条目基本格式 2) 重复问题（批次内和知识库已有） 3) 内容安全检查。",
+                "description": "同步创建单个FAQ条目",
                 "consumes": [
                     "application/json"
                 ],
@@ -7007,28 +7720,29 @@ const docTemplate = `{
                 "tags": [
                     "FAQ管理"
                 ],
-                "summary": "批量更新/插入FAQ条目",
+                "summary": "创建单个FAQ条目",
                 "parameters": [
                     {
                         "type": "string",
+                        "x-agent": "knowledge_base_id",
                         "description": "知识库ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "批量操作请求",
+                        "description": "FAQ条目",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQBatchUpsertPayload"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "任务ID",
+                        "description": "创建的FAQ条目",
                         "schema": {
                             "allOf": [
                                 {
@@ -7038,7 +7752,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_handler.TaskIDData"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                                         }
                                     }
                                 }
@@ -7051,7 +7765,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
-                }
+                },
+                "x-agent": {
+                    "id": "faq.create_entry",
+                    "label": "name",
+                    "risk": "write",
+                    "target": "knowledge_base.get"
+                },
+                "x-agent-hint": "Adds one FAQ entry. Questions already used by another entry are refused."
             },
             "delete": {
                 "security": [
@@ -7186,6 +7907,73 @@ const docTemplate = `{
                     "target": "knowledge_base.get"
                 },
                 "x-agent-hint": "Set is_enabled, is_recommended or tag_seq_id for 1-20 explicit FAQ entry seq_ids; at least one field is required. Omitted fields and all questions/answers stay unchanged. tag_seq_id comes from knowledge_base.list_tags (tag_seq_id); 0 removes the tag. Select entries with faq.list_entries first; for a whole tag or knowledge base paginate the list and process batches of up to 20. Confirmation lists every question."
+            }
+        },
+        "/knowledge-bases/{id}/faq/entries/batch": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "异步批量更新或插入FAQ条目。支持 dry_run 模式（设置 dry_run=true），异步验证不实际导入。\ndry_run 模式是异步操作，返回 task_id，通过 /faq/import/progress/{task_id} 查询进度和结果。\n验证内容包括：1) 条目基本格式 2) 重复问题（批次内和知识库已有） 3) 内容安全检查。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FAQ管理"
+                ],
+                "summary": "批量更新/插入FAQ条目",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "知识库ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "批量操作请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQBatchUpsertPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务ID",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.TaskIDData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
             }
         },
         "/knowledge-bases/{id}/faq/entries/export": {
@@ -7599,81 +8387,6 @@ const docTemplate = `{
                 "x-agent-hint": "Adds phrasings to an entry and keeps everything else."
             }
         },
-        "/knowledge-bases/{id}/faq/entry": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "同步创建单个FAQ条目",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "FAQ管理"
-                ],
-                "summary": "创建单个FAQ条目",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "知识库ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "FAQ条目",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "创建的FAQ条目",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "faq.create_entry",
-                    "label": "name",
-                    "risk": "write",
-                    "target": "knowledge_base.get"
-                },
-                "x-agent-hint": "Adds one FAQ entry. Questions already used by another entry are refused."
-            }
-        },
         "/knowledge-bases/{id}/faq/import/last-result/display": {
             "put": {
                 "security": [
@@ -7798,6 +8511,58 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/gallery-config": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "返回知识库解析后的图库属性来源、属性定义及使用策略、检索模式与各字段状态。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "knowledge"
+                ],
+                "summary": "获取知识库图库配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "知识库 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "图库配置",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.DataResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问知识库",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "知识库不存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
@@ -8088,7 +8853,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "浏览某知识库内的全部图片资产，支持关键字搜索（caption/OCR 文本）、按图片属性筛选（attr_filters / attr_rules）与排序分页。",
+                "description": "浏览某知识库内的全部图片资产，支持关键字搜索、按图片属性筛选与排序分页。",
                 "consumes": [
                     "application/json"
                 ],
@@ -8207,7 +8972,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "与 GET /images 同义，筛选参数改经 JSON body 传递：knowledge_ids 不再受 URL 长度限制（上限 1000），供来源文档全选使用。",
+                "description": "与 GET /images 同义，筛选参数经 JSON body 传递（knowledge_ids 上限 1000）。",
                 "consumes": [
                     "application/json"
                 ],
@@ -8628,7 +9393,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "自定义文件名",
-                        "name": "fileName",
+                        "name": "file_name",
                         "in": "formData"
                     },
                     {
@@ -8640,7 +9405,7 @@ const docTemplate = `{
                     {
                         "type": "boolean",
                         "description": "启用多模态处理",
-                        "name": "enable_multimodel",
+                        "name": "enable_multimodal",
                         "in": "formData"
                     },
                     {
@@ -8684,8 +9449,7 @@ const docTemplate = `{
                     "409": {
                         "description": "文件重复",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -8979,8 +9743,7 @@ const docTemplate = `{
                     "409": {
                         "description": "URL重复",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9805,6 +10568,1248 @@ const docTemplate = `{
                 "x-agent-hint": "Deletes a tag that no document uses. If documents still use it, this fails; take the tag off them with knowledge.set_tags first. Documents are not deleted."
             }
         },
+        "/knowledge-bases/{id}/wiki/auto-fix": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Automatically fix fixable wiki issues (broken links, etc.)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Auto-fix wiki issues",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.AutoFixResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/folders": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve direct child folders (parent_id empty = root) with page counts and has-children flags.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "List wiki folders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "x-agent": true,
+                        "description": "Parent folder id (empty = root)",
+                        "name": "parent_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.list_folders",
+                    "max_items": 200,
+                    "risk": "read",
+                    "root": "folders"
+                },
+                "x-agent-hint": "Direct child folders of parent_id (omit it for the top level), up to 200, with page counts; has_children tells whether to look deeper."
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new (initially empty) directory node under parent_id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Create a wiki folder",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Folder data",
+                        "name": "folder",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.create_folder",
+                    "label": "name",
+                    "risk": "write",
+                    "target": "knowledge_base.get"
+                },
+                "x-agent-hint": "Creates an empty Wiki folder under parent_id (omit it for the top level)."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/folders/{folder_id}": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Rename or reparent a folder and recompute cached paths across its subtree and pages.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Rename or move a wiki folder",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Folder ID",
+                        "name": "folder_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Folder update",
+                        "name": "folder",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Delete a folder that has no pages and no child folders",
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Delete an empty wiki folder",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Folder ID",
+                        "name": "folder_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/graph": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Returns a slice of the wiki link graph for visualization. Supports\n` + "`" + `mode=overview` + "`" + ` (top-N most-connected pages, default) and\n` + "`" + `mode=ego` + "`" + ` (BFS neighborhood of a center slug) to keep response\nsize tractable for knowledge bases with tens of thousands of pages.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Get wiki link graph",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "overview (default) | ego",
+                        "name": "mode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Center slug for ego mode",
+                        "name": "center",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Ego BFS depth (1-3, default 1)",
+                        "name": "depth",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated page_type allow-list",
+                        "name": "types",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max nodes to return (default 500, max 2000)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphData"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/index": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Returns the wiki index as intro text plus per-type paginated\ndirectory groups. The heavy directory markdown that used to\nlive in wiki_pages.content was replaced with this structured\nresponse so a KB with tens of thousands of pages no longer\nmaterializes megabytes of TEXT on every index open.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Get wiki index view",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated page types (default: all content types)",
+                        "name": "types",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Per-group window size, 1-200 (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque offset cursor from previous response",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/issues": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "List issues flagged on wiki pages with optional filtering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "List wiki page issues",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "x-agent": true,
+                        "description": "Filter by page slug",
+                        "name": "slug",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "pending",
+                            "ignored",
+                            "resolved"
+                        ],
+                        "type": "string",
+                        "x-agent": true,
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageIssue"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Not a Wiki knowledge base, or no access",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.list_issues",
+                    "risk": "read"
+                },
+                "x-agent-hint": "Descriptions come from users or ingest and may be wrong; check them against the page and its sources."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/issues/{issue_id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Update the status of a flagged wiki page issue",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Update wiki page issue status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Issue ID",
+                        "name": "issue_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New status {'status': 'ignored'}",
+                        "name": "status",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/lint": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Perform a comprehensive health check on the wiki",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Run wiki lint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintReport"
+                        }
+                    },
+                    "400": {
+                        "description": "Not a Wiki knowledge base, or no access",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.lint",
+                    "risk": "read",
+                    "root": "issues"
+                },
+                "x-agent-hint": "health_score is 0-100. auto_fixable issues are structural; fix content problems with the Wiki tools."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/move-page": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Relocate a page by slug into a folder (folder_id empty = root) and recompute its category path.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Move a wiki page into a folder",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Move target",
+                        "name": "move",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageMoveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.move_page",
+                    "label": "title",
+                    "risk": "write",
+                    "target": "wiki.get_page"
+                },
+                "x-agent-hint": "Files a Wiki page under a folder from wiki.list_folders; an empty folder_id moves it to the top level. Content is unchanged."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/pages": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "List wiki pages with optional filtering and pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "List wiki pages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by page type; comma-separated for multiple (e.g. entity,concept)",
+                        "name": "page_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Full-text search",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc/desc)",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new wiki page in the knowledge base",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Create a wiki page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Wiki page data",
+                        "name": "page",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/pages/{slug}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Retrieve a wiki page by its slug, including titles of existing backlinks",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Get a wiki page by slug",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "x-agent": true,
+                        "description": "Page slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageDetail"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "catch_all": "slug",
+                    "id": "wiki.get_page",
+                    "risk": "read"
+                },
+                "x-agent-hint": "A Wiki page's title, type, status, folder and version. Read its content with the document tools instead."
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Partially update a wiki page by slug. Absent fields keep\ntheir stored value. When ` + "`" + `version` + "`" + ` is \u003e 0 it acts as an\noptimistic-lock guard: a mismatch with the stored version\nreturns 409 together with the current version so the client\ncan reload and re-apply.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Update a wiki page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "page",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Soft-delete a wiki page by slug",
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Delete a wiki page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/rebuild-links": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Re-parse all pages and rebuild bidirectional link references",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Rebuild wiki links",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.WikiMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Not a Wiki knowledge base, or no access",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.rebuild_links",
+                    "label": "name",
+                    "risk": "write",
+                    "target": "knowledge_base.get"
+                },
+                "x-agent-hint": "Use when wiki.lint reports link problems that do not match the page content."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/revert": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Rolls the page (slug in the body, like move-page) back to\nthe content of the given stored revision. Applied as a\nregular edit: the pre-revert state is snapshotted and the\nversion advances.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Revert a wiki page to an earlier revision",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Revert target",
+                        "name": "revert",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevertRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.revert",
+                    "label": "title",
+                    "risk": "write",
+                    "target": "wiki.get_page"
+                },
+                "x-agent-hint": "Restores a Wiki page to a version from wiki.list_revisions. Read that version with content_version first. The restore is saved as a new version, so it can be undone the same way."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/revisions/{slug}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Returns the stored historical snapshots for a page, newest\nfirst (content omitted), plus the current version. Passing\n` + "`" + `version` + "`" + ` returns that single snapshot with full content.\n` + "`" + `content_version` + "`" + ` keeps this list envelope and includes that\none revision's content.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "List wiki page revisions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "x-agent": true,
+                        "description": "Page slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return this single revision with content",
+                        "name": "version",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "x-agent": true,
+                        "description": "Include this stored revision's content in the list envelope",
+                        "name": "content_version",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "x-agent": true,
+                        "x-agent-maximum": "50",
+                        "description": "Page size (default 50, max 200)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "x-agent": true,
+                        "x-agent-maximum": "10000",
+                        "description": "Offset into the newest-first list",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevisionListResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "catch_all": "slug",
+                    "id": "wiki.list_revisions",
+                    "risk": "read",
+                    "root": "revisions"
+                },
+                "x-agent-hint": "Earlier versions of a Wiki page, newest first. Pass content_version to read one stored revision's content before wiki.revert. The current page is not in this list."
+            }
+        },
+        "/knowledge-bases/{id}/wiki/search": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Full-text search over wiki pages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Search wiki pages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max results (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/wiki/stats": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Returns aggregate statistics about the wiki",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wiki"
+                ],
+                "summary": "Get wiki statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "x-agent": "knowledge_base_id",
+                        "description": "Knowledge base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiStats"
+                        }
+                    },
+                    "400": {
+                        "description": "Not a Wiki knowledge base, or no access",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                },
+                "x-agent": {
+                    "id": "wiki.get_stats",
+                    "risk": "read"
+                }
+            }
+        },
         "/knowledge-chat/{session_id}": {
             "post": {
                 "security": [
@@ -9941,7 +11946,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "根据ID列表批量获取知识条目。可选 kb_id：指定时按该知识库校验权限并用于共享知识库的空间解析；可选 agent_id：使用共享智能体时传此参数，后端按智能体所属空间查询（用于刷新后恢复共享知识库下的文件）",
+                "description": "根据ID列表批量获取知识条目；可选 kb_id 或共享 agent_id 限定空间范围与访问校验。",
                 "consumes": [
                     "application/json"
                 ],
@@ -10146,7 +12151,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "批量修改知识条目所属文件夹。文件夹由路径推导而来，因此目标路径不存在时会自动创建；空路径表示知识库顶层。仅调整归类，不会重新解析文档",
+                "description": "批量修改知识条目所属文件夹；目标路径不存在时自动创建，空路径表示顶层，不重新解析文档。",
                 "consumes": [
                     "application/json"
                 ],
@@ -10494,7 +12499,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Search knowledge files by keyword. Pass recent=true without a keyword to browse recent files. When agent_id is set (shared agent), scope is the agent's configured knowledge bases.",
+                "description": "Search knowledge files by keyword (or pass recent=true); optional agent_id scopes to shared agent KBs.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10572,7 +12577,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "批量更新知识条目的标签。传 updates，或传 knowledge_ids 与 tag_ids。可选 kb_id：指定时按该知识库校验编辑权限并用于共享知识库的空间解析",
+                "description": "批量更新知识条目的标签（传 updates 或 knowledge_ids + tag_ids）；可选 kb_id 指定知识库范围。",
                 "consumes": [
                     "application/json"
                 ],
@@ -10845,7 +12850,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "取消进行中的知识解析任务。当前已写入的 chunk / 索引保留，可通过 reparse 接口重新触发解析。已完成 / 已失败 / 删除中的知识不支持取消。",
+                "description": "取消进行中的知识解析任务；已写入分块保留，可通过 reparse 重新解析。终态或删除中的知识不支持取消。",
                 "consumes": [
                     "application/json"
                 ],
@@ -11007,6 +13012,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/knowledge/{id}/regenerate-summary": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "在分块或元数据编辑后刷新或重新触发知识条目的文档摘要生成。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "知识管理"
+                ],
+                "summary": "重新生成知识摘要",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "知识ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新后的知识",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "知识不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/knowledge/{id}/reparse": {
             "post": {
                 "security": [
@@ -11103,7 +13178,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "返回该知识在解析流水线的 trace tree（root → stage → subspan）：每段状态、耗时、input/output、错误码、langfuse_trace_id。支持 ?attempt=N 查看历史尝试；不传则返回最新尝试。前端用于渲染时间线 + 多模态/embedding 子节点 + 一键跳转 Langfuse。",
+                "description": "返回该知识在解析流水线的 trace tree（root → stage → subspan）：每段状态、耗时、错误码与追踪 ID；支持 ?attempt=N 查看历史尝试。",
                 "consumes": [
                     "application/json"
                 ],
@@ -11170,101 +13245,17 @@ const docTemplate = `{
                 "x-agent-hint": "Use when a document is stuck or failed: tells a stalled parse from a running one, names the failed stage."
             }
         },
-        "/knowledgebase/{kb_id}/wiki/auto-fix": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Automatically fix fixable wiki issues (broken links, etc.)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Auto-fix wiki issues",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.AutoFixResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/folders": {
+        "/knowledge/{id}/stages": {
             "get": {
                 "security": [
                     {
                         "Bearer": []
-                    }
-                ],
-                "description": "Retrieve the direct child folders of a parent folder (parent_id empty = root level), each with its page count and a has-children flag for the directory tree.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "List wiki folders",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
                     },
                     {
-                        "type": "string",
-                        "x-agent": true,
-                        "description": "Parent folder id (empty = root)",
-                        "name": "parent_id",
-                        "in": "query"
+                        "ApiKeyAuth": []
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.list_folders",
-                    "max_items": 200,
-                    "risk": "read",
-                    "root": "folders"
-                },
-                "x-agent-hint": "Direct child folders of parent_id (omit it for the top level), up to 200, with page counts; has_children tells whether to look deeper."
-            },
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Create a new (initially empty) directory node under parent_id",
+                "description": "与 GET /knowledge/{id}/spans 返回结构一致的只读别名接口，不重复声明 x-agent 操作 ID。",
                 "consumes": [
                     "application/json"
                 ],
@@ -11272,1019 +13263,22 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Wiki"
+                    "知识管理"
                 ],
-                "summary": "Create a wiki folder",
+                "summary": "获取知识文档解析阶段状态（/spans 兼容别名）",
                 "parameters": [
                     {
                         "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
+                        "description": "知识ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Folder data",
-                        "name": "folder",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderCreateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.create_folder",
-                    "label": "name",
-                    "risk": "write",
-                    "target": "knowledge_base.get"
-                },
-                "x-agent-hint": "Creates an empty Wiki folder under parent_id (omit it for the top level)."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/folders/{folder_id}": {
-            "put": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Rename and/or reparent a folder; the whole subtree's paths and the affected pages' cached paths are recomputed",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Rename or move a wiki folder",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Folder ID",
-                        "name": "folder_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Folder update",
-                        "name": "folder",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderUpdateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Delete a folder that has no pages and no child folders",
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Delete an empty wiki folder",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Folder ID",
-                        "name": "folder_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/graph": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Returns a slice of the wiki link graph for visualization. Supports\n` + "`" + `mode=overview` + "`" + ` (top-N most-connected pages, default) and\n` + "`" + `mode=ego` + "`" + ` (BFS neighborhood of a center slug) to keep response\nsize tractable for knowledge bases with tens of thousands of pages.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Get wiki link graph",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "overview (default) | ego",
-                        "name": "mode",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Center slug for ego mode",
-                        "name": "center",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Ego BFS depth (1-3, default 1)",
-                        "name": "depth",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Comma-separated page_type allow-list",
-                        "name": "types",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Max nodes to return (default 500, max 2000)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphData"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/index": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Returns the wiki index as intro text plus per-type paginated\ndirectory groups. The heavy directory markdown that used to\nlive in wiki_pages.content was replaced with this structured\nresponse so a KB with tens of thousands of pages no longer\nmaterializes megabytes of TEXT on every index open.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Get wiki index view",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Comma-separated page types (default: all content types)",
-                        "name": "types",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Per-group window size, 1-200 (default 50)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Opaque offset cursor from previous response",
-                        "name": "cursor",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/issues": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "List issues flagged on wiki pages with optional filtering",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "List wiki page issues",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "x-agent": true,
-                        "description": "Filter by page slug",
-                        "name": "slug",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "pending",
-                            "ignored",
-                            "resolved"
-                        ],
-                        "type": "string",
-                        "x-agent": true,
-                        "description": "Filter by status",
-                        "name": "status",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageIssue"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Not a Wiki knowledge base, or no access",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.list_issues",
-                    "risk": "read"
-                },
-                "x-agent-hint": "Descriptions come from users or ingest and may be wrong; check them against the page and its sources."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/issues/{issue_id}/status": {
-            "put": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Update the status of a flagged wiki page issue",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Update wiki page issue status",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Issue ID",
-                        "name": "issue_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New status {'status': 'ignored'}",
-                        "name": "status",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/lint": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Perform a comprehensive health check on the wiki",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Run wiki lint",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintReport"
-                        }
-                    },
-                    "400": {
-                        "description": "Not a Wiki knowledge base, or no access",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.lint",
-                    "risk": "read",
-                    "root": "issues"
-                },
-                "x-agent-hint": "health_score is 0-100. auto_fixable issues are structural; fix content problems with the Wiki tools."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/move-page": {
-            "put": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Relocate a page (identified by slug in the body) into a folder (folder_id empty = root); the page's cached category path is recomputed",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Move a wiki page into a folder",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Move target",
-                        "name": "move",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageMoveRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.move_page",
-                    "label": "title",
-                    "risk": "write",
-                    "target": "wiki.get_page"
-                },
-                "x-agent-hint": "Files a Wiki page under a folder from wiki.list_folders; an empty folder_id moves it to the top level. Content is unchanged."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/pages": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "List wiki pages with optional filtering and pagination",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "List wiki pages",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by page type; comma-separated for multiple (e.g. entity,concept)",
-                        "name": "page_type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by status",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Full-text search",
-                        "name": "query",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size",
-                        "name": "page_size",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort field",
-                        "name": "sort_by",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Sort order (asc/desc)",
-                        "name": "sort_order",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Create a new wiki page in the knowledge base",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Create a wiki page",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Wiki page data",
-                        "name": "page",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/pages/{slug}": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Retrieve a wiki page by its slug, including titles of existing backlinks",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Get a wiki page by slug",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "x-agent": true,
-                        "description": "Page slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageDetail"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "catch_all": "slug",
-                    "id": "wiki.get_page",
-                    "risk": "read"
-                },
-                "x-agent-hint": "A Wiki page's title, type, status, folder and version. Read its content with the document tools instead."
-            },
-            "put": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Partially update a wiki page by slug. Absent fields keep\ntheir stored value. When ` + "`" + `version` + "`" + ` is \u003e 0 it acts as an\noptimistic-lock guard: a mismatch with the stored version\nreturns 409 together with the current version so the client\ncan reload and re-apply.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Update a wiki page",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Page slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Fields to update",
-                        "name": "page",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageUpdateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Soft-delete a wiki page by slug",
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Delete a wiki page",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Page slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/rebuild-links": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Re-parse all pages and rebuild bidirectional link references",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Rebuild wiki links",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiMessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Not a Wiki knowledge base, or no access",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.rebuild_links",
-                    "label": "name",
-                    "risk": "write",
-                    "target": "knowledge_base.get"
-                },
-                "x-agent-hint": "Use when wiki.lint reports link problems that do not match the page content."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/revert": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Rolls the page (slug in the body, like move-page) back to\nthe content of the given stored revision. Applied as a\nregular edit: the pre-revert state is snapshotted and the\nversion advances.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Revert a wiki page to an earlier revision",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Revert target",
-                        "name": "revert",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevertRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.revert",
-                    "label": "title",
-                    "risk": "write",
-                    "target": "wiki.get_page"
-                },
-                "x-agent-hint": "Restores a Wiki page to a version from wiki.list_revisions. Read that version with content_version first. The restore is saved as a new version, so it can be undone the same way."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/revisions/{slug}": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Returns the stored historical snapshots for a page, newest\nfirst (content omitted), plus the current version. Passing\n` + "`" + `version` + "`" + ` returns that single snapshot with full content.\n` + "`" + `content_version` + "`" + ` keeps this list envelope and includes that\none revision's content.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "List wiki page revisions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "x-agent": true,
-                        "description": "Page slug",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Return this single revision with content",
-                        "name": "version",
-                        "in": "query"
                     },
                     {
                         "minimum": 1,
                         "type": "integer",
-                        "x-agent": true,
-                        "description": "Include this stored revision's content in the list envelope",
-                        "name": "content_version",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "x-agent": true,
-                        "x-agent-maximum": "50",
-                        "description": "Page size (default 50, max 200)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "x-agent": true,
-                        "x-agent-maximum": "10000",
-                        "description": "Offset into the newest-first list",
-                        "name": "offset",
+                        "description": "指定尝试号；省略或非正数=最新",
+                        "name": "attempt",
                         "in": "query"
                     }
                 ],
@@ -12292,123 +13286,33 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevisionListResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.KnowledgeSpansData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问所属知识库",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "知识不存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
-                },
-                "x-agent": {
-                    "catch_all": "slug",
-                    "id": "wiki.list_revisions",
-                    "risk": "read",
-                    "root": "revisions"
-                },
-                "x-agent-hint": "Earlier versions of a Wiki page, newest first. Pass content_version to read one stored revision's content before wiki.revert. The current page is not in this list."
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/search": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Full-text search over wiki pages",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Search wiki pages",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search query",
-                        "name": "q",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Max results (default 10)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/knowledgebase/{kb_id}/wiki/stats": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "Returns aggregate statistics about the wiki",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wiki"
-                ],
-                "summary": "Get wiki statistics",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "x-agent": "knowledge_base_id",
-                        "description": "Knowledge base ID",
-                        "name": "kb_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiStats"
-                        }
-                    },
-                    "400": {
-                        "description": "Not a Wiki knowledge base, or no access",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.WikiErrorResponse"
-                        }
-                    }
-                },
-                "x-agent": {
-                    "id": "wiki.get_stats",
-                    "risk": "read"
                 }
             }
         },
@@ -13675,6 +14579,43 @@ const docTemplate = `{
                 "x-agent-hint": "Connects to an MCP service with its saved settings and reports whether it works. success false comes with the reason in message; oauth_required means the user must authorize it in the MCP settings. List its tools with mcp_service.list_tools."
             }
         },
+        "/mcp-services/{id}/tool-approvals": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP服务"
+                ],
+                "summary": "获取 MCP 工具审批策略列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "MCP service ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/mcp-services/{id}/tool-approvals/{tool_name}": {
             "put": {
                 "security": [
@@ -13810,6 +14751,55 @@ const docTemplate = `{
                     "risk": "read"
                 },
                 "x-agent-hint": "Lists the tools an MCP service offers, asking the service itself without saving a directory. Prefer mcp_service.get_metadata for ordinary directory queries; use this live query only when a current upstream check without saving is needed; to synchronize it use mcp_service.refresh_metadata. Use it to check that a service can do what an agent needs before binding it. An error means the service is unreachable; mcp_service.test says why."
+            }
+        },
+        "/mcp-services/{id}/usage-instructions/generate": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP服务"
+                ],
+                "summary": "生成 MCP 服务使用说明",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "MCP service ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Generation options",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
             }
         },
         "/me/credential-vault": {
@@ -13975,7 +14965,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "List every sandbox config of this workspace with the caller's own config-wide variables and the credentials its skills declared, each reporting whether it is unset, filled in workspace-wide, or filled in by the caller. Values are never returned.",
+                "description": "List every sandbox config of this workspace with the caller's own config-wide variables and the\ncredentials its skills declared, each reporting whether it is unset, filled in workspace-wide, or\nfilled in by the caller. Values are never returned.",
                 "produces": [
                     "application/json"
                 ],
@@ -14022,7 +15012,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Store the caller's own value for one variable on a sandbox config. It is injected into every skill script and shell command this caller's turns run on that config.",
+                "description": "Store the caller's own value for one variable on a sandbox config. It is injected into every skill\nscript and shell command this caller's turns run on that config.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14110,7 +15100,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Store the caller's own value for one variable the skill declared. It overrides the workspace-wide value for this caller only, and is injected only into executions that name this skill.",
+                "description": "Store the caller's own value for one variable the skill declared. It overrides the workspace-wide\nvalue for this caller only, and is injected only into executions that name this skill.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14186,6 +15176,104 @@ const docTemplate = `{
                         "description": "Not set",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/favorites": {
+            "get": {
+                "description": "Lists this user's starred resources in the current workspace for a given type",
+                "tags": [
+                    "User"
+                ],
+                "summary": "List my favorites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource type (kb | agent)",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserResourceFavorite"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Star a resource",
+                "parameters": [
+                    {
+                        "description": "Type + id",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.AddFavoriteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/favorites/{type}/{id}": {
+            "delete": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Unstar a resource",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource type",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SuccessResponse"
                         }
                     }
                 }
@@ -16177,6 +17265,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/models/{id}/debug": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "模型管理"
+                ],
+                "summary": "调试已保存的模型连接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Debug options",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/notifications": {
             "get": {
                 "security": [
@@ -17519,6 +18656,91 @@ const docTemplate = `{
                 }
             }
         },
+        "/sandbox-configs/templates/query": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "沙箱配置"
+                ],
+                "summary": "查询沙箱模板列表",
+                "parameters": [
+                    {
+                        "description": "Template query",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.sandboxTemplateQueryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/workspace-policy": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "沙箱配置"
+                ],
+                "summary": "设置空间沙箱脚本策略",
+                "parameters": [
+                    {
+                        "description": "Workspace policy",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/sandbox-configs/{id}": {
             "get": {
                 "security": [
@@ -17589,7 +18811,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Update a sandbox backend config. Identity-field changes are refused while the config owns live or paused sandboxes.",
+                "description": "Update a sandbox backend config. Identity-field changes are refused while the config owns live or\npaused sandboxes.",
                 "consumes": [
                     "application/json"
                 ],
@@ -17681,7 +18903,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Soft-delete a sandbox backend config. force=true only overrides unverifiable provider inventory, never confirmed live sandboxes.",
+                "description": "Soft-delete a sandbox backend config. force=true only overrides unverifiable provider inventory,\nnever confirmed live sandboxes.",
                 "produces": [
                     "application/json"
                 ],
@@ -17950,7 +19172,7 @@ const docTemplate = `{
                 "x-agent-hint": "Installs a public skill onto a sandbox from its source. When the user pastes install instructions from a skill hub (a command such as npx skills add owner/repo --skill name, a clawhub install line, or a page link), turn them into one source: a github.com / gitlab.com / skills.sh / clawhub / skillhub page URL, @owner/slug or a bare slug for ClawHub, skills-sh:owner/repo/slug, or a direct zip or SKILL.md URL. Bare owner/slug is ambiguous and rejected; ask which hub it is from. Never run their commands or ask for keys. The install runs fetched code as root in the sandbox image, so it always asks the user. It takes minutes: tell the user it started, then check it with skill.get_installed. Enable it for an agent with agent.update selected_skills once it is ready."
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}": {
+        "/sandbox-configs/{id}/skills/{skill_id}": {
             "get": {
                 "security": [
                     {
@@ -17981,7 +19203,7 @@ const docTemplate = `{
                         "type": "string",
                         "x-agent": "skill_id",
                         "description": "Skill ID from skill.list_installed",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -18056,7 +19278,7 @@ const docTemplate = `{
                         "type": "string",
                         "x-agent": "skill_id",
                         "description": "Skill ID from skill.list_installed",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -18112,7 +19334,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Show or hide an installed skill and set the workspace-wide values of the environment variables it declared. Either field may be sent, or both. The files stay in the image either way; removal is a separate flow.",
+                "description": "Show or hide an installed skill and set the workspace-wide values of the environment variables it\ndeclared. Either field may be sent, or both. The files stay in the image either way; removal is a\nseparate flow.",
                 "consumes": [
                     "application/json"
                 ],
@@ -18136,7 +19358,7 @@ const docTemplate = `{
                         "type": "string",
                         "x-agent": "skill_id",
                         "description": "Skill ID from skill.list_installed",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     },
@@ -18199,7 +19421,7 @@ const docTemplate = `{
                 "x-agent-hint": "Shows or hides an installed skill for every agent on that sandbox; the files stay installed. Environment values are not set here: the user enters them in the skill settings."
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}/files": {
+        "/sandbox-configs/{id}/skills/{skill_id}/files": {
             "get": {
                 "security": [
                     {
@@ -18228,7 +19450,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Skill ID",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -18271,7 +19493,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}/files/content": {
+        "/sandbox-configs/{id}/skills/{skill_id}/files/content": {
             "get": {
                 "security": [
                     {
@@ -18300,7 +19522,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Skill ID",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     },
@@ -18353,7 +19575,106 @@ const docTemplate = `{
                 }
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}/install-events": {
+        "/sandbox-configs/{id}/skills/{skill_id}/guidance": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "沙箱技能"
+                ],
+                "summary": "获取技能安装引导列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skill_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "沙箱技能"
+                ],
+                "summary": "发送技能安装引导指令",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skill_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Guidance payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skill_id}/install-events": {
             "get": {
                 "security": [
                     {
@@ -18382,7 +19703,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Skill ID",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -18410,7 +19731,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}/reinstall": {
+        "/sandbox-configs/{id}/skills/{skill_id}/reinstall": {
             "post": {
                 "security": [
                     {
@@ -18439,7 +19760,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Skill ID",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -18474,7 +19795,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}/stop": {
+        "/sandbox-configs/{id}/skills/{skill_id}/stop": {
             "post": {
                 "security": [
                     {
@@ -18484,7 +19805,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Abort an in-flight install so the operator can retry or uninstall. After a process restart the row may still say installing with no live process; this rewrites it immediately instead of waiting for the stuck-run reaper. Removal is not stopped.",
+                "description": "Abort an in-flight install so the operator can retry or uninstall. After a process restart the row\nmay still say installing with no live process; this rewrites it immediately instead of waiting for\nthe stuck-run reaper. Removal is not stopped.",
                 "produces": [
                     "application/json"
                 ],
@@ -18503,7 +19824,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Skill ID",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -18549,7 +19870,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sandbox-configs/{id}/skills/{skillId}/transcript": {
+        "/sandbox-configs/{id}/skills/{skill_id}/transcript": {
             "get": {
                 "security": [
                     {
@@ -18578,7 +19899,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Skill ID",
-                        "name": "skillId",
+                        "name": "skill_id",
                         "in": "path",
                         "required": true
                     }
@@ -19193,6 +20514,672 @@ const docTemplate = `{
                 }
             }
         },
+        "/sessions/{id}/artifacts": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "返回本会话中所有 assistant 消息产生的技能产物元数据（不含 URL）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "列出会话生成的产物文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/attachments": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取会话临时附件列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "上传会话临时附件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/attachments/{attachment_id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取会话临时附件详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "附件 ID",
+                        "name": "attachment_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "删除会话临时附件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "附件 ID",
+                        "name": "attachment_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/attachments/{attachment_id}/preview": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "预览会话临时附件内容",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "附件 ID",
+                        "name": "attachment_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/background-work": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取会话后台任务列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/background-work/{work_id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取会话后台任务详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台任务 ID",
+                        "name": "work_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/background-work/{work_id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "取消会话后台任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台任务 ID",
+                        "name": "work_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/fork": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "从指定的用户或助手消息处分叉出一个新会话。用户消息：复制其之前的历史并预填该问题；助手消息：复制含该回答在内的历史，从该轮沙箱状态继续。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "分叉会话",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "源会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "分叉请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.ForkSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "新会话",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误 / 分叉点角色不支持",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "会话或消息不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "源会话正在生成中",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/generate-title": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "根据消息内容自动生成会话标题",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "生成会话标题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "生成请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.GenerateTitleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "生成的标题",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/host-approval-mode": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取会话宿主机审批模式",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "设置会话宿主机审批模式",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Approval mode",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/local-browser": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取或操作会话本地浏览器连接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Browser action",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取或操作会话本地浏览器连接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Browser action",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/sessions/{id}/messages": {
             "delete": {
                 "security": [
@@ -19246,7 +21233,258 @@ const docTemplate = `{
                 }
             }
         },
+        "/sessions/{id}/messages/{message_id}/artifacts": {
+            "get": {
+                "responses": {}
+            }
+        },
+        "/sessions/{id}/messages/{message_id}/artifacts/{index}": {
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "删除某条 assistant 消息生成的单个文件；all_versions=true 时连同本会话中该文件的所有历史版本一并删除",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "删除会话中的产物文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "消息ID",
+                        "name": "message_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "产物在消息中的位置",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否删除该文件的所有版本",
+                        "name": "all_versions",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/messages/{message_id}/artifacts/{index}/download": {
+            "get": {
+                "responses": {}
+            }
+        },
+        "/sessions/{id}/messages/{message_id}/suggestions": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "获取回答后推荐问题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "助手消息 ID",
+                        "name": "message_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "对已完成的助手消息异步生成或重新生成推荐问题；相同配置快照会复用持久化结果",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "确保生成回答后推荐问题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "助手消息 ID",
+                        "name": "message_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "生成选项",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.EnsureMessageSuggestionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/sessions/{id}/pin": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "将指定会话置顶（用户维度）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "置顶会话",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "置顶成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "会话不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -19290,6 +21528,187 @@ const docTemplate = `{
                 }
             }
         },
+        "/sessions/{id}/rewind": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "回滚当前会话到指定用户或助手消息：删除其后消息，可到达时 git reset 工作区。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "回滚会话",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "回滚请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.RewindSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "回滚结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误 / 回滚点角色不支持",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "会话或消息不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "会话正在生成中 / 无检查点 / 沙箱已更换",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "工作区回滚失败",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/sandbox/desktop-ticket": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "签发沙箱远程桌面连接票据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/sandbox/desktop/activity": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "上报沙箱远程桌面交互活跃状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/sandbox/terminal-ticket": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "签发沙箱终端连接票据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/sessions/{id}/steer": {
             "get": {
                 "security": [
@@ -19327,6 +21746,72 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "503": {
+                        "description": "活 turn 查询失败，可重试",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "向运行中的 agent turn 追加用户消息（after 排队 / inject 注入）。无活 turn 时返回 new_run。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "问答"
+                ],
+                "summary": "向运行中的对话追加消息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "追加消息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.SteerMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "queued | new_run",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "会话不存在",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
@@ -19397,567 +21882,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sessions/{session_id}/artifacts": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "返回本会话中所有 assistant 消息产生的技能产物元数据（不含 URL）",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "列出会话生成的产物文件",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/fork": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "从指定的用户或助手消息处分叉出一个新会话。用户消息：复制其之前的历史并预填该问题；助手消息：复制含该回答在内的历史，从该轮沙箱状态继续。",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "分叉会话",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "源会话 ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "分叉请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler_session.ForkSessionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "新会话",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误 / 分叉点角色不支持",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "会话或消息不存在",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "409": {
-                        "description": "源会话正在生成中",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/generate_title": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "根据消息内容自动生成会话标题",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "生成会话标题",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "生成请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler_session.GenerateTitleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "生成的标题",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/messages/{message_id}/artifacts": {
-            "get": {
-                "responses": {}
-            }
-        },
-        "/sessions/{session_id}/messages/{message_id}/artifacts/{index}": {
-            "delete": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "删除某条 assistant 消息生成的单个文件；all_versions=true 时连同本会话中该文件的所有历史版本一并删除",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "删除会话中的产物文件",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "消息ID",
-                        "name": "message_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "产物在消息中的位置",
-                        "name": "index",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "是否删除该文件的所有版本",
-                        "name": "all_versions",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/messages/{message_id}/artifacts/{index}/download": {
-            "get": {
-                "responses": {}
-            }
-        },
-        "/sessions/{session_id}/messages/{message_id}/suggestions": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "获取回答后推荐问题",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话 ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "助手消息 ID",
-                        "name": "message_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "对已完成的助手消息异步生成或重新生成推荐问题；相同配置快照会复用持久化结果",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "确保生成回答后推荐问题",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话 ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "助手消息 ID",
-                        "name": "message_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "生成选项",
-                        "name": "request",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.EnsureMessageSuggestionsRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "202": {
-                        "description": "Accepted",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/pin": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "将指定会话置顶（用户维度）",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "置顶会话",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "置顶成功",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "会话不存在",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/rewind": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "回滚当前会话到指定用户或助手消息：删除其后消息，可到达时 git reset 工作区。",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "会话"
-                ],
-                "summary": "回滚会话",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话 ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "回滚请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler_session.RewindSessionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "回滚结果",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误 / 回滚点角色不支持",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "会话或消息不存在",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "409": {
-                        "description": "会话正在生成中 / 无检查点 / 沙箱已更换",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "500": {
-                        "description": "工作区回滚失败",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/steer": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "向运行中的 agent turn 追加用户消息（after 排队 / inject 注入）。无活 turn 时返回 new_run。",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "问答"
-                ],
-                "summary": "向运行中的对话追加消息",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "会话 ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "追加消息",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler_session.SteerMessageRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "queued | new_run",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "404": {
-                        "description": "会话不存在",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    },
-                    "503": {
-                        "description": "活 turn 查询失败，可重试",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/{session_id}/steer/{steer_id}/inject": {
+        "/sessions/{id}/steer/{steer_id}/inject": {
             "post": {
                 "security": [
                     {
@@ -19979,7 +21904,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "会话 ID",
-                        "name": "session_id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -20020,7 +21945,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sessions/{session_id}/stop": {
+        "/sessions/{id}/stop": {
             "post": {
                 "security": [
                     {
@@ -20045,7 +21970,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "会话ID",
-                        "name": "session_id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -20076,7 +22001,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sessions/{session_id}/suggestion-events": {
+        "/sessions/{id}/suggestion-events": {
             "post": {
                 "security": [
                     {
@@ -20098,7 +22023,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "会话 ID",
-                        "name": "session_id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -20148,6 +22073,49 @@ const docTemplate = `{
                         "description": "服务器错误",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/shared-agents/disabled": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "组织管理"
+                ],
+                "summary": "设置空间级禁用共享智能体状态",
+                "parameters": [
+                    {
+                        "description": "Disable toggle payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -20565,7 +22533,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "List all storage backend instances for the current workspace, with credentials masked. The workspace default backend id is returned alongside the list.",
+                "description": "List all storage backend instances for the current workspace, with credentials masked. The\nworkspace default backend id is returned alongside the list.",
                 "produces": [
                     "application/json"
                 ],
@@ -20598,7 +22566,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Register a new object/file storage instance for the current workspace. The configuration is validated and a connectivity test is run before the backend is persisted.",
+                "description": "Register a new object/file storage instance for the current workspace. The configuration is\nvalidated and a connectivity test is run before the backend is persisted.",
                 "consumes": [
                     "application/json"
                 ],
@@ -20671,7 +22639,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Test connectivity for the provided storage configuration without persisting it. Returns success=false with a sanitized error message on failure (the HTTP status stays 200).",
+                "description": "Test connectivity for the provided storage configuration without persisting it. Returns\nsuccess=false with a sanitized error message on failure (the HTTP status stays 200).",
                 "consumes": [
                     "application/json"
                 ],
@@ -20726,7 +22694,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Return the storage provider types allowed by STORAGE_ALLOW_LIST for UI form generation (e.g. local, minio, cos, tos, s3, oss, ks3, obs).",
+                "description": "Return the storage provider types allowed by STORAGE_ALLOW_LIST for UI form generation (e.g. local,\nminio, cos, tos, s3, oss, ks3, obs).",
                 "produces": [
                     "application/json"
                 ],
@@ -20829,7 +22797,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Update a storage backend's mutable fields (name, credentials, status). Provider and physical location (endpoint, region, bucket, path prefix) are immutable; use storage migration to move data. Environment-sourced backends are read-only. Redacted secret placeholders preserve the stored credentials.",
+                "description": "Update a storage backend's mutable fields (name, credentials, status). Provider and physical\nlocation (endpoint, region, bucket, path prefix) are immutable; use storage migration to move data.\nEnvironment-sourced backends are read-only. Redacted secret placeholders preserve the stored\ncredentials.",
                 "consumes": [
                     "application/json"
                 ],
@@ -20907,7 +22875,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Soft-delete a storage backend. A backend that is the workspace default, still bound to knowledge bases, environment-sourced, or a legacy alias cannot be deleted.",
+                "description": "Soft-delete a storage backend. A backend that is the workspace default, still bound to knowledge\nbases, environment-sourced, or a legacy alias cannot be deleted.",
                 "produces": [
                     "application/json"
                 ],
@@ -20963,7 +22931,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Mark a storage backend as the workspace default. Only an active backend can become the default. New knowledge bases without an explicit binding use the default.",
+                "description": "Mark a storage backend as the workspace default. Only an active backend can become the default. New\nknowledge bases without an explicit binding use the default.",
                 "produces": [
                     "application/json"
                 ],
@@ -21019,7 +22987,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Test connectivity of an existing saved storage backend using its stored credentials. Returns success=false with a sanitized error message on failure (the HTTP status stays 200).",
+                "description": "Test connectivity of an existing saved storage backend using its stored credentials. Returns\nsuccess=false with a sanitized error message on failure (the HTTP status stays 200).",
                 "produces": [
                     "application/json"
                 ],
@@ -21104,7 +23072,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Creates a capability-scoped key that may target any workspace through X-Tenant-ID. The plaintext token is returned once. Human SystemAdmin only.",
+                "description": "Creates a capability-scoped key that may target any workspace through X-Tenant-ID. The plaintext\ntoken is returned once. Human SystemAdmin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -21192,7 +23160,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "返回 system-scope（tenant_id=0）的审计事件，覆盖 system.setting_changed / system.admin_promoted / system.admin_revoked 等 SystemAdmin 操作。按 id 倒序的游标分页。",
+                "description": "返回 system-scope（tenant_id=0）的审计事件，覆盖 system.setting_changed / system.admin_promoted /\nsystem.admin_revoked 等 SystemAdmin 操作。按 id 倒序的游标分页。",
                 "produces": [
                     "application/json"
                 ],
@@ -21250,7 +23218,7 @@ const docTemplate = `{
         },
         "/system/admin/list": {
             "get": {
-                "description": "Retrieve a paginated list of users with system administrator\nprivileges (SystemAdmin only). Supports ` + "`" + `offset` + "`" + ` (default 0)\nand ` + "`" + `limit` + "`" + ` (default 50, max 200) query parameters. Walks the\npartial-friendly idx_users_is_system_admin index.",
+                "description": "Retrieve a paginated list of users with system administrator privileges (SystemAdmin only).",
                 "produces": [
                     "application/json"
                 ],
@@ -21291,8 +23259,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -21331,22 +23298,19 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21357,7 +23321,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "System administrator JWT only; API keys are not accepted. Validates and publishes a new overlay\nrevision using the current version and baseline. Stale values return 409. To restore a historical\nconfiguration, submit its overlay with the current version and baseline.",
+                "description": "System administrator JWT only; API keys are not accepted. Validates and saves the overlay with\noptimistic concurrency on version and baseline, refreshes this replica, and notifies other replicas.",
                 "consumes": [
                     "application/json"
                 ],
@@ -21389,36 +23353,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21431,7 +23390,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "System administrator JWT only; API keys are not accepted. Validates the overlay without publishing\nit. Supply the current version and baseline; stale values return 409. The response contains the\ncandidate effective catalog and normalized overlay; history, builtin and deployment are null.",
+                "description": "System administrator JWT only; API keys are not accepted. Validates the overlay without publishing\nit. Supply the current version and baseline; stale values return 409. The response contains the\ncandidate effective catalog and normalized overlay; history, built-in and deployment layers are empty.",
                 "consumes": [
                     "application/json"
                 ],
@@ -21463,36 +23422,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21532,22 +23486,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21555,7 +23506,7 @@ const docTemplate = `{
         },
         "/system/admin/revoke": {
             "post": {
-                "description": "Remove system administrator privileges from a user (SystemAdmin only).\nTwo safety guards: the caller cannot revoke their own privileges,\nand revoking the last remaining system admin is rejected — both\nprevent a SystemAdmin from accidentally locking the platform out\nof system-level administration. Idempotent on already-non-admin users.",
+                "description": "Remove system administrator privileges from a user (SystemAdmin only).\nTwo safety guards: the caller cannot revoke their own privileges,\nand revoking the last remaining system admin is rejected.",
                 "consumes": [
                     "application/json"
                 ],
@@ -21587,22 +23538,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request / would remove last admin / self-revoke",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21686,19 +23634,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21755,28 +23697,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.DocumentWikiStartResult"
-                                        }
-                                    }
-                                }
-                            ]
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21828,10 +23755,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22012,6 +23936,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/system/admin/settings": {
+            "get": {
+                "description": "Return every row in the system_settings table (system-scope, not workspace-scoped). SystemAdmin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System Admin"
+                ],
+                "summary": "List all system settings",
+                "responses": {
+                    "200": {
+                        "description": "list of settings",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SystemSetting"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: not a system admin",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/system/admin/settings-summary": {
             "get": {
                 "description": "返回已注册的系统设置及脱敏值，可按完整设置键过滤",
@@ -22053,7 +24006,7 @@ const docTemplate = `{
         },
         "/system/admin/settings/{key}": {
             "get": {
-                "description": "Returns the row matching :key. 404 when the key is unknown\nto the registry; 200 with the row when known.",
+                "description": "Returns the row matching :key. 404 when the key is unknown to the registry; 200 with the row when\nknown.",
                 "produces": [
                     "application/json"
                 ],
@@ -22080,21 +24033,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Unknown key",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Key registered but DB row absent",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
             },
             "put": {
-                "description": "Persist a new value for :key. Service validates the\nrawValue against the registry's declared value_type and\nrejects mismatches with 400. SystemAdmin only. Emits an\naudit row (action=system.setting_changed) on success.",
+                "description": "Persist a new value for :key. SystemAdmin only. Emits an audit row on success.",
                 "consumes": [
                     "application/json"
                 ],
@@ -22133,21 +24084,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request / unknown key / type mismatch",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
             },
             "delete": {
-                "description": "Removes the DB override for :key so the 3-tier resolver\nfalls back to the environment variable (when configured)\nor the in-code default. Idempotent — resetting a key\nthat was never persisted returns 200.",
+                "description": "Removes the DB override for :key so the 3-tier resolver falls back to ENV or built-in default.",
                 "tags": [
                     "System Admin"
                 ],
@@ -22171,15 +24120,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Unknown key",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "DB write failed",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22187,7 +24134,7 @@ const docTemplate = `{
         },
         "/system/admin/tenants/apply-default-storage-quota": {
             "post": {
-                "description": "Resolves the MB override or legacy GB default (DB \u003e ENV \u003e default per setting)\nand writes the effective byte quota to every existing workspace. Bypasses\nthe per-workspace PUT whitelist, which forbids storage_quota\nedits by Owners. SystemAdmin only.\nIdempotent — running twice with the same setting is a no-op.",
+                "description": "Resolves the default storage quota and writes the effective byte quota to every existing workspace.",
                 "produces": [
                     "application/json"
                 ],
@@ -22205,8 +24152,7 @@ const docTemplate = `{
                     "500": {
                         "description": "DB write failed",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22214,7 +24160,7 @@ const docTemplate = `{
         },
         "/system/admin/users": {
             "get": {
-                "description": "Retrieve a paginated list of every user across tenants (SystemAdmin only).\nSupports ` + "`" + `offset` + "`" + ` (default 0) and ` + "`" + `limit` + "`" + ` (default 50, max 200).\nPassword/hashes are never serialised — only the redacted UserInfo shape.",
+                "description": "Retrieve a paginated list of every user across tenants (SystemAdmin only).",
                 "produces": [
                     "application/json"
                 ],
@@ -22255,8 +24201,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -22272,7 +24217,7 @@ const docTemplate = `{
         },
         "/system/admin/users/create": {
             "post": {
-                "description": "Provision a new local user account (SystemAdmin only).\nWhen ` + "`" + `password` + "`" + ` is omitted or null, a cryptographically random\npassword is generated (OIDC-style crypto/rand + base64url)\nand returned once in the response body. Any provided value,\nincluding empty string, is policy-checked. Tenant provisioning\nfollows the shared auth.default_tenant_mode policy.",
+                "description": "Provision a new local user account (SystemAdmin only).",
                 "consumes": [
                     "application/json"
                 ],
@@ -22310,29 +24255,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or weak password",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Email and username refer to conflicting identities",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22340,7 +24281,7 @@ const docTemplate = `{
         },
         "/system/admin/users/reset-password": {
             "post": {
-                "description": "Replace another user's local password and revoke all of their existing sessions (SystemAdmin only).\nA system administrator cannot reset their own password through this endpoint; self-service password change still requires the old password.",
+                "description": "Replace another user's local password and revoke all of their existing sessions (SystemAdmin only).",
                 "consumes": [
                     "application/json"
                 ],
@@ -22372,22 +24313,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request, weak password, or self reset",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden: not a system admin",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22427,15 +24365,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Self-disable / last-admin guard",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22487,6 +24423,31 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    }
+                }
+            }
+        },
+        "/system/host-project-dir": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统"
+                ],
+                "summary": "选择宿主机项目目录（Desktop）",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -22955,104 +24916,6 @@ const docTemplate = `{
                 "x-agent-hint": "Lists active members of the current workspace with username, email and workspace role. q filters username/email, not role; to find all owners/admins paginate until meta.total is covered and filter role. Workspace owner/admin roles do not imply system administrator status. Does not include pending invitations or change membership."
             }
         },
-        "/tenants/kv/prompt-templates": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "获取系统配置的提示词模板列表",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "空间管理"
-                ],
-                "summary": "获取提示词模板",
-                "responses": {
-                    "200": {
-                        "description": "提示词模板配置",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplatesConfig"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/tenants/kv/web-search-config": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "获取空间的网络搜索配置",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "空间管理"
-                ],
-                "summary": "获取空间网络搜索配置",
-                "responses": {
-                    "200": {
-                        "description": "网络搜索配置",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchConfig"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
         "/tenants/kv/{key}": {
             "get": {
                 "security": [
@@ -23400,6 +25263,211 @@ const docTemplate = `{
                 }
             }
         },
+        "/tenants/{id}/api-keys": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "空间管理"
+                ],
+                "summary": "List workspace API keys",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/internal_handler.tenantAPIKeyResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "空间管理"
+                ],
+                "summary": "Create workspace API key",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "API key config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.tenantAPIKeyCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.tenantAPIKeyCreateResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/tenants/{id}/api-keys/{key_id}": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "空间管理"
+                ],
+                "summary": "Update workspace API key",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "API key ID",
+                        "name": "key_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated API key config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.tenantAPIKeyUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_handler.tenantAPIKeyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "空间管理"
+                ],
+                "summary": "Delete workspace API key",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "API key ID",
+                        "name": "key_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tenants/{id}/api-principal-config": {
             "get": {
                 "security": [
@@ -23732,7 +25800,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Owner 通过邮箱邀请已注册用户加入空间。开启 tenant.auto_accept_invitation 后被邀请人立即自动加入（响应为成员结构），否则需在 /me/invitations 接受后成为成员。",
+                "description": "Owner 通过邮箱邀请已注册用户加入空间。开启 tenant.auto_accept_invitation 后被邀请人立即自动加入（响应为成员结构），否则需在 /me/invitations\n接受后成为成员。",
                 "consumes": [
                     "application/json"
                 ],
@@ -24107,104 +26175,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/user/favorites": {
-            "get": {
-                "description": "Lists this user's starred resources in the current workspace for a given type",
-                "tags": [
-                    "User"
-                ],
-                "summary": "List my favorites",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Resource type (kb | agent)",
-                        "name": "type",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserResourceFavorite"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "User"
-                ],
-                "summary": "Star a resource",
-                "parameters": [
-                    {
-                        "description": "Type + id",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.AddFavoriteRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SuccessResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/favorites/{type}/{id}": {
-            "delete": {
-                "tags": [
-                    "User"
-                ],
-                "summary": "Unstar a resource",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Resource type",
-                        "name": "type",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Resource id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SuccessResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/vector-stores": {
             "get": {
                 "security": [
@@ -24215,7 +26185,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "List all vector stores for the current workspace, including environment-configured and user-created stores",
+                "description": "List all vector stores for the current workspace, including environment-configured and user-created\nstores",
                 "produces": [
                     "application/json"
                 ],
@@ -24487,7 +26457,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Update a vector store (name only). Engine type, connection config, and index config are immutable. Env stores cannot be modified.",
+                "description": "Update a vector store (name only). Engine type, connection config, and index config are immutable.\nEnv stores cannot be modified.",
                 "consumes": [
                     "application/json"
                 ],
@@ -24614,7 +26584,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Test connectivity of an existing saved or env store. Returns detected server version. For DB stores, the version is automatically saved to connection_config.",
+                "description": "Test connectivity of an existing saved or env store. Returns detected server version. For DB\nstores, the version is automatically saved to connection_config.",
                 "produces": [
                     "application/json"
                 ],
@@ -24701,6 +26671,70 @@ const docTemplate = `{
                     "risk": "read"
                 },
                 "x-agent-hint": "Lists configured search services and the workspace default. Use these IDs for agent.update web_search_provider_id. No provider-wide enable switch exists; web_search_enabled is an agent setting."
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建新的联网搜索服务商配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "网络搜索"
+                ],
+                "summary": "创建网络搜索 Provider",
+                "parameters": [
+                    {
+                        "description": "Provider 配置",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreateProviderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "创建的 Provider",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_handler.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
             }
         },
         "/web-search-providers/test": {
@@ -25216,49 +27250,6 @@ const docTemplate = `{
                     "role": "admin"
                 },
                 "x-agent-hint": "Performs a sample search using saved credentials; success false means connection/configuration failed. No configuration is changed. Credentials are entered on the settings page."
-            }
-        },
-        "/web-search/providers": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "返回所有已注册的网络搜索 provider（含元数据）",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "网络搜索"
-                ],
-                "summary": "获取可用网络搜索 Provider 列表",
-                "responses": {
-                    "200": {
-                        "description": "provider 列表",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/internal_handler.DataResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderTypeInfo"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
             }
         },
         "/wechat/qrcode": {
@@ -26281,12 +28272,14 @@ const docTemplate = `{
                 1008,
                 1009,
                 1010,
+                1011,
                 2000,
                 2001,
                 2002,
                 2003,
                 2004,
                 2005,
+                2006,
                 2100,
                 2101,
                 2102,
@@ -26294,7 +28287,8 @@ const docTemplate = `{
                 2200,
                 2201,
                 2300,
-                2400
+                2400,
+                2500
             ],
             "x-enum-varnames": [
                 "ErrBadRequest",
@@ -26308,12 +28302,14 @@ const docTemplate = `{
                 "ErrServiceUnavailable",
                 "ErrTimeout",
                 "ErrValidation",
+                "ErrRequestEntityTooLarge",
                 "ErrTenantNotFound",
                 "ErrTenantAlreadyExists",
                 "ErrTenantInactive",
                 "ErrTenantNameRequired",
                 "ErrTenantInvalidStatus",
                 "ErrTenantCreationDisabled",
+                "ErrTenantRequired",
                 "ErrAgentMissingThinkingModel",
                 "ErrAgentMissingAllowedTools",
                 "ErrAgentInvalidMaxIterations",
@@ -26321,7 +28317,8 @@ const docTemplate = `{
                 "ErrVectorStoreBindingInvalid",
                 "ErrVectorStoreUnavailable",
                 "ErrModelInUse",
-                "ErrImportPrerequisiteMissing"
+                "ErrImportPrerequisiteMissing",
+                "ErrWikiVersionConflict"
             ]
         },
         "github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata": {
@@ -26751,7 +28748,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig"
                 },
                 "deleted_at": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string",
@@ -28763,6 +30760,10 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "Chunk last update time",
                     "type": "string"
+                },
+                "video_info": {
+                    "description": "视频信息，存储为 JSON（对应 chunks.video_info 列）",
+                    "type": "string"
                 }
             }
         },
@@ -29057,7 +31058,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "member_limit": {
-                    "description": "optional: max members; 0=unlimited; default 50",
+                    "description": "MemberLimit is the optional max member count (0=unlimited; default 50).",
                     "type": "integer"
                 },
                 "name": {
@@ -30594,6 +32595,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Usir233_GENYEE_internal_types.GeneratedQuestion": {
+            "type": "object",
+            "properties": {
+                "content_revision": {
+                    "description": "该问题对应的 Chunk 内容版本",
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "唯一标识，用于构造 source_id",
+                    "type": "string"
+                },
+                "question": {
+                    "description": "问题内容",
+                    "type": "string"
+                }
+            }
+        },
         "github_com_Usir233_GENYEE_internal_types.GenerationMetrics": {
             "type": "object",
             "properties": {
@@ -31058,7 +33076,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "buckets_num": {
-                    "description": "Doris: number of buckets per table (DISTRIBUTED BY HASH ... BUCKETS N)",
+                    "description": "BucketsNum sets Doris buckets per table (DISTRIBUTED BY HASH ... BUCKETS N).",
                     "type": "integer"
                 },
                 "collection_name": {
@@ -31070,19 +33088,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "desired_shard_count": {
-                    "description": "Weaviate: number of shards per collection",
+                    "description": "DesiredShardCount sets Weaviate shards per collection.",
                     "type": "integer"
                 },
                 "hnsw_ef_construction": {
-                    "description": "OpenSearch: HNSW index-build candidate list size",
+                    "description": "HNSWEFConstruction sets OpenSearch HNSW index-build candidate list size.",
                     "type": "integer"
                 },
                 "hnsw_ef_search": {
-                    "description": "OpenSearch: HNSW search candidate list size (faiss; lucene reads at query time)",
+                    "description": "HNSWEFSearch sets OpenSearch HNSW search candidate list size (faiss; lucene reads at query time).",
                     "type": "integer"
                 },
                 "hnsw_m": {
-                    "description": "--- OpenSearch k-NN HNSW fields ---\nAll omitempty so other engines' serialized IndexConfig is unchanged.\nZero / empty values fall back to the driver defaults in buildInternalCfg.",
+                    "description": "--- OpenSearch k-NN HNSW fields ---\nAll omitempty so other engines' serialized IndexConfig is unchanged.\nZero / empty values fall back to the driver defaults in buildInternalCfg.\nHNSWM sets OpenSearch HNSW graph degree (M).",
                     "type": "integer"
                 },
                 "index_name": {
@@ -31090,7 +33108,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "knn_engine": {
-                    "description": "OpenSearch: k-NN backend (\"lucene\" | \"faiss\")",
+                    "description": "KNNEngine selects the OpenSearch k-NN backend (\"lucene\" | \"faiss\").",
                     "type": "string"
                 },
                 "number_of_replicas": {
@@ -31102,23 +33120,23 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "replica_number": {
-                    "description": "Milvus LoadCollection / Tencent VectorDB CreateCollection replicas",
+                    "description": "ReplicaNumber sets Milvus LoadCollection / Tencent VectorDB CreateCollection replicas.",
                     "type": "integer"
                 },
                 "replication_factor": {
-                    "description": "Qdrant, Weaviate: number of replicas",
+                    "description": "ReplicationFactor sets Qdrant / Weaviate replica count.",
                     "type": "integer"
                 },
                 "replication_num": {
-                    "description": "Doris: replication_num PROPERTIES",
+                    "description": "ReplicationNum sets Doris replication_num PROPERTIES.",
                     "type": "integer"
                 },
                 "shard_number": {
-                    "description": "--- Scalability fields ---",
+                    "description": "--- Scalability fields ---\nShardNumber sets Qdrant shards per collection.",
                     "type": "integer"
                 },
                 "shards_num": {
-                    "description": "Milvus: number of shards per collection (CreateCollection)",
+                    "description": "ShardsNum sets Milvus shards per collection (CreateCollection).",
                     "type": "integer"
                 }
             }
@@ -31195,7 +33213,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "description": "Optional: requested role (admin/editor/viewer); default viewer",
+                    "description": "Role is the optional requested role (admin/editor/viewer); default viewer.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
@@ -32147,11 +34165,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "my_permission": {
-                    "description": "Effective permission for current user = min(Permission, MyRoleInOrg)",
+                    "description": "MyPermission is the effective permission for the current user = min(Permission, MyRoleInOrg).",
                     "type": "string"
                 },
                 "my_role_in_org": {
-                    "description": "Current user's role in this organization (admin/editor/viewer)",
+                    "description": "MyRoleInOrg is the current user's role in this organization (admin/editor/viewer).",
                     "type": "string"
                 },
                 "organization_id": {
@@ -32301,7 +34319,7 @@ const docTemplate = `{
                 "chunking_config": {
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig"
                 },
-                "enable_multimodel": {
+                "enable_multimodal": {
                     "type": "boolean"
                 },
                 "extract_config": {
@@ -33426,7 +35444,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
-                    "description": "Storage URL (provider://path); persisted, not sent to client",
+                    "description": "Storage URL (provider://path); persisted",
                     "type": "string"
                 }
             }
@@ -33697,7 +35715,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EmbeddingParameters"
                 },
                 "extra_config": {
-                    "description": "Provider-specific configuration",
+                    "description": "ExtraConfig stores provider-specific configuration key-value pairs.",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -33714,11 +35732,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "parameter_size": {
-                    "description": "Ollama model parameter size (e.g., \"7B\", \"13B\", \"70B\")",
+                    "description": "ParameterSize is the Ollama model parameter size (e.g., \"7B\", \"13B\", \"70B\").",
                     "type": "string"
                 },
                 "provider": {
-                    "description": "Provider identifier: openai, aliyun, zhipu, generic",
+                    "description": "Provider identifies the model provider (e.g., openai, aliyun, zhipu, generic).",
                     "type": "string"
                 },
                 "spec": {
@@ -33730,7 +35748,7 @@ const docTemplate = `{
                     ]
                 },
                 "supports_vision": {
-                    "description": "Whether the model accepts image/multimodal input",
+                    "description": "SupportsVision reports whether the model accepts image/multimodal input.",
                     "type": "boolean"
                 }
             }
@@ -34538,7 +36556,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "mineru_vlm_server_url": {
-                    "description": "vLLM 服务器地址 (vlm-http-client / hybrid-http-client)",
+                    "description": "MinerUVLMServerURL is the vLLM server URL (vlm-http-client / hybrid-http-client).",
                     "type": "string"
                 },
                 "odl_hybrid": {
@@ -34588,26 +36606,26 @@ const docTemplate = `{
         "github_com_Usir233_GENYEE_internal_types.ParserEngineInfo": {
             "type": "object",
             "properties": {
-                "Available": {
+                "available": {
                     "type": "boolean",
                     "x-agent": "available"
                 },
-                "Description": {
+                "description": {
                     "type": "string",
                     "x-agent": "description"
                 },
-                "FileTypes": {
+                "file_types": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
                     "x-agent": "file_types"
                 },
-                "Name": {
+                "name": {
                     "type": "string",
                     "x-agent": "engine"
                 },
-                "UnavailableReason": {
+                "unavailable_reason": {
                     "type": "string",
                     "x-agent": "unavailable_reason"
                 }
@@ -35255,7 +37273,7 @@ const docTemplate = `{
                     "maxLength": 500
                 },
                 "role": {
-                    "description": "Optional: role to assign when approving; overrides applicant's requested role",
+                    "description": "Role is the optional role to assign when approving; overrides applicant's requested role.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
@@ -35615,6 +37633,13 @@ const docTemplate = `{
                     "description": "End at",
                     "type": "integer"
                 },
+                "evidence_handles": {
+                    "description": "EvidenceHandles records storage references that citation sources of this\nresult expose to the model even though merge scoping kept them out of\nContent and ImageInfo. The message-scoped file proxy reads them as\nretrieval evidence (#5069); prompts and UI do not consume them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "description": "ID",
                     "type": "string",
@@ -35799,7 +37824,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_request_state": {
-                    "description": "LastRequestState records the input-bar state used the last time this\nsession sent a question (agent, model, KB scope, web search, MCPs).\nPersisted on every successful POST to /knowledge-chat or /agent-chat so\nthat reopening the session can restore the original request context to\nthe chat UI. Stored in the legacy sessions.agent_config JSONB column to\navoid a new migration; the shape used today is ` + "`" + `SessionLastRequestState` + "`" + `.",
+                    "description": "LastRequestState records the input-bar state used the last time this\nsession sent a question (agent, model, KB scope, web search, MCPs).\nPersisted on every successful POST to /knowledge-chat or /agent-chat so\nthat reopening the session can restore the original request context to\nthe chat UI.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SessionLastRequestState"
@@ -35960,7 +37985,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_request_state": {
-                    "description": "LastRequestState records the input-bar state used the last time this\nsession sent a question (agent, model, KB scope, web search, MCPs).\nPersisted on every successful POST to /knowledge-chat or /agent-chat so\nthat reopening the session can restore the original request context to\nthe chat UI. Stored in the legacy sessions.agent_config JSONB column to\navoid a new migration; the shape used today is ` + "`" + `SessionLastRequestState` + "`" + `.",
+                    "description": "LastRequestState records the input-bar state used the last time this\nsession sent a question (agent, model, KB scope, web search, MCPs).\nPersisted on every successful POST to /knowledge-chat or /agent-chat so\nthat reopening the session can restore the original request context to\nthe chat UI.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SessionLastRequestState"
@@ -36379,7 +38404,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.COSEngineConfig"
                 },
                 "default_provider": {
-                    "description": "\"local\", \"minio\", \"cos\", \"tos\", \"s3\", \"oss\", \"ks3\", \"obs\"",
+                    "description": "DefaultProvider is one of \"local\", \"minio\", \"cos\", \"tos\", \"s3\", \"oss\", \"ks3\", or \"obs\".",
                     "type": "string"
                 },
                 "ks3": {
@@ -36430,7 +38455,7 @@ const docTemplate = `{
                     "maxLength": 500
                 },
                 "role": {
-                    "description": "Optional: role the applicant requests (admin/editor/viewer); default viewer",
+                    "description": "Role is the optional role the applicant requests (admin/editor/viewer); default viewer.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
@@ -37263,7 +39288,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "provider_metadata": {
-                    "description": "Provider-specific tool-call state for replay",
+                    "description": "ProviderMetadata stores provider-specific tool-call state for replay.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ToolCallMetadata"
@@ -37271,7 +39296,7 @@ const docTemplate = `{
                     ]
                 },
                 "reflection": {
-                    "description": "Agent's reflection on this tool call result (if enabled)",
+                    "description": "Reflection holds the agent's reflection on this tool call result (if enabled).",
                     "type": "string"
                 },
                 "result": {
@@ -37824,7 +39849,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "proxy_url": {
-                    "description": "Optional per-request proxy override; normally empty — use WebSearchProviderEntity.Parameters.proxy_url. Merged at call time when set.",
+                    "description": "ProxyURL is an optional per-request proxy override; normally empty — use\nWebSearchProviderEntity.Parameters.proxy_url. Merged at call time when set.",
                     "type": "string"
                 },
                 "rerank_model_id": {
@@ -37956,7 +39981,7 @@ const docTemplate = `{
                     }
                 },
                 "proxy_url": {
-                    "description": "Optional HTTP/HTTPS proxy URL for outbound search requests (e.g. http://host:port); validated with utils.ValidateURLForSSRF.\nDoes not replace the search API endpoint; only tunnels traffic to the official APIs.",
+                    "description": "Optional HTTP/HTTPS proxy URL for outbound search requests (e.g. http://host:port);\nvalidated with utils.ValidateURLForSSRF.\nDoes not replace the search API endpoint; only tunnels traffic to the official APIs.",
                     "type": "string"
                 }
             }
@@ -39184,6 +41209,10 @@ const docTemplate = `{
                 "updated_at": {
                     "description": "Chunk last update time",
                     "type": "string"
+                },
+                "video_info": {
+                    "description": "视频信息，存储为 JSON（对应 chunks.video_info 列）",
+                    "type": "string"
                 }
             }
         },
@@ -39480,7 +41509,7 @@ const docTemplate = `{
                 "channel": {
                     "type": "string"
                 },
-                "enable_multimodel": {
+                "enable_multimodal": {
                     "type": "boolean"
                 },
                 "file_name": {
@@ -39592,6 +41621,30 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.CreateProviderRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "provider"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderParameters"
+                },
+                "provider": {
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderType"
+                }
+            }
+        },
         "internal_handler.CreateStoreRequest": {
             "type": "object",
             "required": [
@@ -39618,7 +41671,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "generated_password": {
-                    "description": "GeneratedPassword is the plaintext password when the server\nauto-generated one. Absent when the caller supplied the password.",
                     "type": "string"
                 },
                 "user": {
@@ -39754,7 +41806,7 @@ const docTemplate = `{
         "internal_handler.DownloadTask": {
             "type": "object",
             "properties": {
-                "endTime": {
+                "end_time": {
                     "type": "string"
                 },
                 "id": {
@@ -39763,13 +41815,13 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
-                "modelName": {
+                "model_name": {
                     "type": "string"
                 },
                 "progress": {
                     "type": "number"
                 },
-                "startTime": {
+                "start_time": {
                     "type": "string"
                 },
                 "status": {
@@ -40113,23 +42165,23 @@ const docTemplate = `{
         "internal_handler.InitializationRequest": {
             "type": "object",
             "required": [
-                "documentSplitting",
+                "document_splitting",
                 "embedding",
                 "llm"
             ],
             "properties": {
-                "documentSplitting": {
+                "document_splitting": {
                     "type": "object",
                     "required": [
-                        "chunkSize",
+                        "chunk_size",
                         "separators"
                     ],
                     "properties": {
-                        "chunkOverlap": {
+                        "chunk_overlap": {
                             "type": "integer",
                             "minimum": 0
                         },
-                        "chunkSize": {
+                        "chunk_size": {
                             "type": "integer",
                             "maximum": 10000,
                             "minimum": 100
@@ -40146,21 +42198,21 @@ const docTemplate = `{
                 "embedding": {
                     "type": "object",
                     "required": [
-                        "modelName",
+                        "model_name",
                         "source"
                     ],
                     "properties": {
-                        "apiKey": {
+                        "api_key": {
                             "type": "string"
                         },
-                        "baseUrl": {
+                        "base_url": {
                             "type": "string"
                         },
                         "dimension": {
                             "description": "添加embedding维度字段",
                             "type": "integer"
                         },
-                        "modelName": {
+                        "model_name": {
                             "type": "string"
                         },
                         "source": {
@@ -40171,17 +42223,17 @@ const docTemplate = `{
                 "llm": {
                     "type": "object",
                     "required": [
-                        "modelName",
+                        "model_name",
                         "source"
                     ],
                     "properties": {
-                        "apiKey": {
+                        "api_key": {
                             "type": "string"
                         },
-                        "baseUrl": {
+                        "base_url": {
                             "type": "string"
                         },
-                        "modelName": {
+                        "model_name": {
                             "type": "string"
                         },
                         "source": {
@@ -40195,22 +42247,22 @@ const docTemplate = `{
                         "cos": {
                             "type": "object",
                             "properties": {
-                                "appId": {
+                                "app_id": {
                                     "type": "string"
                                 },
-                                "bucketName": {
+                                "bucket_name": {
                                     "type": "string"
                                 },
-                                "pathPrefix": {
+                                "path_prefix": {
                                     "type": "string"
                                 },
                                 "region": {
                                     "type": "string"
                                 },
-                                "secretId": {
+                                "secret_id": {
                                     "type": "string"
                                 },
-                                "secretKey": {
+                                "secret_key": {
                                     "type": "string"
                                 }
                             }
@@ -40221,38 +42273,38 @@ const docTemplate = `{
                         "minio": {
                             "type": "object",
                             "properties": {
-                                "bucketName": {
+                                "bucket_name": {
                                     "type": "string"
                                 },
-                                "pathPrefix": {
+                                "path_prefix": {
                                     "type": "string"
                                 }
                             }
                         },
-                        "storageType": {
+                        "storage_type": {
                             "type": "string"
                         },
                         "vlm": {
                             "type": "object",
                             "properties": {
-                                "apiKey": {
+                                "api_key": {
                                     "type": "string"
                                 },
-                                "baseUrl": {
+                                "base_url": {
                                     "type": "string"
                                 },
-                                "interfaceType": {
+                                "interface_type": {
                                     "description": "\"ollama\" or \"openai\"",
                                     "type": "string"
                                 },
-                                "modelName": {
+                                "model_name": {
                                     "type": "string"
                                 }
                             }
                         }
                     }
                 },
-                "nodeExtract": {
+                "node_extract": {
                     "type": "object",
                     "properties": {
                         "enabled": {
@@ -40303,13 +42355,13 @@ const docTemplate = `{
                         }
                     }
                 },
-                "questionGeneration": {
+                "question_generation": {
                     "type": "object",
                     "properties": {
                         "enabled": {
                             "type": "boolean"
                         },
-                        "questionCount": {
+                        "question_count": {
                             "type": "integer"
                         }
                     }
@@ -40317,16 +42369,16 @@ const docTemplate = `{
                 "rerank": {
                     "type": "object",
                     "properties": {
-                        "apiKey": {
+                        "api_key": {
                             "type": "string"
                         },
-                        "baseUrl": {
+                        "base_url": {
                             "type": "string"
                         },
                         "enabled": {
                             "type": "boolean"
                         },
-                        "modelName": {
+                        "model_name": {
                             "type": "string"
                         }
                     }
@@ -40336,7 +42388,7 @@ const docTemplate = `{
         "internal_handler.KBModelConfigRequest": {
             "type": "object",
             "required": [
-                "llmModelId"
+                "llm_model_id"
             ],
             "properties": {
                 "asr_config": {
@@ -40353,20 +42405,20 @@ const docTemplate = `{
                         }
                     }
                 },
-                "documentSplitting": {
+                "document_splitting": {
                     "description": "文档分块配置",
                     "type": "object",
                     "properties": {
-                        "childChunkSize": {
+                        "child_chunk_size": {
                             "type": "integer"
                         },
-                        "chunkOverlap": {
+                        "chunk_overlap": {
                             "type": "integer"
                         },
-                        "chunkSize": {
+                        "chunk_size": {
                             "type": "integer"
                         },
-                        "enableParentChild": {
+                        "enable_parent_child": {
                             "type": "boolean"
                         },
                         "languages": {
@@ -40375,10 +42427,10 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         },
-                        "parentChunkSize": {
+                        "parent_chunk_size": {
                             "type": "integer"
                         },
-                        "parserEngineRules": {
+                        "parser_engine_rules": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule"
@@ -40394,23 +42446,23 @@ const docTemplate = `{
                             "description": "Strategy / TokenLimit / Languages use pointer types so the\nhandler can distinguish \"field absent in payload\" (no change)\nfrom \"field present with empty/zero value\" (clear / disable).\nWithout that distinction, users could set strategy=\"auto\" once\nbut never reset it back to legacy / unset.",
                             "type": "string"
                         },
-                        "tableMetadataInstructions": {
+                        "table_metadata_instructions": {
                             "type": "string"
                         },
-                        "tokenLimit": {
+                        "token_limit": {
                             "type": "integer"
                         }
                     }
                 },
-                "embeddingModelId": {
+                "embedding_model_id": {
                     "description": "optional when RAG indexing is disabled",
                     "type": "string"
                 },
-                "llmModelId": {
+                "llm_model_id": {
                     "type": "string"
                 },
                 "multimodal": {
-                    "description": "多模态配置（仅模型相关；存储引擎在 storageProvider 中配置）",
+                    "description": "多模态配置（仅模型相关；存储引擎在 storage_provider 中配置）",
                     "type": "object",
                     "properties": {
                         "enabled": {
@@ -40418,11 +42470,11 @@ const docTemplate = `{
                         }
                     }
                 },
-                "nodeExtract": {
+                "node_extract": {
                     "description": "知识图谱配置",
                     "type": "object",
                     "properties": {
-                        "customInstructions": {
+                        "custom_instructions": {
                             "type": "string"
                         },
                         "enabled": {
@@ -40451,28 +42503,28 @@ const docTemplate = `{
                         }
                     }
                 },
-                "questionGeneration": {
+                "question_generation": {
                     "description": "问题生成配置",
                     "type": "object",
                     "properties": {
-                        "customInstructions": {
+                        "custom_instructions": {
                             "type": "string"
                         },
                         "enabled": {
                             "type": "boolean"
                         },
-                        "modelId": {
+                        "model_id": {
                             "type": "string"
                         },
-                        "questionCount": {
+                        "question_count": {
                             "type": "integer"
                         }
                     }
                 },
-                "storageBackendId": {
+                "storage_backend_id": {
                     "type": "string"
                 },
-                "storageProvider": {
+                "storage_provider": {
                     "description": "存储引擎选择（\"local\" | \"minio\" | \"cos\"），影响文档上传与文档内图片存储，参数从全局设置读取",
                     "type": "string"
                 },
@@ -41381,14 +43433,14 @@ const docTemplate = `{
                 "auth": {
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.AuthStyle"
                 },
-                "credentialLabels": {
+                "credential_labels": {
                     "description": "CredentialLabels rename the primary credential input for the model\ntypes that do not take a plain API key (signed rerank APIs).",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.CredentialLabel"
                     }
                 },
-                "defaultUrls": {
+                "default_urls": {
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -41405,7 +43457,7 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "extraFields": {
+                "extra_fields": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.ExtraField"
@@ -41425,7 +43477,7 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "modelTypes": {
+                "model_types": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -41443,7 +43495,7 @@ const docTemplate = `{
                 "order": {
                     "type": "integer"
                 },
-                "requiresAuth": {
+                "requires_auth": {
                     "type": "boolean",
                     "x-agent": "requires_auth"
                 },
@@ -41462,20 +43514,20 @@ const docTemplate = `{
         "internal_handler.ModelTestRequest": {
             "type": "object",
             "required": [
-                "modelName"
+                "model_name"
             ],
             "properties": {
-                "apiKey": {
+                "api_key": {
                     "type": "string"
                 },
-                "appSecret": {
+                "app_secret": {
                     "description": "AppSecret 用于 LKEAP / Volcengine Rerank 等需要第二段密钥的场景（对应模型 Parameters.AppSecret）。",
                     "type": "string"
                 },
-                "baseUrl": {
+                "base_url": {
                     "type": "string"
                 },
-                "customHeaders": {
+                "custom_headers": {
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -41484,20 +43536,20 @@ const docTemplate = `{
                 "dimension": {
                     "type": "integer"
                 },
-                "extraConfig": {
+                "extra_config": {
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
                 },
-                "interfaceType": {
+                "interface_type": {
                     "type": "string"
                 },
-                "modelId": {
+                "model_id": {
                     "description": "ModelID, when set, instructs the handler to substitute any missing\nsecrets (APIKey, AppSecret via ExtraConfig) from the stored model\nrecord before assembling the test client. This lets the \"Test\nconnection\" button work on existing models without making the\nfrontend reload — and ship — the plaintext API key. Other fields\n(BaseURL, ModelName, etc.) on this request still override the\nstored values, so a user can validate a new endpoint against the\nexisting credentials in one click.",
                     "type": "string"
                 },
-                "modelName": {
+                "model_name": {
                     "type": "string"
                 },
                 "provider": {
@@ -41510,7 +43562,7 @@ const docTemplate = `{
                 "spec": {
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride"
                 },
-                "supportsDimensionOverride": {
+                "supports_dimension_override": {
                     "type": "boolean"
                 }
             }
@@ -42206,20 +44258,20 @@ const docTemplate = `{
         "internal_handler.RemoteModelCheckRequest": {
             "type": "object",
             "required": [
-                "modelName"
+                "model_name"
             ],
             "properties": {
-                "apiKey": {
+                "api_key": {
                     "type": "string"
                 },
-                "appSecret": {
+                "app_secret": {
                     "description": "AppSecret 用于 LKEAP / Volcengine Rerank 等需要第二段密钥的场景（对应模型 Parameters.AppSecret）。",
                     "type": "string"
                 },
-                "baseUrl": {
+                "base_url": {
                     "type": "string"
                 },
-                "customHeaders": {
+                "custom_headers": {
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -42228,20 +44280,20 @@ const docTemplate = `{
                 "dimension": {
                     "type": "integer"
                 },
-                "extraConfig": {
+                "extra_config": {
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
                 },
-                "interfaceType": {
+                "interface_type": {
                     "type": "string"
                 },
-                "modelId": {
+                "model_id": {
                     "description": "ModelID, when set, instructs the handler to substitute any missing\nsecrets (APIKey, AppSecret via ExtraConfig) from the stored model\nrecord before assembling the test client. This lets the \"Test\nconnection\" button work on existing models without making the\nfrontend reload — and ship — the plaintext API key. Other fields\n(BaseURL, ModelName, etc.) on this request still override the\nstored values, so a user can validate a new endpoint against the\nexisting credentials in one click.",
                     "type": "string"
                 },
-                "modelName": {
+                "model_name": {
                     "type": "string"
                 },
                 "provider": {
@@ -42254,7 +44306,7 @@ const docTemplate = `{
                 "spec": {
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride"
                 },
-                "supportsDimensionOverride": {
+                "supports_dimension_override": {
                     "type": "boolean"
                 }
             }
@@ -42436,7 +44488,6 @@ const docTemplate = `{
             }
         },
         "internal_handler.RuntimeWorkerPool": {
-            "description": "Return every row in the system_settings table (system-scope, not workspace-scoped). SystemAdmin only.",
             "type": "object",
             "properties": {
                 "active": {
@@ -43222,9 +45273,7 @@ const docTemplate = `{
         "internal_handler.UpdateSystemSettingRequest": {
             "type": "object",
             "properties": {
-                "value": {
-                    "description": "Value is intentionally ` + "`" + `any` + "`" + ` (decoded as float64 / string / bool /\netc. by the JSON unmarshaller). Service.encodeForType normalises\nthese against the registry's declared type and rejects mismatches."
-                }
+                "value": {}
             }
         },
         "internal_handler.UpdateTagRequest": {
@@ -43240,6 +45289,32 @@ const docTemplate = `{
                 },
                 "sort_order": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_handler.UpsertGeneratedQuestionRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "question": {
+                    "type": "string"
+                },
+                "question_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.ValidateImagePipelinesRequest": {
+            "type": "object",
+            "properties": {
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "pipeline_id": {
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImagePipelineID"
                 }
             }
         },
@@ -43298,14 +45373,6 @@ const docTemplate = `{
                 "success": {
                     "type": "boolean",
                     "x-agent": true
-                }
-            }
-        },
-        "internal_handler.WikiErrorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
                 }
             }
         },
@@ -43920,6 +45987,29 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.sandboxTemplateQueryRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantSandboxConfig"
+                },
+                "config_id": {
+                    "type": "string"
+                },
+                "ensure_desktop": {
+                    "type": "boolean"
+                },
+                "ensure_standard": {
+                    "type": "boolean"
+                },
+                "replace_desktop": {
+                    "type": "boolean"
+                },
+                "replace_standard": {
+                    "type": "boolean"
+                }
+            }
+        },
         "internal_handler.skillAccepted": {
             "type": "object",
             "properties": {
@@ -44073,6 +46163,32 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.tenantAPIKeyCreateRequest": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "expires_at_unix": {
+                    "type": "integer"
+                },
+                "full_access": {
+                    "type": "boolean"
+                },
+                "knowledge_base_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.tenantAPIKeyCreateResponse": {
             "type": "object",
             "properties": {
@@ -44155,6 +46271,32 @@ const docTemplate = `{
                 },
                 "scope_type": {
                     "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.APIKeyScopeType"
+                }
+            }
+        },
+        "internal_handler.tenantAPIKeyUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "expires_at_unix": {
+                    "type": "integer"
+                },
+                "full_access": {
+                    "type": "boolean"
+                },
+                "knowledge_base_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },

@@ -633,8 +633,10 @@ func TestAuditW2_PreviewChunkingCapsOversizedJSONStream(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &parsed); err != nil {
 		t.Fatalf("unmarshal 413 body: %v", err)
 	}
-	if parsed["limit"] != float64(previewMaxChars) {
-		t.Fatalf("limit = %v, want %d", parsed["limit"], previewMaxChars)
+	errObj, _ := parsed["error"].(map[string]any)
+	details, _ := errObj["details"].(map[string]any)
+	if details["limit"] != float64(previewMaxChars) {
+		t.Fatalf("error.details.limit = %v, want %d (body=%s)", details["limit"], previewMaxChars, rec.Body.String())
 	}
 	if got := counter.n.Load(); got > (1<<20)+64*1024 {
 		t.Fatalf("PreviewChunking buffered %d bytes (> 1 MiB cap) before rejecting", got)

@@ -396,7 +396,7 @@ func TestBuildCatchAllPath(t *testing.T) {
 		Param{
 			Name:        "knowledge_base_id",
 			In:          InPath,
-			Key:         "kb_id",
+			Key:         "id",
 			Type:        TypeString,
 			Required:    true,
 			Description: "d",
