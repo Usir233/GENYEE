@@ -375,6 +375,24 @@ func (r *w3aOrgRepoStub) GetTenantMember(
 	return nil, repository.ErrOrgMemberNotFound
 }
 
+func (r *w3aOrgRepoStub) ListTenantMembersByTenantForOrgs(
+	ctx context.Context,
+	tenantID uint64,
+	orgIDs []string,
+) (map[string]*types.OrganizationTenantMember, error) {
+	out := make(map[string]*types.OrganizationTenantMember, len(orgIDs))
+	for _, orgID := range orgIDs {
+		m, err := r.GetTenantMember(ctx, orgID, tenantID)
+		if err != nil {
+			continue
+		}
+		if m != nil {
+			out[orgID] = m
+		}
+	}
+	return out, nil
+}
+
 type w3aKBShareRepoStub struct {
 	interfaces.KBShareRepository
 	existing *types.KnowledgeBaseShare

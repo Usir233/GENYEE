@@ -68,8 +68,26 @@ type receiverViewOrgRepo struct {
 	interfaces.OrganizationRepository
 }
 
-func (receiverViewOrgRepo) GetTenantMember(context.Context, string, uint64) (*types.OrganizationTenantMember, error) {
+func (receiverViewOrgRepo) GetTenantMember(
+	context.Context, string, uint64,
+) (*types.OrganizationTenantMember, error) {
 	return &types.OrganizationTenantMember{Role: types.OrgRoleViewer}, nil
+}
+
+func (r receiverViewOrgRepo) ListTenantMembersByTenantForOrgs(
+	ctx context.Context, tenantID uint64, orgIDs []string,
+) (map[string]*types.OrganizationTenantMember, error) {
+	out := make(map[string]*types.OrganizationTenantMember, len(orgIDs))
+	for _, orgID := range orgIDs {
+		m, err := r.GetTenantMember(ctx, orgID, tenantID)
+		if err != nil {
+			continue
+		}
+		if m != nil {
+			out[orgID] = m
+		}
+	}
+	return out, nil
 }
 
 type receiverViewShareRepo struct {

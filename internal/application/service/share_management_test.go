@@ -30,6 +30,24 @@ func (shareMgmtOrgRepo) GetTenantMember(
 	return nil, repository.ErrOrgMemberNotFound
 }
 
+func (r shareMgmtOrgRepo) ListTenantMembersByTenantForOrgs(
+	ctx context.Context, tenantID uint64, orgIDs []string,
+) (map[string]*types.OrganizationTenantMember, error) {
+	out := make(map[string]*types.OrganizationTenantMember, len(orgIDs))
+	for _, orgID := range orgIDs {
+		m, err := r.GetTenantMember(ctx, orgID, tenantID)
+		if err != nil {
+			continue
+		}
+		if m != nil {
+			cp := *m
+			cp.OrganizationID = orgID
+			out[orgID] = &cp
+		}
+	}
+	return out, nil
+}
+
 type shareMgmtKBShareRepo struct {
 	interfaces.KBShareRepository
 	share   *types.KnowledgeBaseShare
