@@ -572,6 +572,7 @@ def test_w8_utils_ssrf_proxy_handles_malformed_upstream_and_tempfile_request_hyg
 
     # request_id_context must scrub CR/LF log injection characters
     with request_id_context("req123\r\nFAKE_LOG_LINE") as sanitized_id:
+        assert sanitized_id is not None
         assert "\r" not in sanitized_id
         assert "\n" not in sanitized_id
         rec = logging.LogRecord("test", logging.INFO, __file__, 1, "msg", (), None)
