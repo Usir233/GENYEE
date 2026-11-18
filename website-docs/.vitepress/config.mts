@@ -58,7 +58,7 @@ function compareVersions(a: string, b: string): number {
 
 function itemsOf(dir: string, newestFirst = false): DefaultTheme.SidebarItem[] {
   const files = readdirSync(resolve(root, dir)).filter((f) => f.endsWith('.md'))
-  return (newestFirst ? files.sort(compareVersions).reverse() : files.sort())
+  return (newestFirst ? files.toSorted(compareVersions).toReversed() : files.toSorted())
     .map((f) => ({
       text: itemText(dir, f),
       link: `/${dir}/${f.replace(/\.md$/, '')}`,
@@ -105,6 +105,7 @@ export default withMermaid(
     },
 
     head: [
+      ['meta', { name: 'color-scheme', content: 'light dark' }],
       ['link', { rel: 'icon', href: '/docs/favicon.ico', type: 'image/x-icon' }],
       ['meta', { name: 'theme-color', content: '#101f38' }],
       ['meta', { property: 'og:type', content: 'website' }],

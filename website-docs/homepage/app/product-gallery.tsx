@@ -35,22 +35,26 @@ export function ProductGallery({ id, label, slides, layout = "sidebar" }: { id: 
   const [visible, setVisible] = useState(false);
   const [paused, setPaused] = useState(false);
   const totalSteps = slides.reduce((count, slide) => count + slide.shots.length, 0);
-  const active = slides[item];
-  const activeShot = active.shots[shot];
+  const active = slides[item] ?? slides[0];
+  const activeShot = active?.shots[shot] ?? active?.shots[0];
 
   useEffect(() => {
     const element = root.current;
     if (!element) return;
-    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.4 });
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry) setVisible(entry.isIntersecting);
+    }, { threshold: 0.4 });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
 
-  const running = auto && visible && !paused;
+  const running = auto && visible && !paused && slides.length > 0;
   useEffect(() => {
     if (!running || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const currentSlide = slides[item];
+    if (!currentSlide) return;
     const timer = window.setTimeout(() => {
-      const lastView = shot + 1 >= slides[item].shots.length;
+      const lastView = shot + 1 >= currentSlide.shots.length;
       setShot(lastView ? 0 : shot + 1);
       if (lastView) setItem((item + 1) % slides.length);
       setSteps(steps + 1);
@@ -71,19 +75,21 @@ export function ProductGallery({ id, label, slides, layout = "sidebar" }: { id: 
     setShot(view);
   }
 
-  return <div id={id} ref={root} className={`${s.showcase} ${layout === "compact" ? s.showcaseCompact : ""}`} data-layout={layout} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
-    <div className={s.showcaseList} aria-label={`${label} 功能`}>
-      {slides.map((slide, index) => <div key={slide.name} className={s.showcaseItem} data-active={index === item} onClick={() => { if (index !== item) selectItem(index); }}>
-        <h3><button type="button" aria-pressed={index === item} onClick={event => { event.stopPropagation(); selectItem(index); }}>
+  if (!active || !activeShot) return null;
+
+  return <div id={id} ref={root} className={`${s.showcase} ${layout === "compact" ? s.showcaseCompact : ""}`} data-layout={layout} onFocus={() => setPaused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }}>
+    <div className={s.showcaseList} role="group" aria-label={`${label} 功能`}>
+      {slides.map((slide, index) => <div key={slide.name} className={s.showcaseItem} data-active={index === item}>
+        <h3><button type="button" aria-pressed={index === item} onClick={() => selectItem(index)}>
           <span className={s.showcaseName}><Icon name={slide.icon} />{slide.name}</span>
           <span className={s.showcaseTitle}>{slide.title}</span>
         </button></h3>
         <div className={s.showcaseDetail}>
           <p>{slide.description}</p>
-          {slide.shots.length > 1 && <div className={s.viewChips} aria-label={`${slide.name}截图`}>
+          {slide.shots.length > 1 && <div className={s.viewChips} role="group" aria-label={`${slide.name}截图`}>
             {slide.shots.map((entry, view) => {
               const current = index === item && view === shot;
-              return <button key={entry.image} type="button" aria-pressed={current} onClick={event => { event.stopPropagation(); selectView(index, view); }}>
+              return <button key={entry.image} type="button" aria-pressed={current} onClick={() => selectView(index, view)}>
                 <Icon name={entry.icon ?? slide.icon} />{entry.label}
                 {/* Restarted whenever the timer restarts (new step or resume), so the bar and the switch stay in step. */}
                 {auto && current && <span key={`${item}-${shot}-${steps}-${running}`} className={s.tabProgress} data-running={running} style={{ "--step-ms": `${STEP_MS}ms` } as CSSProperties} aria-hidden="true" />}

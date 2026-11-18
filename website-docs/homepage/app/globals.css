@@ -9,5 +9,5 @@ button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation
 button { font: inherit; cursor: pointer; }
 a { text-decoration: none; }
 ::selection { background: var(--gy-accent-border); color: var(--gy-ink); }
-:focus-visible { outline: 2px solid #b8863b; outline-offset: 5px; }
+:focus-visible { outline: 2px solid var(--gy-gold); outline-offset: 5px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }

@@ -68,7 +68,7 @@
 .mcpEntry p { font-size: 14px; line-height: 1.85; color: var(--soft); margin: 0 0 12px; }
 .release { padding-block: 93px 44px; background: var(--paper2); border-block: 1px solid var(--rule); }
 .sandboxTopic { background: var(--paper2); padding-bottom: 93px; }
-.artifactFigure { margin: 0; min-width: 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 5px; box-shadow: 0 18px 45px -35px #101f3844; overflow: hidden; }
+.artifactFigure { margin: 0; min-width: 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 5px; box-shadow: var(--gy-shadow-figure); overflow: hidden; }
 .artifactHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 20px; font-size: 13px; border-bottom: 1px solid var(--rule); }
 .artifactHeading > span { display: inline-flex; align-items: center; gap: 8px; }
 .artifactHeading > span:last-child { font-family: ui-monospace, monospace; letter-spacing: .07em; font-size: 12px; color: var(--mute); }
@@ -85,12 +85,12 @@
 .cardActions { display: flex; align-items: center; gap: 12px; }
 .showcase { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 48px; align-items: start; }
 .showcaseList { border-top: 1px solid var(--rule); }
-.showcaseItem { position: relative; padding-left: 20px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.showcaseItem { position: relative; padding-left: 20px; border-bottom: 1px solid var(--rule); }
 .showcaseItem::before { content: ""; position: absolute; left: 0; top: 20px; bottom: 22px; width: 2px; background: transparent; transition: background .25s; }
-.showcaseItem[data-active="true"] { cursor: default; }
 .showcaseItem[data-active="true"]::before { background: var(--gold); }
 .showcaseItem h3 { margin: 0; font: inherit; }
-.showcaseItem h3 button { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 20px 0 8px; border: 0; background: transparent; text-align: left; cursor: inherit; }
+.showcaseItem h3 button { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 20px 0 8px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.showcaseItem[data-active="true"] h3 button { cursor: default; }
 .showcaseName { display: inline-flex; align-items: center; gap: 8px; color: var(--mute); font-size: 12px; letter-spacing: .06em; }
 .showcaseName svg { width: 17px; height: 17px; }
 .showcaseTitle { color: var(--soft); font-size: 19px; font-weight: 550; line-height: 1.5; transition: color .2s; }
@@ -179,7 +179,7 @@
   .ecosystem { gap: 28px; grid-template-columns: 1fr .7fr 1fr; }
 }
 @media (max-width: 800px) {
-  .navigationOpen { display: flex; position: absolute; left: 0; top: 72px; right: 0; padding: 20px 32px 26px; background: var(--paper); border-bottom: 1px solid var(--rule); flex-direction: column; align-items: stretch; gap: 4px; box-shadow: 0 15px 20px #101f380a; }
+  .navigationOpen { display: flex; position: absolute; left: 0; top: 72px; right: 0; padding: 20px 32px 26px; background: var(--paper); border-bottom: 1px solid var(--rule); flex-direction: column; align-items: stretch; gap: 4px; box-shadow: var(--gy-shadow-drawer); }
   .navigationOpen a { font-size: 16px; }
   .hero { padding-top: 20px; }
   .heroGrid { align-items: start; grid-template-columns: 1fr; gap: 28px; margin-top: 26px; margin-bottom: 35px; }

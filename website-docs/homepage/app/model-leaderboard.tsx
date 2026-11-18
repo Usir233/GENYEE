@@ -35,20 +35,47 @@ export function ModelLeaderboard() {
     if (!root) return;
     paintMetricBars(root);
     const cleanups: Array<() => void> = [];
+    const activateTab = (bar: HTMLElement, btn: HTMLElement, moveFocus = false) => {
+      bar.querySelectorAll<HTMLElement>(".tab").forEach((tab) => {
+        const selected = tab === btn;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      if (moveFocus) btn.focus();
+      const group = bar.dataset.tabs;
+      root.querySelectorAll<HTMLElement>(`.panel[data-group="${group}"]`).forEach((panel) => {
+        panel.hidden = panel.id !== btn.dataset.panel;
+      });
+    };
     root.querySelectorAll<HTMLElement>("[data-tabs]").forEach((bar) => {
       const onClick = (event: Event) => {
-        const btn = (event.target as HTMLElement).closest<HTMLElement>(".tab");
+        const target = event.target instanceof Element ? event.target : null;
+        const btn = target?.closest<HTMLElement>(".tab");
         if (!btn) return;
-        bar.querySelectorAll(".tab").forEach((tab) => {
-          tab.setAttribute("aria-selected", String(tab === btn));
-        });
-        const group = bar.dataset.tabs;
-        root.querySelectorAll(`.panel[data-group="${group}"]`).forEach((panel) => {
-          (panel as HTMLElement).hidden = panel.id !== btn.dataset.panel;
-        });
+        activateTab(bar, btn);
+      };
+      const onKeyDown = (event: KeyboardEvent) => {
+        const tabs = Array.from(bar.querySelectorAll<HTMLElement>(".tab"));
+        const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(".tab") : null;
+        const currentIndex = target ? tabs.indexOf(target) : -1;
+        if (currentIndex < 0 || !tabs.length) return;
+        let nextIndex = -1;
+        if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+        else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex >= 0) {
+          event.preventDefault();
+          const nextTab = tabs[nextIndex];
+          if (nextTab) activateTab(bar, nextTab, true);
+        }
       };
       bar.addEventListener("click", onClick);
-      cleanups.push(() => bar.removeEventListener("click", onClick));
+      bar.addEventListener("keydown", onKeyDown);
+      cleanups.push(() => {
+        bar.removeEventListener("click", onClick);
+        bar.removeEventListener("keydown", onKeyDown);
+      });
     });
     const onHash = () => scrollToSection("smooth");
     window.addEventListener("hashchange", onHash);
@@ -81,13 +108,13 @@ export function ModelLeaderboard() {
       <h2>LLM</h2>
       <span className="sec-sub">固定检索与精排，只替换 Chat 模型</span>
     </div>
-    <div className="tabs" role="tablist" data-tabs="chat">
-      <button className="tab" role="tab" aria-selected="true" data-panel="chat-agent">智能推理</button>
-      <button className="tab" role="tab" aria-selected="false" data-panel="chat-knowledge">快速问答</button>
+    <div className="tabs" role="tablist" aria-label="LLM 评测模式" data-tabs="chat">
+      <button type="button" id="tab-chat-agent" className="tab" role="tab" aria-selected="true" aria-controls="chat-agent" tabIndex={0} data-panel="chat-agent">智能推理</button>
+      <button type="button" id="tab-chat-knowledge" className="tab" role="tab" aria-selected="false" aria-controls="chat-knowledge" tabIndex={-1} data-panel="chat-knowledge">快速问答</button>
     </div>
 
     {/* 1.1 */}
-    <div className="panel" id="chat-agent" data-group="chat">
+    <div className="panel" id="chat-agent" role="tabpanel" aria-labelledby="tab-chat-agent" data-group="chat">
       <div className="card">
         <div className="card-head">
           <h3>智能推理</h3>
@@ -97,9 +124,9 @@ export function ModelLeaderboard() {
           <div className="scroll">
             <table>
               <thead><tr>
-                <th className="rank">#</th><th>Chat</th><th>Think Effort</th>
-                <th className="num metric">综合分</th><th className="num">correctness 正确性</th><th className="num">completeness 完整度</th><th className="num">constraint 约束遵循</th>
-                <th className="num">语料命中率</th><th className="num">平均语料数</th><th className="num">P50 迭代</th><th className="num">P50 token</th>
+                <th scope="col" className="rank">#</th><th scope="col">Chat</th><th scope="col">Think Effort</th>
+                <th scope="col" className="num metric">综合分</th><th scope="col" className="num">correctness 正确性</th><th scope="col" className="num">completeness 完整度</th><th scope="col" className="num">constraint 约束遵循</th>
+                <th scope="col" className="num">语料命中率</th><th scope="col" className="num">平均语料数</th><th scope="col" className="num">P50 迭代</th><th scope="col" className="num">P50 token</th>
               </tr></thead>
               <tbody data-bar-col="2">
                 <tr className="lead-row"><td><span className="rk top">1</span></td><td className="model">Grok 4.7</td><td className="dim">默认(high)</td><td className="metric" data-v="4.23"><span className="v">4.23</span><span className="bar"><i></i></span></td><td className="num">4.04</td><td className="num">4.41</td><td className="num">4.80</td><td className="num">95.19%</td><td className="num">3.69</td><td className="num">4</td><td className="num">344</td></tr>
@@ -139,7 +166,7 @@ export function ModelLeaderboard() {
     </div>
 
     {/* 1.2 */}
-    <div className="panel" id="chat-knowledge" data-group="chat" hidden>
+    <div className="panel" id="chat-knowledge" role="tabpanel" aria-labelledby="tab-chat-knowledge" data-group="chat" hidden>
       <div className="card">
         <div className="card-head">
           <h3>快速问答</h3>
@@ -149,9 +176,9 @@ export function ModelLeaderboard() {
           <div className="scroll">
             <table>
               <thead><tr>
-                <th className="rank">#</th><th>Chat</th><th>Think</th>
-                <th className="num metric">综合分</th><th className="num">correctness 正确性</th><th className="num">completeness 完整度</th><th className="num">constraint 约束遵循</th>
-                <th className="num">P50 token</th>
+                <th scope="col" className="rank">#</th><th scope="col">Chat</th><th scope="col">Think</th>
+                <th scope="col" className="num metric">综合分</th><th scope="col" className="num">correctness 正确性</th><th scope="col" className="num">completeness 完整度</th><th scope="col" className="num">constraint 约束遵循</th>
+                <th scope="col" className="num">P50 token</th>
               </tr></thead>
               <tbody data-bar-col="2">
                 <tr className="lead-row"><td><span className="rk top">1</span></td><td className="model">GPT-6 Astra</td><td className="dim">默认(medium)</td><td className="metric" data-v="4.20"><span className="v">4.20</span><span className="bar"><i></i></span></td><td className="num">4.37</td><td className="num">3.75</td><td className="num">4.50</td><td className="num">186</td></tr>
@@ -216,13 +243,13 @@ export function ModelLeaderboard() {
       <span className="sec-sub">向量检索</span>
     </div>
 
-    <div className="tabs" role="tablist" data-tabs="embed">
-      <button className="tab" role="tab" aria-selected="true" data-panel="embed-rerank">2.1 召回率</button>
-      <button className="tab" role="tab" aria-selected="false" data-panel="embed-only">2.2 召回排序</button>
+    <div className="tabs" role="tablist" aria-label="Embed 评测模式" data-tabs="embed">
+      <button type="button" id="tab-embed-rerank" className="tab" role="tab" aria-selected="true" aria-controls="embed-rerank" tabIndex={0} data-panel="embed-rerank">2.1 召回率</button>
+      <button type="button" id="tab-embed-only" className="tab" role="tab" aria-selected="false" aria-controls="embed-only" tabIndex={-1} data-panel="embed-only">2.2 召回排序</button>
     </div>
 
     {/* 2.1 */}
-    <div className="panel" id="embed-rerank" data-group="embed">
+    <div className="panel" id="embed-rerank" role="tabpanel" aria-labelledby="tab-embed-rerank" data-group="embed">
       <div className="card">
         <div className="card-head">
           <h3>召回率</h3>
@@ -233,9 +260,9 @@ export function ModelLeaderboard() {
           <div className="scroll" style={{ marginTop: 0 }}>
             <table>
               <thead><tr>
-                <th className="rank">#</th><th>模型</th>
-                <th className="num metric">Recall@100</th><th className="num">Recall@50</th><th className="num">Recall@10</th>
-                <th className="num">推荐 retrieve k</th><th className="num">推荐 rerank/LLM k</th><th>推荐 vector_threshold</th>
+                <th scope="col" className="rank">#</th><th scope="col">模型</th>
+                <th scope="col" className="num metric">Recall@100</th><th scope="col" className="num">Recall@50</th><th scope="col" className="num">Recall@10</th>
+                <th scope="col" className="num">推荐 retrieve k</th><th scope="col" className="num">推荐 rerank/LLM k</th><th scope="col">推荐 vector_threshold</th>
               </tr></thead>
               <tbody data-bar-col="2">
                 <tr className="lead-row"><td><span className="rk top">1</span></td><td className="model">nvidia/Nemotron-3-Embed-8B-BF16</td><td className="metric" data-v="0.92877"><span className="v">0.92877</span><span className="bar"><i></i></span></td><td className="num">0.91302</td><td className="num">0.85027</td><td className="num">50</td><td className="num">8</td><td className="dim">0.27</td></tr>
@@ -274,7 +301,7 @@ export function ModelLeaderboard() {
     </div>
 
     {/* 2.2 */}
-    <div className="panel" id="embed-only" data-group="embed" hidden>
+    <div className="panel" id="embed-only" role="tabpanel" aria-labelledby="tab-embed-only" data-group="embed" hidden>
       <div className="card">
         <div className="card-head">
           <h3>召回排序</h3>
@@ -286,9 +313,9 @@ export function ModelLeaderboard() {
           <div className="scroll" style={{ marginTop: 0 }}>
             <table>
               <thead><tr>
-                <th className="rank">#</th><th>模型</th>
-                <th className="num metric">NDCG@10</th><th className="num">Recall@10</th><th className="num">P@1</th>
-                <th className="num">推荐 embedding_top_k</th><th>推荐 vector_threshold</th>
+                <th scope="col" className="rank">#</th><th scope="col">模型</th>
+                <th scope="col" className="num metric">NDCG@10</th><th scope="col" className="num">Recall@10</th><th scope="col" className="num">P@1</th>
+                <th scope="col" className="num">推荐 embedding_top_k</th><th scope="col">推荐 vector_threshold</th>
               </tr></thead>
               <tbody data-bar-col="2">
                 <tr className="lead-row"><td><span className="rk top">1</span></td><td className="model">nvidia/Nemotron-3-Embed-8B-BF16</td><td className="metric" data-v="0.80114"><span className="v">0.80114</span><span className="bar"><i></i></span></td><td className="num">0.85027</td><td className="num">0.76872</td><td className="num">5–8</td><td className="dim">0.27</td></tr>
@@ -345,8 +372,8 @@ export function ModelLeaderboard() {
         <div className="scroll">
           <table>
             <thead><tr>
-              <th className="rank">#</th><th>模型</th>
-              <th className="num metric">NDCG@10</th><th className="num">P@1</th><th className="num">MRR@10</th><th className="num">Recall@10</th>
+              <th scope="col" className="rank">#</th><th scope="col">模型</th>
+              <th scope="col" className="num metric">NDCG@10</th><th scope="col" className="num">P@1</th><th scope="col" className="num">MRR@10</th><th scope="col" className="num">Recall@10</th>
             </tr></thead>
             <tbody data-bar-col="2">
               <tr className="lead-row"><td><span className="rk top">1</span></td><td className="model">Qwen/Qwen3-Reranker-8B</td><td className="metric" data-v="0.83609"><span className="v">0.83609</span><span className="bar"><i></i></span></td><td className="num">0.81984</td><td className="num">0.87762</td><td className="num">0.87138</td></tr>

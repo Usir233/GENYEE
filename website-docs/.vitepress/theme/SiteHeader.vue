@@ -16,15 +16,55 @@ const docsNavigation = computed(() => [
   { label: '版本', href: `/docs/07-releases/${theme.value.genyeeVersion || 'v0.9.0'}`, section: '/docs/07-releases/' },
 ])
 const open = ref(false)
-watch(() => route.path, () => open.value = false)
+watch(() => route.path, () => {
+  open.value = false
+})
 const menu = ref<HTMLButtonElement>()
-const label = computed(() => isDark.value ? '切换到浅色' : '切换到深色')
-const HeaderIcon = (props: { name: string }) => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' }, [h('path', { d: headerIcons[props.name] })])
-function closeMenu(event: KeyboardEvent) {
-  if (event.key === 'Escape' && open.value) { open.value = false; menu.value?.focus() }
+const label = computed(() => (isDark.value ? '切换到浅色' : '切换到深色'))
+const HeaderIcon = (props: { name: string }) =>
+  h(
+    'svg',
+    {
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': 1.4,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'aria-hidden': 'true',
+    },
+    [h('path', { d: headerIcons[props.name] })],
+  )
+function syncColorSchemeMeta() {
+  if (typeof document === 'undefined') return
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]')
+  if (!meta) return
+  let scheme = 'light dark'
+  try {
+    const stored = localStorage.getItem('vitepress-theme-appearance')
+    if (stored === 'dark' || stored === 'light') scheme = stored
+  } catch {
+    /* Storage can be disabled; fall back to current rendered scheme. */
+    scheme = isDark.value ? 'dark' : 'light'
+  }
+  meta.content = scheme
 }
-onMounted(() => document.addEventListener('keydown', closeMenu))
-onUnmounted(() => document.removeEventListener('keydown', closeMenu))
+function closeMenu(event: KeyboardEvent) {
+  if (event.key === 'Escape' && open.value) {
+    open.value = false
+    menu.value?.focus()
+  }
+}
+watch(isDark, syncColorSchemeMeta, { flush: 'post' })
+onMounted(() => {
+  syncColorSchemeMeta()
+  document.addEventListener('keydown', closeMenu)
+  window.addEventListener('storage', syncColorSchemeMeta)
+})
+onUnmounted(() => {
+  document.removeEventListener('keydown', closeMenu)
+  window.removeEventListener('storage', syncColorSchemeMeta)
+})
 </script>
 
 <template>

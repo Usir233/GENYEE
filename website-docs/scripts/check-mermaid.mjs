@@ -1,12 +1,29 @@
 // 用 mermaid 自带的解析器校验文档里所有 ```mermaid 代码块。
 // 站点构建不会检查图表语法——语法错的图只在浏览器里报错，
 // 所以这里在 CI/本地提前拦住。
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const siblingFrontendModules = resolve(root, '..', 'frontend', 'node_modules')
+
+function resolveFallbackFrontendModules() {
+  const candidates = [resolve(root, '..', 'frontend', 'node_modules')]
+  const commonGit = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: root, encoding: 'utf8' })
+  if (commonGit.status === 0 && commonGit.stdout.trim()) {
+    candidates.push(resolve(root, commonGit.stdout.trim(), '..', 'frontend', 'node_modules'))
+  }
+  for (const candidate of candidates) {
+    if (
+      existsSync(resolve(candidate, '@xmldom/xmldom/lib/index.js'))
+      && existsSync(resolve(candidate, 'mermaid/dist/mermaid.core.mjs'))
+    ) {
+      return candidate
+    }
+  }
+  return null
+}
 
 async function loadMermaid() {
   try {
@@ -21,9 +38,10 @@ async function loadMermaid() {
     const { default: mermaid } = await import('mermaid')
     return mermaid
   } catch (primaryErr) {
-    const xmldomEntry = resolve(siblingFrontendModules, '@xmldom/xmldom/lib/index.js')
-    const mermaidEntry = resolve(siblingFrontendModules, 'mermaid/dist/mermaid.core.mjs')
-    if (!existsSync(xmldomEntry) || !existsSync(mermaidEntry)) throw primaryErr
+    const fallbackModules = resolveFallbackFrontendModules()
+    if (!fallbackModules) throw primaryErr
+    const xmldomEntry = resolve(fallbackModules, '@xmldom/xmldom/lib/index.js')
+    const mermaidEntry = resolve(fallbackModules, 'mermaid/dist/mermaid.core.mjs')
     const { DOMParser } = await import(pathToFileURL(xmldomEntry).href)
     function SilentDOMParser() {
       return new DOMParser({ onError: () => {} })

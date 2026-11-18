@@ -5,7 +5,7 @@
 .join { display: inline-flex; align-items: center; gap: 8px; color: var(--gy-ink-soft); font-size: 13px; }
 .join:hover { color: var(--gy-accent-text); }
 .join svg { width: 15px; height: 15px; }
-.viewport { overflow: hidden; padding-block: 6px; mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+.viewport { overflow: hidden; padding-block: 6px; mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent); }
 .track { display: flex; width: max-content; animation: drift 60s linear infinite; }
 .group { display: flex; flex-shrink: 0; align-items: center; gap: 32px; list-style: none; padding: 0 32px 0 0; margin: 0; }
 .logo { display: flex; align-items: center; justify-content: center; width: max-content; min-width: 136px; height: 64px; padding: 8px 16px; text-align: center; background: var(--gy-surface); border: 1px solid var(--gy-rule); border-radius: 4px; }
@@ -17,7 +17,7 @@
 .showcase[data-paused="true"] .track { animation-play-state: paused; }
 @media (hover: hover) { .viewport:hover .track { animation-play-state: paused; } }
 @keyframes drift { to { transform: translateX(-50%); } }
-.details { position: absolute; z-index: 2; top: calc(100% + 4px); width: min(340px, 100%); padding: 16px; overflow: hidden; border: 1px solid var(--gy-rule); border-radius: 8px; background: var(--gy-surface); box-shadow: 0 10px 28px -8px #07101f44; }
+.details { position: absolute; z-index: 2; top: calc(100% + 4px); width: min(340px, 100%); padding: 16px; overflow: hidden; border: 1px solid var(--gy-rule); border-radius: 8px; background: var(--gy-surface); box-shadow: var(--gy-shadow-popover); }
 .details h3 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--gy-ink); font-size: 18px; font-weight: 650; line-height: 1.4; letter-spacing: -.02em; }
 .detailLink { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; color: var(--gy-ink-soft); }
 .detailLink:hover, .detailLink:focus-visible { color: var(--gy-accent-text); background: var(--gy-paper-2); }
@@ -29,8 +29,7 @@
 .tags .industry { background: var(--gy-paper-2); color: var(--gy-ink-soft); }
 :global(.dark) .logo, :global(.dark) .details { background: var(--gy-paper-3); }
 /* Keep unmodified dark lettering legible without bright white cards or logo inversion. */
-:global(.dark) .logoMark { background: #dce3ed; }
-:global(.dark) .details { box-shadow: 0 12px 32px -8px #0009; }
+:global(.dark) .logoMark { background: var(--gy-logo-ground-muted); }
 /* Keyboard users get a stationary, scrollable row with one focusable copy. */
 .showcase[data-manual="true"] .viewport { overflow-x: auto; mask-image: none; scrollbar-width: thin; }
 .showcase[data-manual="true"] .track { animation: none; }

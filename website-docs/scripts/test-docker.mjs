@@ -20,10 +20,16 @@ const portName = `${name}-port`;
 const bashName = `${name}-bash`;
 const argsName = `${name}-args`;
 
+const FETCH_TIMEOUT_MS = 10_000;
+
+function fetchWithDeadline(input, init = {}) {
+  return fetch(input, { ...init, signal: init.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+}
+
 async function waitReady(origin, label) {
   for (let attempt = 0; attempt < 30; attempt++) {
     try {
-      if ((await fetch(origin, { signal: AbortSignal.timeout(2000) })).ok) return;
+      if ((await fetchWithDeadline(origin, { signal: AbortSignal.timeout(2000) })).ok) return;
     } catch { /* Nginx may still be starting. */ }
     await setTimeout(200);
   }
@@ -43,7 +49,7 @@ try {
   const portOrigin = `http://${docker('port', portName, '8080/tcp')}`;
   await waitReady(portOrigin, 'Container with WEBSITE_NGINX_PORT=8080');
   assert.match(docker('exec', portName, 'cat', '/etc/nginx/conf.d/default.conf'), /listen 8080;/);
-  assert.equal((await fetch(portOrigin + '/docs/')).status, 200);
+  assert.equal((await fetchWithDeadline(portOrigin + '/docs/')).status, 200);
 
   // Deployment platforms may replace the image entrypoint with /bin/bash -c.
   // The wrapped command must still render the Nginx template before serving.
@@ -55,8 +61,8 @@ try {
   docker('exec', bashName, 'nginx', '-t');
   assert.match(docker('exec', bashName, 'cat', '/etc/nginx/conf.d/default.conf'), /listen 8088;/);
   assert.match(docker('exec', bashName, 'cat', '/etc/nginx/conf.d/default.conf'), /try_files \$uri \$uri\.html/);
-  assert.equal((await fetch(bashOrigin + '/docs/')).status, 200);
-  assert.equal((await fetch(bashOrigin + '/docs/03-features/14-wiki')).status, 200);
+  assert.equal((await fetchWithDeadline(bashOrigin + '/docs/')).status, 200);
+  assert.equal((await fetchWithDeadline(bashOrigin + '/docs/03-features/14-wiki')).status, 200);
 
   // Like frontend, our entrypoint always configures and runs Nginx, even when
   // the platform passes a shell command as image arguments instead of replacing it.
@@ -64,16 +70,16 @@ try {
     '-p', '127.0.0.1::8088', image, '/bin/bash', '-c', 'nginx; sleep infinity');
   const argsOrigin = `http://${docker('port', argsName, '8088/tcp')}`;
   await waitReady(argsOrigin, 'Container with platform command arguments');
-  assert.equal((await fetch(argsOrigin + '/docs/')).status, 200);
+  assert.equal((await fetchWithDeadline(argsOrigin + '/docs/')).status, 200);
   assert.match(docker('exec', argsName, 'cat', '/proc/1/comm'), /^nginx$/);
 
-  const redirect = await fetch(`${origin}/docs`, { redirect: 'manual' });
+  const redirect = await fetchWithDeadline(`${origin}/docs`, { redirect: 'manual' });
   assert.equal(redirect.status, 308);
   assert.equal(new URL(redirect.headers.get('location'), origin).origin, origin);
   assert.equal(new URL(redirect.headers.get('location'), origin).pathname, '/docs/');
   const assets = new Set(['/docs/_home/brand/genyee-logo.png', '/docs/_home/product/wiki-browser.png', '/docs/favicon.ico']);
   for (const path of ['/', '/docs/', '/docs/03-features/14-wiki', '/docs/03-features/14-wiki.html']) {
-    const response = await fetch(origin + path);
+    const response = await fetchWithDeadline(origin + path);
     assert.equal(response.status, 200, path);
     assert.match(response.headers.get('content-type'), /text\/html/);
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
@@ -89,14 +95,14 @@ try {
   assert.ok([...assets].some(path => path.startsWith('/docs/_home/_next/')), 'Homepage scripts are missing');
   assert.ok([...assets].some(path => path.startsWith('/docs/assets/')), 'Documentation scripts are missing');
   for (const asset of assets) {
-    const response = await fetch(origin + asset);
+    const response = await fetchWithDeadline(origin + asset);
     assert.equal(response.status, 200, asset);
     assert.doesNotMatch(response.headers.get('content-type'), /text\/html/, asset);
   }
-  const compressed = await fetch(origin + '/', { headers: { 'Accept-Encoding': 'gzip' } });
+  const compressed = await fetchWithDeadline(origin + '/', { headers: { 'Accept-Encoding': 'gzip' } });
   assert.equal(compressed.headers.get('content-encoding'), 'gzip');
   for (const path of ['/not-found', '/docs/not-found']) {
-    const response = await fetch(origin + path);
+    const response = await fetchWithDeadline(origin + path);
     assert.equal(response.status, 404, path);
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   }

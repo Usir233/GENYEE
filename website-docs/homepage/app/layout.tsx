@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 import { themeInitializationScript } from "./theme";
 
@@ -12,11 +13,14 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: themeInitializationScript }} /></head>
+      <head>
+        <meta name="color-scheme" content="light dark" />
+        <script dangerouslySetInnerHTML={{ __html: themeInitializationScript }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

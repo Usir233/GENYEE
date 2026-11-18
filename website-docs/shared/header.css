@@ -24,13 +24,12 @@
 .gy-nav-menu:hover .gy-nav-caret { color: var(--gy-gold); }
 .gy-nav-menu.is-open .gy-nav-caret svg,
 .gy-nav-menu:hover .gy-nav-caret svg { transform: rotate(180deg); }
-.gy-nav-dropdown { display: none; position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; min-width: 128px; padding: 6px 0; background: var(--gy-surface); border: 1px solid var(--gy-rule); box-shadow: 0 8px 24px rgba(16, 31, 56, .06); flex-direction: column; }
+.gy-nav-dropdown { display: none; position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; min-width: 128px; padding: 6px 0; background: var(--gy-surface); border: 1px solid var(--gy-rule); box-shadow: var(--gy-shadow-dropdown); flex-direction: column; }
 .gy-nav-dropdown::before { content: ""; position: absolute; left: 0; right: 0; top: -10px; height: 10px; }
 .gy-nav-menu.is-open .gy-nav-dropdown,
 .gy-nav-menu:hover .gy-nav-dropdown,
 .gy-nav-menu:focus-within .gy-nav-dropdown { display: flex; }
 .gy-nav-dropdown a { min-height: 36px; padding: 0 20px; justify-content: flex-start; letter-spacing: .01em; }
-html.dark .gy-nav-dropdown { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
 .gy-navigation .gy-mobile-github { display: none; }
 .gy-navigation a:focus:not(:focus-visible) { outline: none; }
 .gy-header :focus-visible { outline: 2px solid var(--gy-gold); outline-offset: 5px; }
@@ -47,7 +46,7 @@ html.dark .gy-nav-dropdown { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
  .gy-header .gy-menu-toggle { display: flex; }
  .gy-theme-toggle { margin-left: auto; }
  .gy-navigation { display: none; }
- .gy-navigation.is-open { display: flex; position: absolute; left: 0; top: 63px; max-height: calc(100dvh - 64px); overflow-y: auto; right: 0; padding: 20px 32px 26px; background: var(--gy-paper); border-bottom: 1px solid var(--gy-rule); flex-direction: column; align-items: stretch; gap: 4px; box-shadow: 0 15px 20px #101f380a; }
+ .gy-navigation.is-open { display: flex; position: absolute; left: 0; top: 63px; max-height: calc(100dvh - 64px); overflow-y: auto; right: 0; padding: 20px 32px 26px; background: var(--gy-paper); border-bottom: 1px solid var(--gy-rule); flex-direction: column; align-items: stretch; gap: 4px; box-shadow: var(--gy-shadow-drawer); }
  .gy-navigation a { font-size: 16px; }
  .gy-navigation .gy-mobile-github { display: inline-flex; }
  .gy-nav-menu { flex-direction: column; align-items: stretch; }

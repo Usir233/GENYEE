@@ -1,15 +1,19 @@
 /* Shared by the product homepage and VitePress documentation. */
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --gy-ink: #101f38;
   --gy-ink-deep: #0a1526;
   --gy-ink-soft: #40536f;
   --gy-ink-mute: #6d7d94;
   --gy-gold: #b8863b;
   --gy-gold-light: #d9a94f;
+  --gy-gold-soft: rgba(184, 134, 59, .14);
+  --gy-gold-tint: rgba(184, 134, 59, .08);
+  --gy-selection-bg: rgba(184, 134, 59, .22);
   --gy-paper: #fdfcfa;
   --gy-paper-2: #f5f3ee;
   --gy-paper-3: #edeae2;
+  --gy-code-bg: #fbf9f5;
   --gy-rule: rgba(16, 31, 56, .12);
   --gy-rule-soft: rgba(16, 31, 56, .07);
   --gy-surface: #fff;
@@ -18,20 +22,38 @@
   --gy-accent-text: #886025;
   --gy-accent-border: #dfd1b9;
   --gy-logo-ground: #fff;
+  --gy-logo-ground-muted: #fff;
+  --gy-shadow-dropdown: 0 8px 24px rgba(16, 31, 56, .06);
+  --gy-shadow-drawer: 0 15px 20px #101f380a;
+  --gy-shadow-figure: 0 18px 45px -35px #101f3844;
+  --gy-shadow-popover: 0 10px 28px -8px #07101f44;
+  --gy-shadow-bar: 0 6px 22px rgba(16, 31, 56, .08);
   --gy-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans CJK SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --gy-font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", "STSong", serif;
   --gy-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+  }
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+  }
 }
-html.dark {
+html.dark,
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
   color-scheme: dark;
   --gy-ink: #e6ecf5;
   --gy-ink-soft: #a9b6c9;
   --gy-ink-mute: #9aaac0;
   --gy-gold: #d9a94f;
   --gy-gold-light: #e8c176;
+  --gy-gold-soft: rgba(217, 169, 79, .16);
+  --gy-gold-tint: rgba(217, 169, 79, .12);
+  --gy-selection-bg: rgba(217, 169, 79, .26);
   --gy-paper: #0b1220;
   --gy-paper-2: #101a2b;
   --gy-paper-3: #16233a;
+  --gy-code-bg: #0d1626;
   --gy-rule: rgba(190, 208, 232, .14);
   --gy-rule-soft: rgba(190, 208, 232, .08);
   --gy-surface: #101a2b;
@@ -39,6 +61,12 @@ html.dark {
   --gy-button-hover: #c3d0e2;
   --gy-accent-text: #e8c176;
   --gy-accent-border: #685638;
+  --gy-logo-ground-muted: #dce3ed;
+  --gy-shadow-dropdown: 0 8px 24px rgba(0, 0, 0, .35);
+  --gy-shadow-drawer: 0 15px 20px rgba(0, 0, 0, .28);
+  --gy-shadow-figure: 0 18px 45px -35px rgba(0, 0, 0, .55);
+  --gy-shadow-popover: 0 12px 32px -8px #0009;
+  --gy-shadow-bar: 0 6px 22px rgba(0, 0, 0, .35);
 }
 
 /* Original README artwork, copied byte-for-byte. Only blank outer canvas is

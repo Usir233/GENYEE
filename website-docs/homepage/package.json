@@ -1,5 +1,5 @@
 {
-  "name": "genyee_home_page",
+  "name": "@genyee/homepage",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
     "audit:content": "node scripts/audit-content.mjs",
     "prebuild": "node scripts/sync-product-screenshots.mjs",
     "predev": "node scripts/sync-product-screenshots.mjs",
-    "test:assets": "node --test scripts/sync-product-screenshots.test.mjs"
+    "test:assets": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "next": "16.4.5",

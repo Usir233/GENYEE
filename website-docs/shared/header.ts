@@ -35,9 +35,17 @@ export const siteNavigation: SiteNavItem[] = [
 // Everything else the homepage loads (Next chunks, images) is served from here:
 // Next's assetPrefix points at it and homepage/public mirrors the same path.
 export const homeAssets = '/docs/_home';
+function hasAsciiControlChar(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
 export function sanitizeExternalHttpUrl(raw?: string): string {
   const trimmed = typeof raw === 'string' ? raw.trim() : '';
-  if (!trimmed || /[\u0000-\u001f\u007f]/.test(trimmed)) return '';
+  if (!trimmed || hasAsciiControlChar(trimmed)) return '';
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';

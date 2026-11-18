@@ -9,6 +9,7 @@ const scale = ref(1)
 const tx = ref(0)
 const ty = ref(0)
 const stage = ref<HTMLElement>()
+const dialogRef = ref<HTMLDialogElement>()
 
 let dragging = false
 let originX = 0
@@ -23,6 +24,9 @@ function reset() {
 function close() {
   dragging = false
   open.value = false
+  if (dialogRef.value?.open) {
+    dialogRef.value.close()
+  }
   document.documentElement.style.removeProperty('overflow')
 }
 
@@ -44,6 +48,10 @@ async function show(source: SVGElement) {
   open.value = true
   document.documentElement.style.overflow = 'hidden'
   await nextTick()
+  const dialog = dialogRef.value
+  if (dialog && !dialog.open) {
+    dialog.showModal()
+  }
   const host = stage.value
   if (!host) return
   host.replaceChildren()
@@ -125,7 +133,15 @@ onUnmounted(() => {
 <template>
   <Teleport to="body">
     <Transition name="zoom-fade">
-      <div v-if="open" class="zoom" @wheel="onWheel" @mousedown.self="close">
+      <dialog
+        v-if="open"
+        ref="dialogRef"
+        class="zoom"
+        aria-label="图表放大预览"
+        @close="close"
+        @wheel="onWheel"
+        @mousedown.self="close"
+      >
         <div
           ref="stage"
           class="zoom-stage"
@@ -133,17 +149,17 @@ onUnmounted(() => {
           @mousedown.stop="onDown"
         />
 
-        <div class="zoom-bar" @mousedown.stop>
-          <button title="缩小" @click="zoomBy(1 / 1.35)">−</button>
+        <div class="zoom-bar" role="group" aria-label="缩放控制" @mousedown.stop>
+          <button type="button" aria-label="缩小" title="缩小" @click="zoomBy(1 / 1.35)">−</button>
           <span class="zoom-level">{{ Math.round(scale * 100) }}%</span>
-          <button title="放大" @click="zoomBy(1.35)">+</button>
+          <button type="button" aria-label="放大" title="放大" @click="zoomBy(1.35)">+</button>
           <span class="zoom-sep" />
-          <button class="zoom-word" @click="reset">重置</button>
-          <button class="zoom-word" @click="close">关闭</button>
+          <button type="button" class="zoom-word" @click="reset">重置</button>
+          <button type="button" class="zoom-word" @click="close">关闭</button>
         </div>
 
         <p class="zoom-hint">滚轮缩放 · 拖拽平移 · Esc 关闭</p>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>
@@ -153,10 +169,18 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: 100;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--gy-paper);
+  color: var(--gy-ink);
   cursor: zoom-out;
   overscroll-behavior: contain;
 }
@@ -184,7 +208,7 @@ onUnmounted(() => {
   border: 1px solid var(--gy-rule);
   border-radius: 3px;
   background: var(--gy-paper);
-  box-shadow: 0 6px 22px rgba(16, 31, 56, 0.08);
+  box-shadow: var(--gy-shadow-bar);
   cursor: default;
 }
 

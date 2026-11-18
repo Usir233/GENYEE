@@ -46,7 +46,7 @@ export function AdopterShowcase() {
       <div id="adopter-logos" className={a.viewport}>
         <div className={a.track}>
           {/* Equal-width copies make the linear animation loop without a jump. */}
-          {[0, 1].map(copy => <ul className={a.group} key={copy} aria-hidden={copy === 1 ? true : undefined} aria-label={copy === 0 ? "GENYEE 典型行业与应用场景" : undefined}>
+          {[0, 1].map(copy => <ul className={a.group} key={copy} role={copy === 0 ? "list" : undefined} aria-hidden={copy === 1 ? true : undefined} inert={copy === 1 || undefined}>
             {adopters.map((adopter, index) => <li key={adopter.name}>
               <button className={a.logo} data-variant={adopter.variant} type="button" tabIndex={copy === 1 ? -1 : 0} aria-label={`了解${adopter.name}的应用场景`} aria-expanded={active?.index === index} aria-controls={`adopter-details-${index}`}
                 onPointerDown={event => { if (copy === 1) event.preventDefault(); }}
@@ -72,7 +72,7 @@ export function AdopterShowcase() {
             <Icon name="external" />
           </a>}
         </h3>
-        <ul className={a.tags} aria-label="行业与应用场景">
+        <ul className={a.tags} role="list">
           <li className={a.industry}>{adopter.industry}</li>
           {adopter.useCases.map(useCase => <li key={useCase}>{useCase}</li>)}
         </ul>
