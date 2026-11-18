@@ -4,9 +4,9 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
 
-const componentSource = readFileSync(new URL('./WikiBrowser.vue', import.meta.url), 'utf8')
+const componentSource = readFileSync(new URL('./composables/useWikiDirectoryTree.ts', import.meta.url), 'utf8')
 const start = componentSource.indexOf('const groupedPages = computed(() => {')
-const end = componentSource.indexOf('\n\n// hasContentPages is', start)
+const end = componentSource.indexOf('// hasContentPages is', start)
 const groupedPagesSource = componentSource.slice(start, end)
 
 function projectGroups(pagesByType: Record<string, any>, pagesByTypeStats: Record<string, number>) {

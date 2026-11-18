@@ -3,6 +3,8 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 
 const manager = readFileSync(new URL('./FAQEntryManager.vue', import.meta.url), 'utf8')
+const entriesComposable = readFileSync(new URL('../composables/useFAQEntries.ts', import.meta.url), 'utf8')
+const combinedFaqSource = `${manager}\n${entriesComposable}`
 const batchBar = readFileSync(new URL('./FAQBatchBar.vue', import.meta.url), 'utf8')
 const locales = [
   readFileSync(new URL('../../../i18n/locales/zh-CN.ts', import.meta.url), 'utf8'),
@@ -18,8 +20,8 @@ test('FAQ 批量操作通过组件事件直接连接，不再依赖全局事件'
   assert.match(manager, /@enable="handleBatchStatusChange\(true\)"/)
   assert.match(manager, /@disable="handleBatchStatusChange\(false\)"/)
   assert.match(manager, /@delete="handleBatchDelete"/)
-  assert.doesNotMatch(manager, /faqMenuAction/)
-  assert.doesNotMatch(manager, /faqSelectionChanged/)
+  assert.doesNotMatch(combinedFaqSource, /faqMenuAction/)
+  assert.doesNotMatch(combinedFaqSource, /faqSelectionChanged/)
 })
 
 test('批量操作条根据选择状态和权限展示有效操作', () => {
@@ -27,20 +29,20 @@ test('批量操作条根据选择状态和权限展示有效操作', () => {
   assert.match(batchBar, /v-if="canEdit && disabledCount > 0"/)
   assert.match(batchBar, /v-if="canEdit && enabledCount > 0"/)
   assert.match(batchBar, /<t-popconfirm v-if="canManage"/)
-  assert.match(manager, /const canSelectEntries = computed\(\(\) => canEdit\.value \|\| canManage\.value\)/)
-  assert.match(manager, /if \(!canSelectEntries\.value \|\| batchActionLoading\.value\) return/)
+  assert.match(entriesComposable, /const canSelectEntries = computed\(\(\) => canEdit\.value \|\| canManage\.value\)/)
+  assert.match(entriesComposable, /if \(!canSelectEntries\.value \|\| batchActionLoading\.value\) return/)
 })
 
 test('危险操作需要确认，所有批量请求都防止重复提交', () => {
   assert.match(batchBar, /confirmBatchDelete/)
   assert.match(batchBar, /@confirm="emit\('delete'\)"/)
   assert.match(batchBar, /const actionLoading = computed/)
-  assert.match(manager, /const batchDeleteLoading = ref\(false\)/)
-  assert.match(manager, /const batchTagLoading = ref\(false\)/)
-  assert.match(manager, /const batchStatusAction = ref<'enable' \| 'disable' \| null>\(null\)/)
-  assert.match(manager, /finally \{\s*batchDeleteLoading\.value = false\s*\}/)
-  assert.match(manager, /finally \{\s*batchTagLoading\.value = false\s*\}/)
-  assert.match(manager, /finally \{\s*batchStatusAction\.value = null\s*\}/)
+  assert.match(entriesComposable, /const batchDeleteLoading = ref\(false\)/)
+  assert.match(entriesComposable, /const batchTagLoading = ref\(false\)/)
+  assert.match(entriesComposable, /const batchStatusAction = ref<FAQStatusAction>\(null\)/)
+  assert.match(entriesComposable, /finally \{\s*batchDeleteLoading\.value = false\s*\}/)
+  assert.match(entriesComposable, /finally \{\s*batchTagLoading\.value = false\s*\}/)
+  assert.match(entriesComposable, /finally \{\s*batchStatusAction\.value = null\s*\}/)
 })
 
 test('所有支持的语言都包含 FAQ 批量操作文案', () => {

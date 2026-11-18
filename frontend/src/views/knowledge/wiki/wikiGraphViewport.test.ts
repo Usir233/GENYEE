@@ -7,7 +7,7 @@ import { graphClusterOutline, visibleGraphLabels } from './wikiGraphLayout.ts'
 
 // Execute the component's real viewport controller with a deterministic frame
 // clock. No Vue template or browser layout is needed to count SVG mutations.
-const source = readFileSync(new URL('./WikiBrowser.vue', import.meta.url), 'utf8')
+const source = readFileSync(new URL('./composables/wikiGraphRenderer.ts', import.meta.url), 'utf8')
 const start = source.indexOf('function setupPanZoom(')
 const end = source.indexOf('// ─── Hover Highlight', start)
 const controller = ts.transpileModule(source.slice(start, end), {

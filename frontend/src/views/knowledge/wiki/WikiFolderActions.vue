@@ -6,25 +6,32 @@
        row from treating the interaction as an expand/collapse toggle. -->
   <t-popup v-model:visible="open" trigger="click" placement="bottom-start" destroy-on-close
     :overlay-class-name="popupOverlayClass" @visible-change="onVisibleChange">
-    <span :class="['wiki-directory-action', 'wiki-directory-action--reveal', { 'is-open': open }]"
-      :title="t('knowledgeEditor.wikiBrowser.folderActions')" @click.stop @dragstart.prevent.stop>
+    <button
+      type="button"
+      :class="['wiki-directory-action', 'wiki-directory-action--reveal', { 'is-open': open }]"
+      :title="t('knowledgeEditor.wikiBrowser.folderActions')"
+      :aria-label="t('knowledgeEditor.wikiBrowser.folderActions')"
+      :aria-expanded="open"
+      @click.stop
+      @dragstart.prevent.stop
+    >
       <t-icon name="more" />
-    </span>
+    </button>
     <template #content>
       <div class="wiki-folder-menu" @click.stop>
         <div v-if="mode === 'menu'" class="popup-menu">
-          <div class="popup-menu-item" @click="enterMode('create')">
+          <button type="button" class="popup-menu-item" @click="enterMode('create')">
             <t-icon name="folder-add" class="menu-icon" />
             <span>{{ t('knowledgeEditor.wikiBrowser.newSubfolder') }}</span>
-          </div>
-          <div class="popup-menu-item" @click="emitRename">
+          </button>
+          <button type="button" class="popup-menu-item" @click="emitRename">
             <t-icon name="edit" class="menu-icon" />
             <span>{{ t('knowledgeEditor.wikiBrowser.renameFolder') }}</span>
-          </div>
-          <div class="popup-menu-item delete" @click="enterMode('delete')">
+          </button>
+          <button type="button" class="popup-menu-item delete" @click="enterMode('delete')">
             <t-icon name="delete" class="menu-icon" />
             <span>{{ t('knowledgeEditor.wikiBrowser.deleteFolder') }}</span>
-          </div>
+          </button>
         </div>
 
         <div v-else-if="mode === 'create'" class="anchored-form-popup-inner">
@@ -143,13 +150,24 @@ function submitDelete() {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  font-size: var(--app-text-lg);
-  color: var(--td-text-color-placeholder);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--gy-text-lg);
+  color: var(--gy-text-placeholder);
   cursor: pointer;
-  transition: color var(--app-motion-fast), opacity var(--app-motion-fast);
+  border-radius: var(--gy-radius-xs);
+  transition: color var(--gy-motion-fast), opacity var(--gy-motion-fast);
 
   &:hover {
-    color: var(--td-brand-color);
+    color: var(--gy-brand);
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--gy-border-focus);
+    outline-offset: 2px;
   }
 }
 
@@ -167,6 +185,14 @@ function submitDelete() {
 .wiki-folder-action-overlay {
   .wiki-folder-menu {
     min-width: 188px;
+  }
+
+  .popup-menu button.popup-menu-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
   }
 }
 </style>

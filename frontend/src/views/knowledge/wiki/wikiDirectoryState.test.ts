@@ -58,7 +58,7 @@ test('returns expanded wiki paths in parent-first order for a refreshed tree', (
 
 test('folder creation refreshes data while preserving the current directory state', () => {
   const here = dirname(fileURLToPath(import.meta.url))
-  const source = readFileSync(join(here, 'WikiBrowser.vue'), 'utf8')
+  const source = readFileSync(join(here, 'composables', 'useWikiDirectoryTree.ts'), 'utf8')
   const createFolder = source.slice(
     source.indexOf('async function createFolder'),
     source.indexOf('// Inline rename:'),

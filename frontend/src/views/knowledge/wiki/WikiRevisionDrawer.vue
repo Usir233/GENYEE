@@ -6,29 +6,39 @@
       <!-- Version list -->
       <aside class="wiki-rev-list">
         <div class="wiki-rev-list-items">
-          <div v-if="currentPage" class="wiki-rev-item"
+          <button
+            v-if="currentPage"
+            type="button"
+            class="wiki-rev-item"
             :class="{ 'wiki-rev-item--active': selectedVersion === currentPage.version }"
-            @click="selectCurrent">
-            <div class="wiki-rev-item-primary">
+            @click="selectCurrent"
+          >
+            <span class="wiki-rev-item-primary">
               <span class="wiki-rev-version">v{{ currentPage.version }}</span>
               <span class="wiki-rev-current-label">{{ t('knowledgeEditor.wikiBrowser.revisionCurrent') }}</span>
-            </div>
-            <div class="wiki-rev-item-secondary">
+            </span>
+            <span class="wiki-rev-item-secondary">
               <span>{{ sourceLabel(currentPage.last_edit_source) }}</span>
               <span class="wiki-rev-time">{{ formatShortTime(currentPage.updated_at) }}</span>
-            </div>
-          </div>
+            </span>
+          </button>
 
-          <div v-for="rev in revisions" :key="rev.id" class="wiki-rev-item"
-            :class="{ 'wiki-rev-item--active': selectedVersion === rev.version }" @click="selectRevision(rev)">
-            <div class="wiki-rev-item-primary">
+          <button
+            v-for="rev in revisions"
+            :key="rev.id"
+            type="button"
+            class="wiki-rev-item"
+            :class="{ 'wiki-rev-item--active': selectedVersion === rev.version }"
+            @click="selectRevision(rev)"
+          >
+            <span class="wiki-rev-item-primary">
               <span class="wiki-rev-version">v{{ rev.version }}</span>
-            </div>
-            <div class="wiki-rev-item-secondary">
+            </span>
+            <span class="wiki-rev-item-secondary">
               <span>{{ sourceLabel(rev.edit_source) }}</span>
               <span class="wiki-rev-time">{{ formatShortTime(rev.edited_at) }}</span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           <div v-if="revisions.length < total" class="wiki-rev-load-more">
             <t-button size="small" variant="outline" theme="default" :loading="loadingList" block @click="loadMore">
@@ -314,6 +324,30 @@ function snapshotFromRevisionData(data: WikiPageRevision, content: string): Wiki
   }
 }
 
+function unwrapWikiResponse<T>(res: unknown): T {
+  if (res && typeof res === 'object' && 'data' in res) {
+    const inner = (res as { data?: unknown }).data
+    if (inner !== undefined) return inner as T
+  }
+  return res as T
+}
+
+function getErrorStatus(err: unknown): number | undefined {
+  if (err && typeof err === 'object' && 'status' in err) {
+    const status = (err as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+  }
+  return undefined
+}
+
+function getErrorMessage(err: unknown): string | undefined {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message
+    return typeof message === 'string' && message ? message : undefined
+  }
+  return undefined
+}
+
 // Returns null when the version has no retained snapshot — versions
 // superseded before the revision feature existed were never snapshotted, and
 // old machine-authored snapshots get pruned. Both are expected states, not
@@ -332,12 +366,12 @@ async function loadVersionSnapshot(version: number): Promise<WikiRevisionSnapsho
   if (cached !== undefined) return cached
   try {
     const res = await getWikiRevision(targetKbId, targetSlug, version)
-    const data = (res as any).data || (res as any)
+    const data = unwrapWikiResponse<WikiPageRevision>(res)
     const snap = snapshotFromRevisionData(data, data.content || '')
     snapshotCache.set(cacheKey, snap)
     return snap
-  } catch (e: any) {
-    if (e?.status === 404) {
+  } catch (e: unknown) {
+    if (getErrorStatus(e) === 404) {
       snapshotCache.set(cacheKey, null)
       return null
     }
@@ -404,10 +438,10 @@ async function loadDiffPair() {
       return
     }
     diffPair.value = { fromVersion: fromVer, toVersion: toVer, from, to, fromMissing }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (seq !== diffRequestSeq) return
     diffPair.value = null
-    MessagePlugin.error(e?.message || t('knowledgeEditor.wikiBrowser.revisionLoadFailed'))
+    MessagePlugin.error(getErrorMessage(e) || t('knowledgeEditor.wikiBrowser.revisionLoadFailed'))
   } finally {
     if (seq === diffRequestSeq) diffLoading.value = false
   }
@@ -442,7 +476,7 @@ async function loadList(offset: number) {
   try {
     const res = await listWikiRevisions(targetKbId, targetSlug, { limit: PAGE_SIZE, offset })
     if (seq !== listRequestSeq || targetKbId !== props.kbId || targetSlug !== props.slug) return
-    const data = (res as any).data || (res as any)
+    const data = unwrapWikiResponse<{ revisions?: WikiPageRevision[]; total?: number }>(res)
     const items: WikiPageRevision[] = data.revisions || []
     if (offset === 0) {
       revisions.value = items
@@ -454,9 +488,9 @@ async function loadList(offset: number) {
       revisions.value = [...revisions.value, ...items.filter((r) => !seen.has(r.version))]
     }
     total.value = data.total ?? revisions.value.length
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (seq !== listRequestSeq) return
-    MessagePlugin.error(e?.message || t('knowledgeEditor.wikiBrowser.revisionLoadFailed'))
+    MessagePlugin.error(getErrorMessage(e) || t('knowledgeEditor.wikiBrowser.revisionLoadFailed'))
   } finally {
     if (seq === listRequestSeq) loadingList.value = false
   }
@@ -493,20 +527,20 @@ async function selectRevision(rev: WikiPageRevision) {
     const targetSlug = props.slug
     const res = await getWikiRevision(targetKbId, targetSlug, rev.version)
     if (seq !== detailRequestSeq || targetKbId !== props.kbId || targetSlug !== props.slug) return
-    const data = (res as any).data || (res as any)
+    const data = unwrapWikiResponse<WikiPageRevision>(res)
     selectedRevision.value = { ...rev, ...data }
     detailContent.value = data.content || ''
     snapshotCache.set(
       snapshotCacheKey(targetKbId, targetSlug, rev.version),
       snapshotFromRevisionData(data, data.content || ''),
     )
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (seq !== detailRequestSeq) return
     // 404 = snapshot not retained (pre-revision history or pruned); the raw
     // server message is English and gives the user nothing actionable.
-    MessagePlugin.error(e?.status === 404
+    MessagePlugin.error(getErrorStatus(e) === 404
       ? t('knowledgeEditor.wikiBrowser.revisionNotRetained')
-      : (e?.message || t('knowledgeEditor.wikiBrowser.revisionLoadFailed')))
+      : (getErrorMessage(e) || t('knowledgeEditor.wikiBrowser.revisionLoadFailed')))
   } finally {
     if (seq === detailRequestSeq) loadingDetail.value = false
   }
@@ -517,14 +551,14 @@ async function doRevert() {
   reverting.value = true
   try {
     const res = await revertWikiPage(props.kbId, props.slug, selectedRevision.value.version)
-    const updated = ((res as any).data || (res as any)) as WikiPage
+    const updated = unwrapWikiResponse<WikiPage>(res)
     MessagePlugin.success(t('knowledgeEditor.wikiBrowser.revertSuccess', { ver: selectedRevision.value.version }))
     emit('reverted', updated)
     // Stay open: reload so the just-created snapshot of the pre-revert
     // version shows up and the "current" entry reflects the new version.
     resetAndLoad()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('knowledgeEditor.wikiBrowser.revertFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('knowledgeEditor.wikiBrowser.revertFailed'))
   } finally {
     reverting.value = false
   }
@@ -591,10 +625,10 @@ function formatShortTime(iso?: string): string {
   min-height: 0;
   overflow: hidden;
   padding: 12px 0;
-  border-right: 1px solid var(--td-component-stroke);
+  border-right: 1px solid var(--gy-border-subtle);
   display: flex;
   flex-direction: column;
-  background: var(--td-bg-color-container);
+  background: var(--gy-surface);
 }
 
 .wiki-rev-list-items {
@@ -605,21 +639,30 @@ function formatShortTime(iso?: string): string {
 }
 
 .wiki-rev-item {
+  width: 100%;
   border: none;
-  border-radius: var(--app-radius-sm);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  border-radius: var(--gy-radius-sm);
   padding: 6px 10px 6px 14px;
   cursor: pointer;
-  transition: background var(--app-motion-fast) ease, color var(--app-motion-fast) ease;
+  transition: background var(--gy-motion-fast) ease, color var(--gy-motion-fast) ease;
 }
 
 .wiki-rev-item:hover,
 .wiki-rev-item--active {
-  background: var(--td-bg-color-container-hover);
+  background: var(--gy-surface-hover);
+}
+
+.wiki-rev-item:focus-visible {
+  outline: 2px solid var(--gy-border-focus);
+  outline-offset: 2px;
 }
 
 .wiki-rev-item--active .wiki-rev-version,
 .wiki-rev-item--active .wiki-rev-current-label {
-  color: var(--td-brand-color);
+  color: var(--gy-brand);
 }
 
 .wiki-rev-item-primary {
@@ -631,18 +674,18 @@ function formatShortTime(iso?: string): string {
 
 .wiki-rev-version {
   font-weight: 400;
-  font-size: var(--app-text-base);
+  font-size: var(--gy-text-base);
   line-height: 20px;
-  font-family: var(--td-font-family-mono);
-  color: var(--td-text-color-primary);
-  transition: color var(--app-motion-fast) ease;
+  font-family: var(--gy-font-mono);
+  color: var(--gy-text-primary);
+  transition: color var(--gy-motion-fast) ease;
 }
 
 .wiki-rev-current-label {
-  font-size: var(--app-text-sm);
+  font-size: var(--gy-text-sm);
   line-height: 16px;
-  color: var(--td-text-color-placeholder);
-  transition: color var(--app-motion-fast) ease;
+  color: var(--gy-text-placeholder);
+  transition: color var(--gy-motion-fast) ease;
 }
 
 .wiki-rev-item-secondary {
@@ -652,14 +695,14 @@ function formatShortTime(iso?: string): string {
   gap: 8px;
   margin-top: 2px;
   min-width: 0;
-  font-size: var(--app-text-xs);
+  font-size: var(--gy-text-xs);
   line-height: 16px;
-  color: var(--td-text-color-placeholder);
+  color: var(--gy-text-placeholder);
 }
 
 .wiki-rev-time {
-  font-size: var(--app-text-xs);
-  color: var(--td-text-color-placeholder);
+  font-size: var(--gy-text-xs);
+  color: var(--gy-text-placeholder);
   white-space: nowrap;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
@@ -676,9 +719,9 @@ function formatShortTime(iso?: string): string {
   justify-content: center;
   padding: 16px 14px;
   text-align: center;
-  font-size: var(--app-text-sm);
+  font-size: var(--gy-text-sm);
   line-height: 1.5;
-  color: var(--td-text-color-placeholder);
+  color: var(--gy-text-placeholder);
 }
 
 .wiki-rev-detail {
@@ -698,7 +741,7 @@ function formatShortTime(iso?: string): string {
   gap: 16px;
   margin-bottom: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--td-component-stroke);
+  border-bottom: 1px solid var(--gy-border-subtle);
 }
 
 .wiki-rev-detail-context {
@@ -707,18 +750,18 @@ function formatShortTime(iso?: string): string {
 }
 
 .wiki-rev-detail-range {
-  font-family: var(--td-font-family-mono);
-  font-size: var(--app-text-lg);
+  font-family: var(--gy-font-mono);
+  font-size: var(--gy-text-lg);
   font-weight: 600;
   line-height: 1.4;
-  color: var(--td-text-color-primary);
+  color: var(--gy-text-primary);
 }
 
 .wiki-rev-detail-sub {
   margin-top: 4px;
-  font-size: var(--app-text-sm);
+  font-size: var(--gy-text-sm);
   line-height: 1.5;
-  color: var(--td-text-color-placeholder);
+  color: var(--gy-text-placeholder);
 }
 
 .wiki-rev-detail-controls {
@@ -733,30 +776,35 @@ function formatShortTime(iso?: string): string {
   align-items: center;
   gap: 2px;
   padding: 2px;
-  border-radius: var(--app-radius-md);
-  background: var(--td-bg-color-secondarycontainer);
+  border-radius: var(--gy-radius-md);
+  background: var(--gy-surface-subtle);
 }
 
 .wiki-rev-view-switch-btn {
   padding: 5px 10px;
   border: 0;
-  border-radius: var(--app-radius-sm);
+  border-radius: var(--gy-radius-sm);
   background: transparent;
-  color: var(--td-text-color-secondary);
-  font-size: var(--app-text-sm);
+  color: var(--gy-text-secondary);
+  font-size: var(--gy-text-sm);
   line-height: 1.4;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--app-motion-fast) ease, color var(--app-motion-fast) ease;
+  transition: background var(--gy-motion-fast) ease, color var(--gy-motion-fast) ease;
 }
 
 .wiki-rev-view-switch-btn:hover {
-  color: var(--td-text-color-primary);
+  color: var(--gy-text-primary);
+}
+
+.wiki-rev-view-switch-btn:focus-visible {
+  outline: 2px solid var(--gy-border-focus);
+  outline-offset: 2px;
 }
 
 .wiki-rev-view-switch-btn.active {
-  color: var(--td-brand-color);
-  background: var(--td-bg-color-container);
+  color: var(--gy-brand);
+  background: var(--gy-surface);
   font-weight: 500;
 }
 
@@ -765,10 +813,10 @@ function formatShortTime(iso?: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--td-text-color-placeholder);
+  color: var(--gy-text-placeholder);
   padding: 24px;
   text-align: center;
-  font-size: var(--app-text-md);
+  font-size: var(--gy-text-md);
   line-height: 1.5;
 }
 
@@ -778,8 +826,8 @@ function formatShortTime(iso?: string): string {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--td-text-color-placeholder);
-  font-size: var(--app-text-md);
+  color: var(--gy-text-placeholder);
+  font-size: var(--gy-text-md);
 }
 
 .wiki-rev-diff {
@@ -794,8 +842,8 @@ function formatShortTime(iso?: string): string {
 .wiki-rev-empty-diff {
   padding: 24px 0;
   text-align: center;
-  font-size: var(--app-text-md);
-  color: var(--td-text-color-placeholder);
+  font-size: var(--gy-text-md);
+  color: var(--gy-text-placeholder);
 }
 
 .wiki-rev-diff-block {
@@ -805,20 +853,20 @@ function formatShortTime(iso?: string): string {
 }
 
 .wiki-rev-diff-block-label {
-  font-size: var(--app-text-sm);
+  font-size: var(--gy-text-sm);
   font-weight: 500;
-  color: var(--td-text-color-placeholder);
+  color: var(--gy-text-placeholder);
 }
 
 .wiki-rev-diff-block-body {
   overflow: auto;
   margin: 0;
   padding: 10px 12px;
-  background: var(--td-bg-color-secondarycontainer);
-  border-radius: var(--app-radius-md);
-  font-size: var(--app-text-sm);
+  background: var(--gy-surface-subtle);
+  border-radius: var(--gy-radius-md);
+  font-size: var(--gy-text-sm);
   line-height: 1.7;
-  font-family: var(--td-font-family-mono);
+  font-family: var(--gy-font-mono);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -832,11 +880,11 @@ function formatShortTime(iso?: string): string {
 .wiki-rev-raw-body {
   margin: 0;
   padding: 12px 14px;
-  background: var(--td-bg-color-secondarycontainer);
-  border-radius: var(--app-radius-md);
-  font-size: var(--app-text-md);
+  background: var(--gy-surface-subtle);
+  border-radius: var(--gy-radius-md);
+  font-size: var(--gy-text-md);
   line-height: 1.7;
-  font-family: var(--td-font-family-mono);
+  font-family: var(--gy-font-mono);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -846,13 +894,13 @@ function formatShortTime(iso?: string): string {
 }
 
 .wiki-rev-diff-line--add {
-  background: color-mix(in srgb, var(--td-brand-color) 8%, transparent);
-  color: var(--td-text-color-primary);
+  background: var(--gy-brand-tint);
+  color: var(--gy-text-primary);
 }
 
 .wiki-rev-diff-line--del {
-  background: rgba(213, 73, 65, 0.06);
-  color: var(--td-text-color-secondary);
+  background: var(--gy-danger-soft);
+  color: var(--gy-text-secondary);
 }
 </style>
 

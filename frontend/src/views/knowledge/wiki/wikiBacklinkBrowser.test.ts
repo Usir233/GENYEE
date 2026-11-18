@@ -27,6 +27,7 @@ async function fixture() {
   const errors: unknown[][] = []
   let response: any = page('first')
   let failure: Error | undefined
+  let updateFailure: unknown
   const api = {
     getWikiPage: async (...args: any[]) => {
       calls.push({ name: 'getWikiPage', args })
@@ -35,6 +36,7 @@ async function fixture() {
     },
     updateWikiPage: async (...args: any[]) => {
       calls.push({ name: 'updateWikiPage', args })
+      if (updateFailure) throw updateFailure
       const { in_link_titles, ...updated } = response
       return { data: { ...updated, ...args[2], version: updated.version + 1 } }
     },
@@ -62,7 +64,7 @@ async function fixture() {
       // DOM sanitization has separate tests; this fixture exercises the actual
       // component's title resolution and Markdown caller before that boundary.
       if (name === '@/utils/security') return { sanitizeMarkdownHTML: (html: string) => html, hydrateProtectedFileImages: async () => {} }
-      if (name.startsWith('./wiki')) return require(`${name}.ts`)
+      if (name.startsWith('./wiki') || name.startsWith('./composables/')) return require(`${name}.ts`)
       if (name === '@/utils/markedLiteralTilde') return require('../../../utils/markedLiteralTilde.ts')
       if (name.endsWith('.vue') || ['vue-virtual-scroller', '@/api/knowledge-base', '@/api/chat'].includes(name)) return { default: {} }
       throw new Error(`Unexpected component dependency: ${name}`)
@@ -80,8 +82,9 @@ async function fixture() {
   await nextTick()
   return {
     vm, calls, errors,
-    respond(value: any) { response = value; failure = undefined },
+    respond(value: any) { response = value; failure = undefined; updateFailure = undefined },
     fail() { failure = new Error('page lookup failed') },
+    failUpdate(err: unknown) { updateFailure = err },
     close: () => app.unmount(),
   }
 }
@@ -182,5 +185,17 @@ test('failed navigation retains the displayed page and reports the failure', asy
     assert.equal(f.vm.selectedPage.slug, 'first')
     assert.equal(f.vm.slugDisplayName('concept/shared'), 'First title')
     assert.equal(f.errors.length, 1)
+  } finally { f.close() }
+})
+
+test('saving page edits extracts current_version from canonical 409 AppError details', async () => {
+  const f = await fixture()
+  try {
+    f.respond(page('conflict-page'))
+    await f.vm.navigateToSlug('conflict-page')
+    f.vm.startEditPage()
+    f.failUpdate({ status: 409, code: 2500, details: { current_version: 7 } })
+    await f.vm.savePageEdit()
+    assert.equal(f.vm.editConflictVersion, 7)
   } finally { f.close() }
 })

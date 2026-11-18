@@ -144,7 +144,7 @@ export function selectGraphAnchors(
       const internal = neighbors[i]!.filter(j => inside.has(j)).length
       return (internal + 0.5 * (neighbors[i]!.length - internal) + 1) * quality(i)
     }
-    const ranked = [...group].sort((a, b) => score(b) - score(a) || neighbors[b]!.length - neighbors[a]!.length || a - b)
+    const ranked = group.toSorted((a, b) => score(b) - score(a) || neighbors[b]!.length - neighbors[a]!.length || a - b)
     return { size: group.length, ranked, members: inside }
   }).sort((a, b) => b.size - a.size || a.ranked[0]! - b.ranked[0]!)
 
@@ -282,7 +282,7 @@ export function buildGraphLayout(
     return keys
   }
   for (const slugs of components) {
-    const representative = [...slugs].sort((a, b) => adjacency.get(b)!.size - adjacency.get(a)!.size || (a < b ? -1 : 1))[0]!
+    const representative = slugs.toSorted((a, b) => adjacency.get(b)!.size - adjacency.get(a)!.size || (a < b ? -1 : 1))[0]!
     // Seed a spanning tree from the best-connected page. Branches follow
     // their parent direction, so chains and trees are not born as disks.
     const local = new Map<string, GraphPoint & { heading: number; depth: number }>()
@@ -501,7 +501,7 @@ export function stepGraphLayout(
   // Resolve overlaps after integration, even when the force has cooled. Use
   // X pruning here since the collision radius is small (at most 64 units).
   for (let pass = 0; pass < 3; pass++) {
-    const sorted = [...nodes].sort((a, b) => a.x - b.x)
+    const sorted = nodes.toSorted((a, b) => a.x - b.x)
     for (let i = 0; i < sorted.length; i++) {
       const a = sorted[i]!
       for (let j = i + 1; j < sorted.length; j++) {
@@ -548,7 +548,7 @@ export function visibleGraphLabels(labels: GraphLabel[]): Set<string> {
     }
     return keys
   }
-  for (const label of [...labels].sort((a, b) => Number(!!b.required) - Number(!!a.required) || b.priority - a.priority)) {
+  for (const label of labels.toSorted((a, b) => Number(!!b.required) - Number(!!a.required) || b.priority - a.priority)) {
     const keys = cells(label)
     const overlaps = keys.some(key => (occupied.get(key) ?? []).some(other => label.left < other.right && label.right > other.left && label.top < other.bottom && label.bottom > other.top))
     if (overlaps && !label.required) continue
@@ -610,7 +610,7 @@ export function graphClusterOutline(points: (GraphPoint & { radius?: number })[]
     hull.pop()
     return hull
   }
-  const hull = [...half(unique), ...half([...unique].reverse())]
+  const hull = [...half(unique), ...half(unique.toReversed())]
   const at = (i: number) => hull[(i + hull.length) % hull.length]!
   const fmt = (p: GraphPoint) => `${Math.round(p.x * 10) / 10},${Math.round(p.y * 10) / 10}`
   const tangent = (from: GraphPoint, to: GraphPoint, length: number) => {

@@ -9,8 +9,9 @@ import ts from 'typescript'
 import * as Vue from 'vue'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
+import enUS from '../../../i18n/locales/en-US.ts'
 
-const require = createRequire(import.meta.url)
+const localRequire = createRequire(import.meta.url)
 const filename = fileURLToPath(new URL('./FAQEntryManager.vue', import.meta.url))
 const { descriptor } = parse(readFileSync(filename, 'utf8'), { filename })
 const script = compileScript(descriptor, { id: 'faq-import-test' }).content
@@ -19,6 +20,15 @@ const script = compileScript(descriptor, { id: 'faq-import-test' }).content
 const compiled = ts.transpileModule(script, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
+
+function lookupLocaleString(key: string): string {
+  let cursor: unknown = enUS
+  for (const segment of key.split('.')) {
+    if (!cursor || typeof cursor !== 'object' || !(segment in cursor)) return key
+    cursor = (cursor as Record<string, unknown>)[segment]
+  }
+  return typeof cursor === 'string' ? cursor : key
+}
 
 function fixture() {
   const requests: any[] = []
@@ -33,8 +43,8 @@ function fixture() {
     exports,
     require(id: string) {
       if (id === 'vue') return { ...Vue, onMounted() {}, onUnmounted() {} }
-      if (id === 'papaparse' || id === 'xlsx') return require(id)
-      if (id === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key }) }
+      if (id === 'papaparse' || id === 'xlsx') return localRequire(id)
+      if (id === 'vue-i18n') return { useI18n: () => ({ t: lookupLocaleString }) }
       if (id === 'vue-router') return { useRouter: () => ({}) }
       if (id === 'tdesign-vue-next') return { MessagePlugin: { warning() {}, error() {}, success() {} } }
       if (id === '@/api/knowledge-base') return api
@@ -42,8 +52,10 @@ function fixture() {
       if (id === '@/stores/organization') return { useOrganizationStore: () => ({ sharedKnowledgeBases: [] }) }
       if (id === '@/stores/chatResources') return { useChatResourcesStore: () => ({ rawKnowledgeBases: [] }) }
       if (id === '@/stores/ui') return { useUIStore: () => ({ clearSelectedTagIds() {} }) }
-      if (id.includes('useConfirmDelete')) return { useConfirmDelete: () => ({}) }
+      if (id.includes('useConfirmDelete')) return { useConfirmDelete: () => () => {} }
       if (id.includes('assistantDataChange')) return { useAssistantDataChange() {} }
+      if (id.endsWith('.vue')) return { default: {} }
+      if (id.startsWith('.')) return localRequire(id)
       return { default: {} }
     },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
@@ -153,7 +165,7 @@ test('FAQ import rejects oversized files, handles uppercase extensions, sanitize
     await f.vm.processFile({
       name: 'SAFE.CSV',
       size: 120,
-      text: async () => '__proto__,问题,机器人回答\n"{\"polluted\":true}",Q1,A1\n',
+      text: async () => '__proto__,问题,机器人回答\n"{"polluted":true}",Q1,A1\n',
     })
     assert.equal(f.vm.importState.preview.length, 1)
     assert.equal(({} as any).polluted, undefined)
@@ -162,4 +174,3 @@ test('FAQ import rejects oversized files, handles uppercase extensions, sanitize
     f.close()
   }
 })
-
