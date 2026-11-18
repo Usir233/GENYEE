@@ -335,9 +335,9 @@ multipart/form-data 字段：
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `file` | file | 是 | 上传文件 |
-| `fileName` | string | 否 | 自定义文件名或包含目录的相对路径，如 `docs/spec/design.md`；目录部分用于归类，最后一段作为文件名 |
+| `file_name` | string | 否 | 自定义文件名或包含目录的相对路径，如 `docs/spec/design.md`；目录部分用于归类，最后一段作为文件名 |
 | `metadata` | JSON 字符串 | 否 | 自定义元数据 |
-| `enable_multimodel` | bool | 否 | 多模态处理开关 |
+| `enable_multimodal` | bool | 否 | 多模态处理开关 |
 | `tag_ids` | string | 否 | 逗号分隔标签 ID |
 | `channel` | string | 否 | 摄取渠道 |
 | `process_config` | JSON 字符串 | 否 | 解析配置覆盖（KnowledgeProcessOverrides），见下表 |
@@ -350,7 +350,7 @@ multipart/form-data 字段：
 | `parser_engine_rules` | []object | 知识库配置 | 按文件类型指定解析引擎 |
 | `parser_engine_overrides` | map[string]string | 空 | 引擎参数，如 `pdf_force_scanned` |
 | `chunking_config` | object | 知识库配置 | 分块参数 |
-| `enable_multimodel` / `vlm_config` / `asr_config` | - | 知识库配置 | 多模态与语音识别 |
+| `enable_multimodal` / `vlm_config` / `asr_config` | - | 知识库配置 | 多模态与语音识别 |
 | `question_generation_config` | object | 知识库配置 | 问题生成 |
 | `graph_enabled` / `extract_config` | - | 知识库配置 | 图谱抽取 |
 
@@ -358,19 +358,19 @@ multipart/form-data 字段：
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/knowledge/file \
-  -H "X-API-Key: $API_KEY" -F 'file=@./manual.pdf' -F 'enable_multimodel=true'
+  -H "X-API-Key: $API_KEY" -F 'file=@./manual.pdf' -F 'enable_multimodal=true'
 ```
 
-**上传到指定文件夹：** 在 `fileName` 中传入相对于知识库根目录的路径，使用 `/` 分隔目录，并保留文件名及扩展名。上传接口不单独接收 `folder_path` 字段。
+**上传到指定文件夹：** 在 `file_name` 中传入相对于知识库根目录的路径，使用 `/` 分隔目录，并保留文件名及扩展名。上传接口不单独接收 `folder_path` 字段。
 
 ```bash
 curl -X POST "$BASE/api/v1/knowledge-bases/kb-1/knowledge/file" \
   -H "X-API-Key: $API_KEY" \
   -F 'file=@./design.md' \
-  -F 'fileName=docs/spec/design.md'
+  -F 'file_name=docs/spec/design.md'
 ```
 
-上述请求将文档归类到 `docs/spec`，返回的 Knowledge 中 `folder_path` 为 `docs/spec`、`file_name` 为 `design.md`。`file=@./design.md` 指定本地文件，`fileName` 指定知识库中的归类路径。省略 `fileName` 或仅传文件名时，文档位于知识库根目录。
+上述请求将文档归类到 `docs/spec`，返回的 Knowledge 中 `folder_path` 为 `docs/spec`、`file_name` 为 `design.md`。`file=@./design.md` 指定本地文件，`file_name` 指定知识库中的归类路径。省略 `file_name` 或仅传文件名时，文档位于知识库根目录。
 
 文档知识库的目录由文档的 `folder_path` 推导，无需预先创建：上传到新路径后，目录及其中间层级会出现在目录树中。当前不支持独立创建、保留没有任何文档或子目录文档的空文件夹。Wiki 的创建目录接口管理的是 Wiki 目录，不用于文档知识库。
 
@@ -384,7 +384,7 @@ curl -X POST "$BASE/api/v1/knowledge-bases/kb-1/knowledge/file" \
 | --- | --- | --- | --- |
 | `url` | string | 是（`binding:"required"`） | 抓取地址 |
 | `file_name` / `file_type` / `title` | string | 否 | 覆盖信息 |
-| `enable_multimodel` | *bool | 否 | 多模态开关 |
+| `enable_multimodal` | *bool | 否 | 多模态开关 |
 | `tag_ids` | []string | 否 | 标签 |
 | `channel` | string | 否 | 渠道 |
 | `process_config` | object | 否 | 解析覆盖 |

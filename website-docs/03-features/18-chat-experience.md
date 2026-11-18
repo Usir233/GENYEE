@@ -166,7 +166,7 @@ IM、网页嵌入和 API 调用产生的会话，分别按 IM 身份、访客或
 
 | 操作 | 方法与路径 |
 | --- | --- |
-| 上传 | `POST /:session_id/attachments` |
+| 上传 | `POST /:id/attachments` |
 | 列表 | `GET /:id/attachments` |
 | 详情 | `GET /:id/attachments/:attachment_id` |
 | 预览 | `GET /:id/attachments/:attachment_id/preview` |
@@ -178,9 +178,9 @@ IM、网页嵌入和 API 调用产生的会话，分别按 IM 身份、访客或
 
 | 操作 | 方法与路径 |
 | --- | --- |
-| 分叉 | `POST /api/v1/sessions/:session_id/fork` |
-| 回滚 | `POST /api/v1/sessions/:session_id/rewind` |
-| 运行中追加消息 | `POST /api/v1/sessions/:session_id/steer`，另有列出、撤回、改为立即补充 |
+| 分叉 | `POST /api/v1/sessions/:id/fork` |
+| 回滚 | `POST /api/v1/sessions/:id/rewind` |
+| 运行中追加消息 | `POST /api/v1/sessions/:id/steer`，另有列出、撤回、改为立即补充 |
 | 本轮思考强度 | 聊天请求的 `reasoning_effort` 字段 |
 
 请求体、返回码与限制见[会话与聊天 API](../04-api/02-api-chat.md)。

@@ -75,7 +75,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 | --- | --- |
 | `dig.As` | 把具体类型绑定为接口：`container.Provide(NewResourceCleaner, dig.As(new(interfaces.ResourceCleaner)))`；`router.NewAsyncqClient` 绑定为 `interfaces.TaskEnqueuer` |
 | `dig.Name` 命名依赖 | 同一接口多实例：4 个抽取服务（`chunkExtractor`/`dataTableSummary`/`imageMultimodal`/`knowledgePostProcess`）、6 个 Asynq server（`coreAsynqServer`/`postProcessAsynqServer`/`enrichmentAsynqServer`/`maintenanceAsynqServer`/`sharedAsynqServer`/`wikiAsynqServer`）、`wikiIngest` |
-| `dig.In` 参数结构体 | `router.RouterParams` 内嵌 `dig.In`，一次性注入约 60 个 Handler/Service 依赖，避免超长构造函数签名 |
+| `dig.In` 参数结构体 | `router.Params` 内嵌 `dig.In`，一次性注入约 60 个 Handler/Service 依赖，避免超长构造函数签名 |
 | `container.Invoke` 执行副作用 | 注册即启动的后台组件：`registerPoolCleanup`、`registerWebSearchProviders`、`startDataSourceScheduler`、`startHousekeepingService`、`startAuditLogRetention`、`startTemporaryDocumentCleanup`、15 个 `chatpipeline.NewPluginXxx`（Search/Rerank/WebFetch/Merge/DataAnalysis/QueryUnderstand/LoadHistory/ChatCompletionStream 等插件自注册到 EventManager）、`router.RunAsynqServer`、`recoverPendingWikiTasks` 等 |
 | 适配器 Provide | 用闭包做接口转换：`func(s *service.StorageBackendService) interfaces.StorageBackendService { return s }`；`RetrieveEngineRegistry` 同实例同时暴露为 `StoreRegistry` |
 
@@ -144,7 +144,7 @@ flowchart TD
 
 ### NewRouter 的装配顺序 {#_4-1-newrouter-的装配顺序}
 
-`internal/router/router.go` 的 `NewRouter(params RouterParams)`（`RouterParams` 为 `dig.In` 结构体）按以下顺序装配，**顺序即安全语义**：
+`internal/router/router.go` 的 `NewRouter(params Params)`（`Params` 为 `dig.In` 结构体）按以下顺序装配，**顺序即安全语义**：
 
 1. `gin.New()` + `MultipartFormCleanup`（请求结束后删除 multipart 解析落盘的临时文件）+ `SetTrustedProxies`（`GENYEE_TRUSTED_PROXIES`，默认仅信任回环与私网段，防止伪造 `X-Forwarded-For` 绕过按 IP 限流）；
 2. 全局中间件：`cors` → `RequestID` → `Language` → `Logger` → `Recovery` → `ErrorHandler`；
@@ -167,12 +167,12 @@ flowchart TD
 | `/models`、`/evaluation` | RegisterModelRoutes / RegisterEvaluationRoutes | `manage_models` / `run_evaluations` |
 | `/sandbox-configs`、`/me/env-vars`、`/me/browser` | RegisterSandboxConfigRoutes / RegisterMyEnvVarRoutes 等 | `full_access`；`/me/*` 仅 JWT 用户本人 |
 | `/system`、`/system/admin` | RegisterSystemRoutes / RegisterSystemAdminRoutes | admin 组强制 `g.SystemAdmin()` |
-| `/mcp-services`、`/agent`、`/web-search`、`/web-search-providers` | 对应 Register 函数 | `manage_mcp_services` / `manage_web_search` |
+| `/mcp-services`、`/agent`、`/web-search-providers` | 对应 Register 函数 | `manage_mcp_services` / `manage_web_search` |
 | `/vector-stores`、`/storage-backends` | RegisterVectorStoreRoutes / RegisterStorageBackendRoutes | `manage_vector_stores` / `manage_storage_backends` |
 | `/agents`、`/agents/:id/shares|embed-channels|im-channels` | RegisterCustomAgentRoutes 等 | `full_access` / `manage_channels` |
-| `/organizations`、`/user/favorites`、`/skills` | 对应 Register 函数 | `manage_spaces` 等 |
+| `/organizations`、`/me/favorites`、`/skills` | 对应 Register 函数 | `manage_spaces` 等 |
 | `/im-channels`、`/embed-channels`、`/mcp-endpoints`、`/wechat` | RegisterIMChannelRoutes / RegisterEmbedChannelRoutes / RegisterMCPEndpointRoutes | `manage_channels` |
-| `/datasource`、`/knowledgebase/:kb_id/wiki`、`/chunker/preview` | RegisterDataSourceRoutes / RegisterWikiPageRoutes / RegisterChunkerDebugRoutes | `manage_datasources` / `ingest` |
+| `/data-sources`、`/knowledge-bases/:id/wiki`、`/chunker/preview` | RegisterDataSourceRoutes / RegisterWikiPageRoutes / RegisterChunkerDebugRoutes | `manage_datasources` / `ingest` |
 
 ### rbacGuards：集中式权限矩阵 {#_4-3-rbacguards-集中式权限矩阵}
 
@@ -183,7 +183,7 @@ kb.PUT("/:id", g.OwnedKBOrAdmin(), handler.UpdateKnowledgeBase)
 ```
 
 - **角色守卫**（问"调用者在租户内是什么角色"）：`Viewer()` / `Contributor()` / `Admin()` / `Owner()` / `AdminOrSystemAdmin()` / `SystemAdmin()`，底层调 `middleware.RequireRole`；
-- **所有权守卫**（问"是否为该资源创建者或 Admin+"）：`OwnedKBOrAdmin()`、`OwnedAgentOrAdmin()`、`OwnedKnowledgeKBOrAdmin()`、`OwnedChunkKBOrAdmin()`、`OwnedWikiKBOrAdmin()` 等——子资源（chunk/wiki/FAQ/tag）通过 `KBCreatorLookupFromKnowledgeID` 等闭包沿 URL 参数回溯到所属 KB 的 `creator_id`，与父资源共用同一条规则；
+- **所有权守卫**（问"是否为该资源创建者或 Admin+"）：`OwnedKBOrAdmin()`、`OwnedAgentOrAdmin()`、`OwnedKnowledgeKBOrAdmin()`、`OwnedChunkKBOrAdmin()` 等——子资源（chunk/wiki/FAQ/tag）通过 `KBCreatorLookupFromKnowledgeID` 等闭包沿 URL 参数回溯到所属 KB 的 `creator_id`，与父资源共用同一条规则；
 - **知识库访问守卫**（三层解析：自有 KB / 跨组织共享 KB / 共享 Agent 可见 KB）：`KBAccessRead|Write(param)` 及 `...FromKnowledgeIDParam` / `...FromChunkIDParam` 变体，底层为 `middleware.RequireKBAccess`；
 - **租户边界守卫**：`CrossTenant()`（平台级操作需 `EnableCrossTenantAccess` + `CanAccessAllTenants`）、`PathTenantMatch()`（`/tenants/:id` 必须与上下文租户一致）。
 
@@ -198,7 +198,7 @@ kb.PUT("/:id", g.OwnedKBOrAdmin(), handler.UpdateKnowledgeBase)
 | 中间件 | 文件 | 职责与关键逻辑 |
 | --- | --- | --- |
 | `MultipartFormCleanup()` | multipart_cleanup.go | 请求结束（含失败与 panic 恢复）后删除 multipart 表单写入系统临时目录的文件，避免容器 `/tmp` 持续增长 |
-| `cors.New`（gin-contrib） | router.go | 允许 `Authorization`、`X-API-Key`、`X-Tenant-ID`、`X-Embed-Session`、`X-Genyee-Desktop-Token` 及 MCP Streamable HTTP 所需的 `MCP-Protocol-Version`/`Mcp-Session-Id` 等头；MaxAge 12h |
+| `cors.New`（gin-contrib） | router.go | 基于 `GENYEE_CORS_ALLOWED_ORIGINS` 控制跨域源，允许 `Authorization`、`X-API-Key`、`X-Tenant-ID`、`X-Embed-Session`、`X-Genyee-Desktop-Token` 及 MCP Streamable HTTP 所需的 `MCP-Protocol-Version`/`Mcp-Session-Id` 等头；MaxAge 12h |
 | `RequestID()` | logger.go | 复用请求头 `X-Request-ID` 或生成 UUID，写入 gin context 与 `Request.Context()`，贯穿日志/追踪 |
 | `Language()` | language.go | 决定文档处理语言：`GENYEE_LANGUAGE` 环境变量 > `Accept-Language` 首个标签 > 默认 `zh-CN` |
 | `Logger()` | logger.go | 请求/响应全量日志；正则脱敏密码/令牌字段、截断 base64 图片 data URL、SSE 响应标记跳过、单条上限 10KB |

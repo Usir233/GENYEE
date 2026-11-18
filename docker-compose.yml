@@ -156,10 +156,8 @@ services:
       - COS_TEMP_REGION=${COS_TEMP_REGION:-}
 
       # 认证 / 空间 / RBAC / 审计
-      # 注册策略：self_serve（开放自助注册）/ invite_register（仅受邀可注册）/ invite_only（仅管理员邀请）
+      # 注册策略：self_serve（开放自助注册）/ invite_register（仅受邀可注册）/ invite_only（禁止新用户密码注册，仅管理员邀请已有账号）
       - GENYEE_AUTH_REGISTRATION_MODE=${GENYEE_AUTH_REGISTRATION_MODE:-}
-      # 禁止新用户注册（生产建议 true）
-      - DISABLE_REGISTRATION=${DISABLE_REGISTRATION:-false}
       # 开启后密码必须包含大小写字母、数字和特殊字符，特殊字符包含：!@#$%^&*()_+-=[]{}|;:,.<>?
       - GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED=${GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED:-false}
       # 公开注册后的默认空间策略：create_personal（默认，自动创建个人空间）/ tenantless

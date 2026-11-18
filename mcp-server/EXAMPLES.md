@@ -117,7 +117,7 @@ echo "GENYEE_API_KEY=your_api_key_here" >> .env
   "arguments": {
     "kb_id": "kb_123456",
     "url": "https://docs.example.com/api-guide",
-    "enable_multimodel": true
+    "enable_multimodal": true
   }
 }
 ```
@@ -314,7 +314,7 @@ python main.py --verbose
   "arguments": {
     "kb_id": "返回的知识库ID",
     "url": "https://docs.company.com/api",
-    "enable_multimodel": true
+    "enable_multimodal": true
   }
 }
 ```

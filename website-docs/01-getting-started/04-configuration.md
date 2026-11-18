@@ -17,8 +17,8 @@ GENYEE 的配置由四层组成，**优先级从低到高**：
 
 `internal/config/config.go` 的 `LoadConfig()` 流程：
 
-1. viper 按顺序查找 `config.yaml`：当前目录 → `./config` → `$HOME/.appname` → `/etc/appname/`；
-2. **环境变量展开**：对文件内容做正则替换，`${ENV_VAR}` 会被同名环境变量的值替换；变量未设置时保留字面量 `${ENV_VAR}` 原样（便于暴露配置错误）；
+1. viper 按顺序查找 `config.yaml`：当前目录 → `./config` → `$HOME/.genyee` → `/etc/genyee/`；
+2. **环境变量展开**：对文件内容做正则替换，支持 `${ENV_VAR}`、`${ENV_VAR:-default}` 与 `${ENV_VAR:default}`；未设置且无默认值的 `${ENV_VAR}` 保留字面量原样（便于暴露配置错误）；
 3. viper 开启 `AutomaticEnv()` 且 key 分隔符 `.` 映射为 `_`（即 `server.port` 可被环境变量 `SERVER_PORT` 覆盖）；
 4. 从 `config/prompt_templates/*.yaml` 加载提示词模板，并按 `xxx_prompt_id` 字段**回填**到 conversation 配置（`backfillConversationDefaults`）；
 5. 加载 `builtin_agents.yaml`（内置 Agent）与 `agent_type_presets.yaml`（Agent 类型预设），并解析其中的 `system_prompt_id` 引用；
@@ -46,7 +46,6 @@ flowchart LR
 | --- | --- | --- | --- |
 | `server.port` | int | 8080 | HTTP 监听端口，校验范围 1–65535 |
 | `server.host` | string | "0.0.0.0" | 监听地址 |
-| `server.log_path` | string | 空 | 日志文件路径（也可用环境变量 `LOG_PATH`） |
 | `server.shutdown_timeout` | duration | 30s | 优雅停机总预算。连接排空与资源清理共用，默认留 5s 给清理 |
 
 ### conversation（`ConversationConfig`）——检索问答管线
@@ -63,7 +62,6 @@ flowchart LR
 | `fallback_response` | string | "Sorry, I am unable to answer this question." | 固定兜底文案 |
 | `enable_rewrite` | bool | true | 多轮指代消解 / 查询改写 |
 | `enable_query_expansion` | bool | true | 查询扩展 |
-| `enable_rerank` | bool | true | 启用 Rerank |
 | `fallback_prompt_id` | string | "default_fallback_prompt" | 兜底 prompt 模板 ID（`prompt_templates/fallback.yaml`，mode:"model"） |
 | `rewrite_prompt_id` | string | "default_rewrite" | 改写模板 ID（含 content 系统侧 + user 用户侧） |
 | `generate_summary_prompt_id` | string | "default_summary" | 文档画像模板 ID（短摘要 + gist/主题/类型/典型问题，JSON 输出） |
@@ -91,11 +89,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | `chunk_size` | int | 512 | 默认分块大小（>0，且 > overlap） |
 | `chunk_overlap` | int | 50 | 分块重叠 |
-| `split_markers` | []string | `["\n\n", "\n", "。"]` | 分割标记 |
-| `keep_separator` | bool | false | 保留分隔符 |
 | `document_process_timeout` | duration | 2h | 单文档处理任务总超时（env `GENYEE_DOCUMENT_PROCESS_TIMEOUT` 可覆盖） |
 | `docreader_call_timeout` | duration | 30m | 单次 DocReader RPC 超时（env `GENYEE_DOCREADER_CALL_TIMEOUT`），须小于上一项 |
-| `image_processing.enable_multimodal` | bool | true | 上传时启用图片多模态处理（OCR/Caption） |
 
 > 每个知识库的 `ChunkingConfig` 会覆盖这里的全局默认值。
 
@@ -111,7 +106,6 @@ flowchart LR
 | `enable_rbac` | *bool | true | 空间角色强制鉴权；显式 `false` 进入灰度模式，空间内的角色检查仅记录不拦截，跨空间访问仍然拦截（env `GENYEE_TENANT_ENABLE_RBAC`） |
 | `max_owned_per_user` | int | 0（走 handler 默认） | 单个非超管可自建空间数上限；<0 关闭限制（env `GENYEE_TENANT_MAX_OWNED_PER_USER`） |
 | `self_service_creation_enabled` | *bool | true | 普通用户能否自建空间（env `GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED`） |
-| `default_session_name` / `default_session_title` / `default_session_description` | string | 空 | 新会话默认文案 |
 
 ### 结构体支持但默认文件未写出的段
 
@@ -119,14 +113,14 @@ flowchart LR
 
 | 段 | 结构体 | 关键字段与默认值 |
 | --- | --- | --- |
-| `auth` | `AuthConfig` | `registration_mode`：`self_serve`（默认，开放注册）/ `invite_register`（仅限邀请注册）/ `invite_only`（禁止注册，`DISABLE_REGISTRATION=true` 时使用）；`default_tenant_mode`：`create_personal`（默认）/ `tenantless` |
+| `auth` | `AuthConfig` | `registration_mode`：`self_serve`（默认，开放注册）/ `invite_register`（仅限邀请注册）/ `invite_only`（禁止密码注册，可通过 env `GENYEE_AUTH_REGISTRATION_MODE` 覆盖）；`default_tenant_mode`：`create_personal`（默认）/ `tenantless` |
 | `audit` | `AuditConfig` | `retention_days`：审计日志保留天数，段落省略时默认 90；0 禁用清理；<0 校验报错（env `GENYEE_AUDIT_RETENTION_DAYS`） |
-| `oidc_auth` | `OIDCAuthConfig` | `enable`、`issuer_url`、`jwks_uri`、`discovery_url`（缺省由 issuer 拼 `/.well-known/openid-configuration`）、`client_id`、`client_secret`、`authorization_endpoint`、`token_endpoint`、`user_info_endpoint`、`scopes`（默认 `openid profile email`）、`user_info_mapping.username`（默认 `name`）/`email`（默认 `email`）；全部可用 `OIDC_AUTH_*` 环境变量覆盖 |
+| `oidc_auth` | `OIDCAuthConfig` | `enable`、`issuer_url`、`jwks_uri`、`discovery_url`（缺省由 issuer 拼 `/.well-known/openid-configuration`）、`client_id`、`client_secret`、`authorization_endpoint`、`token_endpoint`、`user_info_endpoint`、`scopes`（默认 `openid profile email`）、`user_info_mapping.username`（默认 `name`，env `OIDC_USER_INFO_MAPPING_USERNAME`）/`email`（默认 `email`，env `OIDC_USER_INFO_MAPPING_EMAIL`）；全部可用 `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_*` 环境变量覆盖 |
 | `agent` | `AgentConfig` | `llm_call_timeout`：单次 LLM 调用超时秒数（默认 120，env `GENYEE_AGENT_LLM_TIMEOUT`）；`tool_approval_timeout_seconds`：MCP 工具人工审批等待（默认 600，env `GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT`） |
 | `im` | `IMConfig` | IM 渠道 QA 并发：`workers`（5）、`global_max_workers`（0=不限，需 Redis）、`max_queue_size`（50）、`max_per_user`（3）、`rate_limit_window`（60s）、`rate_limit_max`（10） |
 | `docreader` | `DocReaderConfig` | `addr`（gRPC 地址如 `docreader:50051` 或 HTTP base URL）、`transport`：`grpc`（默认）/ `http`；通常用 env `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` |
 | `vector_database` | `VectorDatabaseConfig` | `driver`（通常用 env `RETRIEVE_DRIVER`） |
-| `stream_manager` | `StreamManagerConfig` | `type`：`memory` / `redis`；`redis.address/username/password/db/prefix/ttl`；`cleanup_timeout`（通常用 env `STREAM_MANAGER_TYPE`、`REDIS_*`） |
+| `stream_manager` | `StreamManagerConfig` | `type`：`memory` / `redis`（通常用 env `STREAM_MANAGER_TYPE` 与 `REDIS_*`） |
 | `web_search` | `WebSearchConfig` | `timeout`：Web 搜索超时秒数 |
 | `models` | `[]ModelConfig` | 历史遗留的静态模型清单（`type`/`source`/`model_name`/`parameters`）；现推荐用 `builtin_models.yaml` 或界面配置 |
 | `frontend_base_url` | string | 空 | SPA 对外 origin，用于生成邀请等绝对链接（env `FRONTEND_BASE_URL`） |
@@ -149,6 +143,7 @@ flowchart LR
 | `AUTO_MIGRATE` | true | 启动时自动执行数据库迁移。PostgreSQL 下也控制按维度后台建 HNSW 索引，设为 `false` 时两者都不做（见[检索引擎](../03-features/05-retrieval-engines.md)） |
 | `AUTO_RECOVER_DIRTY` | true | 自动修复 golang-migrate 的 dirty 状态（上次迁移中断留下的）。手工排查迁移问题时应临时设为 false，否则启动会自动改写迁移版本记录，见[数据库与迁移](../06-development/02-database-schema.md) |
 | `GENYEE_TRUSTED_PROXIES` | 空 | gin 信任代理 CIDR（逗号分隔） |
+| `GENYEE_CORS_ALLOWED_ORIGINS` | 空 | 允许跨域访问的浏览器 Origin 白名单（逗号分隔）；未设置时仅允许同源及回环开发端口 |
 | `MAX_SKILL_BUNDLE_SIZE_MB` | 256 MiB（默认不小于 MAX_FILE_SIZE_MB，上限 512 MiB） | 技能 ZIP 上传与来源下载上限；反向代理请求体限制也需足够大 |
 | `MAX_FILE_SIZE_MB` | 50 | 上传文件大小限制（`app` 请求校验、`frontend` Nginx `client_max_body_size`、`docreader` gRPC 消息上限三处共用；调大超长财报/标书上限时需同时重启这三项服务并同步调整外层 Ingress；Helm 部署使用 `global.maxFileSizeMB`） |
 | `CONCURRENCY_POOL_SIZE` | 5 | 通用并发池 |
@@ -231,7 +226,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | `JWT_SECRET` | 空 | JWT 签名密钥（必填，可用 `openssl rand -hex 32` 生成）。留空或使用示例值时每次启动随机生成，重启后已登录用户需重新登录；多副本必须配置相同的值 |
 | `SYSTEM_AES_KEY` | 空 | 敏感字段落盘加密的 AES-256 主密钥，**必须 32 字节**（可用 `openssl rand -hex 16` 生成）；丢失则已加密数据（租户 API Key、模型 key、向量库凭证等）不可恢复，升级时沿用原值。v0.4.0 起取代 `TENANT_AES_KEY`/`CRYPTO_MASTER_KEY`/`CRYPTO_SALT` |
 | `SYSTEM_SIGNING_KEY` | 空（回退到 `SYSTEM_AES_KEY`） | 嵌入会话与预签名文件链接的签名密钥（可用 `openssl rand -hex 32` 生成）。未设置时使用 `SYSTEM_AES_KEY`；两者都缺失、长度不足 16 或为示例值时无法签发签名链接与嵌入会话。更换后已签发的链接失效；多副本须使用同一个值 |
-| `DISABLE_REGISTRATION` | false | true 时启动配置使用 `invite_only`（禁止密码注册，包括邀请注册）；数据库运行时设置仍优先 |
+| `GENYEE_AUTH_REGISTRATION_MODE` | `self_serve` | 启动期密码注册策略：`self_serve`（开放自助注册）/ `invite_register`（仅限受邀注册）/ `invite_only`（禁止密码注册，包括邀请注册）；数据库运行时设置 `auth.registration_mode` 优先 |
 | `GENYEE_AUTH_DEFAULT_TENANT_MODE` | create_personal | 注册后建空间策略（`create_personal` / `tenantless`） |
 | `GENYEE_TENANT_ENABLE_RBAC` | （默认 true） | 空间角色强制鉴权开关 |
 | `GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS` | false | 跨空间访问 |
@@ -246,7 +241,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | `GENYEE_INVITATION_TTL` | 168h | 邀请链接有效期 |
 | `GENYEE_AUDIT_RETENTION_DAYS` | 90 | 审计日志保留天数 |
 | `GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL` | 空 | 引导第一个系统管理员。**不会创建用户**：该邮箱需先自行注册，下次启动时若部署内还没有任何系统管理员，才把它提升；已有管理员后本变量不再生效。详见[租户、用户与认证授权](../03-features/01-tenant-auth.md) |
-| `OIDC_AUTH_ENABLE` 及 `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_*` | false / 空 | OIDC 单点登录全套配置 |
+| `OIDC_AUTH_ENABLE` 及 `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_USERNAME` / `OIDC_USER_INFO_MAPPING_EMAIL` | false / 空 | OIDC 单点登录全套配置与用户信息映射字段 |
 | `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | 空 / `searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio`（仅 app） | 出站请求 SSRF 白名单。`SSRF_WHITELIST` 为 app 与 docreader 共用；compose 只给 app 的 `SSRF_WHITELIST_EXTRA` 设了默认值，docreader 的同名变量默认为空 |
 | `SSRF_DNS_WHITELIST_ONLY` | false | 仅允许白名单出站（app 与 docreader 均读取）。开启后，不在白名单的主机在 **DNS 查询前**即被拒绝，URL 校验处不在白名单的 IP 直连也一并拒绝；域名只按名字匹配，写在白名单里的 CIDR 不再对域名生效。取值按布尔解析（`1/t/true` 开、`0/f/false` 关），**非空且无法解析的取值按「开」处理**。开启前的准备见下文 |
 | `IMAGE_HOST_KEEP_URL` | 空 | 保留原始 URL 的图片域名白名单 |

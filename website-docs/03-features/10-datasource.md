@@ -273,21 +273,21 @@ Server/DC PAT 适用于 Confluence 7.9 及以上版本，可在个人设置的 P
 
 | 方法与路径 | 权限 | 说明 |
 | --- | --- | --- |
-| `GET /api/v1/datasource/types` | Viewer | 可用连接器元数据列表（`ListAvailableConnectors`，按 Priority 排序） |
-| `POST /api/v1/datasource/validate-credentials` | Admin | 用裸凭据测试连通性（不落库），供创建向导的"测试连接"按钮 |
-| `POST /api/v1/datasource` | Admin | 创建数据源（校验 KB 归属租户 → 校验连接器类型 → 在线 Validate → 落库 → 注册 cron） |
-| `GET /api/v1/datasource?kb_id=` | Viewer | 按知识库列出数据源（附带最近一次 SyncLog） |
-| `GET /api/v1/datasource/:id` | Viewer | 详情 |
-| `PUT /api/v1/datasource/:id` | Admin | 更新（凭据字段被忽略；配置实际变化且已有凭据时才触发在线校验；同步更新 cron） |
-| `DELETE /api/v1/datasource/:id` | Admin | 软删除 + 移除 cron + 取消 pending/running 的 SyncLog |
-| `PUT /api/v1/datasource/:id/credentials` | Admin | 原子替换凭据（见[凭据加密存储](#凭据加密存储)） |
-| `DELETE /api/v1/datasource/:id/credentials/:field` | Admin | 清空凭据（field 只接受 `credentials`） |
-| `POST /api/v1/datasource/:id/validate` | Admin | 对已存数据源做连接测试；失败置 `status=error`，成功清除 error 状态 |
-| `GET /api/v1/datasource/:id/resources?parent_id=` | Admin | 列出外部系统可选资源（parent_id 支持懒加载展开） |
-| `POST /api/v1/datasource/:id/resource-ancestors` | Admin | 解析选中资源的祖先链（编辑时回显深层勾选） |
-| `POST /api/v1/datasource/:id/sync` | Admin | 手动触发同步（创建 SyncLog + 入队 Asynq 任务） |
-| `POST /api/v1/datasource/:id/pause` / `resume` | Admin | 暂停/恢复（同时移除/重挂 cron） |
-| `GET /api/v1/datasource/:id/logs`、`GET /api/v1/datasource/logs/:log_id` | Viewer | 同步历史 |
+| `GET /api/v1/data-sources/types` | Viewer | 可用连接器元数据列表（`ListAvailableConnectors`，按 Priority 排序） |
+| `POST /api/v1/data-sources/validate-credentials` | Admin | 用裸凭据测试连通性（不落库），供创建向导的"测试连接"按钮 |
+| `POST /api/v1/data-sources` | Admin | 创建数据源（校验 KB 归属租户 → 校验连接器类型 → 在线 Validate → 落库 → 注册 cron） |
+| `GET /api/v1/data-sources?kb_id=` | Viewer | 按知识库列出数据源（附带最近一次 SyncLog） |
+| `GET /api/v1/data-sources/:id` | Viewer | 详情 |
+| `PUT /api/v1/data-sources/:id` | Admin | 更新（凭据字段被忽略；配置实际变化且已有凭据时才触发在线校验；同步更新 cron） |
+| `DELETE /api/v1/data-sources/:id` | Admin | 软删除 + 移除 cron + 取消 pending/running 的 SyncLog |
+| `PUT /api/v1/data-sources/:id/credentials` | Admin | 原子替换凭据（见[凭据加密存储](#凭据加密存储)） |
+| `DELETE /api/v1/data-sources/:id/credentials/:field` | Admin | 清空凭据（field 只接受 `credentials`） |
+| `POST /api/v1/data-sources/:id/validate` | Admin | 对已存数据源做连接测试；失败置 `status=error`，成功清除 error 状态 |
+| `GET /api/v1/data-sources/:id/resources?parent_id=` | Admin | 列出外部系统可选资源（parent_id 支持懒加载展开） |
+| `POST /api/v1/data-sources/:id/resource-ancestors` | Admin | 解析选中资源的祖先链（编辑时回显深层勾选） |
+| `POST /api/v1/data-sources/:id/sync` | Admin | 手动触发同步（创建 SyncLog + 入队 Asynq 任务） |
+| `POST /api/v1/data-sources/:id/pause` / `resume` | Admin | 暂停/恢复（同时移除/重挂 cron） |
+| `GET /api/v1/data-sources/:id/logs`、`GET /api/v1/data-sources/logs/:log_id` | Viewer | 同步历史 |
 
 所有 `:id` 路径都先经 `getOwnedDataSource` → `getOwnedKnowledgeBase` 做**租户隔离**校验（数据源归属的 KB 必须属于当前租户，且通过 API Key 的 KB 授权检查）。
 
@@ -295,7 +295,7 @@ Server/DC PAT 适用于 Confluence 7.9 及以上版本，可在个人设置的 P
 
 ```mermaid
 flowchart LR
-    A["创建<br/>POST /datasource"] --> B["授权<br/>PUT /:id/credentials<br/>(AES-256-GCM 加密落库 + 在线 Validate)"]
+    A["创建<br/>POST /data-sources"] --> B["授权<br/>PUT /:id/credentials<br/>(AES-256-GCM 加密落库 + 在线 Validate)"]
     B --> C["选择资源<br/>GET /:id/resources<br/>(ResourceIDs 写入 Config)"]
     C --> D["active<br/>(cron 调度 / 手动同步)"]
     D -- "同步失败" --> E["error"]
@@ -348,7 +348,7 @@ sequenceDiagram
     participant K as "KnowledgeService"
     participant DB as "PostgreSQL"
 
-    U->>H: POST /datasource/:id/sync (或 cron 触发)
+    U->>H: POST /data-sources/:id/sync (或 cron 触发)
     H->>S: ManualSync(dsID)
     S->>DB: 创建 SyncLog(status=running)
     S->>Q: Enqueue(datasource:sync, MaxRetry=5, Timeout=2h)
@@ -397,10 +397,10 @@ if key := utils.GetAESKey(); key != nil && len(out.Credentials) > 0 {
 
 **2. 读取时解密 —— `DataSource.ParseConfig()`**：透明处理三种情况——空串原样返回；无 `enc:v1:` 前缀的历史明文原样返回（免迁移）；密文用 `SYSTEM_AES_KEY` 解密。解密失败（密钥丢失/轮转）时将对应凭据字段置空，UI 显示"凭据未配置"，用户重填即可，不会丢失数据源其他配置。
 
-**3. 独立的凭据子资源 —— `internal/handler/datasource_credentials.go`**：凭据不走普通的 `PUT /datasource/:id`，而是独立的 `/credentials` 子资源，采用整体原子替换，确保连接器一次获得完整凭据：
+**3. 独立的凭据子资源 —— `internal/handler/datasource_credentials.go`**：凭据不走普通的 `PUT /data-sources/:id`，而是独立的 `/credentials` 子资源，采用整体原子替换，确保连接器一次获得完整凭据：
 
-- `PUT /api/v1/datasource/:id/credentials` — 整体替换凭据 map，替换后立即调用连接器 `Validate` 做在线校验（凭据无效时立即返回错误）
-- `DELETE /api/v1/datasource/:id/credentials/credentials` — 整体清空
+- `PUT /api/v1/data-sources/:id/credentials` — 整体替换凭据 map，替换后立即调用连接器 `Validate` 做在线校验（凭据无效时立即返回错误）
+- `DELETE /api/v1/data-sources/:id/credentials/credentials` — 整体清空
 - 响应中**永远不回传密文/明文**，只返回 `{"credentials": {"configured": true/false}}`；列表/详情接口经 `dto.NewDataSourceResponse` 序列化时也从构造上剥离 `Credentials`
 
 普通更新接口 `UpdateDataSource`（`datasource_service.go`）会**强制保留库中已存凭据**，即使请求体里带了 credentials 也被忽略并打警告日志。另外 `StripNonSecretCredentials` 会把误放进 credentials 的非机密字段清出去（目前只有 RSS 的 `feed_urls`，它属于 `Settings`）。

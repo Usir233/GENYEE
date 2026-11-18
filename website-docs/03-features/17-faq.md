@@ -35,7 +35,7 @@ FAQ 检索同时考虑向量、关键词和标签优先级，完全匹配反例�
 
 ### 批量导入 {#_4-批量导入}
 
-`internal/application/service/knowledge_faq_import.go`。入口 `POST /knowledge-bases/:id/faq/entries`：
+`internal/application/service/knowledge_faq_import.go`。入口 `POST /knowledge-bases/:id/faq/entries/batch`：
 
 ```go
 type FAQBatchUpsertPayload struct {
@@ -51,7 +51,7 @@ type FAQBatchUpsertPayload struct {
 
 ```mermaid
 flowchart TB
-    A["POST /faq/entries (mode=append|replace, dry_run?)"] --> B["校验 KB 类型 = faq, 创建 Asynq 任务, 返回 task_id"]
+    A["POST /faq/entries/batch (mode=append|replace, dry_run?)"] --> B["校验 KB 类型 = faq, 创建 Asynq 任务, 返回 task_id"]
     B --> C["ProcessFAQImport (幂等: 已完成则跳过)"]
     C --> D["第一步: executeFAQDryRunValidation (格式校验 + 批内去重 + DB 查重 + 内容安全)"]
     D --> E{"dry_run?"}
@@ -163,9 +163,9 @@ type FAQEntry struct {
 | --- | --- | --- |
 | GET | `/knowledge-bases/:id/faq/entries` | 条目列表（分页 / 标签 / 关键词 / 启用状态） |
 | GET | `/knowledge-bases/:id/faq/entries/:entry_id` | 单条详情 |
-| POST | `/knowledge-bases/:id/faq/entry` | 同步创建单条 |
+| POST | `/knowledge-bases/:id/faq/entries` | 同步创建单条 |
 | PUT | `/knowledge-bases/:id/faq/entries/:entry_id` | 更新单条（增量索引） |
-| POST | `/knowledge-bases/:id/faq/entries` | 批量导入 / 更新（异步，append/replace） |
+| POST | `/knowledge-bases/:id/faq/entries/batch` | 批量导入 / 更新（异步，append/replace） |
 | POST | `/knowledge-bases/:id/faq/entries/:entry_id/similar-questions` | 追加相似问 |
 | PUT | `/knowledge-bases/:id/faq/entries/fields` | 批量更新字段（启用 / 推荐 / 策略） |
 | PUT | `/knowledge-bases/:id/faq/entries/tags` | 批量更新标签 |

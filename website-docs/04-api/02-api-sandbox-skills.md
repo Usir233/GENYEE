@@ -134,17 +134,17 @@ curl -X POST "$BASE/api/v1/skills/catalog/catalog-1/install" \
 | --- | --- | --- |
 | GET | 空 | `{success,data:[SkillResponse]}` |
 | POST | 空 | ZIP file 或 source JSON 安装；202 `{success,data:{skill_id}}` |
-| GET | `/:skillId` | `{success,data:SkillResponse}` |
-| POST | `/:skillId/reinstall` | 复用包重装，可选 `{"instructions":"..."}`（≤10000 字符）作为安装说明；202 `{success,data:{skill_id}}` |
-| POST | `/:skillId/stop` | 停止安装；200 返回技能状态，已 failed 可重复调用，其他非 installing 状态拒绝 |
-| GET | `/:skillId/guidance` | 当前安装运行的说明：`{success,data:{accepting,messages:[{id,content,status}]}}` |
-| POST | `/:skillId/guidance` | 安装进行中追加说明 `{expected_message_id,steer_id,content}`：`expected_message_id` 取 SkillResponse 的 `install_message_id`，`steer_id` 为客户端生成的 UUID（重试不会重复追加），`content` 1–10000 字符；202 `{success:true}`，安装已换轮次返回 409 |
-| PATCH | `/:skillId` | `enabled?`、`envs?`；省略不修改 |
-| DELETE | `/:skillId` | 从此沙箱卸载，保留目录包 |
-| GET | `/:skillId/files` | 文件清单 |
-| GET | `/:skillId/files/content?path=SKILL.md` | 读取相对路径文件，拒绝穿越 |
-| GET | `/:skillId/install-events` | SSE 安装进度 |
-| GET | `/:skillId/transcript` | SSE 安装过程事件 |
+| GET | `/:skill_id` | `{success,data:SkillResponse}` |
+| POST | `/:skill_id/reinstall` | 复用包重装，可选 `{"instructions":"..."}`（≤10000 字符）作为安装说明；202 `{success,data:{skill_id}}` |
+| POST | `/:skill_id/stop` | 停止安装；200 返回技能状态，已 failed 可重复调用，其他非 installing 状态拒绝 |
+| GET | `/:skill_id/guidance` | 当前安装运行的说明：`{success,data:{accepting,messages:[{id,content,status}]}}` |
+| POST | `/:skill_id/guidance` | 安装进行中追加说明 `{expected_message_id,steer_id,content}`：`expected_message_id` 取 SkillResponse 的 `install_message_id`，`steer_id` 为客户端生成的 UUID（重试不会重复追加），`content` 1–10000 字符；202 `{success:true}`，安装已换轮次返回 409 |
+| PATCH | `/:skill_id` | `enabled?`、`envs?`；省略不修改 |
+| DELETE | `/:skill_id` | 从此沙箱卸载，保留目录包 |
+| GET | `/:skill_id/files` | 文件清单 |
+| GET | `/:skill_id/files/content?path=SKILL.md` | 读取相对路径文件，拒绝穿越 |
+| GET | `/:skill_id/install-events` | SSE 安装进度 |
+| GET | `/:skill_id/transcript` | SSE 安装过程事件 |
 
 SkillResponse 包括 id/name/version/description/enabled/status/error/bundle_sha256/installed_snapshot_id/install_session_id/install_message_id/created_at/updated_at，以及 `envs:[{name,description,required,is_set}]`。升级或重装进行中、或失败后，`served:{version}` 标明沙箱仍在提供的上一个就绪版本；智能体可用技能以该版本为准。文件响应可为 UTF-8 文本、小图片的 base64 或二进制元数据，不能假定所有文件都有文本内容。
 
@@ -169,9 +169,9 @@ curl -N "$BASE/api/v1/sandbox-configs/cfg-1/skills/skill-1/install-events" \
 
 ## 会话交互终端
 
-对话侧栏的终端通过 WebSocket 连接本会话的远程沙箱，仅 Cube/E2B 支持。路由由 `internal/router/routes_chat.go` 注册，尚未进入 Swagger；桌面接口见[会话 API](02-api-chat.md#sandbox-desktop)，代理要求见[沙箱部署](../06-development/04-sandbox-deployment.md#交互终端与图形桌面)。
+对话侧栏的终端通过 WebSocket 连接本会话的远程沙箱，仅 Cube/E2B 支持。路由由 `internal/router/routes_chat.go` 注册（WebSocket 升级端点不列入 REST Swagger）；桌面接口见[会话 API](02-api-chat.md#sandbox-desktop)，代理要求见[沙箱部署](../06-development/04-sandbox-deployment.md#交互终端与图形桌面)。
 
-### POST /api/v1/sessions/:session_id/sandbox/terminal-ticket
+### POST /api/v1/sessions/:id/sandbox/terminal-ticket
 
 签发两分钟有效的握手票据。需要会话属主的登录 Bearer access token，API Key 不能调用。
 

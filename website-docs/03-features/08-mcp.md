@@ -686,8 +686,8 @@ SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权：客
 
 | 工具名 | 参数 | 说明 |
 |---|---|---|
-| `create_knowledge_from_file` | `kb_id`\*, `file_path`\*, `enable_multimodel`(true), `file_name` | 从服务器本地文件导入知识；`file_name` 可写成 `docs/spec/design.pdf` 这类带目录的名称，放入知识库对应文件夹；路径经 `upload_paths.resolve_upload_file_path` 校验（见 2.6） |
-| `create_knowledge_from_url` | `kb_id`\*, `url`\*, `enable_multimodel`(true) | 从网页 URL 导入知识 |
+| `create_knowledge_from_file` | `kb_id`\*, `file_path`\*, `enable_multimodal`(true), `file_name` | 从服务器本地文件导入知识（表单字段 `file_name`、`enable_multimodal`）；`file_name` 可写成 `docs/spec/design.pdf` 这类带目录的名称，放入知识库对应文件夹；路径经 `upload_paths.resolve_upload_file_path` 校验（见 2.6） |
+| `create_knowledge_from_url` | `kb_id`\*, `url`\*, `enable_multimodal`(true) | 从网页 URL 导入知识 |
 | `create_knowledge_from_text` | kb_id、title、content 必填；tag_ids、status | 从 Markdown 建手工知识；status 默认 publish，draft 只保存 |
 | `update_knowledge_from_text` | knowledge_id、content 必填；title、status | 更新手工 Markdown；title 空保留原标题，publish 重新索引，draft 保存草稿 |
 | `list_knowledge` | `kb_id`\*, `page`(1), `page_size`(20), `folder_path`, `folder_scope` | 分页列出知识条目；`folder_path` 按文件夹过滤（`""` 为根目录） |
@@ -706,7 +706,7 @@ SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权：客
 
 | 工具名 | 参数 | 说明 |
 |---|---|---|
-| `create_session` | `kb_id`\*, `max_rounds`(5), `enable_rewrite`(true), `fallback_response`, `summary_model_id`, `title`, `description` | 创建绑定知识库的聊天会话（内置 `embedding_top_k` 10、`keyword_threshold` 0.5、`vector_threshold` 0.7 等策略） |
+| `create_session` | `title`, `description` | 创建不强绑单一知识库的聊天会话；检索范围在调用 `chat` / `agent_chat` 时通过 `knowledge_base_ids` 传入 |
 | `get_session` | `session_id`\* | 会话详情 |
 | `list_sessions` | `page`(1), `page_size`(20) | 列出会话 |
 | `delete_session` | `session_id`\* | 删除会话 |
@@ -716,8 +716,8 @@ SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权：客
 | 工具名 | 参数 | 说明 |
 |---|---|---|
 | `chat` | `session_id`\*, `query`\*, `knowledge_base_ids`, `web_search_enabled`(false) | RAG 流水线（`/knowledge-chat/{session_id}`）：检索相关分块后由 LLM 总结；消费 SSE 流并拼装为 `{answer, references}`；强烈建议传 `knowledge_base_ids`（名称或 UUID） |
-| `agent_chat` | `session_id`\*, `query`\*, `agent_id`\*, `knowledge_base_ids`, `web_search_enabled`(false) | Agent 流水线（`/agent-chat/{session_id}`）：Agent 自主调用工具；带预检——当 Agent 的 `kb_selection_mode` 为 `none` 或 `selected` 且无内置知识库、又未传 `knowledge_base_ids` 时，直接报出可用知识库清单而非后端的晦涩错误 |
-| `list_agents` | `page`(1), `page_size`(50) | 列出当前租户可用的自定义 Agent |
+| `agent_chat` | `session_id`\*, `query`\*, `agent_id`\*, `knowledge_base_ids`, `web_search_enabled`(false) | Agent 流水线（`/agent-chat/{session_id}`，请求体携带 `"agent_enabled": true`）：Agent 自主调用工具；带预检——当 Agent 的 `kb_selection_mode` 为 `none` 或 `selected` 且无内置知识库、又未传 `knowledge_base_ids` 时，直接报出可用知识库清单而非后端的晦涩错误 |
+| `list_agents` | 无 | 列出当前租户可用的自定义 Agent |
 | `get_agent` | `agent_id`\* | 按 UUID 或名称查看 Agent 完整配置（用于检查 `kb_selection_mode`） |
 
 **分块管理**
@@ -731,11 +731,11 @@ SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权：客
 
 | 工具名 | 参数 | 说明 |
 |---|---|---|
-| `wiki_search` | `kb_id`\*, `query`\*, `limit`(10) | 全文搜索 Wiki 页面（标题、slug、摘要、片段） |
-| `wiki_read_page` | `kb_id`\*, `slug`\* | 按 slug 读取整页 Markdown、元数据与出入链 |
-| `wiki_index_view` | `kb_id`\*, `limit`(50) | 按类型（entity / concept / summary 等）分组的结构化 Wiki 索引 |
+| `wiki_search` | `kb_id`\*, `query`\*, `limit`(10) | 全文搜索 Wiki 页面（`/knowledge-bases/{kb_id}/wiki/search`：标题、slug、摘要、片段） |
+| `wiki_read_page` | `kb_id`\*, `slug`\* | 按分层 slug 读取整页 Markdown、元数据与出入链（`/knowledge-bases/{kb_id}/wiki/pages/{slug}`） |
+| `wiki_index_view` | `kb_id`\*, `limit`(50) | 按类型（entity / concept / summary 等）分组的结构化 Wiki 索引（`/knowledge-bases/{kb_id}/wiki/index`） |
 
-便利特性：`resolve_kb_id` / `resolve_agent_id` 会把人类可读的名称（大小写不敏感）解析为 UUID，因此 `hybrid_search` / `chat` / `agent_chat` / `create_session` / `get_agent` 都同时接受名称与 UUID。名称解析会同时查自有知识库与共享知识库，共享库也能直接按名字引用；`resolve_agent_id` 允许非 UUID 形式的 Agent 标识。所有工具结果统一以格式化 JSON 的 `TextContent` 返回；异常被捕获并返回 `Error executing <name>: ...` 文本。
+便利特性：`resolve_kb_id` / `resolve_agent_id` 会把人类可读的名称（大小写不敏感）解析为 UUID，因此 `hybrid_search` / `chat` / `agent_chat` / `get_agent` / `wiki_search` / `wiki_read_page` / `wiki_index_view` 都同时接受名称与 UUID。名称解析会同时查自有知识库与共享知识库，共享库也能直接按名字引用；`resolve_agent_id` 允许非 UUID 形式的 Agent 标识。所有工具结果统一以格式化 JSON 的 `TextContent` 返回；异常被捕获并返回 `Error executing <name>: ...` 文本。
 
 #### 在 Claude Desktop 等客户端中配置 {#_2-5-在-claude-desktop-等客户端中配置}
 

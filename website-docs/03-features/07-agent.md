@@ -190,7 +190,7 @@ Handler 层（`internal/handler/custom_agent.go`）提供 `CreateAgent`、`GetAg
 
 - 结果存 `message_suggestion_sets` 表，按 `(assistant_message_id, placement, config_hash, locale)` 缓存——`config_hash` 把「当前生效的 Agent 配置」摘要进缓存键，所以改了配置会自然拿到新的一批，而不是读到旧缓存；`locale` 让多语言各自缓存；
 - 状态：`generating` → `ready`，另有 `suppressed`（按上面的抑制规则跳过）与 `failed`；`lease_until` 防止多实例重复生成同一批；
-- 接口：`GET /sessions/:id/messages/:message_id/suggestions` 读，`POST` 同路径触发生成（幂等），`POST /sessions/:session_id/suggestion-events` 上报埋点；
+- 接口：`GET /sessions/:id/messages/:message_id/suggestions` 读，`POST` 同路径触发生成（幂等），`POST /sessions/:id/suggestion-events` 上报埋点；
 - 埋点事件：`impression`（曝光）/ `click`（点击）/ `dismiss`（关掉）/ `regenerate`（换一批），存 `message_suggestion_events`。点击后发出的下一条用户消息会带 `SuggestionAttribution`（`suggestion_set_id` + `question_id`），因此统计上能区分「点了建议」与「自己打了同样的问题」。
 
 ## 执行机制参考

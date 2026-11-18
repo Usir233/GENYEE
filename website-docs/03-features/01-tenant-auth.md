@@ -91,11 +91,11 @@ func (c *AuthConfig) IsInviteOnly() bool {
 
 判定分两层，理解这一点才能解释「改了 env 没生效」：
 
-**启动时**（`applyAuthAndTenantDefaults()`）合成 `cfg.Auth.RegistrationMode`：`DISABLE_REGISTRATION=true` 会直接把它改写成 `invite_only`，**盖过 YAML** 里的值。之所以让 env 盖 YAML，是为了让「接口拒绝注册」和「前端隐藏注册入口」（前端读 `/auth/config`）两道闸门一致，否则会出现按钮还在、点了报 403。
+**启动时**（`applyAuthAndTenantDefaults()`）合成 `cfg.Auth.RegistrationMode`：环境变量 `GENYEE_AUTH_REGISTRATION_MODE`（`self_serve` / `invite_register` / `invite_only`）会**盖过 YAML** 里的值。之所以让 env 盖 YAML，是为了让「接口拒绝注册」和「前端隐藏注册入口」（前端读 `/auth/config`）两道闸门一致，否则会出现按钮还在、点了报 403。
 
-**每次请求时**（`resolveRegistrationMode()`）只比较两个来源：数据库 `system_settings` 的 `auth.registration_mode` 行 > 上面合成的 cfg 值 > 硬编码兜底 `self_serve`。`DISABLE_REGISTRATION` **不会**被逐请求重新读取。
+**每次请求时**（`resolveRegistrationMode()`）只比较两个来源：数据库 `system_settings` 的 `auth.registration_mode` 行 > 上面合成的 cfg 值 > 硬编码兜底 `self_serve`。`GENYEE_AUTH_REGISTRATION_MODE` **不会**被逐请求重新读取。
 
-后果是：系统管理员在界面上把 `auth.registration_mode` 设成 `self_serve` 后，即使部署里仍写着 `DISABLE_REGISTRATION=true`，公开注册也是开着的。要彻底关掉，得把数据库里那一行重置（`DELETE /system/admin/settings/auth.registration_mode`）。
+后果是：系统管理员在界面上把 `auth.registration_mode` 设成 `self_serve` 后，即使部署里仍写着 `GENYEE_AUTH_REGISTRATION_MODE=invite_only`，公开注册也是开着的。要恢复环境变量配置，得把数据库里那一行重置（`DELETE /system/admin/settings/auth.registration_mode`）。
 
 注册模式有三个档位，可在全局设置中即时切换：
 
@@ -103,9 +103,9 @@ func (c *AuthConfig) IsInviteOnly() bool {
 | --- | --- | --- | --- |
 | `self_serve`（开放注册） | 允许 | 允许 | 允许 |
 | `invite_register`（仅限邀请注册） | 禁止 | 允许 | 允许 |
-| `invite_only`（禁止注册，保留旧配置值） | 禁止 | 禁止 | 允许 |
+| `invite_only`（禁止密码注册） | 禁止 | 禁止 | 允许 |
 
-`DISABLE_REGISTRATION=true` 仍映射到原有的 `invite_only`。需要让受邀的新用户注册时，将全局设置改为 `invite_register`。禁止注册时，`POST /auth/register-by-invite` 也返回 403，与登录页行为一致。
+环境变量统一使用 `GENYEE_AUTH_REGISTRATION_MODE`（三档直写）。需要让受邀的新用户注册时，将模式设为 `invite_register`。设为 `invite_only` 禁止注册时，`POST /auth/register-by-invite` 也返回 403，与登录页行为一致。
 
 这些档位控制密码注册。**OIDC 首次登录**仍由 IdP 的应用可见性、用户组等策略控制；管理员创建账号也不受此设置影响。
 
@@ -215,7 +215,7 @@ type KnowledgeBaseShare struct {
 
 路由上的 `share_id` 必须属于路径中的 KB / Agent，否则返回 404。
 
-**接收方对共享 KB 配置的限制**：只有 KB 所在空间可以调用 `POST /initialization/initialize/:kbId`；其他空间修改 KB 配置（`PUT /initialization/config/:kbId`）需要 admin 级共享，且不能改动存储绑定；接收方读取配置时只看到凭据是否已配置，看不到模型 Base URL、存储桶位置等细节，KB 详情也不再返回旧版内联的存储/VLM 凭据。
+**接收方对共享 KB 配置的限制**：只有 KB 所在空间可以调用 `POST /initialization/initialize/:kb_id`；其他空间修改 KB 配置（`PUT /initialization/config/:kb_id`）需要 admin 级共享，且不能改动存储绑定；接收方读取配置时只看到凭据是否已配置，看不到模型 Base URL、存储桶位置等细节，KB 详情也不再返回旧版内联的存储/VLM 凭据。
 
 **共享何时失效**：共享只在组织未删除、且来源租户仍是组织成员时生效。来源租户退出或被移除时，它共享进该组织的 KB 与 Agent 会被一并撤销；查询侧也会按来源租户的成员关系过滤，旧版本遗留的共享同样不再生效。
 
@@ -303,12 +303,11 @@ flowchart LR
 
 | 守卫 | 解析路径 | 适用路由 |
 | --- | --- | --- |
-| `OwnedKBOrAdmin` | `:id` → KB.CreatorID | KB 更新 / 删除 / pin / 上传知识 / 标签 CRUD |
-| `OwnedKBOrAdminFromKbIDParam` | `:kbId` → KB.CreatorID | `/initialization/*` KB 配置路由 |
+| `OwnedKBOrAdmin` | `:id` → KB.CreatorID | KB 更新 / 删除 / pin / 上传知识 / 标签 CRUD / Wiki 页面 CRUD |
+| `OwnedKBOrAdminFromKbIDParam` | `:kb_id` → KB.CreatorID | `/initialization/*` KB 配置路由 |
 | `OwnedAgentOrAdmin` | `:id` → Agent.CreatorID（内置 Agent creator 为空，仅 Admin+ 可改） | Agent 变更 |
 | `OwnedKnowledgeKBOrAdmin` | knowledge `:id` → 所属 KB.CreatorID | 知识更新 / 删除 / 重解析 / 图片编辑 |
 | `OwnedChunkKBOrAdmin` / `...FromChunkID` | `:knowledge_id` 或 chunk `:id` → KB.CreatorID | chunk 变更 |
-| `OwnedWikiKBOrAdmin` | `:kb_id` → KB.CreatorID | Wiki 页面 CRUD |
 
 子资源必须继承父 KB 的门禁（注释明确点名曾修复过 FAQ/Tag、agent share、KB share 接错轴的 bug）。
 
@@ -389,7 +388,7 @@ apiKeyRetrieve(base) / apiKeyChat(base) / apiKeyIngest(base) / ...
 | `POST /sessions`、`POST /knowledge-chat/:session_id`、`POST /agent-chat/:session_id`、`GET /messages/:session_id/load` | `chat` |
 | `GET /agents`、`GET /agents/:id`、`GET /agents/:id/suggested-questions` | `read_agents` |
 | `POST/PUT/DELETE /agents`、`POST /agents/:id/copy` | `manage_agents` |
-| `PUT/DELETE /knowledge-bases/:id`、`POST /initialization/initialize/:kbId` | `manage_kbs` |
+| `PUT/DELETE /knowledge-bases/:id`、`POST /initialization/initialize/:kb_id` | `manage_kbs` |
 | `POST /messages/search`、`GET /messages/chat-history-stats` | `message_history`（不是 chat） |
 | `GET /system/admin/settings` | platform key + `system_settings_read` |
 | `POST /system/admin/runtime/queues/:queue/tasks/:task_id/actions/:action` | platform key + `system_runtime_manage` |
@@ -423,7 +422,7 @@ requireTenantAPIKeyKnowledgeBases(ctx, "kb-1", "kb-2") // → forbidden
 | `client_id` / `client_secret` | 客户端凭证（secret 序列化为 `json:"-"`，不下发前端） |
 | `authorization_endpoint` / `token_endpoint` / `user_info_endpoint` | 手动指定端点 |
 | `scopes` | 请求的 scope（如 `openid email profile`） |
-| `user_info_mapping.username` / `.email` | claims 字段映射（默认 `name` / `email`） |
+| `user_info_mapping.username` / `.email` | claims 字段映射（默认 `name` / `email`；环境变量 `OIDC_USER_INFO_MAPPING_USERNAME` / `OIDC_USER_INFO_MAPPING_EMAIL`） |
 
 授权/Token 端点可显式配置；即使二者已填写，只要 issuer 或 jwks_uri 不完整，仍需通过 discovery 补齐验证信息。缺少可靠的验证配置时不能仅解析 id_token 的载荷就登录。
 
@@ -481,7 +480,7 @@ sequenceDiagram
 
 | 配置项 | 取值 | 默认 | 作用 |
 | --- | --- | --- | --- |
-| `auth.registration_mode` | `self_serve` / `invite_register` / `invite_only` | `self_serve` | 密码注册模式（DB system_settings 可热改） |
+| `auth.registration_mode` / `GENYEE_AUTH_REGISTRATION_MODE` | `self_serve` / `invite_register` / `invite_only` | `self_serve` | 密码注册模式（DB `system_settings` 可热改） |
 | `auth.default_tenant_mode` | `create_personal` / `tenantless` | `create_personal` | 新用户是否自动建个人租户 |
 | `tenant.enable_rbac` | `true` / `false` | `true` | RBAC 强制执行 / 仅日志模式 |
 | `JWT_SECRET`（环境变量） | 任意字符串 | 随机 32 字节 | JWT HMAC 密钥 |

@@ -18,10 +18,10 @@ API key：`manage_models` 或 full-access。
 | --- | --- |
 | `value` / `label` / `labels` / `description` / `descriptions` / `website` | 厂商 id、品牌名、按语言的名称与描述 |
 | `icon` | `data:image/svg+xml;base64,...`，可直接用于 `<img src>` |
-| `api` / `auth` / `requiresAuth` | 默认协议（`openai-completions` 等）、鉴权方式、是否需要密钥 |
-| `defaultUrls` / `modelTypes` | 按模型类型的默认地址与支持的类型。`defaultUrls` 仅对 Admin+（或 full-access / `manage_tenant_settings` API key）返回，其他调用方为空 |
-| `extraFields` | 厂商额外配置字段定义（`key,label,labels,type,required,default,placeholder,options,model_types,secret`），值存入 `parameters.extra_config` |
-| `credentialLabels` | 部分模型类型下凭证输入框的名称与提示（如火山引擎、LKEAP 重排的 API Key 一栏实为 Access Key ID / SecretId） |
+| `api` / `auth` / `requires_auth` | 默认协议（`openai-completions` 等）、鉴权方式、是否需要密钥 |
+| `default_urls` / `model_types` | 按模型类型的默认地址与支持的类型。`default_urls` 仅对 Admin+（或 full-access / `manage_tenant_settings` API key）返回，其他调用方为空 |
+| `extra_fields` | 厂商额外配置字段定义（`key,label,labels,type,required,default,placeholder,options,model_types,secret`），值存入 `parameters.extra_config` |
+| `credential_labels` | 部分模型类型下凭证输入框的名称与提示（如火山引擎、LKEAP 重排的 API Key 一栏实为 Access Key ID / SecretId） |
 | `models` | 内置模型目录（`id,name,type,api,reasoning,input,context_window,max_output_tokens,dimension,thinking_levels,cost,source`），`source` 为该模型参数所依据的厂商文档链接 |
 | `thinking` | 厂商级思考编码摘要（`format`、`levels`） |
 | `order` | 列表排序值 |
@@ -194,19 +194,19 @@ curl -X DELETE $BASE/api/v1/models/m-1/credentials/api_key -H "Authorization: Be
 
 Handler: `internal/handler/initialization.go`。KB 配置类：API key `manage_kbs`（写）/`retrieve`（读）；模型连通性与存在性检测：`manage_models`（均可 full-access）；Ollama 下载与任务查询仅开放给登录 SystemAdmin（API Key 默认拒绝）。
 
-### GET /api/v1/initialization/config/:kbId
+### GET /api/v1/initialization/config/:kb_id
 
 用途：读取 KB 当前模型/解析配置。权限：Viewer+，KB read。
 
-模型 `baseUrl` 仅对 KB 所属空间的 Admin+（或 full-access / `manage_tenant_settings` API key）返回。通过组织分享访问的空间只能看到凭证是否已配置（`credentials.*`），看不到来源空间的模型地址和存储桶信息。
+模型 `base_url` 仅对 KB 所属空间的 Admin+（或 full-access / `manage_tenant_settings` API key）返回。通过组织分享访问的空间只能看到凭证是否已配置（`credentials.*`），看不到来源空间的模型地址和存储桶信息。
 
-响应：200 `{"success":true,"data":{"hasFiles",llm,embedding,rerank,multimodal,documentSplitting,nodeExtract,questionGeneration}}`
+响应：200 `{"success":true,"data":{"has_files",llm,embedding,rerank,multimodal,document_splitting,node_extract,question_generation}}`
 
 ```bash
 curl $BASE/api/v1/initialization/config/kb-1 -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/initialization/initialize/:kbId
+### POST /api/v1/initialization/initialize/:kb_id
 
 用途：初始化 KB 的模型与解析配置（首次配置向导）。权限：KB 创建者 OR Admin+，KB write。
 
@@ -216,43 +216,43 @@ curl $BASE/api/v1/initialization/config/kb-1 -H "Authorization: Bearer $TOKEN"
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `llm.source` / `llm.modelName` | string | 是 | LLM 来源与模型名 |
-| `llm.baseUrl` / `llm.apiKey` | string | 否 | 连接参数 |
-| `embedding.source` / `embedding.modelName` | string | 是 | Embedding 模型 |
-| `embedding.baseUrl` / `embedding.apiKey` / `embedding.dimension` | — | 否 | 连接与维度 |
-| `rerank.enabled` + `rerank.modelName/baseUrl/apiKey` | — | 否 | Rerank 配置 |
-| `multimodal.enabled` + `multimodal.vlm.*` + `multimodal.storageType` + `multimodal.cos.*|minio.*` | — | 否 | 多模态与图床 |
-| `documentSplitting.chunkSize` / `separators` | int / []string | 是 | 分块配置 |
-| `documentSplitting.chunkOverlap` | int | 否 | 重叠 |
-| `nodeExtract.*` | — | 否 | 图谱抽取（enabled/text/tags/nodes/relations） |
-| `questionGeneration.*` | — | 否 | 问题生成（enabled/questionCount） |
+| `llm.source` / `llm.model_name` | string | 是 | LLM 来源与模型名 |
+| `llm.base_url` / `llm.api_key` | string | 否 | 连接参数 |
+| `embedding.source` / `embedding.model_name` | string | 是 | Embedding 模型 |
+| `embedding.base_url` / `embedding.api_key` / `embedding.dimension` | — | 否 | 连接与维度 |
+| `rerank.enabled` + `rerank.model_name/base_url/api_key` | — | 否 | Rerank 配置 |
+| `multimodal.enabled` + `multimodal.vlm.*` + `multimodal.storage_type` + `multimodal.cos.*|minio.*` | — | 否 | 多模态与图床 |
+| `document_splitting.chunk_size` / `separators` | int / []string | 是 | 分块配置 |
+| `document_splitting.chunk_overlap` | int | 否 | 重叠 |
+| `node_extract.*` | — | 否 | 图谱抽取（`enabled`/`text`/`tags`/`nodes`/`relations`） |
+| `question_generation.*` | — | 否 | 问题生成（`enabled`/`question_count`） |
 
 响应：200 `{"success":true,"message":"知识库配置更新成功","data":{"models":[Model],"knowledge_base":{KnowledgeBase}}}`
 
 ```bash
 curl -X POST $BASE/api/v1/initialization/initialize/kb-1 -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"llm":{"source":"remote","modelName":"gpt-4o-mini"},"embedding":{"source":"remote","modelName":"text-embedding-3-small"},"documentSplitting":{"chunkSize":512,"separators":["\n\n"]}}'
+  -d '{"llm":{"source":"remote","model_name":"gpt-4o-mini"},"embedding":{"source":"remote","model_name":"text-embedding-3-small"},"document_splitting":{"chunk_size":512,"separators":["\n\n"]}}'
 ```
 
-### PUT /api/v1/initialization/config/:kbId
+### PUT /api/v1/initialization/config/:kb_id
 
-用途：更新 KB 模型/分块配置（`KBModelConfigRequest`：`llmModelId` 必填，`embeddingModelId`、`vlm_config`、`asr_config`、`documentSplitting.*`、`multimodal.enabled`、`storageProvider`、`storageBackendId`、`nodeExtract.*`、`questionGeneration.*` 可选）。权限：KB 创建者 OR Admin+，KB write。
+用途：更新 KB 模型/分块配置（`KBModelConfigRequest`：`llm_model_id` 必填，`embedding_model_id`、`vlm_config`、`asr_config`、`document_splitting.*`、`multimodal.enabled`、`storage_provider`、`storage_backend_id`、`node_extract.*`、`question_generation.*` 可选）。权限：KB 创建者 OR Admin+，KB write。
 
-通过组织分享访问时，需要有效分享权限为 admin；editor 只能编辑内容，不能改设置（403）。存储绑定（`storageBackendId` / `storageProvider`）只有 KB 所属空间可以修改，其他空间提交与当前不同的值会返回 403。
+通过组织分享访问时，需要有效分享权限为 admin；editor 只能编辑内容，不能改设置（403）。存储绑定（`storage_backend_id` / `storage_provider`）只有 KB 所属空间可以修改，其他空间提交与当前不同的值会返回 403。
 
 响应：200 `{"success":true,"message":"配置更新成功"}`
 
 ```bash
 curl -X PUT $BASE/api/v1/initialization/config/kb-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"llmModelId":"m-1","embeddingModelId":"m-2"}'
+  -H 'Content-Type: application/json' -d '{"llm_model_id":"m-1","embedding_model_id":"m-2"}'
 ```
 
 ### GET /api/v1/initialization/ollama/status
 
 用途：Ollama 可用性探测。权限：Viewer+。
 
-响应：200 `{"success":true,"data":{"available","version","baseUrl","error"}}`
+响应：200 `{"success":true,"data":{"available","version","base_url","error"}}`
 
 ```bash
 curl $BASE/api/v1/initialization/ollama/status -H "Authorization: Bearer $TOKEN"
@@ -281,20 +281,20 @@ curl -X POST $BASE/api/v1/initialization/ollama/models/check -H "Authorization: 
 
 ### POST /api/v1/initialization/ollama/models/download
 
-用途：拉取 Ollama 模型（异步任务）。权限：SystemAdmin，仅登录 JWT（API Key 默认拒绝）。请求体：`{"modelName":"llama3"}`（`binding:"required"`）。
+用途：拉取 Ollama 模型（异步任务）。权限：SystemAdmin，仅登录 JWT（API Key 默认拒绝）。请求体：`{"model_name":"llama3"}`（`binding:"required"`）。
 
-响应：200 `{"success":true,"data":{"taskId","modelName","status","progress"}}`
+响应：200 `{"success":true,"data":{"task_id","model_name","status","progress"}}`
 
 ```bash
 curl -X POST $BASE/api/v1/initialization/ollama/models/download -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"modelName":"llama3"}'
+  -H 'Content-Type: application/json' -d '{"model_name":"llama3"}'
 ```
 
-### GET /api/v1/initialization/ollama/download/progress/:taskId
+### GET /api/v1/initialization/ollama/download/progress/:task_id
 
 用途：下载任务进度。权限：SystemAdmin，仅登录 JWT（API Key 默认拒绝）。
 
-响应：200 `{"success":true,"data":{id,modelName,status,progress,message,startTime,endTime}}`
+响应：200 `{"success":true,"data":{id,model_name,status,progress,message,start_time,end_time}}`
 
 ```bash
 curl $BASE/api/v1/initialization/ollama/download/progress/task-1 -H "Authorization: Bearer $TOKEN"
@@ -317,13 +317,13 @@ curl $BASE/api/v1/initialization/ollama/download/tasks -H "Authorization: Bearer
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `source` | string | 否 | 默认 `remote` |
-| `modelName` | string | 是 | 模型名 |
-| `baseUrl` / `apiKey` / `appSecret` | string | 否 | 连接参数 |
-| `provider` / `interfaceType` | string | 否 | 厂商/接口类型 |
-| `dimension` / `supportsDimensionOverride` | int / bool | 否 | embedding 维度；是否在请求中指定维度 |
-| `customHeaders` / `extraConfig` | map | 否 | 扩展 |
+| `model_name` | string | 是 | 模型名 |
+| `base_url` / `api_key` / `app_secret` | string | 否 | 连接参数 |
+| `provider` / `interface_type` | string | 否 | 厂商/接口类型 |
+| `dimension` / `supports_dimension_override` | int / bool | 否 | embedding 维度；是否在请求中指定维度 |
+| `custom_headers` / `extra_config` | map | 否 | 扩展 |
 | `spec` | object | 否 | 单行目录覆盖，与模型 `parameters.spec` 相同 |
-| `modelId` | string | 否 | 已存模型 ID：请求中缺失的密钥、`extraConfig` 与 `spec` 从该模型补齐 |
+| `model_id` | string | 否 | 已存模型 ID：请求中缺失的密钥、`extra_config` 与 `spec` 从该模型补齐 |
 
 | 端点 | 用途 | 响应 data |
 | --- | --- | --- |
@@ -334,7 +334,7 @@ curl $BASE/api/v1/initialization/ollama/download/tasks -H "Authorization: Bearer
 
 ```bash
 curl -X POST $BASE/api/v1/initialization/remote/check -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"modelName":"gpt-4o-mini","baseUrl":"https://api.openai.com/v1","apiKey":"sk-..."}'
+  -H 'Content-Type: application/json' -d '{"model_name":"gpt-4o-mini","base_url":"https://api.openai.com/v1","api_key":"sk-..."}'
 ```
 
 ### POST /api/v1/initialization/multimodal/test

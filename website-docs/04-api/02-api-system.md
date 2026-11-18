@@ -6,7 +6,7 @@
 
 ## 系统信息（/api/v1/system）
 
-Handler: `internal/handler/system.go`。API key：`manage_vector_stores`/full。本组响应使用 `{"code":0,"msg":"success","data":...}` 包装。
+Handler: `internal/handler/system.go`。API key：`manage_vector_stores`/full。本组成功响应使用 `{"code":0,"msg":"success","data":...}` 包装，错误响应统一输出标准 `AppError` 信封（`{"success":false,"error":{"code":...,"message":"...","details":...}}`）。
 
 ### GET /api/v1/system/capabilities
 
@@ -38,7 +38,7 @@ curl $BASE/api/v1/system/info -H "Authorization: Bearer $TOKEN"
 
 用途：解析引擎列表与 DocReader 连接状态。权限：Viewer+。
 
-响应：200 `{"code":0,"msg":"success","data":[...],"docreader_addr","docreader_transport","connected"}`
+响应：200 `{"code":0,"msg":"success","data":[ParserEngineInfo],"docreader_addr","docreader_transport","connected"}`，其中 `ParserEngineInfo` 字段为 `snake_case`：`{name, description, file_types, available, unavailable_reason}`。
 
 ```bash
 curl $BASE/api/v1/system/parser-engines -H "Authorization: Bearer $TOKEN"

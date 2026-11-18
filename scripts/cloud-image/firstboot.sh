@@ -125,7 +125,7 @@ cat >"${CRED_FILE}" <<INFO
 访问地址 : http://${PUB_IP}
 
 注册后如需关闭后续注册, 编辑 ${ENV_FILE}:
-    DISABLE_REGISTRATION=true
+    GENYEE_AUTH_REGISTRATION_MODE=invite_only
 然后执行:  cd ${GENYEE_DIR} && docker compose up -d
 
 下列随机凭证已写入 ${ENV_FILE}, 请妥善保存(仅 root 可读):

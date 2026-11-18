@@ -12,7 +12,7 @@ flowchart TD
         A1["POST /knowledge-chat/:session_id"]
         A2["POST /agent-chat/:session_id"]
         A3["GET /sessions/continue-stream/:session_id"]
-        A4["POST /sessions/:session_id/stop"]
+        A4["POST /sessions/:id/stop"]
     end
 
     subgraph Setup["SSE 装配 (qa.go executeQA / setupSSEStream)"]

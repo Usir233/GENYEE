@@ -26,7 +26,7 @@
 注册要求与部署差异：
 
 - 用户名 2–50 个字符；密码为 8–32 位，至少包含字母和数字。启用复杂密码策略后，还须同时包含大小写字母和特殊字符，界面与 API 使用同一策略；
-- 团队部署需要通过邀请链接让新成员注册时，由系统管理员在「设置 → 系统设置」把 `auth.registration_mode` 设为 `invite_register`（立即生效）。`invite_only` / `DISABLE_REGISTRATION=true` 表示禁止密码注册，邀请也不能创建新账号，只允许已有账号登录后加入；
+- 团队部署需要通过邀请链接让新成员注册时，由系统管理员在「设置 → 系统设置」把 `auth.registration_mode`（或环境变量 `GENYEE_AUTH_REGISTRATION_MODE`）设为 `invite_register`（系统设置立即生效）。`invite_only`（`GENYEE_AUTH_REGISTRATION_MODE=invite_only`）表示禁止密码注册，邀请也不能创建新账号，只允许已有账号登录后加入；
 - 如果部署把默认空间策略设成了 `tenantless`（`auth.default_tenant_mode`），注册后**不会**自动建空间，而是被引导到 `/onboarding/workspace`，需要先自建或接受邀请加入一个空间才能继续；
 - 桌面应用免注册，启动即自动创建本地账号并登录；Lite 单二进制在浏览器中访问时仍需注册和登录。
 
@@ -114,15 +114,15 @@ AUTH="Authorization: Bearer $TOKEN"
 KB_ID=$(curl -s -X POST $BASE/knowledge-bases -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"name":"我的知识库","description":"demo","type":"document"}' | jq -r '.data.id')
 
-# 4) 初始化知识库（以本地 Ollama 为例；远程模型改 source/baseUrl/apiKey）
+# 4) 初始化知识库（以本地 Ollama 为例；远程模型改 source/base_url/api_key）
 curl -s -X POST $BASE/initialization/initialize/$KB_ID -H "$AUTH" -H "Content-Type: application/json" -d '{
-  "llm":       {"source":"local","modelName":"qwen3:8b"},
-  "embedding": {"source":"local","modelName":"bge-m3","dimension":1024},
+  "llm":       {"source":"local","model_name":"qwen3:8b"},
+  "embedding": {"source":"local","model_name":"bge-m3","dimension":1024},
   "rerank":    {"enabled":false},
   "multimodal":{"enabled":false},
-  "documentSplitting":{"chunkSize":512,"chunkOverlap":50,"separators":["\n\n","\n","。"]},
-  "nodeExtract":{"enabled":false},
-  "questionGeneration":{"enabled":false}}'
+  "document_splitting":{"chunk_size":512,"chunk_overlap":50,"separators":["\n\n","\n","。"]},
+  "node_extract":{"enabled":false},
+  "question_generation":{"enabled":false}}'
 
 # 5) 上传文档（multipart，字段名 file）
 curl -s -X POST $BASE/knowledge-bases/$KB_ID/knowledge/file -H "$AUTH" \
@@ -172,14 +172,14 @@ curl -s $BASE/knowledge-bases -H "X-API-Key: <创建时返回的 key>"
 
 | 步骤 | 端点 | 说明 |
 | --- | --- | --- |
-| 读取当前配置 | `GET /api/v1/initialization/config/:kbId` | 返回 llm / embedding / rerank / multimodal / documentSplitting / nodeExtract / questionGeneration 各段及 `hasFiles`（已有文件时限制修改 embedding） |
+| 读取当前配置 | `GET /api/v1/initialization/config/:kb_id` | 返回 `llm` / `embedding` / `rerank` / `multimodal` / `document_splitting` / `node_extract` / `question_generation` 各段及 `has_files`（已有文件时限制修改 embedding） |
 | 检测 Ollama | `GET /api/v1/initialization/ollama/status`、`GET /api/v1/initialization/ollama/models` | 检查 Ollama 可用性与已装模型 |
-| 下载 Ollama 模型 | `POST /api/v1/initialization/ollama/models/download` → `GET /api/v1/initialization/ollama/download/progress/:taskId` | 异步下载并轮询进度 |
+| 下载 Ollama 模型 | `POST /api/v1/initialization/ollama/models/download` → `GET /api/v1/initialization/ollama/download/progress/:task_id` | 异步下载并轮询进度 |
 | 测试远程模型 | `POST /api/v1/initialization/remote/check`、`/initialization/embedding/test`、`/initialization/rerank/check`、`/initialization/asr/check`、`/initialization/multimodal/test` | 保存前连通性验证 |
 | 知识图谱试抽取 | `POST /api/v1/initialization/extract/text-relation`（配 `fabri-text` / `fabri-tag` 生成示例） | 预览实体/关系抽取效果 |
-| 保存配置 | `POST /api/v1/initialization/initialize/:kbId`（首次）/ `PUT /api/v1/initialization/config/:kbId`（更新） | 落库：创建/更新 Model 记录并写入 KnowledgeBase 配置 |
+| 保存配置 | `POST /api/v1/initialization/initialize/:kb_id`（首次）/ `PUT /api/v1/initialization/config/:kb_id`（更新） | 落库：创建/更新 Model 记录并写入 KnowledgeBase 配置 |
 
-`source` 取 `local`（Ollama）或远程厂商标识（`openai`、`deepseek`、`aliyun`、`zhipu`、`siliconflow` 等）。`chunkSize` 合法范围 100–10000。
+`source` 取 `local`（Ollama）或远程厂商标识（`openai`、`deepseek`、`aliyun`、`zhipu`、`siliconflow` 等）。`chunk_size` 合法范围 100–10000。
 
 ### 整条链路发生了什么
 
@@ -196,7 +196,7 @@ sequenceDiagram
     FE->>APP: POST /api/v1/auth/register → login
     APP-->>FE: JWT + 自动创建的租户
     U->>APP: POST /api/v1/knowledge-bases (创建知识库)
-    U->>APP: POST /api/v1/initialization/initialize/:kbId (配置模型)
+    U->>APP: POST /api/v1/initialization/initialize/:kb_id (配置模型)
     APP->>LLM: 连通性测试 (remote/check, embedding/test)
     U->>APP: POST /api/v1/knowledge-bases/:id/knowledge/file (上传)
     APP->>DR: gRPC 解析文档 (OCR / 版式 / 图片)
@@ -216,7 +216,7 @@ sequenceDiagram
 | 上传后一直 `processing` | `docker logs GENYEE-docreader`；大文件受 `MAX_FILE_SIZE_MB`（默认 50）与 `GENYEE_DOCUMENT_PROCESS_TIMEOUT`（默认 2h）约束 |
 | 初始化时 Ollama 检测失败 | 容器内默认地址 `http://host.docker.internal:11434`（`OLLAMA_BASE_URL`）；Linux 需确认 `extra_hosts: host.docker.internal:host-gateway` 生效 |
 | 问答无引用 / 召回为空 | 确认知识解析 `completed`；调低 `vector_threshold`；检查 embedding 模型与建库时一致 |
-| 注册页签消失 | 查 `GET /auth/config` 的 `registration_mode`。值可能来自「设置 → 系统」里的数据库设置，不只是 `DISABLE_REGISTRATION`；邀请链接与 OIDC 首次登录是另外两条通路，不受它影响 |
+| 注册页签消失 | 查 `GET /auth/config` 的 `registration_mode`。值可能来自「设置 → 系统」里的数据库设置（优先于环境变量 `GENYEE_AUTH_REGISTRATION_MODE`）；邀请链接与 OIDC 首次登录是另外两条通路，其中 OIDC 不受它影响 |
 | API Key 请求 403 | Key 的 capabilities 不含所需能力，或 `knowledge_base_ids` 白名单未包含目标库 |
 
 下一步：想调细节看[配置详解](./04-configuration.md)，想了解系统怎么运转看[总体架构](../02-architecture/01-overview.md)。

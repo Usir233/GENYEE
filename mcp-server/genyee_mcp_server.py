@@ -141,7 +141,7 @@ def _safe_path_segment(value: str, name: str = "id") -> str:
 def _safe_wiki_slug(value: str, name: str = "slug") -> str:
     """Validate and percent-encode a hierarchical wiki page slug (e.g. 'entity/acme-corp').
 
-    GENYEE backend mounts GET /knowledgebase/:kb_id/wiki/pages/*slug, so multi-segment
+    GENYEE backend mounts GET /knowledge-bases/:id/wiki/pages/*slug, so multi-segment
     slugs separated by '/' are valid while empty segments, dot-segments ('.', '..'),
     backslashes, query/fragment delimiters, and pre-encoded '%' sequences are forbidden.
     """
@@ -991,7 +991,7 @@ class GENYEEClient:
         self,
         kb_id: str,
         file_path: str,
-        enable_multimodel: bool = True,
+        enable_multimodal: bool = True,
         file_name: str = "",
     ) -> dict[str, Any]:
         """Create knowledge from a local file with optional multimodal processing.
@@ -1001,9 +1001,9 @@ class GENYEEClient:
         """
         safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         safe_path = resolve_upload_file_path(file_path)
-        form_fields: dict[str, str] = {"enable_multimodel": str(bool(enable_multimodel)).lower()}
+        form_fields: dict[str, str] = {"enable_multimodal": str(bool(enable_multimodal)).lower()}
         if file_name:
-            form_fields["fileName"] = file_name
+            form_fields["file_name"] = file_name
 
         url = f"{self.base_url}/knowledge-bases/{safe_kb_id}/knowledge/file"
         try:
@@ -1029,14 +1029,14 @@ class GENYEEClient:
             raise
 
     def create_knowledge_from_url(
-        self, kb_id: str, url: str, enable_multimodel: bool = True
+        self, kb_id: str, url: str, enable_multimodal: bool = True
     ) -> dict[str, Any]:
         """Create knowledge from a web URL with optional multimodal processing"""
         safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         safe_url = _validate_http_url(url)
         data: dict[str, Any] = {
             "url": safe_url,
-            "enable_multimodel": bool(enable_multimodel),
+            "enable_multimodal": bool(enable_multimodal),
         }
         return self._request("POST", f"/knowledge-bases/{safe_kb_id}/knowledge/url", json=data)
 
@@ -1327,7 +1327,7 @@ class GENYEEClient:
         safe_limit = _validate_int_range(limit, "limit", 1, 100)
         return self._request(
             "GET",
-            f"/knowledgebase/{safe_kb_id}/wiki/search",
+            f"/knowledge-bases/{safe_kb_id}/wiki/search",
             params={"q": query, "limit": safe_limit},
         )
 
@@ -1335,7 +1335,7 @@ class GENYEEClient:
         """Read a wiki page by slug, returns full markdown + metadata + links"""
         safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         safe_slug = _safe_wiki_slug(slug, "slug")
-        return self._request("GET", f"/knowledgebase/{safe_kb_id}/wiki/pages/{safe_slug}")
+        return self._request("GET", f"/knowledge-bases/{safe_kb_id}/wiki/pages/{safe_slug}")
 
     def wiki_index_view(self, kb_id: str, limit: int = 50) -> dict[str, Any]:
         """Get structured wiki index with per-type directory groups"""
@@ -1343,7 +1343,7 @@ class GENYEEClient:
         safe_limit = _validate_int_range(limit, "limit", 1, 100)
         return self._request(
             "GET",
-            f"/knowledgebase/{safe_kb_id}/wiki/index",
+            f"/knowledge-bases/{safe_kb_id}/wiki/index",
             params={"limit": safe_limit},
         )
 
@@ -1454,7 +1454,7 @@ def hybrid_search(
 def create_knowledge_from_file(
     kb_id: str,
     file_path: str,
-    enable_multimodel: bool = True,
+    enable_multimodal: bool = True,
     file_name: str = "",
 ) -> dict[str, Any]:
     """Create knowledge from a local file on the server filesystem.
@@ -1467,7 +1467,7 @@ def create_knowledge_from_file(
     return client.create_knowledge_from_file(
         client.resolve_kb_id(kb_id),
         file_path,
-        enable_multimodel,
+        enable_multimodal,
         file_name=file_name,
     )
 
@@ -1476,12 +1476,12 @@ def create_knowledge_from_file(
 def create_knowledge_from_url(
     kb_id: str,
     url: str,
-    enable_multimodel: bool = True,
+    enable_multimodal: bool = True,
 ) -> dict[str, Any]:
     """Create knowledge from a web URL."""
     safe_url = _validate_http_url(url)
     return client.create_knowledge_from_url(
-        client.resolve_kb_id(kb_id), safe_url, enable_multimodel
+        client.resolve_kb_id(kb_id), safe_url, enable_multimodal
     )
 
 

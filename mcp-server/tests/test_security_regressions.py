@@ -103,9 +103,13 @@ def test_wiki_read_page_allows_hierarchical_slugs_and_blocks_cspt(
     monkeypatch.setattr(client, "_request", fake_request)
     client.wiki_read_page("kb-001", "entity/acme-corp")
     client.wiki_read_page("kb-001", "concept/rag architecture")
+    client.wiki_search("kb-001", "architecture", limit=5)
+    client.wiki_index_view("kb-001", limit=20)
     assert called_endpoints == [
-        "GET /knowledgebase/kb-001/wiki/pages/entity/acme-corp",
-        "GET /knowledgebase/kb-001/wiki/pages/concept/rag%20architecture",
+        "GET /knowledge-bases/kb-001/wiki/pages/entity/acme-corp",
+        "GET /knowledge-bases/kb-001/wiki/pages/concept/rag%20architecture",
+        "GET /knowledge-bases/kb-001/wiki/search",
+        "GET /knowledge-bases/kb-001/wiki/index",
     ]
 
     for bad_slug in (
@@ -122,7 +126,7 @@ def test_wiki_read_page_allows_hierarchical_slugs_and_blocks_cspt(
     ):
         with pytest.raises(ValueError):
             client.wiki_read_page("kb-001", bad_slug)
-    assert len(called_endpoints) == 2
+    assert len(called_endpoints) == 4
 
 
 @pytest.mark.parametrize(
@@ -828,7 +832,7 @@ def test_create_knowledge_from_file_streams_chunks_via_session_without_header_mu
                 res = client.create_knowledge_from_file(
                     "kb-1",
                     str(doc),
-                    enable_multimodel=False,
+                    enable_multimodal=False,
                     file_name="docs/large.bin",
                 )
             assert res == {"data": {"id": "k-streamed"}}
@@ -841,8 +845,8 @@ def test_create_knowledge_from_file_streams_chunks_via_session_without_header_mu
             headers, wire_body = received_requests[0]
             assert headers.get("x-api-key") == "upload-api-key"
             assert "multipart/form-data; boundary=" in headers.get("content-type", "")
-            assert b'name="enable_multimodel"\r\n\r\nfalse' in wire_body
-            assert b'name="fileName"\r\n\r\ndocs/large.bin' in wire_body
+            assert b'name="enable_multimodal"\r\n\r\nfalse' in wire_body
+            assert b'name="file_name"\r\n\r\ndocs/large.bin' in wire_body
             assert payload in wire_body
         finally:
             client.close()
@@ -1066,6 +1070,13 @@ def test_agent_chat_sets_agent_enabled_and_list_agents_drops_dead_pagination(
         assert req_calls == [("GET", "/agents", {})]
     finally:
         client.close()
+
+    tools = {tool.name: tool for tool in asyncio.run(srv.mcp.list_tools())}
+    assert set(tools["list_agents"].input_schema.get("properties", {}).keys()) == set()
+    for tool_name in ("create_knowledge_from_file", "create_knowledge_from_url"):
+        props = set(tools[tool_name].input_schema.get("properties", {}).keys())
+        assert "enable_multimodal" in props
+        assert "enable_multimodel" not in props
 
 
 def test_run_server_transport_parity_and_uvicorn_graceful_shutdown_timeout(

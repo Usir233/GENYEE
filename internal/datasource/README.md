@@ -32,13 +32,13 @@ The data source sync framework enables GENYEE to automatically import and synchr
               │
               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│        HTTP Handler & API Routes (/api/v1/datasource)      │
+│       HTTP Handler & API Routes (/api/v1/data-sources)     │
 │      REST endpoints for UI/programmatic access             │
 └─────────────┬───────────────────────────────────────────────┘
               │
               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Database (MySQL / PostgreSQL)                  │
+│              Database (PostgreSQL / SQLite)                 │
 │  ├─ data_sources (configuration & state)                   │
 │  └─ sync_logs (history & metadata)                         │
 └─────────────────────────────────────────────────────────────┘
@@ -131,31 +131,35 @@ type Connector interface {
 
 ### Data Source Management
 ```
-POST   /api/v1/datasource              # Create
-GET    /api/v1/datasource              # List (by kb_id)
-GET    /api/v1/datasource/:id          # Get
-PUT    /api/v1/datasource/:id          # Update
-DELETE /api/v1/datasource/:id          # Delete
+POST   /api/v1/data-sources                        # Create
+GET    /api/v1/data-sources                        # List (by kb_id)
+GET    /api/v1/data-sources/:id                    # Get
+PUT    /api/v1/data-sources/:id                    # Update
+DELETE /api/v1/data-sources/:id                    # Delete
+PUT    /api/v1/data-sources/:id/credentials        # Atomically replace encrypted credentials
+DELETE /api/v1/data-sources/:id/credentials/:field # Clear credentials
 ```
 
 ### Operations
 ```
-POST   /api/v1/datasource/:id/validate      # Test connection
-GET    /api/v1/datasource/:id/resources     # List available resources
-POST   /api/v1/datasource/:id/sync          # Trigger manual sync
-POST   /api/v1/datasource/:id/pause         # Pause
-POST   /api/v1/datasource/:id/resume        # Resume
+POST   /api/v1/data-sources/validate-credentials   # Test raw credentials before save
+POST   /api/v1/data-sources/:id/validate           # Test connection on saved data source
+GET    /api/v1/data-sources/:id/resources          # List available resources
+POST   /api/v1/data-sources/:id/resource-ancestors # Resolve selected resource ancestor chains
+POST   /api/v1/data-sources/:id/sync               # Trigger manual sync
+POST   /api/v1/data-sources/:id/pause              # Pause
+POST   /api/v1/data-sources/:id/resume             # Resume
 ```
 
 ### Logs
 ```
-GET    /api/v1/datasource/:id/logs          # List sync logs
-GET    /api/v1/datasource/logs/:log_id      # Get specific log
+GET    /api/v1/data-sources/:id/logs               # List sync logs
+GET    /api/v1/data-sources/logs/:log_id           # Get specific log
 ```
 
 ### Metadata
 ```
-GET    /api/v1/datasource/types             # Available connectors
+GET    /api/v1/data-sources/types                  # Available connectors
 ```
 
 ## Implementation Guide

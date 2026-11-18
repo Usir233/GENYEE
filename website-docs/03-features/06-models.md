@@ -533,7 +533,7 @@ builtin_models:
 | `GET /initialization/ollama/models` | 列出本地已有模型 |
 | `POST /initialization/ollama/models/check` | 批量检查模型是否已下载 |
 | `POST /initialization/ollama/models/download` | 异步下载（`downloadModelAsync` + `pullModelWithProgress`，写入模型 `status=downloading`） |
-| `GET /initialization/ollama/download/progress/:taskId`、`GET /initialization/ollama/download/tasks` | 下载进度 / 任务列表 |
+| `GET /initialization/ollama/download/progress/:task_id`、`GET /initialization/ollama/download/tasks` | 下载进度 / 任务列表 |
 
 > 注意：`cmd/download/duckdb/duckdb.go` 与模型无关——它在构建镜像时预下载 DuckDB 的 `spatial`、`excel` 扩展，供数据分析工具使用。模型权重下载只发生在 Ollama 路径。
 

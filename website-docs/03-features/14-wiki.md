@@ -111,7 +111,7 @@ Wiki 曾经维护一份独立的操作日志（`wiki_log_entries` 表 + `GET /wi
 - 活动记录落在审计日志体系（`kb_activity.go` → `AuditLogService`），可在「知识库 → 设置 → 活动」查看，保留策略与其它审计日志一致（见[可观测性与审计](16-observability.md)）；
 - 写入是 best-effort：活动记录失败不会让 wiki 编辑本身失败。
 
-升级注意：如果外部集成还在调用 `GET /api/v1/knowledgebase/:kb_id/wiki/log`，需要改用知识库活动流接口 `GET /api/v1/knowledge-bases/:id/activity`。
+升级注意：Wiki 路由已统一收敛到 `/api/v1/knowledge-bases/:id/wiki/*`，原操作日志接口已下线，变更历史请改用知识库活动流接口 `GET /api/v1/knowledge-bases/:id/activity`。
 
 ### 失败恢复
 
@@ -167,7 +167,7 @@ migration `000061_wiki_page_hierarchy.up.sql` 引入独立的 `wiki_folders` 表
 
 ### 发布与访问
 
-所有 Wiki 路由挂在 `/api/v1/knowledgebase/:kb_id/wiki` 之下（`internal/router/routes_knowledge.go`），**没有免登录的公开访问模式**，读写均受 RBAC 与 KB 访问控制约束：
+所有 Wiki 路由挂在 `/api/v1/knowledge-bases/:id/wiki` 之下（`internal/router/routes_knowledge.go`），**没有免登录的公开访问模式**，读写均受 RBAC 与 KB 访问控制约束：
 
 #### 读接口（Viewer + KBAccessRead）
 
@@ -185,7 +185,7 @@ migration `000061_wiki_page_hierarchy.up.sql` 引入独立的 `wiki_folders` 表
 
 `KBAccessRead` 覆盖：KB 所有者、组织共享、以及通过共享 Agent 获得的访问。
 
-#### 写接口（OwnedWikiKBOrAdmin + KBAccessWrite）
+#### 写接口（OwnedKBOrAdmin + KBAccessWrite）
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |

@@ -15,7 +15,7 @@
 | --- | --- |
 | `GET /api/v1/sessions/:id/background-work` | 查询会话后台任务 |
 | `GET /api/v1/sessions/:id/background-work/:work_id` | 查询任务状态与输出 |
-| `POST /api/v1/sessions/:session_id/background-work/:work_id/cancel` | 取消指定任务 |
+| `POST /api/v1/sessions/:id/background-work/:work_id/cancel` | 取消指定任务 |
 
 接口继续检查会话访问权限。`work_id` 是后台任务标识，不是终端进程 ID，也不是自动化运行 ID。
 
@@ -109,7 +109,7 @@ curl -X DELETE $BASE/api/v1/sessions/batch -H "Authorization: Bearer $TOKEN" \
 curl -X DELETE $BASE/api/v1/sessions/s-1/messages -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/sessions/:session_id/generate_title
+### POST /api/v1/sessions/:id/generate-title
 
 用途：根据上下文消息生成会话标题。Handler: `internal/handler/session/title.go`
 
@@ -120,11 +120,11 @@ curl -X DELETE $BASE/api/v1/sessions/s-1/messages -H "Authorization: Bearer $TOK
 响应：200 `{"success":true,"data":"生成的标题"}`
 
 ```bash
-curl -X POST $BASE/api/v1/sessions/s-1/generate_title -H "Authorization: Bearer $TOKEN" \
+curl -X POST $BASE/api/v1/sessions/s-1/generate-title -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"介绍下产品"}]}'
 ```
 
-### POST /api/v1/sessions/:session_id/stop
+### POST /api/v1/sessions/:id/stop
 
 用途：停止正在生成的回答。Handler: `internal/handler/session/stream.go`
 
@@ -141,7 +141,7 @@ curl -X POST $BASE/api/v1/sessions/s-1/stop -H "Authorization: Bearer $TOKEN" \
 
 停止时，尚未送达智能体的追加消息（见下文[向运行中的回答追加消息](#steer)）会一并丢弃，不会自动开始新一轮。
 
-### POST /api/v1/sessions/:session_id/fork
+### POST /api/v1/sessions/:id/fork
 
 用途：从某条历史消息分叉出新会话，源会话保持不变。只有会话归属人可以分叉。Handler: `internal/handler/session/fork.go`
 
@@ -159,14 +159,14 @@ curl -X POST $BASE/api/v1/sessions/s-1/stop -H "Authorization: Bearer $TOKEN" \
 | `SANDBOX_GONE` | 源会话当前没有可快照的沙箱 |
 | `SNAPSHOT_UNSUPPORTED` | 沙箱后端不支持快照或快照失败 |
 
-响应：200 `{"success":true,"data":{"session_id":"新会话 ID","degraded":false}}`。源会话正在生成、或分叉点是未完成的回答时返回 409（`code: FORK_SOURCE_BUSY`）；会话或消息不存在返回 404；分叉点不是用户或助手消息返回 400。
+响应：200 `{"success":true,"data":{"session_id":"新会话 ID","degraded":false}}`。源会话正在生成、或分叉点是未完成的回答时返回 409；会话或消息不存在返回 404；分叉点不是用户或助手消息返回 400（错误统一采用 `AppError` 信封）。
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/fork -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"message_id":"m-3"}'
 ```
 
-### POST /api/v1/sessions/:session_id/rewind
+### POST /api/v1/sessions/:id/rewind
 
 用途：把当前会话原地回退到某条消息。只有会话归属人可以回退。Handler: `internal/handler/session/rewind.go`
 
@@ -178,9 +178,9 @@ curl -X POST $BASE/api/v1/sessions/s-1/fork -H "Authorization: Bearer $TOKEN" \
 
 响应：200 `{"success":true,"data":{"deleted_messages":N,"workspace_reset":true,"reason":""}}`。`workspace_reset` 为 false 时，`reason` 说明只回退了对话的原因：`NO_SANDBOX`（会话未绑定沙箱）或 `NO_CHECKPOINT`（保留的历史没有检查点）。
 
-| 状态码 | `code` | 含义 |
+| 状态码 | 场景说明 | 含义 |
 | --- | --- | --- |
-| 409 | `REWIND_SOURCE_BUSY` | 会话正在生成，或回退点是未完成的回答 |
+| 409 | `REWIND_SOURCE_BUSY`（`error.details` / 冲突说明） | 会话正在生成，或回退点是未完成的回答 |
 | 409 | `REWIND_NO_CHECKPOINT` | 沙箱仍在，但保留的历史找不到可用检查点；为避免文件领先于对话而拒绝 |
 | 409 | `REWIND_SANDBOX_REPLACED` | 检查点属于已更换的旧沙箱 |
 | 404 | — | 会话或消息不存在 |
@@ -197,10 +197,10 @@ curl -X POST $BASE/api/v1/sessions/s-1/rewind -H "Authorization: Bearer $TOKEN" 
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| POST | `/api/v1/sessions/:session_id/steer` | 追加一条消息 |
+| POST | `/api/v1/sessions/:id/steer` | 追加一条消息 |
 | GET | `/api/v1/sessions/:id/steer` | 列出当前轮尚未送达的排队消息，用于刷新页面后恢复队列；返回 `assistant_message_id` 与 `items[]`（`steer_id`、`content`、`delivery`、`mentioned_items`），无运行中的轮次时 `items` 为空 |
 | DELETE | `/api/v1/sessions/:id/steer/:steer_id` | 撤回一条排队消息 |
-| POST | `/api/v1/sessions/:session_id/steer/:steer_id/inject` | 把一条 `after` 消息改为 `inject` |
+| POST | `/api/v1/sessions/:id/steer/:steer_id/inject` | 把一条 `after` 消息改为 `inject` |
 
 POST 请求体：
 
@@ -229,7 +229,7 @@ curl -X POST $BASE/api/v1/sessions/s-1/steer -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"query":"只看 2024 年的数据","delivery":"inject"}'
 ```
 
-### POST /api/v1/sessions/:session_id/pin 与 DELETE /api/v1/sessions/:id/pin
+### POST /api/v1/sessions/:id/pin 与 DELETE /api/v1/sessions/:id/pin
 
 用途：置顶 / 取消置顶会话。无请求体。Handler: `internal/handler/session/handler.go`
 
@@ -256,9 +256,9 @@ curl -N "$BASE/api/v1/sessions/continue-stream/s-1?message_id=m-1" -H "Authoriza
 
 ## 沙箱图形桌面 {#sandbox-desktop}
 
-这些路由由 `internal/router/routes_chat.go` 注册，尚未进入 Swagger。仅 Cube/E2B 桌面模板支持；部署和代理要求见[沙箱部署](../06-development/04-sandbox-deployment.md)。
+这些路由由 `internal/router/routes_chat.go` 注册（WebSocket 升级端点不列入 REST Swagger）。仅 Cube/E2B 桌面模板支持；部署和代理要求见[沙箱部署](../06-development/04-sandbox-deployment.md)。
 
-### POST /api/v1/sessions/:session_id/sandbox/desktop-ticket
+### POST /api/v1/sessions/:id/sandbox/desktop-ticket
 
 签发两分钟有效的一次性 WebSocket 票据。需要会话属主的有效登录 Bearer access token，不能只用 API Key。JWT 只放在本次 POST 的认证头中。
 
@@ -275,7 +275,7 @@ WebSocket 握手使用 `?ticket=<opaque-ticket>`，不走普通 JWT 中间件。
 
 每会话同时仅允许一条中继。沙箱未绑定、暂停、不支持桌面或启动失败等状态可能先完成 WebSocket upgrade，再以 `SANDBOX_NOT_BOUND`、`SANDBOX_PAUSED`、`DESKTOP_UNSUPPORTED`、`DESKTOP_START_FAILED` 等 close reason 断开，客户端应读取关闭原因。
 
-### POST /api/v1/sessions/:session_id/sandbox/desktop/activity
+### POST /api/v1/sessions/:id/sandbox/desktop/activity
 
 会话属主上报键鼠活动，响应 200 `{"success":true}`。仅当服务端 RFB parser 降级时用于续期；parser 正常时忽略，不应通过轮询延长沙箱寿命。
 
@@ -283,7 +283,7 @@ WebSocket 握手使用 `?ticket=<opaque-ticket>`，不走普通 JWT 中间件。
 
 Handler: `internal/handler/session/temporary_document.go`
 
-### POST /api/v1/sessions/:session_id/attachments
+### POST /api/v1/sessions/:id/attachments
 
 用途：上传并保存会话附件。保存后立即排入后台解析队列，上传完成不代表已解析。快速问答在回答流建立后等待未完成的解析；智能推理通过 `read_file` 按需读取正文，读取时才等待未就绪的文档。单独上传的图片在启用图片上传时会先等待就绪。multipart 字段：`file`（必填）、`agent_id`（可选，决定解析引擎/ASR 模型）、`parser_engine`（可选；使用共享智能体时忽略，由智能体的解析规则决定）。
 
@@ -349,7 +349,7 @@ Handler: `internal/handler/message_suggestion.go`
 curl $BASE/api/v1/sessions/s-1/messages/m-1/suggestions -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/sessions/:session_id/messages/:message_id/suggestions
+### POST /api/v1/sessions/:id/messages/:message_id/suggestions
 
 用途：确保生成建议（幂等触发）。请求体：`{"regenerate":true}`（可选，强制重新生成）。
 
@@ -360,7 +360,7 @@ curl -X POST $BASE/api/v1/sessions/s-1/messages/m-1/suggestions -H "Authorizatio
   -H 'Content-Type: application/json' -d '{}'
 ```
 
-### POST /api/v1/sessions/:session_id/suggestion-events
+### POST /api/v1/sessions/:id/suggestion-events
 
 用途：上报建议交互事件（埋点）。
 

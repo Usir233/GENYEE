@@ -77,8 +77,8 @@ Cube guest DNS 属于模板配置。更改 DNS/镜像后需重建模板才会进
 
 | 能力 | 取票据 | WebSocket |
 | --- | --- | --- |
-| 终端 | `POST /api/v1/sessions/:session_id/sandbox/terminal-ticket` | `GET /api/v1/sessions/:id/sandbox/terminal?ticket=...` |
-| 桌面 | `POST /api/v1/sessions/:session_id/sandbox/desktop-ticket` | `GET /api/v1/sessions/:id/sandbox/desktop?ticket=...` |
+| 终端 | `POST /api/v1/sessions/:id/sandbox/terminal-ticket` | `GET /api/v1/sessions/:id/sandbox/terminal?ticket=...` |
+| 桌面 | `POST /api/v1/sessions/:id/sandbox/desktop-ticket` | `GET /api/v1/sessions/:id/sandbox/desktop?ticket=...` |
 
 入口代理必须为这两个路径转发 WebSocket Upgrade、放宽读超时，并避免在访问日志中记录 ticket query。标准 frontend Nginx 已为 `^/api/v1/sessions/[^/]+/sandbox/(terminal|desktop)$` 配置不含 query 的日志格式；自定义 Ingress 需自行处理。终端连上后，服务端大约每分钟复核一次登录状态、空间成员和会话归属，退出登录或被移出空间会断开终端。接口参数见[终端 API](../04-api/02-api-sandbox-skills.md#会话交互终端)与[桌面 API](../04-api/02-api-chat.md#sandbox-desktop)。
 

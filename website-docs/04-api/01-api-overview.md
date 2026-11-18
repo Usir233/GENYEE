@@ -28,7 +28,7 @@ Authorization: Bearer <access_token>
 
 - 通过 `POST /api/v1/auth/login`（或 register / OIDC；原生桌面应用使用 auto-setup）获得 `token` 与 `refresh_token`；`POST /api/v1/auth/refresh` 换发新 token。
 - 可选请求头 `X-Tenant-ID: <tenant_id>`：在 JWT 指向的空间之外切换目标空间（须为该空间活跃成员，或具备 `CanAccessAllTenants` 跨空间超管属性）。畸形或 `0` 值直接返回 400。
-- 若 JWT 未解析出任何空间且接口非“无空间可用”白名单（如 `/auth/me`、`/me/invitations` 等），返回 409 `{"code":"TENANT_REQUIRED"}`。
+- 若 JWT 未解析出任何空间且接口非“无空间可用”白名单（如 `/auth/me`、`/me/invitations` 等），返回 409 `{"success":false,"error":{"code":2006,"message":"..."}}`（`ErrTenantRequired`）。
 
 ### API Key（机器主体） {#_2-api-key-机器主体}
 
@@ -37,7 +37,7 @@ X-API-Key: <api_key>
 ```
 
 - 空间级（workspace）key：在 `POST /api/v1/tenants/:id/api-keys` 创建，绑定到单一空间；携带 `X-Tenant-ID` 指向其它空间会得到 403。
-- 平台级（platform）key：在 `POST /api/v1/system/admin/api-keys` 创建，必须携带 `X-Tenant-ID` 选择目标空间（`/system/admin/*`、`/tenants/all|search`、`POST /tenants` 除外），否则返回 409 `TENANT_REQUIRED`。
+- 平台级（platform）key：在 `POST /api/v1/system/admin/api-keys` 创建，必须携带 `X-Tenant-ID` 选择目标空间（`/system/admin/*`、`/tenants/all|search`、`POST /tenants` 除外），否则返回 409（`error.code=2006`，`ErrTenantRequired`）。
 - 授权模型（`internal/middleware/api_key_gate.go`，默认拒绝）：每个 `/api/v1` 路由必须显式声明 API key 策略，未声明的路由对任何 key 一律 403。
   - `full_access` key：空间内全权（等效 Owner 的机器形态）。
   - 受限（scoped）key：按 capability 放行，并受 `knowledge_base_ids` 白名单约束。Capability 常量见 `internal/types/tenant_api_key.go`：`retrieve`、`ingest`、`chat`、`read_agents`、`manage_kbs`、`manage_agents`、`message_history`、`manage_models`、`manage_mcp_services`、`manage_datasources`、`manage_channels`、`manage_vector_stores`、`manage_storage_backends`、`manage_web_search`、`run_evaluations`、`manage_members`、`manage_spaces`、`manage_tenant_settings`；平台能力：`system_tenants_read/manage`、`system_settings_read/manage`、`system_runtime_read/manage`、`system_audit_read`。
@@ -85,7 +85,7 @@ flowchart TD
     K -- "无" --> U["401 Unauthorized"]
     K -- "有" --> L{"key 类型"}
     L -- "platform key" --> M{"X-Tenant-ID?"}
-    M -- "缺失且非平台白名单路由" --> V["409 TENANT_REQUIRED"]
+    M -- "缺失且非平台白名单路由" --> V["409 ErrTenantRequired (2006)"]
     M -- "有" --> P2["注入平台机器主体 + 目标空间"]
     L -- "workspace key" --> N{"X-Tenant-ID 与 key 空间一致?"}
     N -- "不一致" --> G
@@ -125,13 +125,11 @@ flowchart TD
 
 列表类接口常见附加字段：`total`、`page`、`page_size`。少数例外：`/system/admin/*` 的部分读取接口直接返回原始行/数组（不含包装），`/system/info` 等使用 `{"code":0,"msg":"success","data":...}`。
 
-错误统一由 `internal/middleware/error_handler.go` 输出（`internal/errors/errors.go` 的 `AppError`）：
+错误在中间件层（认证 / RBAC / APIKeyGate / EmbedAuth / 文件代理）与业务 Handler 层统一输出标准 `AppError` 信封（`internal/middleware/error_handler.go` + `internal/errors/errors.go`，第三方 IM Webhook 回调的平台协议 ACK 体除外）：
 
 ```json
 { "success": false, "error": { "code": 1003, "message": "...", "details": null } }
 ```
-
-中间件层（认证/RBAC）直接返回 `{"error": "..."}`（部分带 `"code"` 字符串，如 `TENANT_REQUIRED`）。
 
 | 错误码 | 含义 | HTTP |
 | --- | --- | --- |
@@ -146,9 +144,13 @@ flowchart TD
 | 1008 | ErrServiceUnavailable 暂不可用 | 503 |
 | 1009 | ErrTimeout 超时 | — |
 | 1010 | ErrValidation 参数校验失败 | 400 |
+| 1011 | ErrRequestEntityTooLarge 请求体过大 | 413 |
 | 2000-2005 | 空间类：不存在/已存在/停用/名称必填/状态非法/自助创建被禁用 | 404/409/403/… |
+| 2006 | ErrTenantRequired 缺少活跃空间上下文（需切换或携带 `X-Tenant-ID`） | 409 |
 | 2100-2103 | Agent 类：缺思考模型/缺允许工具/迭代次数非法(1-20)/温度非法(0-2) | 400 |
 | 2200-2201 | VectorStore 绑定非法 / 当前不可用 | 400 |
+| 2300 | 模型仍被知识库/智能体/长期记忆引用，无法删除（`details` 含引用明细） | 400 |
+| 2500 | ErrWikiVersionConflict Wiki 页面乐观锁版本冲突（`details: {"current_version": n}`） | 409 |
 
 另有非编码错误：`types.StorageQuotaExceededError`（存储配额超限）、`types.DuplicateKnowledgeError`（重复文件/URL，上传接口返回 409 且 `data` 携带已存在的 Knowledge）。
 
@@ -356,12 +358,12 @@ rerank 模型加载失败或调用出错时，请求不会失败，而是按召�
 | 组织与共享 | [02-api-org.md](./02-api-org.md) | `/organizations`、`/shared-*`、`/knowledge-bases/:id/shares`、`/agents/:id/shares` |
 | 知识库与知识 | [02-api-knowledge.md](./02-api-knowledge.md) | `/knowledge-bases`、`/knowledge`、知识库文件夹、画廊、`/image-attrs/schema` |
 | 分块与标签 | [02-api-chunks.md](./02-api-chunks.md) | `/chunks`、`/knowledge-bases/:id/tags`、`/chunker/preview` |
-| FAQ 与 Wiki | [02-api-faq-wiki.md](./02-api-faq-wiki.md) | `/knowledge-bases/:id/faq`、`/faq`、`/knowledgebase/:kb_id/wiki`、`/wiki-search` |
+| FAQ 与 Wiki | [02-api-faq-wiki.md](./02-api-faq-wiki.md) | `/knowledge-bases/:id/faq`、`/faq`、`/knowledge-bases/:id/wiki`、`/wiki-search` |
 | 会话、消息与聊天 | [02-api-chat.md](./02-api-chat.md) | `/sessions`、`/messages`、`/knowledge-chat`、`/agent-chat`、`/knowledge-search` |
 | 模型与初始化 | [02-api-model-system.md](./02-api-model-system.md) | `/models`、`/initialization`、`/evaluation` |
 | 系统与平台管理 | [02-api-system.md](./02-api-system.md) | `/system`、`/system/admin` |
-| 基础设施与数据源 | [02-api-infra.md](./02-api-infra.md) | `/vector-stores`、`/storage-backends`、`/web-search-providers`、`/datasource` |
-| Agent 与 MCP | [02-api-agent-mcp.md](./02-api-agent-mcp.md) | `/agents`、`/mcp-services`、`/agent`、`/user/favorites` |
+| 基础设施与数据源 | [02-api-infra.md](./02-api-infra.md) | `/vector-stores`、`/storage-backends`、`/web-search-providers`、`/data-sources` |
+| Agent 与 MCP | [02-api-agent-mcp.md](./02-api-agent-mcp.md) | `/agents`、`/mcp-services`、`/agent`、`/me/favorites` |
 | 内置 MCP Server | [MCP 集成](../03-features/08-mcp.md) | `/mcp-endpoints`、`/mcp/:endpoint_id` |
 | 本机浏览器 | [本机浏览器](../05-clients/09-local-browser.md) | `/me/browser`、`/local-browser` |
 | 沙箱、技能与个人变量 | [02-api-sandbox-skills.md](./02-api-sandbox-skills.md) | `/sandbox-configs`、`/skills`、`/me/env-vars` |

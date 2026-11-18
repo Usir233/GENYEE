@@ -343,7 +343,7 @@ v0.8.2 起的两处请求字段变化：
 |---|---|---|
 | `StartEvaluation` / `GetEvaluationResult` | 发起评估任务 / 查询评估结果 | `client/evaluation.go` |
 | `ListSkills(ctx, sandboxConfigID)` | 列出指定沙箱配置可调用的技能，返回技能列表与可用标志 | `client/skill.go` |
-| `GetWebSearchProviders` | 列出可用 Web 搜索提供商 | `client/web_search.go` |
+| `GetWebSearchProviders` | 列出可用 Web 搜索提供商类型（`GET /api/v1/web-search-providers/types`） | `client/web_search.go` |
 | `Raw` | 原始 HTTP 逃生舱（Experimental） | `client/client.go` |
 
 合计 220 余个公开方法，覆盖 20 余类资源。
@@ -438,7 +438,7 @@ if errors.As(err, &apiErr) {
 }
 ```
 
-`Code` 为响应体 `{"code":N}` 中的结构化错误码，包内提供常量 `ServerErrBadRequest`(1000) 至 `ServerErrValidation`(1010)。`Error()` 保持 `"HTTP error <status>: <body>"` 的旧格式以兼容字符串匹配的消费者。
+`Code` 由 `extractServerCode` 从标准 `AppError` 响应体 `{"success":false,"error":{"code":N,...}}`（兼容顶层 `{"code":N}`）提取结构化错误码，包内提供常量 `ServerErrBadRequest`(1000) 至 `ServerErrValidation`(1010) 等。`Error()` 保持 `"HTTP error <status>: <body>"` 的旧格式以兼容字符串匹配的消费者。
 
 ### 流层：`SSEStreamError`（`client/stream_errors.go`）
 

@@ -132,7 +132,7 @@ Profile 的解析链在 `cli/internal/cmdutil/factory.go`（`Factory.ActiveProfi
 |---|---|
 | `GENYEE_TOKEN` | Bearer JWT（优先于 `GENYEE_API_KEY`） |
 | `GENYEE_API_KEY` | API key |
-| `GENYEE_HOST` | 服务器地址（未设置时回退到激活 profile 的 host） |
+| `GENYEE_HOST` | 服务器地址（优先于 `GENYEE_BASE_URL`，均未设置时回退到激活 profile 的 host） |
 | `GENYEE_PROFILE` | 覆盖激活 profile |
 | `GENYEE_KB_ID` | 显式指定知识库 id |
 | `GENYEE_FORMAT` | 默认输出格式（text / json / ndjson） |
@@ -303,8 +303,8 @@ genyee kb config set <kb-id> --chat-model <id> --embedding-model <id> -y
 
 | 子命令 | Use | 说明 |
 |---|---|---|
-| upload | `upload <file>` | 上传本地文件；`--name`、`--recursive` + `--glob`（目录批量，如 `'*.pdf'`）、`--metadata key=value`（可重复）、`--enable-multimodel`、`--channel` |
-| fetch | `fetch <url>` | 抓取远程文档；`--name`、`--title`、`--file-type`（URL 无扩展名时的类型提示）、`--tag-id`、`--channel` |
+| upload | `upload <file>` | 上传本地文件；`--name`、`--recursive` + `--glob`（目录批量，如 `'*.pdf'`）、`--metadata key=value`（可重复）、`--enable-multimodal`、`--channel` |
+| fetch | `fetch <url>` | 抓取远程文档；`--name`、`--title`、`--file-type`（URL 无扩展名时的类型提示）、`--enable-multimodal`、`--tag-id`、`--channel` |
 | create | `create` | 用内联 Markdown 文本建条目：`--text`（必填）、`--title`、`--tag-id`、`--channel` |
 | list | `list` | 列表；`--status pending|processing|completed|failed`、`--keyword`、`--file-type`、`--source`、`--tag-id`、`--start-time/--end-time`（RFC3339）、`--limit/-L`、`--page-size`、`--all-pages` |
 | view | `view <doc-id>` | 查看文档 |

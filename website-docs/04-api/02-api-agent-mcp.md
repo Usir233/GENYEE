@@ -480,39 +480,39 @@ curl -X POST $BASE/api/v1/agent/mcp-oauth-resolutions/p-1/cancel -H "Authorizati
 
 智能体 config 的 `memory_enabled` 为 nil 时继承空间，false 禁用本智能体的记忆读写。个人管理、主题/文档偏好、导出与立即整理见[长期记忆 API](02-api-memory.md)，使用步骤见[跨会话长期记忆](../03-features/23-memory.md)。
 
-## 用户收藏（/api/v1/user/favorites）
+## 用户收藏（/api/v1/me/favorites）
 
 按用户维度存储（非资源创建者维度）；权限均 Viewer+，仅 JWT（API key 默认拒绝）。Handler: `internal/handler/user_resource_favorite.go`
 
-### GET /api/v1/user/favorites
+### GET /api/v1/me/favorites
 
 用途：收藏列表。查询参数：`type`（必填，`kb` 或 `agent`）。
 
 响应：200 `{"success":true,"data":[{type,id,created_at}]}`
 
 ```bash
-curl "$BASE/api/v1/user/favorites?type=kb" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/me/favorites?type=kb" -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/user/favorites
+### POST /api/v1/me/favorites
 
 用途：添加收藏。请求体：`{"type":"kb|agent","id":"<资源ID>"}`（均必填）。
 
 响应：200 `{"success":true}`
 
 ```bash
-curl -X POST $BASE/api/v1/user/favorites -H "Authorization: Bearer $TOKEN" \
+curl -X POST $BASE/api/v1/me/favorites -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"type":"kb","id":"kb-1"}'
 ```
 
-### DELETE /api/v1/user/favorites/:type/:id
+### DELETE /api/v1/me/favorites/:type/:id
 
 用途：取消收藏。路径参数：`type`、`id`。
 
 响应：200 `{"success":true}`
 
 ```bash
-curl -X DELETE $BASE/api/v1/user/favorites/kb/kb-1 -H "Authorization: Bearer $TOKEN"
+curl -X DELETE $BASE/api/v1/me/favorites/kb/kb-1 -H "Authorization: Bearer $TOKEN"
 ```
 
 ## 实现参考

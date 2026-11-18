@@ -12,7 +12,9 @@ _F = TypeVar("_F", bound=Callable[..., object])
 
 # Lightweight stub so unit tests can import the client module without the
 # full MCP SDK installed (CI installs real deps; this only covers the HTTP client).
-if "mcp" not in sys.modules:
+try:
+    import mcp.server  # noqa: F401
+except ImportError:
     mcp_pkg = types.ModuleType("mcp")
     mcp_server = types.ModuleType("mcp.server")
 
@@ -52,14 +54,17 @@ class CreateKnowledgeFromFileTest(unittest.TestCase):
                 client.create_knowledge_from_file(
                     "kb-1",
                     "doc.pdf",
-                    enable_multimodel=True,
+                    enable_multimodal=True,
                     file_name="docs/spec/doc.pdf",
                 )
             body_stream = req.call_args.kwargs["data"]
-            self.assertEqual(body_stream.fields["fileName"], "docs/spec/doc.pdf")
-            self.assertEqual(body_stream.fields["enable_multimodel"], "true")
+            self.assertEqual(body_stream.fields["file_name"], "docs/spec/doc.pdf")
+            self.assertNotIn("fileName", body_stream.fields)
+            self.assertEqual(body_stream.fields["enable_multimodal"], "true")
+            self.assertNotIn("enable_multimodel", body_stream.fields)
             wire = body_stream.read()
-            self.assertIn(b'name="fileName"\r\n\r\ndocs/spec/doc.pdf', wire)
+            self.assertIn(b'name="file_name"\r\n\r\ndocs/spec/doc.pdf', wire)
+            self.assertIn(b'name="enable_multimodal"\r\n\r\ntrue', wire)
             self.assertIn(payload, wire)
         finally:
             client.close()
@@ -79,7 +84,23 @@ class CreateKnowledgeFromFileTest(unittest.TestCase):
                 )
                 client.create_knowledge_from_file("kb-1", "doc.pdf")
             body_stream = req.call_args.kwargs["data"]
+            self.assertNotIn("file_name", body_stream.fields)
             self.assertNotIn("fileName", body_stream.fields)
+        finally:
+            client.close()
+
+    def test_create_knowledge_from_url_sends_enable_multimodal(self) -> None:
+        client = srv.GENYEEClient("http://localhost:8080/api/v1", "k")
+        try:
+            with mock.patch.object(client, "_request", return_value={"id": "k2"}) as req:
+                client.create_knowledge_from_url(
+                    "kb-1", "https://docs.example.com/guide", enable_multimodal=False
+                )
+            req.assert_called_once_with(
+                "POST",
+                "/knowledge-bases/kb-1/knowledge/url",
+                json={"url": "https://docs.example.com/guide", "enable_multimodal": False},
+            )
         finally:
             client.close()
 

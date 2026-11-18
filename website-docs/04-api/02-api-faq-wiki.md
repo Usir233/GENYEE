@@ -46,7 +46,7 @@ curl -OJ "$BASE/api/v1/knowledge-bases/kb-1/faq/entries/export?format=csv" -H "A
 curl $BASE/api/v1/knowledge-bases/kb-1/faq/entries/12 -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/knowledge-bases/:id/faq/entries
+### POST /api/v1/knowledge-bases/:id/faq/entries/batch
 
 用途：批量 upsert / 导入（异步任务）。Handler 方法 `UpsertEntries`。
 
@@ -61,12 +61,12 @@ curl $BASE/api/v1/knowledge-bases/kb-1/faq/entries/12 -H "Authorization: Bearer 
 响应：200 `{"success":true,"data":{"task_id"}}`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entries -H "X-API-Key: $API_KEY" \
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entries/batch -H "X-API-Key: $API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"mode":"append","entries":[{"standard_question":"如何退款?","answers":["联系客服"]}]}'
 ```
 
-### POST /api/v1/knowledge-bases/:id/faq/entry
+### POST /api/v1/knowledge-bases/:id/faq/entries
 
 用途：创建单条 FAQ。请求体（`types.FAQEntryPayload`）：
 
@@ -84,7 +84,7 @@ curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entries -H "X-API-Key: $API_K
 响应：200 `{"success":true,"data":{FAQEntry}}`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entry -H "Authorization: Bearer $TOKEN" \
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entries -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"standard_question":"如何退款?","answers":["7 天内可退"]}'
 ```
 
@@ -190,11 +190,11 @@ curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/faq/import/last-result/display \
 curl $BASE/api/v1/faq/import/progress/task-1 -H "X-API-Key: $API_KEY"
 ```
 
-## Wiki（/api/v1/knowledgebase/:kb_id/wiki）
+## Wiki（/api/v1/knowledge-bases/:id/wiki）
 
-注意此组前缀为 `/knowledgebase/:kb_id/wiki`（单数，无连字符）。Handler: `internal/handler/wiki_page.go`。本组响应多为**原始对象**（不带 `success` 包装）。
+Handler: `internal/handler/wiki_page.go`。本组成功响应多为**原始对象**（不带 `success` 包装），错误响应统一输出标准 `AppError` 信封（例如乐观锁冲突返回 409、`error.code=2500`、`error.details={"current_version": n}`）。
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/pages
+### GET /api/v1/knowledge-bases/:id/wiki/pages
 
 用途：Wiki 页面列表。
 
@@ -212,53 +212,53 @@ curl $BASE/api/v1/faq/import/progress/task-1 -H "X-API-Key: $API_KEY"
 响应：200 `WikiPageListResponse`
 
 ```bash
-curl "$BASE/api/v1/knowledgebase/kb-1/wiki/pages?page=1" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledge-bases/kb-1/wiki/pages?page=1" -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/knowledgebase/:kb_id/wiki/pages
+### POST /api/v1/knowledge-bases/:id/wiki/pages
 
 用途：创建页面。请求体（`types.WikiPage`）：`slug`、`title`、`content`、`folder_id`、`page_type` 等（均可选，slug 缺省自动生成）。
 
 响应：201 `WikiPage`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/pages -H "Authorization: Bearer $TOKEN" \
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/wiki/pages -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"title":"架构概览","content":"# 概览"}'
 ```
 
-### PUT /api/v1/knowledgebase/:kb_id/wiki/move-page
+### PUT /api/v1/knowledge-bases/:id/wiki/move-page
 
 用途：移动页面到目录。请求体：`{"slug":"<页面slug>","folder_id":"<目录ID|空=根>"}`（slug 必填）。
 
 响应：200 `WikiPage`
 
 ```bash
-curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/move-page -H "Authorization: Bearer $TOKEN" \
+curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/wiki/move-page -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"slug":"overview","folder_id":"f-1"}'
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/pages/*slug
+### GET /api/v1/knowledge-bases/:id/wiki/pages/*slug
 
 用途：获取页面（`*slug` 为通配路径）。
 
 响应：200 `WikiPageDetail`。保留 `WikiPage` 的所有字段，并增加 `in_link_titles`，将 `in_links` 中存在的页面 slug 映射为展示标题，例如 `{"concept/example":"示例标题"}`。没有可解析的反向链接时返回空对象；不存在的目标不出现在映射中。标题查询失败时返回 500，避免返回不完整的成功响应。
 
 ```bash
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN"
 ```
 
-### PUT /api/v1/knowledgebase/:kb_id/wiki/pages/*slug
+### PUT /api/v1/knowledge-bases/:id/wiki/pages/*slug
 
 用途：更新页面（请求体同创建）。旧版本会先整份快照进 `wiki_page_revisions`，`version` 递增，`last_edit_source` 记为 `user`（Agent 工具写入时为 `agent`）。
 
 响应：200 `WikiPage`
 
 ```bash
-curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN" \
+curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"content":"# 更新后的概览"}'
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/revisions/*slug
+### GET /api/v1/knowledge-bases/:id/wiki/revisions/*slug
 
 用途：页面版本历史（migration `000075`）。权限：Viewer+ + KBAccessRead。
 
@@ -274,12 +274,12 @@ curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/pages/overview -H "Authorizatio
 
 ```bash
 # 历史列表
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/revisions/entity/acme-corp -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/revisions/entity/acme-corp -H "Authorization: Bearer $TOKEN"
 # 取第 3 版全文
-curl "$BASE/api/v1/knowledgebase/kb-1/wiki/revisions/entity/acme-corp?version=3" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledge-bases/kb-1/wiki/revisions/entity/acme-corp?version=3" -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/knowledgebase/:kb_id/wiki/revert
+### POST /api/v1/knowledge-bases/:id/wiki/revert
 
 用途：把页面回滚到某个历史版本。权限：KB owner 或 Admin+ + KBAccessWrite。
 
@@ -293,31 +293,31 @@ curl "$BASE/api/v1/knowledgebase/kb-1/wiki/revisions/entity/acme-corp?version=3"
 响应：200 `WikiPage`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/revert -H "Authorization: Bearer $TOKEN" \
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/wiki/revert -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"slug":"entity/acme-corp","version":3}'
 ```
 
-### DELETE /api/v1/knowledgebase/:kb_id/wiki/pages/*slug
+### DELETE /api/v1/knowledge-bases/:id/wiki/pages/*slug
 
 用途：删除页面。
 
 响应：204 No Content
 
 ```bash
-curl -X DELETE $BASE/api/v1/knowledgebase/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN"
+curl -X DELETE $BASE/api/v1/knowledge-bases/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN"
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/folders
+### GET /api/v1/knowledge-bases/:id/wiki/folders
 
 用途：目录列表。查询参数：`parent_id`（空=根）、`page_types`（逗号分隔）。
 
 响应：200 `WikiFolderListResponse`
 
 ```bash
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/folders -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/folders -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/knowledgebase/:kb_id/wiki/folders
+### POST /api/v1/knowledge-bases/:id/wiki/folders
 
 用途：创建目录。
 
@@ -329,46 +329,46 @@ curl $BASE/api/v1/knowledgebase/kb-1/wiki/folders -H "Authorization: Bearer $TOK
 响应：201 `WikiFolder`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/folders -H "Authorization: Bearer $TOKEN" \
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/wiki/folders -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"name":"设计文档"}'
 ```
 
-### PUT /api/v1/knowledgebase/:kb_id/wiki/folders/:folder_id
+### PUT /api/v1/knowledge-bases/:id/wiki/folders/:folder_id
 
 用途：重命名/移动目录。请求体：`name`、`parent_id`、`move_parent`（bool），均可选。
 
 响应：200 `WikiFolder`
 
 ```bash
-curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/folders/f-1 -H "Authorization: Bearer $TOKEN" \
+curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/wiki/folders/f-1 -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"name":"架构设计"}'
 ```
 
-### DELETE /api/v1/knowledgebase/:kb_id/wiki/folders/:folder_id
+### DELETE /api/v1/knowledge-bases/:id/wiki/folders/:folder_id
 
 用途：删除目录。
 
 响应：204 No Content
 
 ```bash
-curl -X DELETE $BASE/api/v1/knowledgebase/kb-1/wiki/folders/f-1 -H "Authorization: Bearer $TOKEN"
+curl -X DELETE $BASE/api/v1/knowledge-bases/kb-1/wiki/folders/f-1 -H "Authorization: Bearer $TOKEN"
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/index
+### GET /api/v1/knowledge-bases/:id/wiki/index
 
 用途：Wiki 索引页（按类型分组窗口）。查询参数：`types`（逗号分隔）、`limit`（1-200，默认 50）、`cursor`（游标）。
 
 响应：200 `WikiIndexResponse`
 
 ```bash
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/index -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/index -H "Authorization: Bearer $TOKEN"
 ```
 
 ::: warning 已移除
-`GET /api/v1/knowledgebase/:kb_id/wiki/log`（Wiki 变更日志）已随 migration `000077_remove_wiki_log` 一并下线，`wiki_log_entries` 表被删除。Wiki 变更现在统一投影到知识库活动流，改用 `GET /api/v1/knowledge-bases/:id/activity`。
+`GET /api/v1/knowledge-bases/:id/wiki/log`（Wiki 变更日志）已随 migration `000077_remove_wiki_log` 一并下线，`wiki_log_entries` 表被删除。Wiki 变更现在统一投影到知识库活动流，改用 `GET /api/v1/knowledge-bases/:id/activity`。
 :::
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/graph
+### GET /api/v1/knowledge-bases/:id/wiki/graph
 
 用途：页面关系图。
 
@@ -383,20 +383,20 @@ curl $BASE/api/v1/knowledgebase/kb-1/wiki/index -H "Authorization: Bearer $TOKEN
 响应：200 `WikiGraphData`
 
 ```bash
-curl "$BASE/api/v1/knowledgebase/kb-1/wiki/graph?mode=overview" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledge-bases/kb-1/wiki/graph?mode=overview" -H "Authorization: Bearer $TOKEN"
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/stats
+### GET /api/v1/knowledge-bases/:id/wiki/stats
 
 用途：Wiki 统计。
 
 响应：200 `WikiStats`
 
 ```bash
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/stats -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/stats -H "Authorization: Bearer $TOKEN"
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/search
+### GET /api/v1/knowledge-bases/:id/wiki/search
 
 用途：页面搜索。查询参数：`q`（必填）、`limit`（默认 10）。
 
@@ -408,7 +408,7 @@ curl $BASE/api/v1/knowledgebase/kb-1/wiki/stats -H "Authorization: Bearer $TOKEN
 响应：200 `{"pages":[WikiPage]}`
 
 ```bash
-curl "$BASE/api/v1/knowledgebase/kb-1/wiki/search?q=部署" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledge-bases/kb-1/wiki/search?q=部署" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### POST /api/v1/wiki-search
@@ -424,7 +424,7 @@ curl "$BASE/api/v1/knowledgebase/kb-1/wiki/search?q=部署" -H "Authorization: B
 
 任一目标库未开启 wiki → 400。库不存在或无读权限 → 404。API Key 白名单越权 → 403。非法正则（Postgres）→ 400。
 
-响应：200 `{"success":true,"data":[WikiSearchHit]}`。命中只含导航字段 + `match_snippet`，不含正文；全文用 `GET /knowledgebase/:kb_id/wiki/pages/{slug}`。
+响应：200 `{"success":true,"data":[WikiSearchHit]}`。命中只含导航字段 + `match_snippet`，不含正文；全文用 `GET /knowledge-bases/:id/wiki/pages/{slug}`。
 
 | 响应字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -445,54 +445,54 @@ curl -X POST $BASE/api/v1/wiki-search -H "X-API-Key: $API_KEY" \
   -d '{"query":"部署|发布","knowledge_base_ids":["kb-1","kb-2"],"limit":10}'
 ```
 
-### POST /api/v1/knowledgebase/:kb_id/wiki/rebuild-links
+### POST /api/v1/knowledge-bases/:id/wiki/rebuild-links
 
 用途：重建页面互链。写权限。无请求体。
 
 响应：200 `{"message":"Links rebuilt successfully"}`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/rebuild-links -H "Authorization: Bearer $TOKEN"
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/wiki/rebuild-links -H "Authorization: Bearer $TOKEN"
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/lint
+### GET /api/v1/knowledge-bases/:id/wiki/lint
 
 用途：Wiki 一致性检查报告。
 
 响应：200 `WikiLintReport`
 
 ```bash
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/lint -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/lint -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/knowledgebase/:kb_id/wiki/auto-fix
+### POST /api/v1/knowledge-bases/:id/wiki/auto-fix
 
 用途：自动修复 lint 问题。写权限。无请求体。
 
 响应：200 `{"fixed":N,"message":"Auto-fixed N issues"}`
 
 ```bash
-curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/auto-fix -H "Authorization: Bearer $TOKEN"
+curl -X POST $BASE/api/v1/knowledge-bases/kb-1/wiki/auto-fix -H "Authorization: Bearer $TOKEN"
 ```
 
-### GET /api/v1/knowledgebase/:kb_id/wiki/issues
+### GET /api/v1/knowledge-bases/:id/wiki/issues
 
 用途：问题列表。查询参数：`slug`（按页面过滤）、`status`（`pending/ignored/resolved`）。
 
 响应：200 `[WikiPageIssue]`
 
 ```bash
-curl $BASE/api/v1/knowledgebase/kb-1/wiki/issues -H "Authorization: Bearer $TOKEN"
+curl $BASE/api/v1/knowledge-bases/kb-1/wiki/issues -H "Authorization: Bearer $TOKEN"
 ```
 
-### PUT /api/v1/knowledgebase/:kb_id/wiki/issues/:issue_id/status
+### PUT /api/v1/knowledge-bases/:id/wiki/issues/:issue_id/status
 
 用途：更新问题状态。写权限。请求体：`{"status":"pending|ignored|resolved"}`（`binding:"required"`）。`issue_id` 必须属于路径中的知识库，否则 404。
 
 响应：200 `{"message":"Issue status updated successfully"}`
 
 ```bash
-curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/issues/i-1/status -H "Authorization: Bearer $TOKEN" \
+curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/wiki/issues/i-1/status -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"status":"resolved"}'
 ```
 

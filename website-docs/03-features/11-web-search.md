@@ -66,7 +66,7 @@ registry.Add(infra_web_search.Spec{Type: "searchapi", FilteredSearch: infra_web_
 | `proxy_url` | string | 空 | 可选出站 HTTP/HTTPS 代理（仅隧道流量，不替换 API 端点），同样过 SSRF 校验 |
 | `extra_config` | map[string]string | nil | 提供商特定参数，如 Metaso scope、Exa include_text、Bocha freshness/summary |
 
-CRUD 路由（`RegisterWebSearchProviderRoutes`，`internal/router/routes_infra.go`）：`/web-search-providers` 下的增删改查、`POST /test`（用未保存的参数试连）、`POST /:id/test`（测试已保存配置）、`PUT /:id/credentials` 与 `DELETE /:id/credentials/:field`，测试与写操作均需 Admin；另有 `GET /web-search/providers` 返回可用引擎类型目录。完整接口见[基础设施 API](../04-api/02-api-infra.md)。
+CRUD 路由（`RegisterWebSearchProviderRoutes`，`internal/router/routes_infra.go`）：`/web-search-providers` 下的增删改查、`GET /web-search-providers/types`（可用引擎类型目录）、`POST /test`（用未保存的参数试连）、`POST /:id/test`（测试已保存配置）、`PUT /:id/credentials` 与 `DELETE /:id/credentials/:field`，测试与写操作均需 Admin。完整接口见[基础设施 API](../04-api/02-api-infra.md)。
 
 ## Agent 搜索与读页
 
@@ -203,5 +203,5 @@ func (r *Registry) NewSearcher(providerType string, params types.WebSearchProvid
 1. 在 `internal/infrastructure/web_search/` 新建 `<engine>.go`，实现 `interfaces.WebSearcher`，并提供工厂函数 `func New<Engine>Provider(params types.WebSearchProviderParameters) (interfaces.WebSearcher, error)`；官方端点应硬编码为常量，HTTP 客户端用 `NewSearchHTTPClient(timeout, params.ProxyURL)` 构造。
 2. 在 `internal/types/web_search_provider.go` 增加 `WebSearchProviderType` 常量。
 3. 在 `internal/container/container.go` 的 `registerWebSearchProviders()` 中追加 `infra_web_search.Spec{Type: "<engine>", Search: infra_web_search.New<Engine>Provider}`；支持过滤条件时设 `Filters: true`，有自带读页 API 时设 `Fetch`。
-4. 如需密钥/额外参数校验，在 web search provider service 的参数校验分支中补充（参考 `ValidateSearxngBaseURL` 的共享校验模式），并为前端 `GET /web-search/providers` 目录补充展示信息。
+4. 如需密钥/额外参数校验，在 web search provider service 的参数校验分支中补充（参考 `ValidateSearxngBaseURL` 的共享校验模式），并为前端 `GET /web-search-providers/types` 目录补充展示信息。
 5. 参考 `searxng_test.go` / `zhipu_test.go` 用 `httptest` 模拟上游编写单测。

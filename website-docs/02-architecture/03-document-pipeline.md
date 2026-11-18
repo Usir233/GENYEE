@@ -75,7 +75,7 @@ kb.POST("/manual", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.CreateManu
 
 ### 文件上传（CreateKnowledgeFromFile） {#_2-1-文件上传-createknowledgefromfile}
 
-- 表单参数：`file`、`fileName`、`metadata`、`enable_multimodel`、`tag_ids`、`process_config`（每次上传可覆盖 KB 级处理配置，见 [处理配置：KB 默认值 + 单次上传覆盖](#_5-处理配置-kb-默认值-单次上传覆盖)）。
+- 表单参数：`file`、`file_name`、`metadata`、`enable_multimodal`、`tag_ids`、`process_config`（每次上传可覆盖 KB 级处理配置，见 [处理配置：KB 默认值 + 单次上传覆盖](#_5-处理配置-kb-默认值-单次上传覆盖)）。
 - 流程：扩展名校验 → MD5 去重 → `FileService.SaveFile` 存储 → 创建 `Knowledge` 记录 → 入队。
 
 ### 统一的扩展名闸门 {#_2-1-1-统一的扩展名闸门}
@@ -96,7 +96,7 @@ mp3 wav m4a flac ogg
 
 ### URL 导入（CreateKnowledgeFromURL） {#_2-2-url-导入-createknowledgefromurl}
 
-- JSON Body：`{url, file_name?, file_type?, enable_multimodel?, title?, tag_ids?, channel?, process_config?}`。
+- JSON Body：`{url, file_name?, file_type?, enable_multimodal?, title?, tag_ids?, channel?, process_config?}`。
 - `isFileURL()` 按上面的统一扩展名集合判断这是「下载文件」还是「抓取网页」。
 - Handler 与 Service 双层做 SSRF 防护（`internal/handler/knowledge.go` 与 `knowledge_create.go` 均调用）：
 

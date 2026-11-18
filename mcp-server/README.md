@@ -119,6 +119,7 @@ python test_module.py
 ### 知识库管理
 - `create_knowledge_base` - 创建知识库
 - `list_knowledge_bases` - 列出知识库
+- `list_shared_knowledge_bases` - 列出跨空间共享的知识库
 - `get_knowledge_base` - 获取知识库详情
 - `delete_knowledge_base` - 删除知识库
 - `hybrid_search` - 混合搜索
@@ -143,9 +144,11 @@ python test_module.py
 - `list_sessions` - 列出会话
 - `delete_session` - 删除会话
 
-### 聊天功能
+### 聊天与智能体
 - `chat` - 发送聊天消息
 - `agent_chat` - 调用智能体完成多步检索与工具调用
+- `list_agents` - 列出当前空间可用的智能体
+- `get_agent` - 获取单个智能体配置详情
 
 当对话被主动停止时，`chat` 和 `agent_chat` 返回已收到的回答内容，并附带 `"stopped": true`。
 
@@ -156,6 +159,11 @@ python test_module.py
 ### 块管理
 - `list_chunks` - 列出知识块
 - `delete_chunk` - 删除知识块
+
+### Wiki 知识页查询
+- `wiki_search` - 全文搜索 Wiki 页面
+- `wiki_read_page` - 按分层 slug 读取完整 Wiki 页面
+- `wiki_index_view` - 获取按类型分组的 Wiki 目录索引
 
 ## 故障排除
 

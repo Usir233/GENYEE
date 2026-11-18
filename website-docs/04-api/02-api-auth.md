@@ -158,14 +158,14 @@ curl -i "$BASE/api/v1/auth/oidc/callback?code=xxx&state=yyy"
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `refreshToken` | string | 是（`binding:"required"`） | refresh token |
+| `refresh_token` | string | 是（`binding:"required"`） | refresh token |
 
 响应：200 `{"success":true,"access_token":"...","refresh_token":"..."}`
 
 刷新令牌只能使用一次；撤销旧令牌与保存新令牌在同一事务内完成。新令牌仍属于原登录会话，随后登出会同时撤销该会话的所有轮换代次。
 
 ```bash
-curl -X POST $BASE/api/v1/auth/refresh -H 'Content-Type: application/json' -d '{"refreshToken":"<rt>"}'
+curl -X POST $BASE/api/v1/auth/refresh -H 'Content-Type: application/json' -d '{"refresh_token":"<rt>"}'
 ```
 
 ### GET /api/v1/auth/validate
