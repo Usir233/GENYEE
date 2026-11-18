@@ -36,8 +36,8 @@ function provider(overrides: Partial<ModelProviderOption> & Pick<ModelProviderOp
   return {
     label: overrides.value,
     description: '',
-    defaultUrls: {},
-    modelTypes: ['chat'],
+    default_urls: {},
+    model_types: ['chat'],
     ...overrides,
   }
 }
@@ -118,7 +118,7 @@ test('sortProviders orders by backend order then label', () => {
 
 test('sortProviders survives rows with neither label nor value', () => {
   const sorted = sortProviders([
-    { description: '', defaultUrls: {}, modelTypes: [] } as unknown as ModelProviderOption,
+    { description: '', default_urls: {}, model_types: [] } as unknown as ModelProviderOption,
     provider({ value: 'openai', label: 'OpenAI' }),
   ])
   assert.equal(sorted.length, 2)

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowReactive, shallowRef, watch } from 'vue'
-import type { PageContextPayload, PageSelectionPayload } from '@/api/chat/streame'
+import type { PageContextPayload, PageSelectionPayload } from '@/api/chat/stream'
 import {
   DEFAULT_ASSISTANT_ACCESS_LEVEL,
   capAssistantAccessLevel,

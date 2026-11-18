@@ -37,7 +37,7 @@ export interface UploadConfirmResult {
 
 export interface OpenUploadConfirmOptions {
   mode: UploadConfirmMode
-  kbInfo: any
+  kbInfo: Record<string, unknown> | null
   tagIds?: string[]
   files?: File[]
   urls?: string[]
@@ -55,7 +55,7 @@ export const useUploadConfirmStore = defineStore('uploadConfirm', {
   state: () => ({
     visible: false,
     mode: 'file' as UploadConfirmMode,
-    kbInfo: null as any,
+    kbInfo: null as Record<string, unknown> | null,
     files: [] as File[],
     urls: [] as string[],
     tagIds: [] as string[],

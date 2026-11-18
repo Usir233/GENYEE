@@ -40,8 +40,10 @@ vm.runInNewContext(compiled, {
 })
 const useChatStreamHandler = exports.useChatStreamHandler!
 
+type DynamicRow = ReturnType<typeof JSON.parse>
+
 function setup() {
-  const messagesList = vue.reactive<Record<string, any>[]>([])
+  const messagesList = vue.reactive<DynamicRow[]>([])
   const handler = useChatStreamHandler({
     messagesList, loading: vue.ref(false), isReplying: vue.ref(false),
     currentAssistantMessageId: vue.ref(''), fullContent: vue.ref(''),

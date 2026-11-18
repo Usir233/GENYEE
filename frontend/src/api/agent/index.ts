@@ -358,7 +358,7 @@ export interface IMChannel {
   locale?: '' | 'zh-CN' | 'zh-TW' | 'en-US' | 'ko-KR' | 'ja-JP' | 'ru-RU';
   session_mode?: 'user' | 'thread';
   knowledge_base_id?: string;
-  credentials: Record<string, any>;
+  credentials: Record<string, string | number | boolean | undefined>;
   created_at?: string;
   updated_at?: string;
 }

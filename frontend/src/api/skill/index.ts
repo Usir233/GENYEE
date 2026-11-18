@@ -81,9 +81,9 @@ export function registerSkillCatalogFromFile(
 ) {
   const form = new FormData();
   form.append('file', file);
-  return postUpload('/api/v1/skills/catalog', form, (e: any) => {
+  return postUpload<{ data: SkillCatalogRegisterResult }>('/api/v1/skills/catalog', form, (e) => {
     if (e.total) onProgress?.(Math.round((e.loaded * 100) / e.total));
-  }, { timeout: 5 * 60 * 1000 }) as Promise<{ data: SkillCatalogRegisterResult }>;
+  }, { timeout: 5 * 60 * 1000 });
 }
 
 export function installSkillCatalog(catalogId: string, sandboxConfigIds: string[]) {

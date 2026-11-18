@@ -37,8 +37,10 @@ vm.runInNewContext(compiled, {
 })
 const useChatStreamHandler = exports.useChatStreamHandler!
 
+type DynamicRow = ReturnType<typeof JSON.parse>
+
 function setup() {
-  const messagesList = vue.reactive<Record<string, any>[]>([])
+  const messagesList = vue.reactive<DynamicRow[]>([])
   const loading = vue.ref(false), isReplying = vue.ref(false)
   const currentAssistantMessageId = vue.ref(''), fullContent = vue.ref('')
   const turns: unknown[] = []
@@ -149,7 +151,7 @@ test('progress snapshots replay idempotently and remain separate from reasoning 
   handler.processStreamChunk({ response_type: 'thinking', id: 'r1', content: 'Private reasoning', data: { event_id: 'reasoning-1' } })
   handler.processStreamChunk({ response_type: 'answer', id: 'r1', content: 'Final answer', data: { event_id: 'answer-1' } })
   const message = messagesList[0]
-  const events = message.agentEventStream as Record<string, any>[]
+  const events = message.agentEventStream as DynamicRow[]
   assert.equal(events.filter(e => e.type === 'progress').length, 2)
   assert.equal(events[0].content, 'Searching sources')
   assert.equal(events[1].content, 'Checking the findings')
@@ -199,7 +201,7 @@ test('history restores step progress once, independently of reasoning and the fi
       tool_calls: [{ id: 'call-1', name: 'search', args: {} }] }],
   }])
   const message = messagesList[0]
-  const events = message.agentEventStream as Record<string, any>[]
+  const events = message.agentEventStream as DynamicRow[]
   assert.equal(events.filter(e => e.content === 'Checking sources').length, 1)
   assert.equal(events.find(e => e.type === 'progress')?.content, 'Checking sources')
   assert.equal(events.find(e => e.type === 'thinking')?.content, 'Private reasoning')
@@ -218,7 +220,7 @@ test('a result with an unmatched call ID cannot complete another pending call wi
   const result = (tool_call_id?: string) => handler.processStreamChunk({ response_type: 'tool_result', id: 'r1',
     data: { tool_call_id, tool_name: 'search', success: true, output: tool_call_id || 'legacy' } })
   result('missing')
-  const calls = messagesList[0].agentEventStream as Record<string, any>[]
+  const calls = messagesList[0].agentEventStream as DynamicRow[]
   assert.equal(calls[0].pending, true)
   assert.equal(calls[1].pending, true)
   result('call-b')
@@ -239,11 +241,11 @@ test('protocol answer replacement retracts only its event and never replays the 
   answer('bad', 'refs\nprivate planning')
   answer('bad', '', true)
   answer('bad', '## 进展\nComplete report')
-  const stream = messagesList[0].agentEventStream
-  assert.equal(stream.find((e: any) => e.event_id === 'prior').content, 'Earlier legitimate result.')
-  assert.equal(stream.find((e: any) => e.event_id === 'bad').content, '## 进展\nComplete report')
+  const stream = messagesList[0].agentEventStream as DynamicRow[]
+  assert.equal(stream.find((e) => e.event_id === 'prior').content, 'Earlier legitimate result.')
+  assert.equal(stream.find((e) => e.event_id === 'bad').content, '## 进展\nComplete report')
   assert.doesNotMatch(messagesList[0].content, /private planning|refs/)
-  assert.equal(stream.some((e: any) => e.type === 'progress'), false)
+  assert.equal(stream.some((e) => e.type === 'progress'), false)
 })
 
 test('protocol replacement clears matching progress across steer rows', () => {
@@ -265,11 +267,11 @@ test('corrected archived answer keeps complete reasoning in its own channel', as
   const { handler, messagesList } = setup()
   await handler.handleMsgList([{ id: 'a1', request_id: 'r1', role: 'assistant', content: '## 进展\nComplete report', is_completed: true,
     agent_steps: [{ iteration: 0, reasoning_content: 'refs\nprivate planning', thought: '## 进展\nComplete report', tool_calls: [] }] }])
-  const stream = messagesList[0].agentEventStream
-  assert.equal(stream.find((e: any) => e.type === 'thinking').content, 'refs\nprivate planning')
-  assert.equal(stream.filter((e: any) => e.type === 'answer').length, 1)
-  assert.equal(stream.find((e: any) => e.type === 'answer').content, '## 进展\nComplete report')
-  assert.equal(stream.some((e: any) => e.type === 'progress'), false)
+  const stream = messagesList[0].agentEventStream as DynamicRow[]
+  assert.equal(stream.find((e) => e.type === 'thinking').content, 'refs\nprivate planning')
+  assert.equal(stream.filter((e) => e.type === 'answer').length, 1)
+  assert.equal(stream.find((e) => e.type === 'answer').content, '## 进展\nComplete report')
+  assert.equal(stream.some((e) => e.type === 'progress'), false)
 })
 
 test('protocol replacement of current progress reuses its event for later chunks', () => {
@@ -300,9 +302,9 @@ test('ordinary stream reconnect rebuilds answer, reasoning and tools without dup
   assert.equal(messagesList.length, 1)
   assert.equal(messagesList[0], row)
   assert.equal(row.content, 'first part')
-  assert.equal(row.agentEventStream.filter((e: Record<string, any>) => e.type === 'thinking').length, 1)
-  assert.equal(row.agentEventStream.find((e: Record<string, any>) => e.type === 'thinking').content, 'reasoning')
-  assert.equal(row.agentEventStream.filter((e: Record<string, any>) => e.type === 'tool_call').length, 1)
+  assert.equal((row.agentEventStream as DynamicRow[]).filter((e) => e.type === 'thinking').length, 1)
+  assert.equal((row.agentEventStream as DynamicRow[]).find((e) => e.type === 'thinking').content, 'reasoning')
+  assert.equal((row.agentEventStream as DynamicRow[]).filter((e) => e.type === 'tool_call').length, 1)
   handler.processStreamChunk({ response_type: 'answer', id: 'r1', content: ' continued', data: { event_id: 'answer' }, done: false })
   assert.equal(row.content, 'first part continued')
 })

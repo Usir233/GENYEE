@@ -167,7 +167,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
 
   const agentTypePresetsResource = createCachedResource(
     async () => {
-      const presetsRes: any = await getAgentTypePresets()
+      const presetsRes = await getAgentTypePresets()
       return presetsRes?.data && Array.isArray(presetsRes.data) ? (presetsRes.data as AgentTypePreset[]) : []
     },
     (rows) => {
@@ -177,7 +177,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
 
   const agentToolsResource = createCachedResource(
     async () => {
-      const res: any = await getAgentTools()
+      const res = await getAgentTools()
       return res?.data && Array.isArray(res.data.tools) ? (res.data as AgentToolCatalog) : null
     },
     (catalog) => {
@@ -207,7 +207,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
 
   const tenantRetrievalConfigResource = createCachedResource(
     async () => {
-      const retrievalRes: any = await getTenantRetrievalConfig()
+      const retrievalRes = await getTenantRetrievalConfig()
       return (retrievalRes?.data ?? null) as Record<string, unknown> | null
     },
     (config) => {

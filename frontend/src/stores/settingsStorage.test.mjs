@@ -19,7 +19,7 @@ function reconcileBuiltinAgentMode(settings) {
 }
 
 function cloneSettings(settings) {
-  return JSON.parse(JSON.stringify(settings));
+  return structuredClone(settings);
 }
 
 function isStoredSettingsRecord(value) {
@@ -37,7 +37,7 @@ function reconcileLoadedSettings(loaded) {
   return loaded;
 }
 
-function resetStoredSettings(defaultSettings, reason) {
+function resetStoredSettings(defaultSettings, _reason) {
   localStorage.removeItem(SETTINGS_STORAGE_KEY);
   return reconcileLoadedSettings(cloneSettings(defaultSettings));
 }

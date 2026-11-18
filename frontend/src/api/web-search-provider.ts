@@ -94,7 +94,7 @@ export function deleteWebSearchProvider(id: string) {
 
 // Get available provider types (for dynamic form rendering)
 export function listWebSearchProviderTypes(): Promise<WebSearchProviderTypeInfo[]> {
-  return get('/api/v1/web-search-providers/types').then((res: any) => {
+  return get<{ success?: boolean; data?: WebSearchProviderTypeInfo[] }>('/api/v1/web-search-providers/types').then((res) => {
     if (res.success && res.data) {
       return res.data
     }
@@ -116,7 +116,10 @@ export async function putWebSearchProviderCredentials(
   id: string,
   body: Partial<Record<WebSearchCredentialField, string>>,
 ): Promise<WebSearchCredentialsResponse> {
-  const response: any = await put(`/api/v1/web-search-providers/${id}/credentials`, body)
+  const response = await put<{ data?: WebSearchCredentialsResponse } & Partial<WebSearchCredentialsResponse>>(
+    `/api/v1/web-search-providers/${id}/credentials`,
+    body,
+  )
   return (response.data ?? response) as WebSearchCredentialsResponse
 }
 
@@ -130,7 +133,10 @@ export async function deleteWebSearchProviderCredentialField(
 // Test a web search provider connection.
 // If id is provided, tests the existing saved provider.
 // If data is provided, tests with raw credentials (no persistence).
-export function testWebSearchProvider(id?: string, data?: { provider: string; parameters: any }): Promise<any> {
+export function testWebSearchProvider(
+  id?: string,
+  data?: { provider: string; parameters: Partial<WebSearchProviderEntity['parameters']> & Record<string, unknown> },
+) {
   if (id) {
     return post(`/api/v1/web-search-providers/${id}/test`, {})
   }

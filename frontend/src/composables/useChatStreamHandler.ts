@@ -7,9 +7,9 @@ import { useI18n } from 'vue-i18n'
 import { ensureRagPipelineHistoryStream } from '@/utils/rag-pipeline-history'
 import { applyMessageCreatedAt, bindServerTurnTimestamps, ensureMessageCreatedAt } from '@/utils/messageTimestamp'
 import { expandSteerForksInHistory, forkAfterInjectedUser, persistedAssistantId, steerStepEvents, resetSteerTurnForReplay } from '@/utils/steerStreamFork'
-import type { CollaborationStatus, CollaborationTaskStatus } from '@/api/chat/streamTypes'
+import type { CollaborationStatus, CollaborationTaskStatus } from '@/api/chat/stream-types'
 
-export type { CollaborationStatus, CollaborationTaskStatus } from '@/api/chat/streamTypes'
+export type { CollaborationStatus, CollaborationTaskStatus } from '@/api/chat/stream-types'
 export type ChatMessage = Record<string, unknown> & {
   collaborationStatus?: CollaborationStatus
   collaboration_status?: CollaborationStatus
@@ -81,20 +81,50 @@ export function isAwaitingInput(message: ChatMessage | undefined): boolean {
   return message?.run_state === AWAITING_INPUT
 }
 
+interface PersistedPromptRecord {
+  id?: string
+  kind?: string
+  status?: string
+  close_reason?: string
+  created_at?: string
+  expires_at?: unknown
+  tool_call_id?: string
+  delegated_task?: string
+  request?: {
+    question?: string
+    service_name?: string
+    mcp_tool_name?: string
+    description?: string
+    args?: unknown
+    grant_scope?: unknown
+    grant_lapsed?: unknown
+    [key: string]: unknown
+  }
+  response?: {
+    reason?: string
+    declined?: boolean
+    approved?: boolean
+    modified_args?: unknown
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
 /** Rebuilds open and resolved prompt cards from durable history. */
 export function pendingPromptEvents(prompt: unknown): ChatMessage[] {
-  const p = prompt as Record<string, any> | undefined
+  const p = (prompt && typeof prompt === 'object' ? prompt : undefined) as PersistedPromptRecord | undefined
   if (!p?.id) return []
-  const request = (p.request || {}) as Record<string, any>
+  const request = p.request || {}
   const createdAt = Date.parse(String(p.created_at || ''))
   const requestedAt = Number.isNaN(createdAt) ? undefined : Math.floor(createdAt / 1000)
   const response = p.response || {}
-  const resolved = Boolean(p.status && !['pending', 'suspended'].includes(p.status))
+  const status = String(p.status || '')
+  const resolved = Boolean(status && !['pending', 'suspended'].includes(status))
   const state = {
     resolved,
     timestamp: Number.isNaN(createdAt) ? undefined : createdAt,
-    canceled: p.status === 'canceled',
-    abandoned: ['expired', 'superseded'].includes(p.status),
+    canceled: status === 'canceled',
+    abandoned: ['expired', 'superseded'].includes(status),
     resolve_reason: p.close_reason || response.reason,
     suspended: !resolved,
   }
@@ -1475,7 +1505,7 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
         break
       }
       case 'artifacts_pending': {
-        const pendingCount = Number((dataPayload as any)?.count)
+        const pendingCount = Number(dataPayload?.count)
         message.artifactsCollecting = true
         if (Number.isFinite(pendingCount) && pendingCount > 0) {
           message.artifactsPendingCount = pendingCount
@@ -1538,7 +1568,7 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
       case 'complete': {
         if (dataId) replaySegments.delete(dataId)
         log('[Agent] Complete event received')
-        applyFinalArtifactContent(message, (dataPayload as any)?.final_content)
+        applyFinalArtifactContent(message, dataPayload?.final_content)
         loading.value = false
         isReplying.value = false
         message.is_completed = true
@@ -1552,12 +1582,12 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
         // getMessageList which does include the artifacts JSON column).
         // botmsg.vue / AgentStreamDisplay.vue read `message.artifacts`
         // reactively to decide whether to render the download button.
-        const streamedArtifacts = (dataPayload as any)?.artifacts
+        const streamedArtifacts = dataPayload?.artifacts
         if (Array.isArray(streamedArtifacts) && streamedArtifacts.length) {
           message.artifacts = streamedArtifacts
         }
         message.artifactsCollecting = false
-        const usage = (dataPayload as any)?.usage || (data as any).usage
+        const usage = dataPayload?.usage || data.usage
         if (usage) {
           message.usage = usage
         }

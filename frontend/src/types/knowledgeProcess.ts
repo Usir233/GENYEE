@@ -66,7 +66,7 @@ export interface KnowledgeProcessOverrides {
   summary_enabled?: boolean
   parser_engine_rules?: ParserEngineRule[]
   chunking_config?: ChunkingConfigOverride
-  enable_multimodel?: boolean
+  enable_multimodal?: boolean
   vlm_config?: VLMConfigOverride
   asr_config?: ASRConfigOverride
   question_generation_config?: QuestionGenerationConfigOverride

@@ -3,7 +3,8 @@ import test from 'node:test'
 import { getChromeExtensionUrl, getClawhubSkillUrl, isIntegrationTabEnabled } from './integrations'
 
 test('W6-CFG-01: getChromeExtensionUrl and getClawhubSkillUrl allow only http(s) URLs', () => {
-  const prevWindow = (globalThis as any).window
+  const hostGlobal = globalThis as unknown as { window?: unknown }
+  const prevWindow = hostGlobal.window
   try {
     for (const unsafe of [
       'javascript:alert(1)',
@@ -12,7 +13,7 @@ test('W6-CFG-01: getChromeExtensionUrl and getClawhubSkillUrl allow only http(s)
       '//evil.example.com/ext',
       '/relative/path',
     ]) {
-      ;(globalThis as any).window = {
+      hostGlobal.window = {
         __RUNTIME_CONFIG__: {
           GENYEE_CHROME_EXTENSION_URL: unsafe,
           GENYEE_CLAWHUB_SKILL_URL: unsafe,
@@ -24,7 +25,7 @@ test('W6-CFG-01: getChromeExtensionUrl and getClawhubSkillUrl allow only http(s)
       assert.equal(isIntegrationTabEnabled('claw'), false)
     }
 
-    ;(globalThis as any).window = {
+    hostGlobal.window = {
       __RUNTIME_CONFIG__: {
         GENYEE_CHROME_EXTENSION_URL: 'https://chromewebstore.google.com/detail/genyee/abc',
         GENYEE_CLAWHUB_SKILL_URL: 'http://localhost:8080/skill',
@@ -35,7 +36,7 @@ test('W6-CFG-01: getChromeExtensionUrl and getClawhubSkillUrl allow only http(s)
     assert.equal(isIntegrationTabEnabled('chrome'), true)
     assert.equal(isIntegrationTabEnabled('claw'), true)
   } finally {
-    if (prevWindow === undefined) delete (globalThis as any).window
-    else (globalThis as any).window = prevWindow
+    if (prevWindow === undefined) delete hostGlobal.window
+    else hostGlobal.window = prevWindow
   }
 })

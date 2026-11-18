@@ -14,6 +14,8 @@ import * as sequencedRefresh from './sequencedRefresh'
 import * as modelProvidersState from './modelProvidersState'
 import * as deploymentCapabilitiesCfg from '../config/deploymentCapabilities'
 
+type DynamicExports = ReturnType<typeof JSON.parse>
+
 function compileFile(relPath: string): string {
   const source = readFileSync(new URL(relPath, import.meta.url), 'utf8')
   return ts.transpileModule(source, {
@@ -68,31 +70,31 @@ test('W6-ST-01: logout and user switch scrub tenant-scoped localStorage and rese
     }),
   )
 
-  const tokenExports: any = {}
+  const tokenExports: DynamicExports = {}
   vm.runInNewContext(compileFile('../utils/authTokens.ts'), {
     exports: tokenExports,
     localStorage: local,
   })
 
-  const agentModeExports: any = {}
-  const settingsStorageExports: any = {}
-  const settingsExports: any = {}
-  const modelProvidersExports: any = {}
-  const browserConnExports: any = {}
-  const menuExports: any = {}
-  const uiExports: any = {}
-  const uploadConfirmExports: any = {}
-  const knowledgeExports: any = {}
-  const assistantExports: any = {}
-  const authExports: any = {}
-  const deployCapExports: any = {}
+  const agentModeExports: DynamicExports = {}
+  const settingsStorageExports: DynamicExports = {}
+  const settingsExports: DynamicExports = {}
+  const modelProvidersExports: DynamicExports = {}
+  const browserConnExports: DynamicExports = {}
+  const menuExports: DynamicExports = {}
+  const uiExports: DynamicExports = {}
+  const uploadConfirmExports: DynamicExports = {}
+  const knowledgeExports: DynamicExports = {}
+  const assistantExports: DynamicExports = {}
+  const authExports: DynamicExports = {}
+  const deployCapExports: DynamicExports = {}
 
   let chatInvalidated = 0
   let editorInvalidated = 0
   let orgCleared = 0
   let protectedCleared = 0
 
-  const sharedRequire = (id: string): any => {
+  const sharedRequire = (id: string): unknown => {
     if (id === 'vue') return vue
     if (id === 'pinia') return pinia
     if (id === '@/i18n') {
@@ -105,7 +107,7 @@ test('W6-ST-01: logout and user switch scrub tenant-scoped localStorage and rese
         BUILTIN_SMART_REASONING_ID: 'builtin-smart-reasoning',
       }
     }
-    if (id === '@/api/auth') return { userInfoFromApi: (u: any) => u }
+    if (id === '@/api/auth') return { userInfoFromApi: (u: unknown) => u }
     if (id === '@/api/initialization') {
       return {
         listModelProviders: async () => [{ value: 'openai', label: 'OpenAI', description: '' }],
@@ -165,6 +167,8 @@ test('W6-ST-01: logout and user switch scrub tenant-scoped localStorage and rese
   const baseCtx = {
     console,
     AbortController,
+    AbortSignal,
+    structuredClone,
     WeakMap,
     Map,
     Set,
@@ -270,11 +274,15 @@ test('W6-ST-01: logout and user switch scrub tenant-scoped localStorage and rese
   assert.equal(storedAfterToggle.apiKey, '')
 
   // 3. Account/workspace-scoped stores must be reset on logout
+  assert.ok(chatInvalidated > 0)
+  assert.ok(editorInvalidated > 0)
+  assert.ok(orgCleared > 0)
+  assert.ok(protectedCleared > 0)
   assert.equal(providers.providersFor('chat').length, 0)
   assert.equal(browserConn.loaded, false)
   assert.equal(browserConn.connected, false)
   assert.equal(browserConn.device, undefined)
-  const chatMenuItem = menu.menuArr.find((m: any) => m.path === 'creatChat')
+  const chatMenuItem = menu.menuArr.find((m: { path?: string }) => m.path === 'creatChat')
   assert.equal(chatMenuItem.children.length, 0, 'Sidebar chat history must be cleared on logout')
   assert.equal(menu.firstQuery, '')
   assert.equal(menu.prefillQuery, '')
@@ -292,17 +300,18 @@ test('W6-ST-01: logout and user switch scrub tenant-scoped localStorage and rese
 
 test('W6-ST-02: cross-tab token removal clears user/tenant principals and late fetchPendingInvitationCount cannot repopulate logged-out session', async () => {
   const local = createMemoryStorage()
-  const storageListeners = new Set<(e: any) => void>()
-  let resolveInviteCount!: (v: any) => void
+  type StorageListener = (e: { key: string; storageArea?: unknown }) => void
+  const storageListeners = new Set<StorageListener>()
+  let resolveInviteCount!: (v: unknown) => void
 
-  const tokenExports: any = {}
+  const tokenExports: DynamicExports = {}
   vm.runInNewContext(compileFile('../utils/authTokens.ts'), {
     exports: tokenExports,
     localStorage: local,
   })
 
-  const authExports: any = {}
-  const ctx: any = {
+  const authExports: DynamicExports = {}
+  const ctx = {
     exports: authExports,
     console,
     Promise,
@@ -319,14 +328,14 @@ test('W6-ST-02: cross-tab token removal clears user/tenant principals and late f
     sessionStorage: createMemoryStorage(),
     globalThis: { localStorage: local },
     window: {
-      addEventListener(type: string, fn: any) { if (type === 'storage') storageListeners.add(fn) },
-      removeEventListener(type: string, fn: any) { if (type === 'storage') storageListeners.delete(fn) },
+      addEventListener(type: string, fn: StorageListener) { if (type === 'storage') storageListeners.add(fn) },
+      removeEventListener(type: string, fn: StorageListener) { if (type === 'storage') storageListeners.delete(fn) },
     },
     require(id: string) {
       if (id === 'vue') return vue
       if (id === 'pinia') return pinia
       if (id === '@/i18n') return { default: { global: { t: (k: string) => k } } }
-      if (id === '@/api/auth') return { userInfoFromApi: (u: any) => u }
+      if (id === '@/api/auth') return { userInfoFromApi: (u: unknown) => u }
       if (id === '@/api/agent') return { BUILTIN_QUICK_ANSWER_ID: 'builtin-quick-answer' }
       if (id === '@/api/tenant/invitations') {
         return {
@@ -390,13 +399,15 @@ test('W6-ST-02: cross-tab token removal clears user/tenant principals and late f
 })
 
 test('W6-ST-03: organizationStore clearState fences in-flight fetchMembers, fetchSearchableOrganizations, and preview against cross-tenant writeback', async () => {
-  let resolveMembers!: (v: any) => void
-  let resolveSearch!: (v: any) => void
-  let resolvePreview!: (v: any) => void
+  let resolveMembers!: (v: unknown) => void
+  let resolveSearch!: (v: unknown) => void
+  let resolvePreview!: (v: unknown) => void
 
-  const orgExports: any = {}
+  const orgExports: DynamicExports = {}
   vm.runInNewContext(compileFile('./organization.ts'), {
     exports: orgExports,
+    AbortController,
+    AbortSignal,
     Map,
     Set,
     Promise,
@@ -447,7 +458,7 @@ test('W6-ST-03: organizationStore clearState fences in-flight fetchMembers, fetc
 
 test('W6-ST-04: deploymentCapabilitiesStore retries after transient load failure instead of latching loaded=true', async () => {
   let calls = 0
-  const capExports: any = {}
+  const capExports: DynamicExports = {}
   vm.runInNewContext(compileFile('./deploymentCapabilities.ts'), {
     exports: capExports,
     Promise,

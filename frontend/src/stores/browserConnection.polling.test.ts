@@ -17,7 +17,8 @@ function deferred<T>() {
   return { promise, resolve }
 }
 function fixture(getter?: () => Promise<{ data: BrowserAccountStatus }>) {
-  const exports: any = {}, timers = new Map<number, { run: () => void; delay: number }>()
+  const exports: { useBrowserConnectionStore?: (piniaInstance?: pinia.Pinia) => ReturnType<typeof import('./browserConnection')['useBrowserConnectionStore']> } = {}
+  const timers = new Map<number, { run: () => void; delay: number }>()
   const listeners = new Set<() => void>(), requests: Array<AbortSignal | undefined> = []
   let id = 0
   const document = {
@@ -38,7 +39,7 @@ function fixture(getter?: () => Promise<{ data: BrowserAccountStatus }>) {
       throw new Error(`Unexpected dependency: ${name}`)
     },
   })
-  const store = () => exports.useBrowserConnectionStore(pinia.createPinia()) as ReturnType<typeof import('./browserConnection')['useBrowserConnectionStore']>
+  const store = () => exports.useBrowserConnectionStore!(pinia.createPinia())
   return {
     store, timers, listeners, requests,
     show() { document.hidden = false; for (const handler of listeners) handler() },

@@ -1,11 +1,15 @@
 import { get, post, put, del, postUpload, getDown } from "../../utils/request";
-import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
+import type {
+  ChunkingConfigOverride,
+  ExtractConfigOverride,
+  KnowledgeProcessOverrides,
+} from '@/types/knowledgeProcess';
 import type { AuditLog, AuditOutcome, ListAuditLogResponse } from '@/api/tenant/audit-log';
-import { buildListKnowledgeFilesQuery } from './knowledgeFileListQuery';
-import { withKnowledgeReadContext, type KnowledgeReadOptions } from './knowledgeReadOptions';
-export type { KnowledgeReadOptions } from './knowledgeReadOptions';
+import { buildListKnowledgeFilesQuery } from './knowledge-file-list-query';
+import { withKnowledgeReadContext, type KnowledgeReadOptions } from './knowledge-read-options';
+export type { KnowledgeReadOptions } from './knowledge-read-options';
 
-export { buildListKnowledgeFilesQuery } from './knowledgeFileListQuery';
+export { buildListKnowledgeFilesQuery } from './knowledge-file-list-query';
 
 export type KnowledgeBaseActivity = AuditLog;
 
@@ -325,7 +329,7 @@ export function createKnowledgeBase(data: {
   name: string;
   description?: string;
   type?: 'document' | 'faq';
-  chunking_config?: any;
+  chunking_config?: ChunkingConfigOverride | Record<string, unknown>;
   image_processing_config?: ImageProcessingConfig;
   embedding_model_id?: string;
   summary_model_id?: string;
@@ -345,13 +349,13 @@ export function createKnowledgeBase(data: {
     custom_instructions?: string;
   };
   storage_provider_config?: { provider: string };
-  storage_config?: any; // legacy, kept for backward compat (dual-write)
+  storage_config?: Record<string, unknown>;
   asr_config?: {
     enabled: boolean;
     model_id?: string;
     language?: string;
   };
-  extract_config?: any;
+  extract_config?: ExtractConfigOverride | Record<string, unknown>;
   faq_config?: { index_mode: string; question_index_mode?: string };
   wiki_config?: {
     auto_generate?: boolean;
@@ -383,9 +387,9 @@ export function updateKnowledgeBase(id: string, data: {
   name: string;
   description?: string;
   config?: {
-    chunking_config?: any;
+    chunking_config?: ChunkingConfigOverride | Record<string, unknown>;
     image_processing_config?: ImageProcessingConfig;
-    faq_config?: any;
+    faq_config?: { index_mode?: string; question_index_mode?: string; [key: string]: unknown };
     wiki_config?: {
       auto_generate?: boolean;
       synthesis_model_id?: string;
@@ -497,11 +501,11 @@ export function uploadKnowledgeFile(
   data: {
     file: File
     tag_ids?: string[]
-    fileName?: string
+    file_name?: string
     process_config?: KnowledgeProcessOverrides | string
-    [key: string]: any
+    [key: string]: File | Blob | string | string[] | KnowledgeProcessOverrides | undefined
   } = { file: new File([], '') },
-  onProgress?: (progressEvent: any) => void,
+  onProgress?: (progressEvent: { loaded: number; total?: number; progress?: number }) => void,
   config?: { signal?: AbortSignal },
 ) {
   const formData = new FormData();
@@ -512,8 +516,10 @@ export function uploadKnowledgeFile(
       formData.append(key, value.join(','));
     } else if (key === 'process_config' && value && typeof value !== 'string') {
       formData.append(key, JSON.stringify(value));
-    } else {
+    } else if (value instanceof Blob) {
       formData.append(key, value);
+    } else {
+      formData.append(key, String(value));
     }
   });
   return postUpload(`/api/v1/knowledge-bases/${kbId}/knowledge/file`, formData, onProgress, config);
@@ -523,7 +529,7 @@ export function uploadKnowledgeFile(
 // data.tag_ids: 可选，指定知识所属的多个标签 ID
 export function createKnowledgeFromURL(
   kbId: string,
-  data: { url: string; enable_multimodel?: boolean; tag_ids?: string[]; process_config?: KnowledgeProcessOverrides },
+  data: { url: string; enable_multimodal?: boolean; tag_ids?: string[]; process_config?: KnowledgeProcessOverrides },
 ) {
   return post(`/api/v1/knowledge-bases/${kbId}/knowledge/url`, data);
 }
@@ -772,7 +778,7 @@ export function updateFAQEntryTagBatch(kbId: string, data: { updates: Record<num
   return put(`/api/v1/knowledge-bases/${kbId}/faq/entries/tags`, data);
 }
 
-const buildQuery = (params?: Record<string, any>) => {
+const buildQuery = (params?: Record<string, string | number | boolean | null | undefined>) => {
   if (!params) return '';
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -782,6 +788,19 @@ const buildQuery = (params?: Record<string, any>) => {
   const queryString = query.toString();
   return queryString ? `?${queryString}` : '';
 };
+
+export interface FAQEntryUpsertPayload {
+  standard_question?: string
+  similar_questions?: string[]
+  negative_questions?: string[]
+  answers?: string[]
+  tag_id?: number | null
+  tag_name?: string
+  is_enabled?: boolean
+  is_recommended?: boolean
+  reply_all?: boolean
+  [key: string]: unknown
+}
 
 export function listFAQEntries(
   kbId: string,
@@ -798,15 +817,15 @@ export function listFAQEntries(
   return get(`/api/v1/knowledge-bases/${kbId}/faq/entries${query}`);
 }
 
-export function upsertFAQEntries(kbId: string, data: { entries: any[]; mode: 'append' | 'replace' }) {
+export function upsertFAQEntries(kbId: string, data: { entries: FAQEntryUpsertPayload[]; mode: 'append' | 'replace'; dry_run?: boolean }) {
+  return post(`/api/v1/knowledge-bases/${kbId}/faq/entries/batch`, data);
+}
+
+export function createFAQEntry(kbId: string, data: FAQEntryUpsertPayload) {
   return post(`/api/v1/knowledge-bases/${kbId}/faq/entries`, data);
 }
 
-export function createFAQEntry(kbId: string, data: any) {
-  return post(`/api/v1/knowledge-bases/${kbId}/faq/entry`, data);
-}
-
-export function updateFAQEntry(kbId: string, entryId: number, data: any) {
+export function updateFAQEntry(kbId: string, entryId: number, data: FAQEntryUpsertPayload) {
   return put(`/api/v1/knowledge-bases/${kbId}/faq/entries/${entryId}`, data);
 }
 

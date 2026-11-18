@@ -12,14 +12,21 @@ function sanitizeExternalHttpUrl(raw: unknown): string {
   }
 }
 
+interface RuntimeConfigWindow extends Window {
+  __RUNTIME_CONFIG__?: {
+    GENYEE_CHROME_EXTENSION_URL?: unknown
+    GENYEE_CLAWHUB_SKILL_URL?: unknown
+  }
+}
+
 export function getChromeExtensionUrl(): string {
   if (typeof window === 'undefined') return ''
-  return sanitizeExternalHttpUrl((window as any).__RUNTIME_CONFIG__?.GENYEE_CHROME_EXTENSION_URL)
+  return sanitizeExternalHttpUrl((window as RuntimeConfigWindow).__RUNTIME_CONFIG__?.GENYEE_CHROME_EXTENSION_URL)
 }
 
 export function getClawhubSkillUrl(): string {
   if (typeof window === 'undefined') return ''
-  return sanitizeExternalHttpUrl((window as any).__RUNTIME_CONFIG__?.GENYEE_CLAWHUB_SKILL_URL)
+  return sanitizeExternalHttpUrl((window as RuntimeConfigWindow).__RUNTIME_CONFIG__?.GENYEE_CLAWHUB_SKILL_URL)
 }
 
 export const CHROME_EXTENSION_URL = getChromeExtensionUrl()

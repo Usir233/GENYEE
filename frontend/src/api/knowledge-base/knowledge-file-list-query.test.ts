@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildListKnowledgeFilesQuery } from './knowledgeFileListQuery';
+import { buildListKnowledgeFilesQuery } from './knowledge-file-list-query';
 
 test('知识文件列表请求会传递排序字段和方向', () => {
   const query = new URLSearchParams(buildListKnowledgeFilesQuery({

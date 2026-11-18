@@ -255,7 +255,10 @@ const router = createRouter({
 });
 
 // 持久化 auto-setup / login 返回的认证信息到 store
-function persistLoginResponse(authStore: ReturnType<typeof useAuthStore>, response: any) {
+function persistLoginResponse(
+  authStore: ReturnType<typeof useAuthStore>,
+  response: import('../api/auth').LoginResponse,
+) {
   const activeTenant = response.active_tenant || response.tenant
   if (response.user && response.token) {
     const homeTenantId = response.user.tenant_id ?? activeTenant?.id ?? ''

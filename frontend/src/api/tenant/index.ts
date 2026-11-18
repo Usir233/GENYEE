@@ -146,6 +146,26 @@ export interface SearchTenantsResponse {
   message?: string
 }
 
+function getErrorMessage(error: unknown): string | undefined {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message
+    if (typeof msg === 'string' && msg) return msg
+  }
+  return undefined
+}
+
+function getErrorCode(error: unknown): string | number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const obj = error as { error?: { code?: unknown } | string; code?: unknown }
+  if (obj.error && typeof obj.error === 'object' && (typeof obj.error.code === 'number' || typeof obj.error.code === 'string')) {
+    return obj.error.code
+  }
+  if (typeof obj.code === 'number' || typeof obj.code === 'string') {
+    return obj.code
+  }
+  return undefined
+}
+
 /**
  * 获取所有空间列表（需要跨空间访问权限）
  * @deprecated 建议使用 searchTenants 代替，支持分页和搜索
@@ -154,10 +174,10 @@ export async function listAllTenants(): Promise<{ success: boolean; data?: { ite
   try {
     const response = await get('/api/v1/tenants/all')
     return response as unknown as { success: boolean; data?: { items: TenantInfo[] }; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.listFailed')
+      message: getErrorMessage(error) || t('error.tenant.listFailed')
     }
   }
 }
@@ -168,10 +188,10 @@ export async function getAPIPrincipalConfig(
   try {
     const response = await get(`/api/v1/tenants/${tenantId}/api-principal-config`)
     return response as unknown as { success: boolean; data?: APIPrincipalConfig; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.getApiPrincipalConfigFailed'),
+      message: getErrorMessage(error) || t('error.tenant.getApiPrincipalConfigFailed'),
     }
   }
 }
@@ -183,10 +203,10 @@ export async function updateAPIPrincipalConfig(
   try {
     const response = await put(`/api/v1/tenants/${tenantId}/api-principal-config`, payload)
     return response as unknown as { success: boolean; data?: APIPrincipalConfig; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.updateApiPrincipalConfigFailed'),
+      message: getErrorMessage(error) || t('error.tenant.updateApiPrincipalConfigFailed'),
     }
   }
 }
@@ -198,10 +218,10 @@ export async function createAPIPrincipalTestToken(
   try {
     const response = await post(`/api/v1/tenants/${tenantId}/api-principal-test-token`, payload)
     return response as unknown as { success: boolean; data?: APIPrincipalTestToken; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.createApiPrincipalTestTokenFailed'),
+      message: getErrorMessage(error) || t('error.tenant.createApiPrincipalTestTokenFailed'),
     }
   }
 }
@@ -212,10 +232,10 @@ export async function listTenantAPIKeys(
   try {
     const response = await get(`/api/v1/tenants/${tenantId}/api-keys`)
     return response as unknown as { success: boolean; data?: TenantAPIKey[]; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.listApiKeysFailed'),
+      message: getErrorMessage(error) || t('error.tenant.listApiKeysFailed'),
     }
   }
 }
@@ -227,10 +247,10 @@ export async function createTenantAPIKey(
   try {
     const response = await post(`/api/v1/tenants/${tenantId}/api-keys`, payload)
     return response as unknown as { success: boolean; data?: CreatedTenantAPIKey; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.createApiKeyFailed'),
+      message: getErrorMessage(error) || t('error.tenant.createApiKeyFailed'),
     }
   }
 }
@@ -244,10 +264,10 @@ export async function updateTenantAPIKey(
   try {
     const response = await put(`/api/v1/tenants/${tenantId}/api-keys/${keyId}`, payload)
     return response as unknown as { success: boolean; data?: TenantAPIKey; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('integrations.api.updateApiKeyScopeFailed'),
+      message: getErrorMessage(error) || t('integrations.api.updateApiKeyScopeFailed'),
     }
   }
 }
@@ -259,10 +279,10 @@ export async function deleteTenantAPIKey(
   try {
     const response = await del(`/api/v1/tenants/${tenantId}/api-keys/${keyId}`)
     return response as unknown as { success: boolean; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.deleteApiKeyFailed'),
+      message: getErrorMessage(error) || t('error.tenant.deleteApiKeyFailed'),
     }
   }
 }
@@ -280,10 +300,10 @@ export async function updateTenant(
   try {
     const response = await put(`/api/v1/tenants/${tenantId}`, payload)
     return response as unknown as { success: boolean; data?: TenantInfo; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.updateFailed'),
+      message: getErrorMessage(error) || t('error.tenant.updateFailed'),
     }
   }
 }
@@ -297,10 +317,10 @@ export async function deleteTenant(
   try {
     const response = await del(`/api/v1/tenants/${tenantId}`)
     return response as unknown as { success: boolean; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.deleteFailed'),
+      message: getErrorMessage(error) || t('error.tenant.deleteFailed'),
     }
   }
 }
@@ -317,13 +337,13 @@ export async function createTenant(
   try {
     const response = await post('/api/v1/tenants', payload)
     return response as unknown as { success: boolean; data?: TenantInfo; message?: string }
-  } catch (error: any) {
-    const code = error?.error?.code ?? error?.code
+  } catch (error: unknown) {
+    const code = getErrorCode(error)
     return {
       success: false,
       message: code === 2005
         ? t('tenant.create.disabled')
-        : (error.message || t('error.tenant.createFailed')),
+        : (getErrorMessage(error) || t('error.tenant.createFailed')),
     }
   }
 }
@@ -351,10 +371,10 @@ export async function searchTenants(params: SearchTenantsParams = {}): Promise<S
     const url = `/api/v1/tenants/search${queryString ? '?' + queryString : ''}`
     const response = await get(url)
     return response as unknown as SearchTenantsResponse
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.tenant.searchFailed')
+      message: getErrorMessage(error) || t('error.tenant.searchFailed')
     }
   }
 }

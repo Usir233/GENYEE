@@ -7,24 +7,46 @@ import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
 import * as vue from 'vue'
 
+type DynamicExports = ReturnType<typeof JSON.parse>
+type TestNode = Record<string, unknown>
+type DialogRecord = { onClose: () => void; onConfirm: () => void }
+type ParserRule = { file_types: string[]; engine: string; xlsx_first_row_as_header?: boolean }
+type ParserEngineFixture = {
+  name: string
+  available: boolean
+  file_types: string[]
+  description?: string
+  unavailable_reason?: string
+}
+
 const require = createRequire(import.meta.url)
-const renderer = vue.createRenderer<any, any>({
+const renderer = vue.createRenderer<TestNode, TestNode>({
   createElement: () => ({}), createText: () => ({}), createComment: () => ({}),
   insert() {}, remove() {}, setElementText() {}, setText() {}, patchProp() {},
   parentNode: () => null, nextSibling: () => null,
 })
 
 function fixture() {
-  const dialogs: any[] = []
+  const dialogs: DialogRecord[] = []
   const warnings: string[] = []
   const window = Object.assign(new EventTarget(), { setInterval, clearInterval })
   const errors: unknown[][] = []
   const ui = vue.reactive({ showSettingsModal: false })
-  const resources = {
+  const resources: {
+    agentTypePresets: unknown[]
+    promptTemplates: unknown
+    storageStatus: unknown[]
+    skillCatalog: unknown[]
+    parserEngines: ParserEngineFixture[]
+    prefetchAgentEditorDeps: () => Promise<void>
+    ensureSkills: () => Promise<void>
+    ensureSkillCatalog: () => Promise<void>
+    ensureParserEngines: (force?: boolean) => Promise<void>
+  } = {
     agentTypePresets: [], promptTemplates: null, storageStatus: [], skillCatalog: [],
     parserEngines: [
-      { Name: 'builtin', Available: true, FileTypes: ['pdf', 'xlsx'] },
-      { Name: 'anydoc', Available: true, FileTypes: ['pdf', 'xlsx'] },
+      { name: 'builtin', available: true, file_types: ['pdf', 'xlsx'] },
+      { name: 'anydoc', available: true, file_types: ['pdf', 'xlsx'] },
     ],
     async prefetchAgentEditorDeps() {}, async ensureSkills() {}, async ensureSkillCatalog() {},
     async ensureParserEngines(_force = false) {},
@@ -35,13 +57,13 @@ function fixture() {
     async ensureModels() {}, async ensureKnowledgeBases() {},
     async ensureWebSearchProviders() {}, async ensureSandboxConfigs() {},
   }
-  const modules: Record<string, any> = {
+  const modules: Record<string, DynamicExports> = {
     vue,
     'vue-i18n': { useI18n: () => ({ t: (key: string) => key, locale: vue.ref('en') }) },
     'vue-router': { useRouter: () => ({}) },
     pinia: { storeToRefs: vue.toRefs },
     'tdesign-vue-next': {
-      DialogPlugin: { confirm: (options: any) => { dialogs.push(options); return { destroy() {} } } },
+      DialogPlugin: { confirm: (options: DialogRecord) => { dialogs.push(options); return { destroy() {} } } },
       MessagePlugin: { success() {}, error() {}, warning(message: string) { warnings.push(message) } },
     },
     '@/stores/ui': { useUIStore: () => ui },
@@ -59,20 +81,47 @@ function fixture() {
     '@/api/system': { isNamedSandboxBackend: () => true },
     '@/utils/clipboard': { copyWithToast() {} },
   }
-  function evaluate(code: string) {
-    const exports: any = {}
+  const evaluatedFileCache = new Map<string, DynamicExports>()
+  function evaluate(code: string, baseUrl: URL = new URL(import.meta.url)): DynamicExports {
+    const exports: DynamicExports = {}
     const compiled = ts.transpileModule(code, {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText
     runInNewContext(compiled, {
-      exports, setTimeout, clearTimeout, CustomEvent,
+      exports,
+      setTimeout,
+      clearTimeout,
+      CustomEvent,
+      structuredClone,
+      AbortController,
+      AbortSignal,
+      URL,
+      URLSearchParams,
       console: { ...console, error: (...args: unknown[]) => errors.push(args) },
       window,
       require(name: string) {
         if (modules[name]) return modules[name]
-        if (name.endsWith('.vue')) return { default: {} }
+        if (name.endsWith('.vue')) return { __esModule: true, default: {} }
+        if (name.startsWith('./') || name.startsWith('../') || name.startsWith('@/')) {
+          const base = name.startsWith('@/')
+            ? new URL('../' + name.slice(2), import.meta.url)
+            : new URL(name, baseUrl)
+          for (const candidate of [base.href, `${base.href}.ts`, `${base.href}/index.ts`]) {
+            if (!candidate.endsWith('.ts')) continue
+            if (evaluatedFileCache.has(candidate)) return evaluatedFileCache.get(candidate)
+            try {
+              const targetUrl = new URL(candidate)
+              const src = readFileSync(targetUrl, 'utf8')
+              const modExports = evaluate(src, targetUrl)
+              evaluatedFileCache.set(candidate, modExports)
+              return modExports
+            } catch {
+              // try next candidate
+            }
+          }
+        }
         if (name.startsWith('@/')) return require('../' + name.slice(2))
-        return require(name)
+        return createRequire(baseUrl)(name)
       },
     })
     return exports
@@ -80,19 +129,20 @@ function fixture() {
   modules['@/composables/useAssistantPageContext'] = { useAssistantPageContext() {} }
   modules['@/composables/useModalShell'] = evaluate(readFileSync(new URL('./useModalShell.ts', import.meta.url), 'utf8'))
   modules['@/utils/assistantDataChange'] = evaluate(readFileSync(new URL('../utils/assistantDataChange.ts', import.meta.url), 'utf8'))
-  function mount(path: string, props: Record<string, any>) {
-    const { descriptor } = parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
+  function mount(path: string, props: Record<string, unknown>) {
+    const sfcUrl = new URL(path, import.meta.url)
+    const { descriptor } = parse(readFileSync(sfcUrl, 'utf8'))
     const script = compileScript(descriptor, { id: 'dirty-test' }).content
       .replace('__expose();', '')
       .replace('return __returned__', '__expose(__returned__); return __returned__')
-    const component = evaluate(script).default
+    const component = evaluate(script, sfcUrl).default as vue.ComponentOptions
     component.render = () => null
-    const instance = vue.ref<any>()
+    const instance = vue.ref<DynamicExports>()
     const app = renderer.createApp({ render: () => vue.h(component, { ...props, ref: instance }) })
     app.mount({})
     return { vm: instance.value, unmount: () => { app.unmount(); assert.deepEqual(errors, []) } }
   }
-  return { mount, dialogs, resources, chat, ui, warnings, emit: modules['@/utils/assistantDataChange'].emitAssistantDataChange }
+  return { mount, dialogs, resources, chat, ui, warnings, emit: modules['@/utils/assistantDataChange'].emitAssistantDataChange as (ev: Record<string, unknown>) => void }
 }
 
 async function settle() {
@@ -192,15 +242,15 @@ test('closing during initialization does not warn or let a stale load replace th
   } finally { release(); unmount() }
 })
 
-for (const savedRules of [[], [{ file_types: ['xlsx'], engine: 'builtin', xlsx_first_row_as_header: true }]]) {
+for (const savedRules of [[] as ParserRule[], [{ file_types: ['xlsx'], engine: 'builtin', xlsx_first_row_as_header: true }] as ParserRule[]]) {
   test(`parser loading and refresh preserve ${savedRules.length ? 'partial' : 'empty'} saved rules`, async () => {
     const f = fixture()
     let release!: () => void
     f.resources.ensureParserEngines = () => new Promise<void>(resolve => { release = resolve })
-    const updates: any[] = []
+    const updates: ParserRule[][] = []
     const props = vue.reactive({
       parserEngineRules: savedRules,
-      'onUpdate:parserEngineRules': (rules: any[]) => { updates.push(rules); props.parserEngineRules = rules },
+      'onUpdate:parserEngineRules': (rules: ParserRule[]) => { updates.push(rules); props.parserEngineRules = rules },
     })
     const { vm, unmount } = f.mount('../views/knowledge/settings/KBParserSettings.vue', props)
     try {
@@ -218,40 +268,40 @@ for (const savedRules of [[], [{ file_types: ['xlsx'], engine: 'builtin', xlsx_f
       vm.handleEngineChange(['pdf'], 'builtin')
       await vue.nextTick()
       assert.equal(updates.length, 1)
-      assert.equal(updates[0].find((r: any) => r.file_types.includes('pdf')).engine, 'builtin')
+      assert.equal(updates[0].find((r) => r.file_types.includes('pdf'))?.engine, 'builtin')
       if (savedRules.length) {
-        assert.equal(updates[0].find((r: any) => r.file_types.includes('xlsx')).xlsx_first_row_as_header, true)
+        assert.equal(updates[0].find((r) => r.file_types.includes('xlsx'))?.xlsx_first_row_as_header, true)
       }
       vm.handleXLSXFirstRowAsHeaderChange(['xlsx'], false)
       assert.equal(updates.length, 2)
-      assert.equal(updates[1].find((r: any) => r.file_types.includes('xlsx')).xlsx_first_row_as_header, false)
+      assert.equal(updates[1].find((r) => r.file_types.includes('xlsx'))?.xlsx_first_row_as_header, false)
     } finally { unmount() }
   })
 }
 
-// Engine FileTypes copied from internal/infrastructure/docparser/engines.go, so
+// Engine file_types copied from internal/infrastructure/docparser/engines.go, so
 // a drift between the registry and the frontend default routing shows up here
 // rather than as a "(default)" badge that fails on upload.
-const registryEngines = [
+const registryEngines: ParserEngineFixture[] = [
   {
-    Name: 'builtin', Available: true,
-    FileTypes: ['docx', 'doc', 'pdf', 'md', 'markdown', 'xlsx', 'xls', 'pptx', 'ppt', 'epub',
+    name: 'builtin', available: true,
+    file_types: ['docx', 'doc', 'pdf', 'md', 'markdown', 'xlsx', 'xls', 'pptx', 'ppt', 'epub',
       'html', 'htm', 'mhtml', 'xmind', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp',
       'mp3', 'wav', 'm4a', 'flac', 'ogg'],
   },
   {
-    Name: 'simple', Available: true,
-    FileTypes: ['md', 'markdown', 'txt', 'csv', 'json', 'jpg', 'jpeg', 'png', 'gif', 'bmp',
+    name: 'simple', available: true,
+    file_types: ['md', 'markdown', 'txt', 'csv', 'json', 'jpg', 'jpeg', 'png', 'gif', 'bmp',
       'tiff', 'webp', 'mp3', 'wav', 'm4a', 'flac', 'ogg'],
   },
-  { Name: 'anydoc', Available: true, FileTypes: ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf'] },
-  { Name: 'markitdown', Available: true, FileTypes: ['docx', 'pptx', 'ppt'] },
+  { name: 'anydoc', available: true, file_types: ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf'] },
+  { name: 'markitdown', available: true, file_types: ['docx', 'pptx', 'ppt'] },
 ]
 
-async function mountParserSettings(engines: any[]) {
+async function mountParserSettings(engines: ParserEngineFixture[]) {
   const f = fixture()
   f.resources.parserEngines = engines
-  const props = vue.reactive({ parserEngineRules: [], 'onUpdate:parserEngineRules': () => {} })
+  const props = vue.reactive({ parserEngineRules: [] as ParserRule[], 'onUpdate:parserEngineRules': () => {} })
   const { vm, unmount } = f.mount('../views/knowledge/settings/KBParserSettings.vue', props)
   await settle()
   return { vm, unmount }
@@ -274,7 +324,7 @@ test('the default engine badge follows the backend per-type routing', async () =
 
 test('with anydoc unavailable only ppt/pptx leave builtin for a pinned engine', async () => {
   const { vm, unmount } = await mountParserSettings(
-    registryEngines.map(e => (e.Name === 'anydoc' ? { ...e, Available: false } : e)),
+    registryEngines.map(e => (e.name === 'anydoc' ? { ...e, available: false } : e)),
   )
   try {
     assert.equal(vm.getEngineForGroup(['pdf']), 'builtin')

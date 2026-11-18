@@ -78,10 +78,27 @@ export const useOrganizationStore = defineStore('organization', () => {
   let previewRequestSeq = 0
   let membersRequestSeq = 0
   let searchableRequestSeq = 0
+  let previewAbortController: AbortController | null = null
+  let membersAbortController: AbortController | null = null
+  let searchableAbortController: AbortController | null = null
   const searchableOrganizationCache = new Map<
     string,
     { data: SearchableOrganizationItem[]; loadedAt: number }
   >()
+
+  function getErrMsg(err: unknown, fallback: string): string {
+    if (err && typeof err === 'object' && 'message' in err) {
+      const msg = (err as { message?: unknown }).message
+      if (typeof msg === 'string' && msg) return msg
+    }
+    return fallback
+  }
+
+  function isCancellationError(err: unknown): boolean {
+    if (!err || typeof err !== 'object') return false
+    const name = (err as { name?: unknown }).name
+    return name === 'AbortError' || name === 'CanceledError'
+  }
 
   // Computed
   const myOrganizations = computed(() => organizations.value)
@@ -106,11 +123,11 @@ export const useOrganizationStore = defineStore('organization', () => {
    * 并发去重，列表页与侧栏等多处共用。
    */
   const organizationsRequest = createVersionedRequestCoordinator(
-    async () => {
+    async (signal) => {
       loading.value = true
       error.value = null
       try {
-        return await listMyOrganizations()
+        return await listMyOrganizations(signal)
       } finally {
         loading.value = false
       }
@@ -126,8 +143,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
   )
 
-  async function fetchOrganizations(options?: { force?: boolean }) {
-    return organizationsRequest.fetch(options?.force ?? false)
+  async function fetchOrganizations(options?: { force?: boolean; signal?: AbortSignal }) {
+    return organizationsRequest.fetch(options?.force ?? false, options?.signal)
   }
 
   function patchOrganization(id: string, patch: Partial<Organization>) {
@@ -198,8 +215,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to create organization'
         return null
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to create organization'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to create organization')
       return null
     } finally {
       loading.value = false
@@ -222,8 +239,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to update organization'
         return null
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to update organization'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to update organization')
       return null
     } finally {
       loading.value = false
@@ -253,8 +270,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to delete organization'
         return false
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to delete organization'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to delete organization')
       return false
     } finally {
       loading.value = false
@@ -267,12 +284,15 @@ export const useOrganizationStore = defineStore('organization', () => {
   async function preview(inviteCode: string) {
     const reqGen = stateGeneration
     const reqSeq = ++previewRequestSeq
+    previewAbortController?.abort()
+    const controller = new AbortController()
+    previewAbortController = controller
     loading.value = true
     error.value = null
     previewData.value = null
     try {
-      const response = await previewOrganization(inviteCode)
-      if (reqGen !== stateGeneration || reqSeq !== previewRequestSeq) return null
+      const response = await previewOrganization(inviteCode, controller.signal)
+      if (reqGen !== stateGeneration || reqSeq !== previewRequestSeq || controller.signal.aborted) return null
       if (response.success && response.data) {
         previewData.value = response.data
         return response.data
@@ -280,12 +300,15 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to preview organization'
         return null
       }
-    } catch (e: any) {
-      if (reqGen === stateGeneration && reqSeq === previewRequestSeq) {
-        error.value = e.message || 'Failed to preview organization'
+    } catch (e: unknown) {
+      if (!isCancellationError(e) && reqGen === stateGeneration && reqSeq === previewRequestSeq) {
+        error.value = getErrMsg(e, 'Failed to preview organization')
       }
       return null
     } finally {
+      if (previewAbortController === controller) {
+        previewAbortController = null
+      }
       if (reqGen === stateGeneration && reqSeq === previewRequestSeq) {
         loading.value = false
       }
@@ -309,8 +332,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to join organization'
         return null
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to join organization'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to join organization')
       return null
     } finally {
       loading.value = false
@@ -336,8 +359,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to leave organization'
         return false
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to leave organization'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to leave organization')
       return false
     } finally {
       loading.value = false
@@ -360,8 +383,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to generate invite code'
         return null
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to generate invite code'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to generate invite code')
       return null
     } finally {
       loading.value = false
@@ -374,11 +397,14 @@ export const useOrganizationStore = defineStore('organization', () => {
   async function fetchMembers(orgId: string) {
     const reqGen = stateGeneration
     const reqSeq = ++membersRequestSeq
+    membersAbortController?.abort()
+    const controller = new AbortController()
+    membersAbortController = controller
     loading.value = true
     error.value = null
     try {
-      const response = await listMembers(orgId)
-      if (reqGen !== stateGeneration || reqSeq !== membersRequestSeq) return []
+      const response = await listMembers(orgId, controller.signal)
+      if (reqGen !== stateGeneration || reqSeq !== membersRequestSeq || controller.signal.aborted) return []
       if (response.success && response.data) {
         currentMembers.value = response.data.members
         return response.data.members
@@ -386,12 +412,15 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to fetch members'
         return []
       }
-    } catch (e: any) {
-      if (reqGen === stateGeneration && reqSeq === membersRequestSeq) {
-        error.value = e.message || 'Failed to fetch members'
+    } catch (e: unknown) {
+      if (!isCancellationError(e) && reqGen === stateGeneration && reqSeq === membersRequestSeq) {
+        error.value = getErrMsg(e, 'Failed to fetch members')
       }
       return []
     } finally {
+      if (membersAbortController === controller) {
+        membersAbortController = null
+      }
       if (reqGen === stateGeneration && reqSeq === membersRequestSeq) {
         loading.value = false
       }
@@ -416,8 +445,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to update member role'
         return false
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to update member role'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to update member role')
       return false
     } finally {
       loading.value = false
@@ -444,8 +473,8 @@ export const useOrganizationStore = defineStore('organization', () => {
         error.value = response.message || 'Failed to remove member'
         return false
       }
-    } catch (e: any) {
-      error.value = e.message || 'Failed to remove member'
+    } catch (e: unknown) {
+      error.value = getErrMsg(e, 'Failed to remove member')
       return false
     } finally {
       loading.value = false
@@ -457,11 +486,11 @@ export const useOrganizationStore = defineStore('organization', () => {
    * 并发去重，避免对话页等多处同时重复请求。
    */
   const sharedKnowledgeBasesRequest = createVersionedRequestCoordinator(
-    async () => {
+    async (signal) => {
       loading.value = true
       error.value = null
       try {
-        return await listSharedKnowledgeBases()
+        return await listSharedKnowledgeBases(signal)
       } finally {
         loading.value = false
       }
@@ -475,8 +504,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
   )
 
-  async function fetchSharedKnowledgeBases(options?: { force?: boolean }) {
-    await sharedKnowledgeBasesRequest.fetch(options?.force ?? false)
+  async function fetchSharedKnowledgeBases(options?: { force?: boolean; signal?: AbortSignal }) {
+    await sharedKnowledgeBasesRequest.fetch(options?.force ?? false, options?.signal)
     return sharedKnowledgeBases.value
   }
 
@@ -485,10 +514,10 @@ export const useOrganizationStore = defineStore('organization', () => {
    * 并发去重；快照只对拉取时的 UI 语言有效。
    */
   const sharedAgentsRequest = createVersionedRequestCoordinator(
-    async () => {
+    async (signal) => {
       const locale = getCurrentLanguage()
       sharedAgentsInflightLocale = locale
-      const response = await listSharedAgents()
+      const response = await listSharedAgents(signal)
       return { response, locale }
     },
     ({ response, locale }) => {
@@ -510,7 +539,7 @@ export const useOrganizationStore = defineStore('organization', () => {
     },
   )
 
-  async function fetchSharedAgents(options?: { force?: boolean }) {
+  async function fetchSharedAgents(options?: { force?: boolean; signal?: AbortSignal }) {
     const locale = getCurrentLanguage()
     const force = options?.force ?? false
     // 飞行中的请求是用另一种语言发起的：不能复用它，排在它后面再发一次。
@@ -521,7 +550,7 @@ export const useOrganizationStore = defineStore('organization', () => {
         sharedAgentsInflightLocale,
         locale,
       )
-    await sharedAgentsRequest.fetch(mustForce)
+    await sharedAgentsRequest.fetch(mustForce, options?.signal)
     return sharedAgents.value
   }
 
@@ -561,12 +590,13 @@ export const useOrganizationStore = defineStore('organization', () => {
 
   async function fetchSearchableOrganizations(
     query: string,
-    options?: { force?: boolean; limit?: number }
+    options?: { force?: boolean; limit?: number; signal?: AbortSignal }
   ) {
     const reqGen = stateGeneration
     const reqSeq = ++searchableRequestSeq
     const normalizedQuery = query.trim()
     searchableOrganizationsQuery = normalizedQuery
+    searchableAbortController?.abort()
     const cached = searchableOrganizationCache.get(normalizedQuery)
     if (
       !options?.force &&
@@ -577,24 +607,37 @@ export const useOrganizationStore = defineStore('organization', () => {
       return cached.data
     }
 
-    const response = await searchSearchableOrganizations(normalizedQuery, options?.limit ?? 20)
-    if (reqGen !== stateGeneration) return []
-    if (response.success && response.data) {
-      const data = response.data.data.filter(organization => !organization.is_already_member)
-      searchableOrganizationCache.set(normalizedQuery, { data, loadedAt: Date.now() })
-      if (reqSeq === searchableRequestSeq && searchableOrganizationsQuery === normalizedQuery) {
-        searchableOrganizations.value = data
+    const controller = new AbortController()
+    searchableAbortController = controller
+    const signal = options?.signal && typeof AbortSignal?.any === 'function'
+      ? AbortSignal.any([controller.signal, options.signal])
+      : (options?.signal ?? controller.signal)
+    try {
+      const response = await searchSearchableOrganizations(normalizedQuery, options?.limit ?? 20, signal)
+      if (reqGen !== stateGeneration || signal.aborted) return []
+      if (response.success && response.data) {
+        const data = response.data.data.filter(organization => !organization.is_already_member)
+        searchableOrganizationCache.set(normalizedQuery, { data, loadedAt: Date.now() })
+        if (reqSeq === searchableRequestSeq && searchableOrganizationsQuery === normalizedQuery) {
+          searchableOrganizations.value = data
+        }
+        return data
       }
-      return data
+      if (reqSeq === searchableRequestSeq && searchableOrganizationsQuery === normalizedQuery) {
+        searchableOrganizations.value = []
+      }
+      return []
+    } finally {
+      if (searchableAbortController === controller) {
+        searchableAbortController = null
+      }
     }
-    if (reqSeq === searchableRequestSeq && searchableOrganizationsQuery === normalizedQuery) {
-      searchableOrganizations.value = []
-    }
-    return []
   }
 
   function clearSearchableOrganizations() {
     searchableRequestSeq++
+    searchableAbortController?.abort()
+    searchableAbortController = null
     searchableOrganizationsQuery = ''
     searchableOrganizations.value = []
   }
@@ -764,6 +807,8 @@ export const useOrganizationStore = defineStore('organization', () => {
 
   function clearCurrentOrganizationContext() {
     membersRequestSeq++
+    membersAbortController?.abort()
+    membersAbortController = null
     currentOrganization.value = null
     currentMembers.value = []
   }
@@ -805,6 +850,12 @@ export const useOrganizationStore = defineStore('organization', () => {
     previewRequestSeq++
     membersRequestSeq++
     searchableRequestSeq++
+    previewAbortController?.abort()
+    previewAbortController = null
+    membersAbortController?.abort()
+    membersAbortController = null
+    searchableAbortController?.abort()
+    searchableAbortController = null
     loading.value = false
     organizations.value = []
     currentOrganization.value = null

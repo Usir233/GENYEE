@@ -2,12 +2,14 @@ import { get, post, put, del } from '@/utils/request'
 
 // ===== Types =====
 
+export type VectorStoreConfigValue = string | number | boolean | undefined
+
 export interface VectorStoreEntity {
   id?: string
   name: string
   engine_type: string
-  connection_config: Record<string, any>
-  index_config: Record<string, any>
+  connection_config: Record<string, VectorStoreConfigValue>
+  index_config: Record<string, VectorStoreConfigValue>
   source: 'env' | 'user'
   readonly: boolean
   tenant_id?: number
@@ -28,7 +30,7 @@ export interface FieldSchema {
   required: boolean
   sensitive?: boolean
   description?: string
-  default?: any
+  default?: string | number | boolean
   // Inclusive bounds for number fields (omitempty on the backend). When
   // absent the UI falls back to per-field heuristics (isReplicaField).
   min?: number
@@ -44,7 +46,7 @@ export interface FieldSchema {
 // ===== API Functions =====
 
 export function listVectorStoreTypes(): Promise<VectorStoreTypeInfo[]> {
-  return get('/api/v1/vector-stores/types').then((res: any) => {
+  return get<{ success?: boolean; data?: VectorStoreTypeInfo[] }>('/api/v1/vector-stores/types').then((res) => {
     return res.success && res.data ? res.data : []
   })
 }
@@ -65,10 +67,10 @@ export function deleteVectorStore(id: string) {
   return del(`/api/v1/vector-stores/${id}`)
 }
 
-export function testVectorStoreRaw(data: { engine_type: string; connection_config: any }): Promise<any> {
+export function testVectorStoreRaw(data: { engine_type: string; connection_config: Record<string, VectorStoreConfigValue> }) {
   return post('/api/v1/vector-stores/test', data)
 }
 
-export function testVectorStoreById(id: string): Promise<any> {
+export function testVectorStoreById(id: string) {
   return post(`/api/v1/vector-stores/${id}/test`, {})
 }

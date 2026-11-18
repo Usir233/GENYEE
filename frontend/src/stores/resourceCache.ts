@@ -16,7 +16,7 @@ import { createVersionedRequestCoordinator } from './versionedRequest'
  * 和显式失效决定，不再有 60s 内一律读缓存的窗口。
  */
 export interface CachedResource {
-  ensure: (force?: boolean) => Promise<void>
+  ensure: (force?: boolean, signal?: AbortSignal) => Promise<void>
   invalidate: () => void
   markLoaded: () => void
   isLoaded: () => boolean
@@ -24,7 +24,7 @@ export interface CachedResource {
 }
 
 export function createCachedResource<T>(
-  request: () => Promise<T>,
+  request: (signal: AbortSignal) => Promise<T>,
   apply: (value: T) => void,
 ): CachedResource {
   let loaded = false
@@ -38,10 +38,10 @@ export function createCachedResource<T>(
   })
 
   return {
-    ensure(force = false) {
+    ensure(force = false, signal?: AbortSignal) {
       const mustForce = force || needsFreshRequest
       needsFreshRequest = false
-      return coordinator.fetch(mustForce)
+      return coordinator.fetch(mustForce, signal)
     },
     invalidate() {
       loaded = false
@@ -63,7 +63,7 @@ export function createCachedResource<T>(
  * 这类数据不随每次 ensure 重新拉取：拿到过就一直用，直到显式失效。
  * 调用方在循环里逐条 ensure（如 @ 提及列表补 count），不能每次都打接口。
  */
-export function createKeyedSnapshotCache<T>(load: (key: string) => Promise<T>) {
+export function createKeyedSnapshotCache<T>(load: (key: string, signal: AbortSignal) => Promise<T>) {
   const snapshots = new Map<string, T>()
   const inflight = new Map<string, { promise: Promise<T>; revision: number }>()
   // 每个 key 一个代际；invalidate / force 都会推进它。请求返回时代际已变，
@@ -77,15 +77,19 @@ export function createKeyedSnapshotCache<T>(load: (key: string) => Promise<T>) {
   }
 
   return {
-    async ensure(key: string, force = false): Promise<T> {
+    async ensure(key: string, force = false, callerSignal?: AbortSignal): Promise<T> {
       if (!force && snapshots.has(key)) return snapshots.get(key) as T
       const existing = inflight.get(key)
       if (existing && !force) return existing.promise
       const revision = force ? bump(key) : (revisions.get(key) ?? 0)
+      const controller = new AbortController()
+      const signal = callerSignal && typeof AbortSignal?.any === 'function'
+        ? AbortSignal.any([controller.signal, callerSignal])
+        : (callerSignal ?? controller.signal)
       const promise = (async () => {
         try {
-          const value = await load(key)
-          const stillCurrent = (revisions.get(key) ?? 0) === revision
+          const value = await load(key, signal)
+          const stillCurrent = (revisions.get(key) ?? 0) === revision && !signal.aborted
           // 加载失败以 null 表示时不落快照，下次读取会重试。
           if (stillCurrent && value != null) snapshots.set(key, value)
           return value

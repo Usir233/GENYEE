@@ -467,7 +467,7 @@ test('forceReloginRedirect does not bounce embed visitors to /login', () => {
 })
 
 test('chat stream wires the shared retry and keeps the abort controller', () => {
-  const source = readFileSync(new URL('../api/chat/streame.ts', import.meta.url), 'utf8')
+  const source = readFileSync(new URL('../api/chat/stream.ts', import.meta.url), 'utf8')
   assert.match(source, /runStreamWithAuthRetry/)
   assert.match(source, /isStreamAuthError/)
   assert.match(source, /streamAbort/)

@@ -10,13 +10,21 @@ import { renderToString } from 'vue/server-renderer'
 
 type Call = {
   url: string
-  options: { signal: AbortSignal, onmessage: (ev: { data: string }) => void, onclose: () => void, onopen: (response: Response) => Promise<void> }
+  options: {
+    signal: AbortSignal
+    method?: string
+    body?: string | null
+    headers?: Record<string, string>
+    onmessage: (ev: { data: string }) => void
+    onclose: () => void
+    onopen: (response: Response) => Promise<void>
+  }
   resolve: () => void
   reject: (err: unknown) => void
 }
 
 let server: ViteDevServer
-let useStream: typeof import('./streame').useStream
+let useStream: typeof import('./stream').useStream
 let authRefresh: typeof import('@/utils/authRefresh')
 let authApiMock: { setRefreshHandler: (fn: (rt: string) => Promise<unknown>) => void }
 let transport: { calls: Call[] }
@@ -73,7 +81,7 @@ before(async () => {
     // No file watching needed in tests (also avoids ENOSPC on hosts with few inotify watches).
     server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
   })
-  ;({ useStream } = await server.ssrLoadModule('/src/api/chat/streame.ts'))
+  ;({ useStream } = await server.ssrLoadModule('/src/api/chat/stream.ts'))
   authRefresh = await server.ssrLoadModule('/src/utils/authRefresh.ts') as typeof authRefresh
   authApiMock = await server.ssrLoadModule('\0mock:auth-api') as typeof authApiMock
   transport = await server.ssrLoadModule('\0mock:@microsoft/fetch-event-source') as typeof transport
@@ -161,8 +169,8 @@ test('a disconnected accepted agent POST resumes by GET without executing the qu
   await new Promise(r => setTimeout(r, 1050))
   const resumed = await nextCall(base + 2)
   assert.match(resumed.url, /\/sessions\/continue-stream\/parent\?message_id=answer-1$/)
-  assert.equal((resumed.options as any).method, 'GET')
-  assert.equal((resumed.options as any).body, null)
+  assert.equal(resumed.options.method, 'GET')
+  assert.equal(resumed.options.body, null)
   assert.equal(stream.isStreaming.value, true)
   assert.equal(stream.error.value, null)
   resumed.options.onmessage({ data: JSON.stringify({ response_type: 'complete', id: 'r1' }) })
@@ -200,7 +208,7 @@ test('EOF without complete attaches to the original message rather than declarin
   catch (error) { post.reject(error) }
   await new Promise(r => setTimeout(r, 1050))
   const resumed = await nextCall(base + 2)
-  assert.equal((resumed.options as any).method, 'GET')
+  assert.equal(resumed.options.method, 'GET')
   resumed.options.onmessage({ data: JSON.stringify({ response_type: 'complete' }) })
   resumed.options.onclose()
   resumed.resolve()
@@ -252,7 +260,7 @@ test('a silent broken proxy connection times out and resumes by GET; heartbeats 
   for (let i = 0; i < 20; i++) await Promise.resolve()
   const resumed = transport.calls[base + 1]
   assert.ok(resumed)
-  assert.equal((resumed.options as any).method, 'GET')
+  assert.equal(resumed.options.method, 'GET')
   resumed.options.onmessage({ data: JSON.stringify({ response_type: 'complete' }) })
   resumed.options.onclose()
   resumed.resolve()
@@ -286,8 +294,8 @@ test('a reopened turn recovers when its replay connection drops before the first
   try {
     const retry = await nextCall(base + 3)
     assert.equal(retry.url, replay.url, 'reattach must preserve its approval segment')
-    assert.equal((retry.options as any).method, 'GET')
-    assert.equal((retry.options as any).body, null)
+    assert.equal(retry.options.method, 'GET')
+    assert.equal(retry.options.body, null)
     retry.options.onmessage({ data: JSON.stringify({ response_type: 'agent_query', id: 'r1', assistant_message_id: 'a1' }) })
     retry.options.onmessage({ data: JSON.stringify({ response_type: 'tool_call', id: 'r1', data: { tool_call_id: 'call-1', tool_name: 'search', arguments: {} } }) })
     retry.options.onmessage({ data: JSON.stringify({ response_type: 'tool_result', id: 'r1', data: { tool_call_id: 'call-1', tool_name: 'search', success: true, output: 'found source' } }) })
@@ -357,7 +365,7 @@ test('P1-13: logout, account switch, or tenant switch during SSE 401 refresh sil
   const base1 = transport.calls.length
   const run1 = stream.startStream({ session_id: 'sess-logout', query: 'hello', method: 'POST', url: '/api/v1/agent-chat' })
   const call1 = await nextCall(base1 + 1)
-  assert.equal((call1.options as any).headers['X-Tenant-ID'], '10001')
+  assert.equal(call1.options.headers?.['X-Tenant-ID'], '10001')
   try {
     await call1.options.onopen(new Response('', { status: 401 }))
     assert.fail('401 must throw StreamAuthError')

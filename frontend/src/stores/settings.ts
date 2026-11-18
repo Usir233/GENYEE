@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { nextTick } from "vue";
+import { nextTick, toRaw } from "vue";
 import { BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from "@/api/agent";
 import { getApiBaseUrl } from "@/utils/api-base";
 import { isAgentStreamAgentId } from "@/utils/agent-mode";
@@ -238,8 +238,8 @@ export const useSettingsStore = defineStore("settings", {
     
     // 添加模型
     addModel(type: 'chat' | 'embedding' | 'rerank' | 'vllm', model: ModelItem) {
-      const key = `${type}Models` as keyof ModelConfig;
-      const models = [...this.settings.modelConfig[key]] as ModelItem[];
+      const key: keyof ModelConfig = `${type}Models`;
+      const models = [...this.settings.modelConfig[key]];
       // 如果设为默认，取消其他模型的默认状态
       if (model.isDefault) {
         models.forEach(m => m.isDefault = false);
@@ -249,14 +249,14 @@ export const useSettingsStore = defineStore("settings", {
         model.isDefault = true;
       }
       models.push(model);
-      this.settings.modelConfig[key] = models as any;
+      this.settings.modelConfig[key] = models;
       localStorage.setItem("GENYEE_settings", JSON.stringify(this.settings));
     },
     
     // 更新模型
     updateModel(type: 'chat' | 'embedding' | 'rerank' | 'vllm', modelId: string, updates: Partial<ModelItem>) {
-      const key = `${type}Models` as keyof ModelConfig;
-      const models = [...this.settings.modelConfig[key]] as ModelItem[];
+      const key: keyof ModelConfig = `${type}Models`;
+      const models = [...this.settings.modelConfig[key]];
       const index = models.findIndex(m => m.id === modelId);
       if (index !== -1) {
         // 如果要设为默认，取消其他模型的默认状态
@@ -264,31 +264,31 @@ export const useSettingsStore = defineStore("settings", {
           models.forEach(m => m.isDefault = false);
         }
         models[index] = { ...models[index], ...updates };
-        this.settings.modelConfig[key] = models as any;
+        this.settings.modelConfig[key] = models;
         localStorage.setItem("GENYEE_settings", JSON.stringify(this.settings));
       }
     },
     
     // 删除模型
     deleteModel(type: 'chat' | 'embedding' | 'rerank' | 'vllm', modelId: string) {
-      const key = `${type}Models` as keyof ModelConfig;
-      let models = [...this.settings.modelConfig[key]] as ModelItem[];
+      const key: keyof ModelConfig = `${type}Models`;
+      let models = [...this.settings.modelConfig[key]];
       const deletedModel = models.find(m => m.id === modelId);
       models = models.filter(m => m.id !== modelId);
       // 如果删除的是默认模型，设置第一个为默认
       if (deletedModel?.isDefault && models.length > 0) {
         models[0].isDefault = true;
       }
-      this.settings.modelConfig[key] = models as any;
+      this.settings.modelConfig[key] = models;
       localStorage.setItem("GENYEE_settings", JSON.stringify(this.settings));
     },
     
     // 设置默认模型
     setDefaultModel(type: 'chat' | 'embedding' | 'rerank' | 'vllm', modelId: string) {
-      const key = `${type}Models` as keyof ModelConfig;
-      const models = [...this.settings.modelConfig[key]] as ModelItem[];
+      const key: keyof ModelConfig = `${type}Models`;
+      const models = [...this.settings.modelConfig[key]];
       models.forEach(m => m.isDefault = (m.id === modelId));
-      this.settings.modelConfig[key] = models as any;
+      this.settings.modelConfig[key] = models;
       localStorage.setItem("GENYEE_settings", JSON.stringify(this.settings));
     },
     
@@ -565,7 +565,7 @@ export const useSettingsStore = defineStore("settings", {
     // 已存在快照时不覆盖，避免会话间切换（B→B'）把已恢复的 store 错当成默认。
     snapshotAsDefaultsIfNeeded() {
       if (this._defaultsSnapshot) return;
-      this._defaultsSnapshot = JSON.parse(JSON.stringify(this.settings));
+      this._defaultsSnapshot = structuredClone(toRaw(this.settings));
     },
 
     // 还原默认（如果有快照），用于离开会话或跨会话切换时。

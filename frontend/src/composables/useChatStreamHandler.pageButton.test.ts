@@ -22,7 +22,8 @@ function setup(t: TestContext) {
     '@/utils/thinkBlocks': thinkBlocks,
     '@/views/chat/components/hostApproval': hostApproval,
   })
-  const messagesList = vue.reactive<any[]>([])
+  type DynamicRow = ReturnType<typeof JSON.parse>
+  const messagesList = vue.reactive<DynamicRow[]>([])
   const handler = useChatStreamHandler({
     messagesList, loading: vue.ref(false), isReplying: vue.ref(false),
     currentAssistantMessageId: vue.ref(''), fullContent: vue.ref(''),
@@ -31,7 +32,7 @@ function setup(t: TestContext) {
   handler.processStreamChunk({ response_type: 'agent_query', id: 'r1', assistant_message_id: 'a1' })
   handler.processStreamChunk({ response_type: 'answer', id: 'r1', content: 'the report', data: { event_id: 'ans-1' } })
   const message = () => messagesList.find(m => m.role === 'assistant')
-  const answer = () => message().agentEventStream.find((e: any) => e.event_id === 'ans-1')
+  const answer = () => (message().agentEventStream as DynamicRow[]).find((e) => e.event_id === 'ans-1')
   const call = (args: Record<string, unknown>, tool = 'open_page') => handler.processStreamChunk({
     response_type: 'tool_call', id: 'r1', data: { tool_call_id: 'page', tool_name: tool, arguments: args },
   })

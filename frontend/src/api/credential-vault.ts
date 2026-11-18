@@ -23,18 +23,18 @@ export interface CredentialVaultChanges {
 
 export async function listCredentialVault(site?: string): Promise<CredentialVaultList> {
   const query = site ? `?site=${encodeURIComponent(site)}` : ''
-  const res: any = await get(`/api/v1/me/credential-vault${query}`)
+  const res = await get<{ data?: CredentialVaultItem[]; available?: boolean }>(`/api/v1/me/credential-vault${query}`)
   return { data: Array.isArray(res?.data) ? res.data : [], available: Boolean(res?.available) }
 }
 
 export async function createCredentialVaultItem(input: CredentialVaultInput): Promise<CredentialVaultItem> {
-  const res: any = await post('/api/v1/me/credential-vault', input)
-  return res?.data
+  const res = await post<{ data: CredentialVaultItem }>('/api/v1/me/credential-vault', input)
+  return res?.data as CredentialVaultItem
 }
 
 export async function updateCredentialVaultItem(id: string, changes: CredentialVaultChanges): Promise<CredentialVaultItem> {
-  const res: any = await patch(`/api/v1/me/credential-vault/${encodeURIComponent(id)}`, changes)
-  return res?.data
+  const res = await patch<{ data: CredentialVaultItem }>(`/api/v1/me/credential-vault/${encodeURIComponent(id)}`, changes)
+  return res?.data as CredentialVaultItem
 }
 
 export async function deleteCredentialVaultItem(id: string): Promise<void> {
@@ -46,6 +46,6 @@ export async function submitSecureForm(
   promptId: string,
   body: SecureFormSubmission | { action: 'decline' },
 ): Promise<{ resumed: boolean }> {
-  const res: any = await post(`/api/v1/agent/secure-forms/${encodeURIComponent(promptId)}`, body)
+  const res = await post<{ resumed?: boolean }>(`/api/v1/agent/secure-forms/${encodeURIComponent(promptId)}`, body)
   return { resumed: Boolean(res?.resumed) }
 }

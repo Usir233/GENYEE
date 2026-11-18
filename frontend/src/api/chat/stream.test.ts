@@ -6,7 +6,7 @@ import { createSSRApp } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 
 let server: ViteDevServer
-let useStream: typeof import('./streame').useStream
+let useStream: typeof import('./stream').useStream
 let transport: { requests: Array<{ url: string; options: { body: string } }> }
 let uploadLimit: { setRequestLimit: (bytes: number) => void }
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
@@ -32,7 +32,7 @@ before(async () => {
     ] },
     server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
   })
-  ;({ useStream } = await server.ssrLoadModule('/src/api/chat/streame.ts'))
+  ;({ useStream } = await server.ssrLoadModule('/src/api/chat/stream.ts'))
   transport = await server.ssrLoadModule('\0mock:@microsoft/fetch-event-source') as typeof transport
   uploadLimit = await server.ssrLoadModule('\0mock:@/utils/index') as typeof uploadLimit
 })

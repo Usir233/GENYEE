@@ -6,6 +6,8 @@ import ts from 'typescript'
 import * as vue from 'vue'
 import * as pinia from 'pinia'
 
+type DynamicExports = ReturnType<typeof JSON.parse>
+
 const BUILTIN_QUICK_ANSWER_ID = 'builtin-quick-answer'
 
 function setupTest(legacyTokenMarker = false) {
@@ -52,14 +54,14 @@ function setupTest(legacyTokenMarker = false) {
 
   const authSource = readFileSync(new URL('./auth.ts', import.meta.url), 'utf8')
   const compiled = compile(authSource)
-  const tokenExports: any = {}
+  const tokenExports: DynamicExports = {}
   runInNewContext(compile(readFileSync(new URL('../utils/authTokens.ts', import.meta.url), 'utf8')), {
     exports: tokenExports,
     localStorage: mockLocalStorage,
   })
   const storageListeners = new Set<(event: { key: string | null }) => void>()
 
-  const exports: any = {}
+  const exports: DynamicExports = {}
   runInNewContext(compiled, {
     exports,
     console,
@@ -77,7 +79,7 @@ function setupTest(legacyTokenMarker = false) {
       if (name === 'vue') return vue
       if (name === 'pinia') return pinia
       if (name === '@/i18n') return { default: { global: { t: (k: string) => k } } }
-      if (name === '@/api/auth') return { userInfoFromApi: (u: any) => u }
+      if (name === '@/api/auth') return { userInfoFromApi: (u: unknown) => u }
       if (name === '@/api/agent') return { BUILTIN_QUICK_ANSWER_ID }
       if (name === '@/utils/authRefresh') return { invalidateAuthRefresh() {} }
       if (name === '@/utils/authTokens') return tokenExports
@@ -205,7 +207,7 @@ test('FE-03: Multi-tenant cache pollution: setSelectedTenant evicts chat models,
 })
 
 test('FE-03: Switching to null tenant clears selected tenant and purges cache', () => {
-  const { authStore, mockLocalStorage, getInvalidations } = setupTest()
+  const { authStore, mockLocalStorage } = setupTest()
 
   authStore.setSelectedTenant(10001, 'Tenant 10001')
   mockLocalStorage.setItem('genyee_last_chat_model_id', 'some-model')

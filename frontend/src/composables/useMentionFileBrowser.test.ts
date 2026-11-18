@@ -3,8 +3,8 @@ import test from 'node:test';
 import { effectScope, reactive } from 'vue';
 import { useMentionFileBrowser, type FileBrowserApi } from './useMentionFileBrowser';
 import { adaptFilePage, adaptFolderTree, fileDisabledReason, fitBrowserViewport } from '../utils/mentionFileBrowser';
-import { buildListKnowledgeFilesQuery } from '../api/knowledge-base/knowledgeFileListQuery';
-import { withKnowledgeReadContext } from '../api/knowledge-base/knowledgeReadOptions';
+import { buildListKnowledgeFilesQuery } from '../api/knowledge-base/knowledge-file-list-query';
+import { withKnowledgeReadContext } from '../api/knowledge-base/knowledge-read-options';
 
 const kb = { id: 'kb', name: 'Library' };
 test('directory popup stays within the mobile visual viewport and shrinks for the keyboard', () => {
@@ -33,7 +33,11 @@ function deferred<T = unknown>() {
 }
 function harness(api?: Partial<FileBrowserApi>) {
   const access = reactive({ key: 'user:tenant:agent:session', agent_id: 'agent', agent_source_tenant_id: '2' });
-  const calls: any[] = [];
+  const calls: Array<{
+    id: string;
+    params: Parameters<FileBrowserApi['files']>[1];
+    options: Parameters<FileBrowserApi['files']>[2];
+  }> = [];
   const scope = effectScope();
   const browser = scope.run(() => useMentionFileBrowser(() => access, {
     folders: async () => tree,
@@ -74,11 +78,11 @@ test('browsing is exact; searching is recursive; clearing the query restores the
     await h.navigate('中文/%_+#');
     assert.equal(h.folders.value.length, 1);
     await h.search('query');
-    assert.equal(h.calls.at(-1).params.folder_recursive, true);
+    assert.equal(h.calls.at(-1)!.params.folder_recursive, true);
     assert.equal(h.folders.value.length, 0);
     await h.search('');
     assert.equal(h.state.path, '中文/%_+#');
-    assert.equal(h.calls.at(-1).params.folder_recursive, false);
+    assert.equal(h.calls.at(-1)!.params.folder_recursive, false);
     assert.equal(h.folders.value.length, 1);
   } finally { h.stop(); }
 });

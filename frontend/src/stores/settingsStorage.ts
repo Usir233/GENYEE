@@ -1,3 +1,4 @@
+import { toRaw } from "vue";
 import { safeRemoveItem, safeSetItem } from "@/composables/preferenceStorage";
 import { reconcileBuiltinAgentMode } from "@/utils/agent-mode";
 
@@ -5,7 +6,7 @@ export const SETTINGS_STORAGE_KEY = "GENYEE_settings";
 
 /** Deep-clone settings so nested arrays/objects are not shared with defaults. */
 export function cloneSettings<T>(settings: T): T {
-  return JSON.parse(JSON.stringify(settings));
+  return structuredClone(toRaw(settings));
 }
 
 export function isStoredSettingsRecord(

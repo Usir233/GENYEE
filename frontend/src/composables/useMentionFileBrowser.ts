@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, reactive, watch } from 'vue';
 import type { KnowledgeFolderTree, ListKnowledgeFilesParams } from '../api/knowledge-base';
-import type { KnowledgeReadOptions } from '../api/knowledge-base/knowledgeReadOptions';
+import type { KnowledgeReadOptions } from '../api/knowledge-base/knowledge-read-options';
 import { childFolders, folderPathExists } from '../views/knowledge/folderTree';
 import { adaptFilePage, adaptFolderTree, browserErrorKind, type BrowserFile, type BrowserKnowledgeBase } from '../utils/mentionFileBrowser';
 

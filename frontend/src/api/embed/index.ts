@@ -373,7 +373,11 @@ export async function getEmbedMCPOAuthAuthorizeURL(
   serviceId: string,
   body: { redirect_uri: string; frontend_redirect?: string },
 ): Promise<{ authorizationUrl: string; authorizationAttempt: string }> {
-  const response: any = await post(
+  const response = await post<{
+    data?: { authorization_url?: string; authorization_attempt?: string }
+    authorization_url?: string
+    authorization_attempt?: string
+  }>(
     `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/mcp-services/${encodeURIComponent(serviceId)}/oauth/authorize-url`,
     body,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
@@ -397,7 +401,10 @@ export async function getEmbedMCPOAuthStatus(
   const query = authorizationAttempt
     ? `?authorization_attempt=${encodeURIComponent(authorizationAttempt)}`
     : ''
-  const response: any = await get(
+  const response = await get<{
+    data?: { authorized?: boolean }
+    authorized?: boolean
+  }>(
     `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/mcp-services/${encodeURIComponent(serviceId)}/oauth/status${query}`,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -413,7 +420,7 @@ export async function resolveEmbedToolApproval(
   pendingId: string,
   body: { decision: 'approve' | 'reject'; modified_args?: Record<string, unknown>; reason?: string; allow_in_session?: boolean },
 ): Promise<{ resumed: boolean }> {
-  const res: any = await post(
+  const res = await post<{ resumed?: boolean }>(
     `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/tool-approvals/${encodeURIComponent(pendingId)}`,
     body,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
@@ -431,7 +438,7 @@ export async function resolveEmbedAgentPrompt(
   kind: string,
   response: Record<string, unknown>,
 ): Promise<{ resumed: boolean }> {
-  const res: any = await post(
+  const res = await post<{ resumed?: boolean }>(
     `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/prompts/${encodeURIComponent(promptId)}`,
     { kind, response },
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
@@ -791,8 +798,11 @@ export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl
     `  if (!hasSession && !auth.startsWith('Bearer ')) {`,
     `    return res.status(401).json({ error: 'unauthorized' })`,
     `  }`,
+    `  const ctrl = new AbortController()`,
+    `  req.on('close', () => ctrl.abort())`,
     `  const r = await fetch('${exchangeUrl}', {`,
     `    method: 'POST',`,
+    `    signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(10_000)]),`,
     `    headers: {`,
     `      Authorization: 'Embed ' + process.env.GENYEE_PUBLISH_TOKEN,`,
     `      Origin: 'https://your-site.example.com', // must match channel allowed_origins`,

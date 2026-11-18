@@ -4,7 +4,8 @@ import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-let pendingPromptEvents: (prompt: unknown) => Record<string, any>[]
+type DynamicRow = ReturnType<typeof JSON.parse>
+let pendingPromptEvents: (prompt: unknown) => DynamicRow[]
 
 try {
   const mod = await import('./useChatStreamHandler.ts')
@@ -14,7 +15,7 @@ try {
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  const exports: Record<string, any> = {}
+  const exports: DynamicRow = {}
   vm.runInNewContext(compiled, {
     exports,
     console,

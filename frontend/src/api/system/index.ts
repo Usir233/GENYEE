@@ -104,11 +104,11 @@ export function getPromptTemplates(): Promise<{ data: PromptTemplatesConfig }> {
 }
 
 export interface ParserEngineInfo {
-  Name: string
-  Description: string
-  FileTypes: string[]
-  Available?: boolean
-  UnavailableReason?: string
+  name: string
+  description: string
+  file_types: string[]
+  available?: boolean
+  unavailable_reason?: string
 }
 
 /** 解析引擎配置（引擎连接参数存空间；聊天附件解析策略在智能体中配置） */
@@ -1159,7 +1159,7 @@ export function uploadConfigSkill(
 ): Promise<{ data: { skill_id: string } }> {
   const form = new FormData()
   form.append('file', file)
-  return postUpload(`/api/v1/sandbox-configs/${configId}/skills`, form, (e: any) => {
+  return postUpload<{ data: { skill_id: string } }>(`/api/v1/sandbox-configs/${configId}/skills`, form, (e) => {
     if (e.total) onProgress?.(Math.round((e.loaded * 100) / e.total))
   }, { timeout: 5 * 60 * 1000 })
 }

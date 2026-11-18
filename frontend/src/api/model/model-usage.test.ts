@@ -12,7 +12,7 @@ import {
   modelUsageResourceCount,
   modelUsageResourceRoute,
   parseModelUsageDetails,
-} from './modelUsage'
+} from './model-usage'
 
 const details = {
   knowledge_bases: [

@@ -1,8 +1,8 @@
 import { get, post, postUpload, put, del } from '../../utils/request';
 import i18n from '@/i18n'
-import { ModelInUseError, modelInUseErrorFromRequest } from './modelUsage'
+import { ModelInUseError, modelInUseErrorFromRequest } from './model-usage'
 
-export * from './modelUsage'
+export * from './model-usage'
 
 const t = (key: string) => i18n.global.t(key)
 
@@ -102,15 +102,15 @@ export interface ModelConfig {
 // 复制模型。只提交展示名；name 与凭证由服务端从源模型复制。
 export function copyModelConfig(id: string, displayName: string): Promise<ModelConfig> {
   return new Promise((resolve, reject) => {
-    post(`/api/v1/models/${id}/copy`, { display_name: displayName })
-      .then((response: any) => {
+    post<{ success?: boolean; data?: ModelConfig; message?: string }>(`/api/v1/models/${id}/copy`, { display_name: displayName })
+      .then((response) => {
         if (response.success && response.data) {
           resolve(response.data);
         } else {
           reject(new Error(response.message || ''));
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         console.error('Failed to copy model:', error);
         reject(error);
       });
@@ -120,15 +120,15 @@ export function copyModelConfig(id: string, displayName: string): Promise<ModelC
 // 创建模型
 export function createModel(data: ModelConfig): Promise<ModelConfig> {
   return new Promise((resolve, reject) => {
-    post('/api/v1/models', data)
-      .then((response: any) => {
+    post<{ success?: boolean; data?: ModelConfig; message?: string }>('/api/v1/models', data)
+      .then((response) => {
         if (response.success && response.data) {
           resolve(response.data);
         } else {
           reject(new Error(response.message || t('error.model.createFailed')));
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         console.error('Failed to create model:', error);
         reject(error);
       });
@@ -139,18 +139,16 @@ export function createModel(data: ModelConfig): Promise<ModelConfig> {
 export function listModels(type?: string): Promise<ModelConfig[]> {
   return new Promise((resolve, reject) => {
     const url = `/api/v1/models`;
-    get(url)
-      .then((response: any) => {
-        if (response.success && response.data) {
-          if (type) {
-            response.data = response.data.filter((item: ModelConfig) => item.type === type);
-          }
-          resolve(response.data);
+    get<{ success?: boolean; data?: ModelConfig[] }>(url)
+      .then((response) => {
+        if (response.success && Array.isArray(response.data)) {
+          const items = type ? response.data.filter((item: ModelConfig) => item.type === type) : response.data;
+          resolve(items);
         } else {
           resolve([]);
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         console.error('Failed to list models:', error);
         // 抛出而非吞掉：调用方（含缓存层）才能区分「真失败」与「成功但无模型」，
         // 避免把一次瞬时失败的空结果缓存下来。各 UI 调用点均已 try/catch 兜底。
@@ -162,15 +160,15 @@ export function listModels(type?: string): Promise<ModelConfig[]> {
 // 获取单个模型
 export function getModel(id: string): Promise<ModelConfig> {
   return new Promise((resolve, reject) => {
-    get(`/api/v1/models/${id}`)
-      .then((response: any) => {
+    get<{ success?: boolean; data?: ModelConfig; message?: string }>(`/api/v1/models/${id}`)
+      .then((response) => {
         if (response.success && response.data) {
           resolve(response.data);
         } else {
           reject(new Error(response.message || t('error.model.getFailed')));
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         console.error('Failed to get model:', error);
         reject(error);
       });
@@ -180,15 +178,15 @@ export function getModel(id: string): Promise<ModelConfig> {
 // 更新模型
 export function updateModel(id: string, data: Partial<ModelConfig>): Promise<ModelConfig> {
   return new Promise((resolve, reject) => {
-    put(`/api/v1/models/${id}`, data)
-      .then((response: any) => {
+    put<{ success?: boolean; data?: ModelConfig; message?: string }>(`/api/v1/models/${id}`, data)
+      .then((response) => {
         if (response.success && response.data) {
           resolve(response.data);
         } else {
           reject(new Error(response.message || t('error.model.updateFailed')));
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         console.error('Failed to update model:', error);
         reject(error);
       });
@@ -198,8 +196,8 @@ export function updateModel(id: string, data: Partial<ModelConfig>): Promise<Mod
 // 删除模型
 export function deleteModel(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    del(`/api/v1/models/${id}`)
-      .then((response: any) => {
+    del<{ success?: boolean; message?: string }>(`/api/v1/models/${id}`)
+      .then((response) => {
         if (response.success) {
           resolve();
         } else {
@@ -211,7 +209,7 @@ export function deleteModel(id: string): Promise<void> {
           reject(new Error(response.message || t('error.model.deleteFailed')));
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         console.error('Failed to delete model:', error);
         if (error instanceof ModelInUseError) {
           reject(error)
@@ -262,7 +260,7 @@ export async function debugModel(
   form.append('documents', JSON.stringify(data.documents || []))
   form.append('options', JSON.stringify(data.options || {}))
   if (data.file) form.append('file', data.file)
-  const response: any = await postUpload(
+  const response = await postUpload<{ success?: boolean; data?: ModelDebugResult; message?: string }>(
     `/api/v1/models/${id}/debug`,
     form,
     undefined,
@@ -287,7 +285,10 @@ export async function putModelCredentials(
   id: string,
   body: Partial<Record<ModelCredentialField, string>>,
 ): Promise<ModelCredentialsResponse> {
-  const response: any = await put(`/api/v1/models/${id}/credentials`, body)
+  const response = await put<{ data?: ModelCredentialsResponse } & Partial<ModelCredentialsResponse>>(
+    `/api/v1/models/${id}/credentials`,
+    body,
+  )
   return (response.data ?? response) as ModelCredentialsResponse
 }
 

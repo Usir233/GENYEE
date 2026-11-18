@@ -37,8 +37,10 @@ vm.runInNewContext(compiled, {
 })
 const useChatStreamHandler = exports.useChatStreamHandler!
 
+type DynamicRow = ReturnType<typeof JSON.parse>
+
 function setup() {
-  const messagesList = vue.reactive<Record<string, any>[]>([])
+  const messagesList = vue.reactive<DynamicRow[]>([])
   const loading = vue.ref(false), isReplying = vue.ref(false)
   const currentAssistantMessageId = vue.ref(''), fullContent = vue.ref('')
   const turns: unknown[] = []
@@ -62,15 +64,15 @@ const awaitingRow = () => ({
   },
 })
 
-const cards = (m: Record<string, any>) =>
-  (m.agentEventStream as Record<string, any>[]).filter((e) => e.type === 'tool_approval_required')
+const cards = (m: DynamicRow) =>
+  (m.agentEventStream as DynamicRow[]).filter((e) => e.type === 'tool_approval_required')
 
 test('history renders a suspended message as settled with its pending card', async () => {
   const { handler, messagesList } = setup()
   await handler.handleMsgList([awaitingRow()])
   const m = messagesList[0]
   assert.equal(m.is_completed, true)
-  const stream = m.agentEventStream as Record<string, any>[]
+  const stream = m.agentEventStream as DynamicRow[]
   assert.ok(!stream.some((e) => e.type === 'stop' || e.type === 'agent_complete'))
   const [card] = cards(m)
   assert.equal(card.pending_id, 'p1')
@@ -130,7 +132,7 @@ test('a live run that suspends parks its card and ends without completion', () =
   assert.equal(card.suspended, true)
   assert.equal(m.run_state, 'awaiting_input')
   assert.equal(isReplying.value, false)
-  assert.ok(!(m.agentEventStream as Record<string, any>[]).some((e) => e.type === 'agent_complete'))
+  assert.ok(!(m.agentEventStream as DynamicRow[]).some((e) => e.type === 'agent_complete'))
   assert.equal(turns.length, 1)
 })
 
@@ -141,7 +143,7 @@ test('a resumed run streams into the suspended message', async () => {
   handler.prepareResumedMessage(m, 'p1')
   assert.equal(m.is_completed, false)
   assert.equal(m.run_state, '')
-  assert.ok(!(m.agentEventStream as Record<string, any>[]).some(
+  assert.ok(!(m.agentEventStream as DynamicRow[]).some(
     (e) => e.type === 'tool_call' && e.tool_call_id === 'call-1',
   ))
   currentAssistantMessageId.value = 'a1'
@@ -156,7 +158,7 @@ test('a resumed run streams into the suspended message', async () => {
   assert.equal(card.resolved, true)
   assert.equal(card.approved, true)
   assert.equal(m.is_completed, true)
-  assert.ok((m.agentEventStream as Record<string, any>[]).some((e) => e.type === 'agent_complete'))
+  assert.ok((m.agentEventStream as DynamicRow[]).some((e) => e.type === 'agent_complete'))
 })
 
 test('a new message abandons the prompt a suspended run waits on', async () => {
@@ -170,8 +172,8 @@ test('a new message abandons the prompt a suspended run waits on', async () => {
   assert.equal(m.run_state, '')
 })
 
-const prompts = (m: Record<string, any>) =>
-  (m.agentEventStream as Record<string, any>[]).filter((e) => e.type === 'agent_prompt_required')
+const prompts = (m: DynamicRow) =>
+  (m.agentEventStream as DynamicRow[]).filter((e) => e.type === 'agent_prompt_required')
 
 test('a question card follows the prompt events of a live run', () => {
   const { handler, messagesList } = setup()
@@ -194,7 +196,7 @@ test('a question card follows the prompt events of a live run', () => {
 
 test('history shows a pending question and turns answered ones into cards', async () => {
   const { handler, messagesList } = setup()
-  const row = awaitingRow()
+  const row: DynamicRow = awaitingRow()
   row.agent_steps = [{
     iteration: 0, thought: '',
     tool_calls: [
@@ -204,11 +206,11 @@ test('history shows a pending question and turns answered ones into cards', asyn
       } } },
       { id: 'call-1', name: 'ask_user', args: {} },
     ],
-  }] as any
+  }]
   row.pending_prompt = {
     id: 'q2', kind: 'ask_user', tool_call_id: 'call-1', created_at: '2026-10-13T08:00:00Z',
     expires_at: '2026-10-20T08:00:00Z', request: { question: 'Second?' },
-  } as any
+  }
   await handler.handleMsgList([row])
   const m = messagesList[0]
   const [answered, pending] = prompts(m)
@@ -216,7 +218,7 @@ test('history shows a pending question and turns answered ones into cards', asyn
   assert.equal(answered.resolved, true)
   assert.equal(answered.answered, false)
   assert.equal(answered.resolve_reason, 'the user declined to answer')
-  assert.ok(!(m.agentEventStream as Record<string, any>[]).some(
+  assert.ok(!(m.agentEventStream as DynamicRow[]).some(
     (e) => e.type === 'tool_call' && e.tool_call_id === 'call-0',
   ))
   assert.equal(pending.pending_id, 'q2')
@@ -240,7 +242,7 @@ test('a prompt without display steps remains answerable after orphan recovery', 
 
 test('parallel child approvals reload on a running parent without suspending it', async () => {
   const { handler, messagesList } = setup()
-  const base = awaitingRow() as Record<string, any>
+  const base: DynamicRow = awaitingRow()
   base.run_state = ''
   base.is_completed = false
   const prompt = base.pending_prompt
@@ -296,7 +298,7 @@ test('child approval resolutions after steering update the original segment and 
   assert.equal(cards(original)[0].canceled, true)
   assert.equal(cards(original)[1].resolved, false)
   handler.processStreamChunk({ response_type: 'agent_prompt_resolved', id: 'r1', data: { pending_id: 'child-question', answered: true } })
-  assert.equal(original.agentEventStream.find((e: any) => e.pending_id === 'child-question').resolved, true)
+  assert.equal((original.agentEventStream as DynamicRow[]).find((e) => e.pending_id === 'child-question').resolved, true)
   handler.processStreamChunk({ response_type: 'tool_approval_resolved', id: 'r1', data: { pending_id: 'child-b', approved: true } })
   assert.equal(cards(original)[1].approved, true)
   assert.equal(messagesList.length, 4)
@@ -332,7 +334,7 @@ test('rehydrated in-flight steps remain reactive while tools and thinking stream
   await handler.handleMsgList([row])
   currentAssistantMessageId.value = 'a1'
   const m = messagesList[0]
-  const observed = vue.computed(() => (m.agentEventStream as any[]).map(e =>
+  const observed = vue.computed(() => (m.agentEventStream as DynamicRow[]).map(e =>
     `${e.type}:${e.content || ''}:${e.pending}:${e.success}`).join('|'))
   const before = observed.value
   assert.doesNotMatch(before, /agent_complete/, 'an elapsed duration must not settle a running timeline')
@@ -373,7 +375,7 @@ test('resolved approvals reload once in timeline order before completion and nev
   assert.equal(cards(m)[0].args_json, '{"limit":2}')
   assert.equal(cards(m)[1].approved, false)
   assert.equal(cards(m)[2].canceled, true)
-  const events = m.agentEventStream as Record<string, any>[]
+  const events = m.agentEventStream as DynamicRow[]
   assert.ok(events.findIndex(e => e.pending_id === 'approved') < events.findIndex(e => e.type === 'tool_call'))
   assert.ok(events.findIndex(e => e.pending_id === 'canceled') < events.findIndex(e => e.type === 'agent_complete'))
   assert.equal(events.at(-1)?.content, 'final')
@@ -401,7 +403,7 @@ for (const prepared of [false, true]) {
     resume()
     resume()
     assert.equal(messagesList.length, 1)
-    const events = m.agentEventStream as Record<string, any>[]
+    const events = m.agentEventStream as DynamicRow[]
     assert.equal(events.filter(e => e.content === 'checking').length, 1)
     assert.equal(events.filter(e => e.type === 'tool_call' && e.tool_call_id === 'call-1').length, 1)
     assert.equal(events.filter(e => e.type === 'answer' && e.content === 'after approval').length, 1)
@@ -423,8 +425,8 @@ for (const prepared of [false, true]) {
     secondResume()
     assert.equal(cards(m).length, 2)
     assert.ok(cards(m).every(e => e.approved))
-    assert.equal(m.agentEventStream.filter((e: any) => e.content === 'checking').length, 1)
-    assert.equal(m.agentEventStream.filter((e: any) => e.content === 'after approval').length, 1)
+    assert.equal((m.agentEventStream as DynamicRow[]).filter((e) => e.content === 'checking').length, 1)
+    assert.equal((m.agentEventStream as DynamicRow[]).filter((e) => e.content === 'after approval').length, 1)
   })
 }
 
@@ -449,7 +451,7 @@ test('approval suffix replay preserves steer boundaries before and after suspens
   replay()
   const assistants = messagesList.filter(m => m.role === 'assistant')
   assert.equal(assistants.length, 3)
-  const texts = assistants.map(m => m.agentEventStream.filter((e: any) => e.type === 'answer').map((e: any) => e.content))
+  const texts = assistants.map(m => (m.agentEventStream as DynamicRow[]).filter((e) => e.type === 'answer').map((e) => e.content))
   assert.deepEqual(JSON.parse(JSON.stringify(texts)), [['before-steer'], ['before-approval', 'after-approval'], ['after-steer']])
 })
 
@@ -463,8 +465,8 @@ test('reloaded history containing a later checkpoint does not duplicate the resu
     data: { resume_pending_id: 'p1', resume_tool_call_id: 'call-1' } })
   handler.processStreamChunk({ response_type: 'answer', id: 'r1', content: 'persisted suffix',
     data: { event_id: 'suffix' }, done: false })
-  assert.equal(m.agentEventStream.filter((e: any) => e.content === 'checking').length, 1)
-  assert.equal(m.agentEventStream.filter((e: any) => e.content === 'persisted suffix').length, 1)
+  assert.equal((m.agentEventStream as DynamicRow[]).filter((e) => e.content === 'checking').length, 1)
+  assert.equal((m.agentEventStream as DynamicRow[]).filter((e) => e.content === 'persisted suffix').length, 1)
   assert.equal(cards(m).length, 1)
 })
 
@@ -477,5 +479,5 @@ test('approval resume keeps updates that arrived while approval was pending', as
   m.agentEventStream.push({ type: 'answer', content: 'another child finished', event_id: 'child-progress', done: true })
   handler.processStreamChunk({ response_type: 'agent_query', id: 'r1', assistant_message_id: 'a1',
     data: { resume_pending_id: 'p1', resume_tool_call_id: 'call-1' } })
-  assert.equal(m.agentEventStream.filter((e: any) => e.content === 'another child finished').length, 1)
+  assert.equal((m.agentEventStream as DynamicRow[]).filter((e) => e.content === 'another child finished').length, 1)
 })

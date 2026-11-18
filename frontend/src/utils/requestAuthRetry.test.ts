@@ -13,6 +13,8 @@ function deferred<T>() {
 const flush = () => new Promise<void>(resolve => setImmediate(resolve))
 type RefreshResult = { success: boolean; data?: { token: string; refreshToken: string }; message?: string }
 
+type DynamicExports = ReturnType<typeof JSON.parse>
+
 /** Production Axios interceptors and refresh state machine; only HTTP/browser storage are fake. */
 function fixture(refreshResult?: () => Promise<RefreshResult>) {
   const storage = new Map([
@@ -24,8 +26,8 @@ function fixture(refreshResult?: () => Promise<RefreshResult>) {
     removeItem: (key: string) => { storage.delete(key) },
   }
   const location = { pathname: '/platform/settings', href: '/platform/settings' }
-  function evaluate(path: string, dependencies: Record<string, unknown>) {
-    const exports: any = {}
+  function evaluate(path: string, dependencies: Record<string, unknown>): DynamicExports {
+    const exports: DynamicExports = {}
     runInNewContext(ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText, {
@@ -79,7 +81,8 @@ function fixture(refreshResult?: () => Promise<RefreshResult>) {
   }) as Promise<unknown>
   return { storage, refresh, refreshed, send, calls, responses, assertUntouched: () => assert.equal(location.href, '/platform/settings') }
 }
-const isSessionChanged = (error: any) => error?.name === 'AuthSessionChangedError'
+const isSessionChanged = (error: unknown) =>
+  typeof error === 'object' && error !== null && (error as { name?: string }).name === 'AuthSessionChangedError'
 
 test('an authenticated mutation refreshes and retries once in the same account and tenant', async () => {
   const f = fixture(), result = f.send()

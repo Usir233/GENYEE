@@ -224,15 +224,24 @@ export type UploadOutcome =
  * responses with the JSON body spread over `{ status, message }`, so a 409
  * duplicate arrives as a rejection carrying `code` and the existing row in `data`.
  */
-export function classifyUploadResult(result: any): UploadOutcome {
-  const code = result?.code ?? result?.error?.code
+interface RawUploadResult {
+  code?: string | number
+  success?: boolean
+  message?: string
+  error?: { code?: string | number; message?: string }
+  data?: { id?: string; parse_status?: string }
+}
+
+export function classifyUploadResult(result: unknown): UploadOutcome {
+  const r = (result && typeof result === 'object' ? result : undefined) as RawUploadResult | undefined
+  const code = r?.code ?? r?.error?.code
   if (code === 'duplicate_file') {
-    return { kind: 'duplicate', knowledgeId: result?.data?.id, message: result?.message }
+    return { kind: 'duplicate', knowledgeId: r?.data?.id, message: r?.message }
   }
-  if (result?.success === true) {
-    return { kind: 'uploaded', knowledgeId: result?.data?.id, parseStatus: result?.data?.parse_status }
+  if (r?.success === true) {
+    return { kind: 'uploaded', knowledgeId: r?.data?.id, parseStatus: r?.data?.parse_status }
   }
-  return { kind: 'failed', message: result?.error?.message || result?.message }
+  return { kind: 'failed', message: r?.error?.message || r?.message }
 }
 
 export interface RateSample {

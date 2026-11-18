@@ -128,7 +128,7 @@ export function extraFieldOptionLabel(
 
 /** Stable display order: backend `order`, then label. */
 export function sortProviders(providers: ReadonlyArray<ModelProviderOption>): ModelProviderOption[] {
-  return [...providers].sort((a, b) => {
+  return providers.toSorted((a, b) => {
     const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER
     const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER
     if (orderA !== orderB) return orderA - orderB

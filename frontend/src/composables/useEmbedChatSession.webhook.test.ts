@@ -34,7 +34,7 @@ function setup(t: TestContext, agentId = 'agent', initialHistory: Record<string,
     '@/utils/index': { MAX_FILE_SIZE_BYTES: 50 * 1024 * 1024, MAX_FILE_SIZE_MB: 50 },
     '@/utils/embedFile': { fileToDataURI: async () => '' },
     '@/composables/useStickyBottomOnResize': { useStickyBottomOnResize() {} },
-    '@/api/chat/streame': { useStream: () => ({
+    '@/api/chat/stream': { useStream: () => ({
       onChunk: (callback: typeof onChunk) => { onChunk = callback }, error,
       startStream: async (params: Record<string, unknown>) => { starts.push(params) }, stopStream() {},
     }) },
@@ -52,7 +52,7 @@ function setup(t: TestContext, agentId = 'agent', initialHistory: Record<string,
   }
   modules['@/views/chat/components/hostApproval'] = require('../views/chat/components/hostApproval.ts')
   const load = (code: string) => {
-    const exports: Record<string, any> = {}
+    const exports: Record<string, unknown> = {}
     vm.runInNewContext(code, {
       exports, console: { log() {}, warn() {}, error() {} },
       setTimeout: (callback: () => unknown) => { timers.set(++timerId, callback); return timerId },

@@ -22,11 +22,11 @@ export const useUploadTasksStore = defineStore('uploadTasks', () => {
       batch.kbId,
       {
         file: payload.file,
-        fileName: payload.fileName,
+        file_name: payload.fileName,
         tag_ids: batch.tagIds,
         process_config: batch.processConfig,
       },
-      (event: { loaded?: number; total?: number; progress?: number }) => {
+      (event: { loaded: number; total?: number; progress?: number }) => {
         onProgress(event.progress ?? (event.total ? (event.loaded ?? 0) / event.total : 0))
       },
       { signal },
@@ -34,7 +34,7 @@ export const useUploadTasksStore = defineStore('uploadTasks', () => {
     queryStatus: async (kbId, knowledgeIds) => {
       const query = knowledgeIds.map(id => `ids=${encodeURIComponent(id)}`).join('&')
       try {
-        const result: any = await batchQueryKnowledge(query, kbId)
+        const result = await batchQueryKnowledge(query, kbId)
         return result?.success && Array.isArray(result.data) ? (result.data as KnowledgeStatusRow[]) : null
       } catch {
         return null

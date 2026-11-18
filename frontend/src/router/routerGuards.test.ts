@@ -48,7 +48,7 @@ function createTestRouter(opts: {
     },
   }
 
-  const exports: Record<string, any> = {}
+  const exports: Record<string, unknown> = {}
   vm.runInNewContext(compiled, {
     exports,
     URLSearchParams,
@@ -92,7 +92,7 @@ function createTestRouter(opts: {
       if (id === '@/api/auth') {
         return {
           autoSetup: async () => ({ success: false }),
-          userInfoFromApi: (u: any) => u,
+          userInfoFromApi: (u: unknown) => u,
         }
       }
       if (id === 'tdesign-vue-next') {

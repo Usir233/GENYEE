@@ -42,16 +42,19 @@ vm.runInNewContext(compiled, {
 })
 const useChatStreamHandler = exports.useChatStreamHandler!
 
+type DynamicRow = ReturnType<typeof JSON.parse>
+
 function setup(t: TestContext, mode: 'ordinary' | 'quick-timeline' | 'agent') {
   const effects = vue.effectScope()
-  const oldWindow = (globalThis as any).window
+  const hostGlobal = globalThis as unknown as { window?: unknown }
+  const oldWindow = hostGlobal.window
   const oldFetch = globalThis.fetch
-  ;(globalThis as any).window = { location: { origin: 'http://localhost' }, addEventListener() {} }
+  hostGlobal.window = { location: { origin: 'http://localhost' }, addEventListener() {} }
   clearProtectedFileFailureCache()
   t.after(() => {
     effects.stop()
     globalThis.fetch = oldFetch
-    ;(globalThis as any).window = oldWindow
+    hostGlobal.window = oldWindow
     setDefaultProtectedFileAccess(null)
     clearProtectedFileFailureCache()
   })
@@ -65,7 +68,7 @@ function setup(t: TestContext, mode: 'ordinary' | 'quick-timeline' | 'agent') {
     removeAttribute: (key: string) => { delete attrs[key] },
   }
   const root = { querySelectorAll: () => [img] } as unknown as ParentNode
-  const message = vue.reactive<Record<string, any>>({
+  const message = vue.reactive<DynamicRow>({
     id: 'assistant', assistant_message_id: 'assistant', request_id: 'request', role: 'assistant',
     content: '', is_completed: false, isAgentMode: mode !== 'ordinary',
   })

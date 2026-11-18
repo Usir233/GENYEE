@@ -15,7 +15,23 @@ type ResourceKey = 'knowledgeBases' | 'agents' | 'models' | 'webSearchProviders'
 
 export type ListCreatorFilter = 'all' | 'mine' | 'others'
 
-function isKbModelReady(kb: any): boolean {
+export interface KnowledgeBaseResourceRow {
+  id: string
+  name?: string
+  description?: string
+  type?: 'document' | 'faq' | string
+  summary_model_id?: string
+  embedding_model_id?: string
+  indexing_strategy?: {
+    vector_enabled?: boolean
+    keyword_enabled?: boolean
+    wiki_enabled?: boolean
+    graph_enabled?: boolean
+  }
+  [key: string]: unknown
+}
+
+function isKbModelReady(kb: KnowledgeBaseResourceRow): boolean {
   if (!kb.summary_model_id || kb.summary_model_id === '') return false
   const strategy = kb.indexing_strategy
   const needsEmbedding = !strategy || strategy.vector_enabled || strategy.keyword_enabled
@@ -31,7 +47,7 @@ function isKbModelReady(kb: any): boolean {
  * 页面直接读这里的 ref 渲染，旧快照在新数据到达前先撑着。
  */
 export const useChatResourcesStore = defineStore('chatResources', () => {
-  const rawKnowledgeBases = ref<any[]>([])
+  const rawKnowledgeBases = ref<KnowledgeBaseResourceRow[]>([])
   const agents = ref<CustomAgent[]>([])
   const disabledOwnAgentIds = ref<string[]>([])
   const allModels = ref<ModelConfig[]>([])
@@ -43,8 +59,8 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
 
   const knowledgeBasesResource = createCachedResource(
     async () => {
-      const res: any = await listKnowledgeBases()
-      return res?.data && Array.isArray(res.data) ? (res.data as any[]) : []
+      const res = await listKnowledgeBases()
+      return res?.data && Array.isArray(res.data) ? (res.data as KnowledgeBaseResourceRow[]) : []
     },
     (data) => {
       rawKnowledgeBases.value = data
@@ -92,7 +108,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   const webSearchProvidersResource = createCachedResource(
     async () => {
       const response = await listWebSearchProviders()
-      const providers = (response as any)?.data
+      const providers = response?.data
       return Array.isArray(providers) ? (providers as WebSearchProviderEntity[]) : []
     },
     (providers) => {
@@ -131,16 +147,16 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   // @ 提及列表会逐条补 count，这类按 key 的读取不能每次都打接口。
   const agentKbCache = createKeyedSnapshotCache(async (cacheKey: string) => {
     const [agentId, sourceTenantId] = cacheKey.split(':')
-    const res: any = await listKnowledgeBases({
+    const res = await listKnowledgeBases({
       agent_id: agentId,
       agent_source_tenant_id: sourceTenantId === 'current' ? undefined : sourceTenantId,
     })
-    return res?.data && Array.isArray(res.data) ? (res.data as any[]) : []
+    return res?.data && Array.isArray(res.data) ? (res.data as KnowledgeBaseResourceRow[]) : []
   })
   const kbDetailCache = createKeyedSnapshotCache(async (kbId: string) => {
     try {
-      const res: any = await getKnowledgeBaseById(kbId)
-      return res?.data ?? null
+      const res = await getKnowledgeBaseById(kbId)
+      return (res?.data as KnowledgeBaseResourceRow | undefined) ?? null
     } catch {
       return null
     }
@@ -160,14 +176,14 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   async function fetchKnowledgeBasesForList(
     params?: { creator?: ListCreatorFilter },
     force = false,
-  ): Promise<any[]> {
+  ): Promise<KnowledgeBaseResourceRow[]> {
     const creator = params?.creator ?? 'all'
     // 带 creator 过滤的列表是列表页专用、不进快照，直接透传请求。
     // 写操作后的强刷同时把全量快照刷一遍，否则对话输入栏会看到已删除的知识库。
     if (creator !== 'all') {
       if (force) void ensureKnowledgeBases(true).catch(() => {})
-      const res: any = await listKnowledgeBases({ creator })
-      return res?.data && Array.isArray(res.data) ? res.data : []
+      const res = await listKnowledgeBases({ creator })
+      return res?.data && Array.isArray(res.data) ? (res.data as KnowledgeBaseResourceRow[]) : []
     }
     await ensureKnowledgeBases(force)
     return rawKnowledgeBases.value
@@ -263,12 +279,12 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
     ])
   }
 
-  async function ensureAgentKnowledgeBases(agentId: string, sourceTenantId?: string, force = false): Promise<any[]> {
+  async function ensureAgentKnowledgeBases(agentId: string, sourceTenantId?: string, force = false): Promise<KnowledgeBaseResourceRow[]> {
     return agentKbCache.ensure(`${agentId}:${sourceTenantId || 'current'}`, force)
   }
 
   /** 单个知识库详情（侧栏 + 详情页共用，去重并发请求） */
-  async function fetchKnowledgeBaseById(kbId: string, force = false): Promise<any | null> {
+  async function fetchKnowledgeBaseById(kbId: string, force = false): Promise<KnowledgeBaseResourceRow | null> {
     if (!kbId) return null
     return kbDetailCache.ensure(kbId, force)
   }

@@ -142,8 +142,30 @@ export interface UserInfo {
  * 类型（后端某天传 1/0 或字符串）做严格收敛，避免把 truthy 字符串
  * 误判为权限通过。
  */
+export interface RawUserInfoPayload {
+  id?: string
+  username?: string
+  email?: string
+  avatar?: string
+  tenant_id?: string | number | null
+  can_access_all_tenants?: unknown
+  is_system_admin?: unknown
+  preferences?: UserPreferences
+  created_at?: string
+  updated_at?: string
+  [key: string]: unknown
+}
+
+function getErrorMessage(error: unknown): string | undefined {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message
+    if (typeof msg === 'string' && msg) return msg
+  }
+  return undefined
+}
+
 export function userInfoFromApi(
-  u: any,
+  u: RawUserInfoPayload | null | undefined,
   fallbackTenantId?: string | number | null,
 ): UserInfo {
   const rawTenantId =
@@ -218,10 +240,10 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   try {
     const response = await post('/api/v1/auth/login', data)
     return response as unknown as LoginResponse
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.loginFailed')
+      message: getErrorMessage(error) || t('error.auth.loginFailed')
     }
   }
 }
@@ -233,10 +255,10 @@ export async function getOIDCAuthorizationURL(redirectURI: string): Promise<OIDC
   try {
     const response = await get(`/api/v1/auth/oidc/url?redirect_uri=${encodeURIComponent(redirectURI)}`)
     return response as unknown as OIDCAuthURLResponse
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.loginFailed')
+      message: getErrorMessage(error) || t('error.auth.loginFailed')
     }
   }
 }
@@ -248,11 +270,11 @@ export async function getOIDCConfig(): Promise<OIDCConfigResponse> {
   try {
     const response = await get('/api/v1/auth/oidc/config')
     return response as unknown as OIDCConfigResponse
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
       enabled: false,
-      message: error.message || t('error.auth.loginFailed')
+      message: getErrorMessage(error) || t('error.auth.loginFailed')
     }
   }
 }
@@ -289,10 +311,10 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
   try {
     const response = await post('/api/v1/auth/register', data)
     return response as unknown as RegisterResponse
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.registerFailed')
+      message: getErrorMessage(error) || t('error.auth.registerFailed')
     }
   }
 }
@@ -302,22 +324,32 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
  */
 let autoSetupPromise: Promise<LoginResponse> | null = null
 
+interface DesktopWindowWithApp extends Window {
+  go?: {
+    main?: {
+      App?: {
+        GetAutoSetupToken?: () => Promise<string>
+      }
+    }
+  }
+}
+
 export function autoSetup(): Promise<LoginResponse> {
   if (autoSetupPromise) return autoSetupPromise
 
   const request = (async () => {
     try {
-      const nativeApp = (window as any).go?.main?.App
+      const nativeApp = (window as DesktopWindowWithApp).go?.main?.App
       if (!nativeApp?.GetAutoSetupToken) return { success: false, message: 'Desktop authentication required' }
       const token = await nativeApp.GetAutoSetupToken()
       const response = await post('/api/v1/auth/auto-setup', {}, {
         headers: { 'X-Genyee-Desktop-Token': token },
       })
       return response as unknown as LoginResponse
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.message || 'Auto-setup unavailable'
+        message: getErrorMessage(error) || 'Auto-setup unavailable'
       }
     }
   })()
@@ -355,10 +387,10 @@ export async function getCurrentUser(): Promise<{ success: boolean; data?: { use
   try {
     const response = await get('/api/v1/auth/me')
     return response as unknown as { success: boolean; data?: { user: UserInfo; tenant?: TenantInfo | null; memberships?: MembershipInfo[]; tenant_required?: boolean; capabilities?: AuthCapabilities; preference_defaults?: { browser_search_instructions: string } }; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.getUserFailed')
+      message: getErrorMessage(error) || t('error.auth.getUserFailed')
     }
   }
 }
@@ -373,25 +405,10 @@ export async function updateMyPreferences(
   try {
     const response = await put('/api/v1/auth/me/preferences', patch)
     return response as unknown as { success: boolean; data?: UserPreferences; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.updatePreferencesFailed'),
-    }
-  }
-}
-
-/**
- * 获取当前空间信息
- */
-export async function getCurrentTenant(): Promise<{ success: boolean; data?: TenantInfo; message?: string }> {
-  try {
-    const response = await get('/api/v1/auth/tenant')
-    return response as unknown as { success: boolean; data?: TenantInfo; message?: string }
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message || t('error.auth.getTenantFailed')
+      message: getErrorMessage(error) || t('error.auth.updatePreferencesFailed'),
     }
   }
 }
@@ -399,16 +416,21 @@ export async function getCurrentTenant(): Promise<{ success: boolean; data?: Ten
 /**
  * 刷新Token
  */
-export async function refreshToken(refreshToken: string): Promise<{ success: boolean; data?: { token: string; refreshToken: string }; message?: string }> {
+export async function refreshToken(refreshTokenValue: string): Promise<{ success: boolean; data?: { token: string; refreshToken: string }; message?: string }> {
   try {
-    const response: any = await post('/api/v1/auth/refresh', { refreshToken })
+    const response = await post<{
+      success?: boolean
+      access_token?: string
+      refresh_token?: string
+      message?: string
+    }>('/api/v1/auth/refresh', { refresh_token: refreshTokenValue })
     if (response && response.success) {
       if (response.access_token || response.refresh_token) {
         return {
           success: true,
           data: {
-            token: response.access_token,
-            refreshToken: response.refresh_token,
+            token: response.access_token as string,
+            refreshToken: response.refresh_token as string,
           }
         }
       }
@@ -419,10 +441,10 @@ export async function refreshToken(refreshToken: string): Promise<{ success: boo
       success: false,
       message: response?.message || t('error.auth.refreshTokenFailed')
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.refreshTokenFailed')
+      message: getErrorMessage(error) || t('error.auth.refreshTokenFailed')
     }
   }
 }
@@ -436,10 +458,10 @@ export async function logout(): Promise<{ success: boolean; message?: string }> 
     return {
       success: true
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      message: error.message || t('error.auth.logoutFailed')
+      message: getErrorMessage(error) || t('error.auth.logoutFailed')
     }
   }
 }
@@ -450,12 +472,16 @@ export interface ChangePasswordRequest {
 }
 
 /** Map change-password API failures to localized UI strings. */
-export function resolveChangePasswordError(error: any): string {
+export function resolveChangePasswordError(error: unknown): string {
+  const errObj = error && typeof error === 'object'
+    ? (error as { error?: { details?: unknown } | string; details?: unknown; message?: unknown })
+    : undefined
+  const nestedError = errObj?.error && typeof errObj.error === 'object' ? errObj.error : undefined
   const details =
-    typeof error?.error?.details === 'string'
-      ? error.error.details
-      : typeof error?.details === 'string'
-        ? error.details
+    typeof nestedError?.details === 'string'
+      ? nestedError.details
+      : typeof errObj?.details === 'string'
+        ? errObj.details
         : ''
   switch (details) {
     case 'invalid_old_password':
@@ -465,7 +491,7 @@ export function resolveChangePasswordError(error: any): string {
     case 'same_password':
       return t('userProfile.changePassword.sameAsCurrent')
     default:
-      return error?.message || t('userProfile.changePassword.failed')
+      return (typeof errObj?.message === 'string' && errObj.message) || t('userProfile.changePassword.failed')
   }
 }
 
@@ -480,7 +506,7 @@ export async function changePassword(
   try {
     const response = await post('/api/v1/auth/change-password', data)
     return response as unknown as { success: boolean; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
       message: resolveChangePasswordError(error),
@@ -495,11 +521,11 @@ export async function validateToken(): Promise<{ success: boolean; valid?: boole
   try {
     const response = await get('/api/v1/auth/validate')
     return response as unknown as { success: boolean; valid?: boolean; message?: string }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
       valid: false,
-      message: error.message || t('error.auth.validateTokenFailed')
+      message: getErrorMessage(error) || t('error.auth.validateTokenFailed')
     }
   }
 }
@@ -545,8 +571,8 @@ export async function getInvitationByToken(token: string): Promise<InviteLookupR
   try {
     const response = await post(`/api/v1/auth/invitations/lookup`, { token })
     return response as unknown as InviteLookupResponse
-  } catch (error: any) {
-    return { success: false, message: error.message || '' }
+  } catch (error: unknown) {
+    return { success: false, message: getErrorMessage(error) || '' }
   }
 }
 
@@ -559,7 +585,7 @@ export async function registerByInvite(data: RegisterByInviteRequest): Promise<L
   try {
     const response = await post('/api/v1/auth/register-by-invite', data)
     return response as unknown as LoginResponse
-  } catch (error: any) {
-    return { success: false, message: error.message || t('error.auth.registerFailed') }
+  } catch (error: unknown) {
+    return { success: false, message: getErrorMessage(error) || t('error.auth.registerFailed') }
   }
 }

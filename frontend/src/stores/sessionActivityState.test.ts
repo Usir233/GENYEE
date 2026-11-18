@@ -8,6 +8,8 @@ import {
   type SessionActivity,
 } from './sessionActivityState.ts'
 
+type ActivityMessage = { id: string; role: string; is_completed: boolean }
+
 test('tracks multiple sessions and keeps detached replies until completion', async () => {
   const entries = reactive<Record<string, SessionActivity>>({})
   let completed = false
@@ -32,7 +34,7 @@ test('tracks multiple sessions and keeps detached replies until completion', asy
 
 test('a stale poll cannot clear a reattached stream or a new turn', async () => {
   const entries = reactive<Record<string, SessionActivity>>({})
-  let resolve!: (messages: any[]) => void
+  let resolve!: (messages: ActivityMessage[]) => void
   const state = createSessionActivityState(entries, () => new Promise(done => { resolve = done }))
   state.update('a', true, 'old')
   state.detach('a')
@@ -46,7 +48,7 @@ test('a stale poll cannot clear a reattached stream or a new turn', async () => 
 
 test('handles navigation before the assistant message arrives and clears deleted sessions', async () => {
   const entries = reactive<Record<string, SessionActivity>>({})
-  let messages: any[] = []
+  let messages: ActivityMessage[] = []
   const state = createSessionActivityState(entries, async () => messages)
   state.update('a', true)
   state.detach('a')
@@ -91,7 +93,7 @@ test('a detached reply that finishes off-screen stays unread until the session i
 test('no unread marker for the session in view, a vanished reply, or a new turn', async () => {
   const entries = reactive<Record<string, SessionActivity>>({})
   const unread = reactive<Record<string, true>>({})
-  let messages: any[] = [{ id: 'reply', role: 'assistant', is_completed: true }]
+  let messages: ActivityMessage[] = [{ id: 'reply', role: 'assistant', is_completed: true }]
   const state = createSessionActivityState(entries, async () => messages, unread)
   state.update('a', true, 'reply')
   state.detach('a')
@@ -164,7 +166,7 @@ test('dismissing a removed session drops both markers', () => {
 
 test('clearing activity while a poll is in flight cannot restore old account state', async () => {
   const entries = reactive<Record<string, SessionActivity>>({})
-  let resolve!: (messages: any[]) => void
+  let resolve!: (messages: ActivityMessage[]) => void
   const state = createSessionActivityState(entries, () => new Promise(done => { resolve = done }))
   state.update('a', true, 'reply')
   state.detach('a')

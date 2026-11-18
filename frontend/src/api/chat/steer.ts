@@ -29,7 +29,7 @@ export type SteerQueueItem = {
 export async function steerSession(
   session_id: string,
   query: string,
-  mentionedItems: any[] = [],
+  mentionedItems: unknown[] = [],
   delivery: SteerDelivery = 'after',
   expectedAssistantMessageId?: string,
   steerId?: string,

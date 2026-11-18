@@ -17,7 +17,10 @@ const access = (role: string | null, unsupported: string[] = [], superuser = fal
 
 test('toolbox contains only the agreed tools; infrastructure and secrets stay in settings', () => {
   assert.deepEqual(TOOLBOX_ITEMS.map((item) => item.key), ['skills', 'mcp', 'browserconnection'])
-  const lookup = (key: string) => key.split('.').reduce<any>((node, part) => node?.[part], zhCN)
+  const lookup = (key: string) => key.split('.').reduce<unknown>(
+    (node, part) => (typeof node === 'object' && node !== null ? (node as Record<string, unknown>)[part] : undefined),
+    zhCN,
+  )
   for (const item of TOOLBOX_ITEMS) {
     for (const key of [item.title, item.description, 'help' in item ? item.help : undefined,
       'action' in item ? item.action : undefined]) {

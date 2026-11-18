@@ -21,14 +21,14 @@ export interface FavoriteEntry {
 
 export function listFavorites(type: FavoriteResourceType) {
   return get<{ success: boolean; data: FavoriteEntry[] }>(
-    `/api/v1/user/favorites?type=${encodeURIComponent(type)}`
+    `/api/v1/me/favorites?type=${encodeURIComponent(type)}`
   )
 }
 
 export function addFavorite(type: FavoriteResourceType, id: string) {
-  return post('/api/v1/user/favorites', { type, id })
+  return post('/api/v1/me/favorites', { type, id })
 }
 
 export function removeFavorite(type: FavoriteResourceType, id: string) {
-  return del(`/api/v1/user/favorites/${encodeURIComponent(type)}/${encodeURIComponent(id)}`)
+  return del(`/api/v1/me/favorites/${encodeURIComponent(type)}/${encodeURIComponent(id)}`)
 }

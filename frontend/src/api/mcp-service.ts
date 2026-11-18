@@ -63,7 +63,7 @@ export interface MCPService {
 export interface MCPTool {
   name: string
   description: string
-  inputSchema: Record<string, any>
+  inputSchema: Record<string, unknown>
   require_approval?: boolean
   enabled?: boolean
 }
@@ -116,25 +116,25 @@ export async function listMCPServices(agent?: MCPAgentScope): Promise<MCPService
     params.agent_id = agent.agentId
     params.agent_source_tenant_id = String(agent.sourceTenantId)
   }
-  const response: any = await get('/api/v1/mcp-services', { params })
+  const response = await get<{ data?: MCPService[] }>('/api/v1/mcp-services', { params })
   return response.data || []
 }
 
 // Get a single MCP service by ID
 export async function getMCPService(id: string): Promise<MCPService> {
-  const response: any = await get(`/api/v1/mcp-services/${id}`)
+  const response = await get<{ data: MCPService }>(`/api/v1/mcp-services/${id}`)
   return response.data
 }
 
 // Create a new MCP service
 export async function createMCPService(data: Partial<MCPService>): Promise<MCPService> {
-  const response: any = await post('/api/v1/mcp-services', data)
+  const response = await post<{ data: MCPService }>('/api/v1/mcp-services', data)
   return response.data
 }
 
 // Update an existing MCP service
 export async function updateMCPService(id: string, data: Partial<MCPService>): Promise<MCPService> {
-  const response: any = await put(`/api/v1/mcp-services/${id}`, data)
+  const response = await put<{ data: MCPService }>(`/api/v1/mcp-services/${id}`, data)
   return response.data
 }
 
@@ -145,31 +145,28 @@ export async function deleteMCPService(id: string): Promise<void> {
 
 // Test MCP service connection
 export async function testMCPService(id: string): Promise<MCPTestResult> {
-  const response: any = await post(`/api/v1/mcp-services/${id}/test`, {})
-  // 后端返回格式: { success: true, data: MCPTestResult }
-  // response interceptor 已经返回了 data，所以 response 就是 { success: true, data: {...} }
+  const response = await post<{ data?: MCPTestResult } & Partial<MCPTestResult>>(`/api/v1/mcp-services/${id}/test`, {})
   if (response && response.data) {
     return response.data
   }
-  // 如果格式不对，尝试直接返回 response（可能是直接返回的数据）
-  return response
+  return response as unknown as MCPTestResult
 }
 
 // Get tools from an MCP service
 export async function getMCPServiceTools(id: string): Promise<MCPTool[]> {
-  const response: any = await get(`/api/v1/mcp-services/${id}/tools`)
+  const response = await get<{ data?: MCPTool[] }>(`/api/v1/mcp-services/${id}/tools`)
   return response.data || []
 }
 
 // Get resources from an MCP service
 export async function getMCPServiceResources(id: string): Promise<MCPResource[]> {
-  const response: any = await get(`/api/v1/mcp-services/${id}/resources`)
+  const response = await get<{ data?: MCPResource[] }>(`/api/v1/mcp-services/${id}/resources`)
   return response.data || []
 }
 
 /** Persisted per-tool human-approval flags (issue #1173) */
 export async function getMCPToolApprovals(serviceId: string): Promise<MCPToolApprovalRow[]> {
-  const response: any = await get(`/api/v1/mcp-services/${serviceId}/tool-approvals`)
+  const response = await get<{ data?: MCPToolApprovalRow[] }>(`/api/v1/mcp-services/${serviceId}/tool-approvals`)
   return response.data || []
 }
 
@@ -207,7 +204,10 @@ export async function putMCPCredentials(
   serviceId: string,
   body: Partial<Record<McpCredentialField, string>>
 ): Promise<McpCredentialsResponse> {
-  const response: any = await put(`/api/v1/mcp-services/${serviceId}/credentials`, body)
+  const response = await put<{ data?: McpCredentialsResponse } & Partial<McpCredentialsResponse>>(
+    `/api/v1/mcp-services/${serviceId}/credentials`,
+    body,
+  )
   return (response.data ?? response) as McpCredentialsResponse
 }
 
@@ -251,7 +251,11 @@ export async function getMCPOAuthAuthorizeURL(
   serviceId: string,
   body: { redirect_uri: string; frontend_redirect?: string }
 ): Promise<MCPOAuthAuthorization> {
-  const response: any = await post(`/api/v1/mcp-services/${serviceId}/oauth/authorize-url`, body)
+  const response = await post<{
+    data?: { authorization_url?: string; authorization_attempt?: string }
+    authorization_url?: string
+    authorization_attempt?: string
+  }>(`/api/v1/mcp-services/${serviceId}/oauth/authorize-url`, body)
   const data = response.data ?? response
   return {
     authorizationUrl: data?.authorization_url ?? '',
@@ -267,14 +271,18 @@ export async function getMCPOAuthStatus(
   const query = authorizationAttempt
     ? `?authorization_attempt=${encodeURIComponent(authorizationAttempt)}`
     : ''
-  const response: any = await get(`/api/v1/mcp-services/${serviceId}/oauth/status${query}`)
+  const response = await get<{ data?: { authorized?: boolean }; authorized?: boolean }>(
+    `/api/v1/mcp-services/${serviceId}/oauth/status${query}`,
+  )
   return Boolean((response.data ?? response)?.authorized)
 }
 
 // Full lifecycle status for management surfaces. Expired access tokens with a
 // refresh token are "refreshable", not falsely presented as already usable.
 export async function getMCPOAuthAuthorizationStatus(serviceId: string): Promise<MCPOAuthStatus> {
-  const response: any = await get(`/api/v1/mcp-services/${serviceId}/oauth/status`)
+  const response = await get<{ data?: Partial<MCPOAuthStatus> } & Partial<MCPOAuthStatus>>(
+    `/api/v1/mcp-services/${serviceId}/oauth/status`,
+  )
   const data = response.data ?? response
   return {
     authorized: Boolean(data?.authorized),
@@ -300,7 +308,7 @@ export async function resolveToolApproval(
     access?: 'read' | 'write'
   }
 ): Promise<{ resumed: boolean }> {
-  const res: any = await post(`/api/v1/agent/tool-approvals/${encodeURIComponent(pendingId)}`, body)
+  const res = await post<{ resumed?: boolean }>(`/api/v1/agent/tool-approvals/${encodeURIComponent(pendingId)}`, body)
   // resumed: the run had been suspended and now continues on the server;
   // the client must re-attach to the message's stream.
   return { resumed: Boolean(res?.resumed) }
@@ -320,7 +328,7 @@ export interface AgentGrant {
 // The current user's grants in a conversation, including those approved in
 // its delegated sub-tasks.
 export async function listAgentGrants(sessionId: string): Promise<AgentGrant[]> {
-  const res: any = await get(`/api/v1/agent/grants?session_id=${encodeURIComponent(sessionId)}`)
+  const res = await get<{ data?: AgentGrant[] }>(`/api/v1/agent/grants?session_id=${encodeURIComponent(sessionId)}`)
   return Array.isArray(res?.data) ? res.data : []
 }
 
@@ -335,7 +343,7 @@ export async function resolveAgentPrompt(
   kind: string,
   response: Record<string, unknown>,
 ): Promise<{ resumed: boolean }> {
-  const res: any = await post(`/api/v1/agent/prompts/${encodeURIComponent(promptId)}`, { kind, response })
+  const res = await post<{ resumed?: boolean }>(`/api/v1/agent/prompts/${encodeURIComponent(promptId)}`, { kind, response })
   return { resumed: Boolean(res?.resumed) }
 }
 
@@ -366,16 +374,20 @@ export interface MCPMetadata {
 }
 
 export async function getMCPMetadata(id: string): Promise<MCPMetadata | null> {
-  const response: any = await get(`/api/v1/mcp-services/${id}/metadata`)
+  const response = await get<{ data?: MCPMetadata | null }>(`/api/v1/mcp-services/${id}/metadata`)
   return response.data ?? null
 }
 
 export async function refreshMCPMetadata(id: string): Promise<MCPMetadata> {
-  const response: any = await post(`/api/v1/mcp-services/${id}/metadata/refresh`, {})
+  const response = await post<{ data: MCPMetadata }>(`/api/v1/mcp-services/${id}/metadata/refresh`, {})
   return response.data
 }
 
 export async function generateMCPUsageInstructions(id: string, language: string): Promise<string> {
-  const response: any = await post(`/api/v1/mcp-services/${id}/usage-instructions/generate`, { language }, { timeout: 65000 })
+  const response = await post<{ data: { usage_instructions: string } }>(
+    `/api/v1/mcp-services/${id}/usage-instructions/generate`,
+    { language },
+    { timeout: 65000 },
+  )
   return response.data.usage_instructions
 }

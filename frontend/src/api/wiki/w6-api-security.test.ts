@@ -14,7 +14,7 @@ function compileTs(relUrl: URL): string {
 
 test('W6-API-01: wiki encodeSlugPath neutralizes dot-segment path traversal and wiki endpoints URL-encode kbId/folderId/issueId', async () => {
   const calls: Array<{ method: string; url: string }> = []
-  const wikiExports: Record<string, any> = {}
+  const wikiExports: Record<string, (...args: string[]) => Promise<unknown>> = {}
   vm.runInNewContext(compileTs(new URL('./index.ts', import.meta.url)), {
     exports: wikiExports,
     URLSearchParams,
@@ -34,27 +34,33 @@ test('W6-API-01: wiki encodeSlugPath neutralizes dot-segment path traversal and 
   const pageUrl = calls.at(-1)!.url
   const resolved = new URL(pageUrl, 'https://app.example.com')
   assert.ok(
-    resolved.pathname.startsWith('/api/v1/knowledgebase/kb%2F1%3Fx%3D1/wiki/pages/'),
+    resolved.pathname.startsWith('/api/v1/knowledge-bases/kb%2F1%3Fx%3D1/wiki/pages/'),
     `Slug traversal escaped wiki/pages prefix: ${resolved.pathname}`,
   )
   assert.doesNotMatch(pageUrl, /\/\.\.(?:\/|$)/, 'Literal .. segments must be percent-encoded')
 
   await wikiExports.deleteWikiFolder('kb/1', 'folder/../admin')
-  assert.equal(calls.at(-1)!.url, '/api/v1/knowledgebase/kb%2F1/wiki/folders/folder%2F..%2Fadmin')
+  assert.equal(calls.at(-1)!.url, '/api/v1/knowledge-bases/kb%2F1/wiki/folders/folder%2F..%2Fadmin')
 
   await wikiExports.updateWikiIssueStatus('kb/1', 'issue/../1', 'resolved')
-  assert.equal(calls.at(-1)!.url, '/api/v1/knowledgebase/kb%2F1/wiki/issues/issue%2F..%2F1/status')
+  assert.equal(calls.at(-1)!.url, '/api/v1/knowledge-bases/kb%2F1/wiki/issues/issue%2F..%2F1/status')
 })
 
 test('W6-API-02: useStream encodes session_id and message_id in SSE URLs and does not retain unbounded SSE event buffers', async () => {
-  const streamSrc = readFileSync(new URL('../chat/streame.ts', import.meta.url), 'utf8')
-  assert.doesNotMatch(streamSrc, /\bbuffer\.push\b/, 'streame.ts must not push every SSE event into an unread buffer')
+  const streamSrc = readFileSync(new URL('../chat/stream.ts', import.meta.url), 'utf8')
+  assert.doesNotMatch(streamSrc, /\bbuffer\.push\b/, 'stream.ts must not push every SSE event into an unread buffer')
 
   const capturedUrls: string[] = []
-  const streamExports: Record<string, any> = {}
-  vm.runInNewContext(compileTs(new URL('../chat/streame.ts', import.meta.url)), {
+  const streamExports: {
+    useStream?: () => {
+      startStream: (params: Record<string, unknown>) => Promise<void>
+      stopStream: () => void
+    }
+  } = {}
+  vm.runInNewContext(compileTs(new URL('../chat/stream.ts', import.meta.url)), {
     exports: streamExports,
     AbortController,
+    AbortSignal,
     TextEncoder,
     Promise,
     Set,
@@ -105,17 +111,17 @@ test('W6-API-02: useStream encodes session_id and message_id in SSE URLs and doe
           isAuthSessionChangedError: () => false,
           isStreamAuthError: () => false,
           refreshAccessTokenShared: async () => 'jwt-1',
-          runStreamWithAuthRetry: async (opts: any) => opts.run(opts.initialToken),
+          runStreamWithAuthRetry: async (opts: { initialToken: string; run: (token: string) => Promise<void> }) => opts.run(opts.initialToken),
         }
       }
       if (id === '@/utils/chatRequestDebug') {
-        return { sanitizeStreamRequestBody: (b: any) => b }
+        return { sanitizeStreamRequestBody: (b: unknown) => b }
       }
-      throw new Error(`Unexpected require in streame test: ${id}`)
+      throw new Error(`Unexpected require in stream test: ${id}`)
     },
   })
 
-  const s = streamExports.useStream()
+  const s = streamExports.useStream!()
   await s.startStream({
     session_id: 'sess/1?inject=1#frag',
     query: 'hello',
@@ -136,7 +142,12 @@ test('W6-API-02: useStream encodes session_id and message_id in SSE URLs and doe
 
 test('W6-API-03: embed API URL-encodes suggestion path segments, honours EMBED_BASE_URL fallback, and escapes single quotes in JS snippets', async () => {
   const postCalls: string[] = []
-  const embedExports: Record<string, any> = {}
+  const embedExports: {
+    ensureEmbedMessageSuggestions?: (...args: string[]) => Promise<unknown>
+    buildEmbedURL?: (...args: string[]) => string
+    buildWidgetSnippet?: (...args: string[]) => string
+    buildSecureServerNodeExample?: (...args: string[]) => string
+  } = {}
   const embedSrc = readFileSync(new URL('../embed/index.ts', import.meta.url), 'utf8')
     .replace(/import\.meta\.env\.VITE_EMBED_BASE_URL/g, 'undefined')
   const compiledEmbed = ts.transpileModule(embedSrc, {
@@ -145,6 +156,8 @@ test('W6-API-03: embed API URL-encodes suggestion path segments, honours EMBED_B
 
   vm.runInNewContext(compiledEmbed, {
     exports: embedExports,
+    AbortController,
+    AbortSignal,
     URL,
     URLSearchParams,
     encodeURIComponent,
@@ -176,34 +189,41 @@ test('W6-API-03: embed API URL-encodes suggestion path segments, honours EMBED_B
     },
   })
 
-  await embedExports.ensureEmbedMessageSuggestions('ch/1', 'tok', 'sess/2', 'msg/3#x', 'sig', 'vis')
+  await embedExports.ensureEmbedMessageSuggestions!('ch/1', 'tok', 'sess/2', 'msg/3#x', 'sig', 'vis')
   assert.equal(
     postCalls[0],
     '/api/v1/embed/ch%2F1/sessions/sess%2F2/messages/msg%2F3%23x/suggestions',
   )
 
   // When opts.baseUrl is omitted, snippets and buildEmbedURL must honour resolveEmbedBaseUrl()
-  const embedUrl = embedExports.buildEmbedURL('chan-1', 'tok-1')
+  const embedUrl = embedExports.buildEmbedURL!('chan-1', 'tok-1')
   assert.match(embedUrl, /^https:\/\/embed\.public\.example\.com\/embed\/chan-1#token=tok-1$/)
 
-  const widgetSnippet = embedExports.buildWidgetSnippet('chan-1', 'tok-1')
+  const widgetSnippet = embedExports.buildWidgetSnippet!('chan-1', 'tok-1')
   assert.match(widgetSnippet, /https:\/\/embed\.public\.example\.com\/genyee-widget\.js/)
 
   // Single quotes in channelId must not break single-quoted fetch('...') in Node server example
-  const nodeExample = embedExports.buildSecureServerNodeExample("ch'test")
+  const nodeExample = embedExports.buildSecureServerNodeExample!("ch'test")
   assert.doesNotMatch(nodeExample, /fetch\('[^']*ch'test/)
   assert.match(nodeExample, /ch%27test/)
 })
 
 test('W6-API-04: testMultimodalFunction extracts structured backend error.message and routes through authenticated upload client', async () => {
   let postUploadCalled = false
-  const initExports: Record<string, any> = {}
+  const initExports: {
+    testMultimodalFunction?: (data: Record<string, unknown>) => Promise<unknown>
+  } = {}
   vm.runInNewContext(compileTs(new URL('../initialization/index.ts', import.meta.url)), {
     exports: initExports,
     FormData,
     Blob,
     Promise,
     JSON,
+    Object,
+    Array,
+    Number,
+    String,
+    Boolean,
     encodeURIComponent,
     console: { error() {} },
     localStorage: { getItem: () => null },
@@ -233,10 +253,10 @@ test('W6-API-04: testMultimodalFunction extracts structured backend error.messag
   })
 
   const fakeImage = new Blob(['img'], { type: 'image/png' }) as unknown as File
-  const result = await initExports.testMultimodalFunction({
+  const result = await initExports.testMultimodalFunction!({
     image: fakeImage,
-    vllm_model: 'gpt-4o',
-    vllm_base_url: 'https://api.example.com/v1',
+    vlm_model: 'gpt-4o',
+    vlm_base_url: 'https://api.example.com/v1',
     storage_type: 'minio',
     chunk_size: 500,
     chunk_overlap: 50,

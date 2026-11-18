@@ -6,7 +6,19 @@ import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
 import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import type { QuestionOrigin } from '@/utils/questionOrigin'
 
-type MenuChild = Record<string, any>
+export interface MenuChild {
+  id?: string
+  title?: string
+  isNoTitle?: boolean
+  [key: string]: unknown
+}
+
+export interface FirstMentionedItem {
+  id: string
+  name?: string
+  type?: string
+  [key: string]: unknown
+}
 
 interface MenuItem {
   title: string
@@ -43,10 +55,10 @@ export const useMenuStore = defineStore('menuStore', () => {
 
   const isFirstSession = ref(false)
   const firstQuery = ref('')
-  const firstMentionedItems = ref<any[]>([])
+  const firstMentionedItems = ref<FirstMentionedItem[]>([])
   const firstModelId = ref('')
-  const firstImageFiles = ref<any[]>([])
-  const firstAttachmentFiles = ref<any[]>([])
+  const firstImageFiles = ref<Array<File | Record<string, unknown>>>([])
+  const firstAttachmentFiles = ref<Array<File | Record<string, unknown>>>([])
   const firstQuestionOrigin = ref<QuestionOrigin | null>(null)
   const prefillQuery = ref('')
 
@@ -98,7 +110,7 @@ export const useMenuStore = defineStore('menuStore', () => {
     }
   }
 
-  const updatemenuArr = (obj: any) => {
+  const updatemenuArr = (obj: MenuChild) => {
     const chatMenu = menuArr[chatMenuIndex]
     if (!chatMenu.children) {
       chatMenu.children = createMenuChildren()
@@ -131,7 +143,14 @@ export const useMenuStore = defineStore('menuStore', () => {
     isFirstSession.value = payload
   }
 
-  const changeFirstQuery = (payload: string, mentionedItems: any[] = [], modelId: string = '', imageFiles: any[] = [], attachmentFiles: any[] = [], questionOrigin: QuestionOrigin | null = null) => {
+  const changeFirstQuery = (
+    payload: string,
+    mentionedItems: FirstMentionedItem[] = [],
+    modelId: string = '',
+    imageFiles: Array<File | Record<string, unknown>> = [],
+    attachmentFiles: Array<File | Record<string, unknown>> = [],
+    questionOrigin: QuestionOrigin | null = null,
+  ) => {
     firstQuery.value = payload
     firstMentionedItems.value = mentionedItems
     firstModelId.value = modelId

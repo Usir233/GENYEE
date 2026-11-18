@@ -23,10 +23,10 @@ function createSessionHarness() {
   const unmountedCallbacks: Array<() => void> = []
   const listCalls: Array<{
     sessionId: string
-    resolve: (data: any[]) => void
+    resolve: (data: unknown[]) => void
     reject: (err: Error) => void
   }> = []
-  const startedStreams: any[] = []
+  const startedStreams: unknown[] = []
   const pendingFileReads: Array<{ resolve: (uri: string) => void }> = []
 
   const exports: { useEmbedChatSession?: typeof EmbedChatSession } = {}
@@ -67,12 +67,12 @@ function createSessionHarness() {
       if (id === '@/utils/index') return { MAX_FILE_SIZE_BYTES: 50 * 1024 * 1024, MAX_FILE_SIZE_MB: 50 }
       if (id === '@/utils/inlineUploadSize') return require('../utils/inlineUploadSize.ts')
       if (id === '@/composables/useStickyBottomOnResize') return { useStickyBottomOnResize: () => {} }
-      if (id === '@/api/chat/streame') {
+      if (id === '@/api/chat/stream') {
         return {
           useStream: () => ({
             onChunk: () => {},
             error: vue.ref(''),
-            startStream: async (payload: any) => { startedStreams.push(payload) },
+            startStream: async (payload: unknown) => { startedStreams.push(payload) },
             stopStream: () => {},
           }),
         }
@@ -148,7 +148,7 @@ test('stale getmsgList settlement from session-a does not clear session-b histor
   assert.equal(chat.historyLoading.value, true)
 
   // Trigger a scroll event on session-a (schedules 500ms debouncedScrollTop)
-  chat.scrollContainer.value = { scrollTop: 0, scrollHeight: 400, clientHeight: 200 } as any
+  chat.scrollContainer.value = { scrollTop: 0, scrollHeight: 400, clientHeight: 200 } as unknown as HTMLElement
   chat.handleScroll()
   assert.ok(timers.size > 0, 'expected debounced scroll timer to be scheduled')
 

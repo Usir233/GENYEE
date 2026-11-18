@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import { getApiBaseUrl } from '@/utils/api-base';
 import type { AssistantAccessLevel } from '@/api/assistant';
 export type { CollaborationStatus, CollaborationTaskStatus, CollaborationProgress,
-  CollaborationStatusStreamEvent, ProgressStreamEvent, AgentStepRecord, ChatHistoryMessage } from './streamTypes';
+  CollaborationStatusStreamEvent, ProgressStreamEvent, AgentStepRecord, ChatHistoryMessage } from './stream-types';
 import {
   sanitizeStreamRequestBody,
   type StreamRequestMeta,
@@ -48,15 +48,57 @@ export interface PageSelectionPayload {
   end_line?: number
 }
 
-interface StreamOptions {
-  // 请求方法 (默认POST)
-  method?: 'GET' | 'POST'
-  // 请求头
-  headers?: Record<string, string>
-  // 请求体自动序列化
-  body?: Record<string, any>
-  // 流式渲染间隔 (ms)
-  chunkInterval?: number
+export interface StreamChunkPayload {
+  id?: string
+  response_type?: string
+  type?: string
+  content?: string
+  done?: boolean
+  assistant_message_id?: string
+  session_id?: string
+  error?: string
+  data?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export interface StartStreamParams {
+  session_id: string | number | null | undefined
+  query: string | null | undefined
+  knowledge_base_ids?: string[]
+  knowledge_ids?: string[]
+  tag_ids?: string[]
+  agent_enabled?: boolean
+  agent_id?: string
+  agent_source_tenant_id?: string | number
+  web_search_enabled?: boolean
+  local_browser_enabled?: boolean
+  summary_model_id?: string
+  reasoning_effort?: string
+  mcp_service_ids?: string[]
+  skill_names?: string[]
+  mentioned_items?: Array<{
+    id: string
+    name: string
+    type: string
+    kb_type?: string
+    kb_id?: string
+    kb_name?: string
+    service_id?: string
+    skill_name?: string
+  }>
+  images?: Array<{ data: string }>
+  attachment_uploads?: Array<{ data: string; file_name: string; file_size: number }>
+  attachment_ids?: string[]
+  suggestion_attribution?: { suggestion_set_id: string; question_id: string }
+  question_origin?: { knowledge_base_id: string; knowledge_id?: string }
+  page_context?: PageContextPayload
+  assistant_access?: AssistantAccessLevel
+  method: string
+  url: string
+  resume_pending_id?: string
+  embed_token?: string
+  embed_session_sig?: string
+  embed_visitor_id?: string
 }
 
 export function useStream() {
@@ -70,7 +112,7 @@ export function useStream() {
   let streamGeneration = 0
 
   // 启动流式请求
-  const startStream = async (params: { session_id: any; query: any; knowledge_base_ids?: string[]; knowledge_ids?: string[]; tag_ids?: string[]; agent_enabled?: boolean; agent_id?: string; agent_source_tenant_id?: string | number; web_search_enabled?: boolean; local_browser_enabled?: boolean; summary_model_id?: string; reasoning_effort?: string; mcp_service_ids?: string[]; skill_names?: string[]; mentioned_items?: Array<{id: string; name: string; type: string; kb_type?: string; kb_id?: string; kb_name?: string; service_id?: string; skill_name?: string}>; images?: Array<{data: string}>; attachment_uploads?: Array<{data: string; file_name: string; file_size: number}>; attachment_ids?: string[]; suggestion_attribution?: { suggestion_set_id: string; question_id: string }; question_origin?: { knowledge_base_id: string; knowledge_id?: string }; page_context?: PageContextPayload; assistant_access?: AssistantAccessLevel; method: string; url: string; resume_pending_id?: string; embed_token?: string; embed_session_sig?: string; embed_visitor_id?: string }) => {
+  const startStream = async (params: StartStreamParams) => {
     const myGeneration = ++streamGeneration
     const streamAbort = controller
     // 重置状态
@@ -143,9 +185,9 @@ export function useStream() {
       
       // Prepare POST body with required fields for agent-chat
       // knowledge_base_ids array and agent_enabled can update Session's SessionAgentConfig
-      const postBody: any = { 
+      const postBody: Record<string, unknown> = {
         query: params.query,
-        agent_enabled: params.agent_enabled !== undefined ? params.agent_enabled : true
+        agent_enabled: params.agent_enabled !== undefined ? params.agent_enabled : true,
       };
       // Always include knowledge_base_ids for agent-chat (already validated above)
       if (params.knowledge_base_ids !== undefined && params.knowledge_base_ids.length > 0) {
@@ -239,8 +281,7 @@ export function useStream() {
         const abortConnection = () => connection.abort();
         streamAbort.signal.addEventListener('abort', abortConnection, { once: true });
         let idleTimer: ReturnType<typeof setTimeout>;
-        let rejectIdle: (reason: Error) => void;
-        const idle = new Promise<never>((_, reject) => { rejectIdle = reject; });
+        const { promise: idle, reject: rejectIdle } = Promise.withResolvers<never>();
         const armIdle = () => {
           clearTimeout(idleTimer);
           if (!canReconnect()) return;
@@ -290,9 +331,9 @@ export function useStream() {
             else connection.abort();
             return;
           }
-          let parsed: any;
+          let parsed: StreamChunkPayload | null = null;
           try {
-            parsed = JSON.parse(ev.data);
+            parsed = JSON.parse(ev.data) as StreamChunkPayload;
           } catch (e) {
             console.warn('[SSE] Failed to parse message data as JSON:', ev.data, e);
             return;
@@ -301,7 +342,9 @@ export function useStream() {
           if (parsed?.response_type === 'agent_query' && typeof parsed.assistant_message_id === 'string') {
             receivedAssistantId = parsed.assistant_message_id;
           }
-          if (['complete', 'stop', 'error'].includes(parsed?.response_type)) receivedTerminal = true;
+          if (typeof parsed?.response_type === 'string' && ['complete', 'stop', 'error'].includes(parsed.response_type)) {
+            receivedTerminal = true;
+          }
           armIdle();
           if (parsed?.response_type === 'heartbeat') return;
           // Log first answer chunk for end-to-end TTFB measurement.
@@ -312,7 +355,7 @@ export function useStream() {
             console.log(`[TTFB] response:first_answer request_id=${requestID} elapsed_ms=${(performance.now() - sentAt).toFixed(1)}`);
           }
           // 执行自定义处理
-          if (chunkHandler) {
+          if (chunkHandler && parsed) {
             chunkHandler(parsed);
           }
         },
@@ -376,7 +419,7 @@ export function useStream() {
           if (authContext) assertAuthRequestContext(authContext);
           if (streamMethod !== 'GET') {
             streamMethod = 'GET';
-            url = `${apiUrl}/api/v1/sessions/continue-stream/${encodeURIComponent(params.session_id)}?message_id=${encodeURIComponent(receivedAssistantId)}`;
+            url = `${apiUrl}/api/v1/sessions/continue-stream/${encodeURIComponent(String(params.session_id ?? ''))}?message_id=${encodeURIComponent(receivedAssistantId)}`;
           }
         }
       }
@@ -393,9 +436,9 @@ export function useStream() {
     }
   }
 
-  let chunkHandler: ((data: any) => void) | null = null
+  let chunkHandler: ((data: StreamChunkPayload) => void) | null = null
   // 注册块处理器
-  const onChunk = (handler: (data: any) => void) => {
+  const onChunk = (handler: (data: StreamChunkPayload) => void) => {
     chunkHandler = handler
   }
 
