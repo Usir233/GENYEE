@@ -24,12 +24,21 @@ function fixture(selection?: { text: string; field?: string }) {
     '@/stores/assistant': { useAssistantStore: () => assistant },
     './AssistantButton.vue': { render: () => null },
   }
-  const exports: any = {}
+  interface CompiledActionButton {
+    setup: (
+      p: { label: string; query: string; selection?: { text: string; field?: string }; disabled: boolean },
+      ctx: { expose: () => void },
+    ) => (ctx: Record<string, never>, cache: unknown[]) => {
+      type: unknown
+      props: { disabled?: boolean; onClick: (event: { stopPropagation: () => void }) => void }
+    }
+  }
+  const exports: { default?: CompiledActionButton } = {}
   runInNewContext(ts.transpileModule(script, {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, { exports, require: (name: string) => dependencies[name] })
   const props = { label: 'Improve prompt', query: 'Improve the attached prompt', selection, disabled: false }
-  const render = exports.default.setup(props, { expose() {} })
+  const render = exports.default!.setup(props, { expose() {} })
   return { assistant, calls, props, render, click: () => render({}, []).props.onClick({ stopPropagation() {} }) }
 }
 

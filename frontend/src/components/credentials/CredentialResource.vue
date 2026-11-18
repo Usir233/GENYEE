@@ -137,7 +137,7 @@
 </template>
 
 <script setup lang="ts" generic="K extends string">
-import { onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { onBeforeUnmount, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 
@@ -295,9 +295,10 @@ async function onSave(field: CredentialFieldDef) {
     drafts[field.key] = ''
     MessagePlugin.success(t('credential.savedToast'))
     emit('changed')
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (epoch !== apiEpoch) return
-    MessagePlugin.error(err?.message || t('credential.saveFailed'))
+    const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message?: unknown }).message || '') : ''
+    MessagePlugin.error(msg || t('credential.saveFailed'))
   } finally {
     if (epoch === apiEpoch) busy[field.key] = null
   }
@@ -330,9 +331,10 @@ async function confirmRemove(field: CredentialFieldDef) {
     pendingRemove[field.key] = false
     flashInlineToast(field.key, 'removed')
     emit('changed')
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (epoch !== apiEpoch) return
-    MessagePlugin.error(err?.message || t('credential.removeFailed'))
+    const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message?: unknown }).message || '') : ''
+    MessagePlugin.error(msg || t('credential.removeFailed'))
   } finally {
     if (epoch === apiEpoch) busy[field.key] = null
   }

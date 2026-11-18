@@ -47,7 +47,7 @@ test('upgrading shows only the assistant entry and waits before showing page tou
   await flush()
   assert.equal(vm.active, true)
   assert.equal(vm.assistantOnly, true)
-  assert.deepEqual(Array.from(vm.steps, (step: any) => step.key), ['assistant'])
+  assert.deepEqual(Array.from(vm.steps, (step: { key: string }) => step.key), ['assistant'])
   assert.equal(vm.steps[0].target, '[data-guide="assistant-entry"]')
   assert.equal(vm.steps[0].interact, true)
   assert.equal(page.vm.active, false)
@@ -83,11 +83,11 @@ test('new users see the assistant in the existing full tour without a second int
   t.mock.timers.tick(700)
   assert.equal(first.vm.active, true)
   assert.equal(first.vm.assistantOnly, false)
-  const keys = Array.from(first.vm.steps, (step: any) => step.key)
+  const keys = Array.from(first.vm.steps, (step: { key: string }) => step.key)
   assert.deepEqual(keys, ['welcome', 'assistant', 'knowledge', 'agents', 'chat', 'settings', 'models', 'done'])
   f.assistant.visible = true
   await flush()
-  assert.deepEqual(Array.from(first.vm.steps, (step: any) => step.key), keys,
+  assert.deepEqual(Array.from(first.vm.steps, (step: { key: string }) => step.key), keys,
     'opening the assistant must not shift the current tour step')
   first.vm.onFinish()
   first.close()
@@ -133,7 +133,7 @@ test('manual replay cancels the scheduled upgrade prompt and unmount cancels pen
   f.guides.openNewUserGuide()
   assert.equal(first.vm.active, true)
   assert.equal(first.vm.assistantOnly, false)
-  assert.ok(first.vm.steps.some((step: any) => step.key === 'assistant'))
+  assert.ok(first.vm.steps.some((step: { key: string }) => step.key === 'assistant'))
   t.mock.timers.tick(1000)
   await flush()
   assert.equal(first.vm.assistantOnly, false)

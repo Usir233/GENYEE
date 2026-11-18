@@ -66,7 +66,7 @@ import { buildProtectedFileRequest, resolveProtectedFileAccess } from '@/utils/p
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import DocumentPreview from '@/components/document-preview.vue'
+import DocumentPreview from '@/components/DocumentPreview.vue'
 import ArtifactFileIcon from '@/views/chat/components/ArtifactFileIcon.vue'
 import { getChunkByIdOnly, getKnowledgeDetails } from '@/api/knowledge-base/index'
 import { useChatResourcesStore } from '@/stores/chatResources'
@@ -122,6 +122,37 @@ const meta = reactive({ fileName: '', fileType: '', knowledgeSource: '', knowled
 let loadVersion = 0
 /** The knowledge whose file the preview currently shows. */
 let shownKnowledgeId = ''
+let activeFetchController: AbortController | null = null
+
+interface KnowledgeDetailsPayload {
+  file_hash?: string
+  file_name?: string
+  file_type?: string
+  source?: string
+  type?: string
+  title?: string
+}
+
+interface ChunkImageInfoItem {
+  sha256?: string
+  url?: string
+  original_url?: string
+}
+
+interface ChunkDetailsPayload {
+  knowledge_id?: string
+  source_locators?: unknown
+  content_revision?: number
+  content?: string
+  chunk_type?: string
+  image_info?: string | ChunkImageInfoItem[] | null
+  parent_chunk_id?: string
+}
+
+function abortActiveFetch() {
+  activeFetchController?.abort()
+  activeFetchController = null
+}
 
 const displayName = computed(() => meta.fileName || props.target.fileName || props.target.title || '')
 const displayTitle = computed(() => props.target.title || meta.title || displayName.value)
@@ -209,9 +240,9 @@ async function loadMeta(version: number) {
   refreshKbName(version)
   if (!props.target.knowledgeId) return
   try {
-    const res: any = await getKnowledgeDetails(props.target.knowledgeId)
+    const res = await getKnowledgeDetails(props.target.knowledgeId) as { data?: KnowledgeDetailsPayload } | undefined
     if (version !== loadVersion) return
-    const data = res?.data || {}
+    const data: KnowledgeDetailsPayload = res?.data || {}
     sourceHash.value = data.file_hash || ''
     meta.fileName = meta.fileName || data.file_name || ''
     meta.fileType = data.file_type || ''
@@ -221,6 +252,19 @@ async function loadMeta(version: number) {
   } catch {
     // Without details the file name from the reference decides below.
   }
+}
+
+function parseChunkImageInfo(raw: ChunkDetailsPayload['image_info']): ChunkImageInfoItem[] {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      return Array.isArray(parsed) ? (parsed as ChunkImageInfoItem[]) : []
+    } catch {
+      return []
+    }
+  }
+  return []
 }
 
 async function loadChunk(version: number) {
@@ -237,7 +281,7 @@ async function loadChunk(version: number) {
   // Old conversations and agent tool results carry no locators; the chunk
   // itself has them (and its own, unexpanded text for matching).
   try {
-    const res: any = await getChunkByIdOnly(props.target.chunkId)
+    const res = await getChunkByIdOnly(props.target.chunkId) as { data?: ChunkDetailsPayload } | undefined
     if (version !== loadVersion) return
     // The current chunk overrides snapshots embedded in historical answers.
     // In particular, an edit must invalidate even previously cached locators.
@@ -248,28 +292,40 @@ async function loadChunk(version: number) {
       return
     }
     loadedCurrent = true
-    locators.value = parseSourceLocators(current.source_locators)
+    locators.value = parseSourceLocators(current.source_locators as Parameters<typeof parseSourceLocators>[0])
     edited.value = (current.content_revision || 0) > 0 && !locators.value.length
     chunkContent.value = String(current.content || '')
     chunkType.value = String(current.chunk_type || '')
     const chunk = res?.data
     if (!edited.value && chunk?.chunk_type?.startsWith('image_')) {
-      let info = chunk.image_info
-      try { if (typeof info === 'string') info = JSON.parse(info) } catch { info = [] }
-      if (Array.isArray(info) && info.length === 1) {
-        const digest = info[0].sha256
+      const info = parseChunkImageInfo(chunk.image_info)
+      if (info.length === 1) {
+        const digest = info[0]?.sha256
         if (typeof digest === 'string' && /^[a-f0-9]{64}$/.test(digest)) imageDigest.value = digest
         else {
-          const request = buildProtectedFileRequest(info[0].url || '', resolveProtectedFileAccess({ mode: 'knowledgeBase', kbId: props.target.knowledgeBaseId || '' }))
+          const request = buildProtectedFileRequest(info[0]?.url || '', resolveProtectedFileAccess({ mode: 'knowledgeBase', kbId: props.target.knowledgeBaseId || '' }))
           if (request) {
+            abortActiveFetch()
+            const controller = new AbortController()
+            activeFetchController = controller
+            const signal = typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' && typeof AbortSignal.timeout === 'function'
+              ? AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)])
+              : controller.signal
             try {
-              const response = await fetch(request.url, { headers: request.headers, credentials: 'include' })
+              const response = await fetch(request.url, { headers: request.headers, credentials: 'include', signal })
               if (response.ok) {
                 const hash = await sourceImageDigest(await response.arrayBuffer())
                 if (version !== loadVersion) return
                 imageDigest.value = hash
               }
-            } catch { /* Existing structural locators may still locate the image. */ }
+            } catch (err) {
+              const errName = err && typeof err === 'object' && 'name' in err ? String((err as { name?: unknown }).name) : ''
+              if (errName === 'AbortError' || errName === 'TimeoutError') {
+                // Aborted due to supersedes/unmount or 30s timeout; keep structural locators fallback.
+              }
+            } finally {
+              if (activeFetchController === controller) activeFetchController = null
+            }
           }
         }
       }
@@ -279,25 +335,24 @@ async function loadChunk(version: number) {
     // for a merely similar answer or silently select a neighbouring chunk.
     if (!edited.value && chunk?.chunk_type === 'text' && chunk.parent_chunk_id &&
         !quotedSourceExcerpt(chunkContent.value, props.target.anchorText || '')) {
-      const parent: any = await getChunkByIdOnly(chunk.parent_chunk_id)
+      const parent = await getChunkByIdOnly(chunk.parent_chunk_id) as { data?: ChunkDetailsPayload } | undefined
       if (version !== loadVersion) return
       const p = parent?.data
       if (p?.knowledge_id === props.target.knowledgeId && p.chunk_type === 'parent_text' && !p.content_revision &&
           quotedSourceExcerpt(p.content || '', props.target.anchorText || '')) {
-        const parentLocators = parseSourceLocators(p.source_locators)
+        const parentLocators = parseSourceLocators(p.source_locators as Parameters<typeof parseSourceLocators>[0])
         if (parentLocators.length && parentLocators.every(l => l.mapping === 'exact' && l.source_hash)) {
-          chunkContent.value = p.content
+          chunkContent.value = p.content || ''
           locators.value = parentLocators
         }
       }
     }
     if (!edited.value && chunk?.chunk_type?.startsWith('image_') && chunk.parent_chunk_id) {
-      const parent: any = await getChunkByIdOnly(chunk.parent_chunk_id)
+      const parent = await getChunkByIdOnly(chunk.parent_chunk_id) as { data?: ChunkDetailsPayload } | undefined
       if (version !== loadVersion) return
       if (parent?.data?.knowledge_id === props.target.knowledgeId && !parent.data.content_revision) {
-        let info = chunk.image_info
-        try { if (typeof info === 'string') info = JSON.parse(info) } catch { info = [] }
-        const urls = Array.isArray(info) ? info.flatMap(i => [i.url, i.original_url].filter(Boolean)) : []
+        const info = parseChunkImageInfo(chunk.image_info)
+        const urls = info.flatMap(i => [i.url, i.original_url].filter((u): u is string => Boolean(u)))
         imageContext.value = sourceImageContext(parent.data.content || '', urls)
       }
     }
@@ -326,6 +381,7 @@ function buildLocate(): SourceLocateRequest {
 }
 
 async function load() {
+  abortActiveFetch()
   const version = ++loadVersion
   status.value = 'idle'
   locatedPage.value = 0
@@ -390,6 +446,7 @@ watch(
 
 onBeforeUnmount(() => {
   ++loadVersion
+  abortActiveFetch()
 })
 </script>
 

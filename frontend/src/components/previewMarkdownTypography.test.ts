@@ -31,8 +31,8 @@ import { renderDocumentPreviewMarkdown } from '../utils/documentPreviewMarkdown.
 
 const SCOPE_ID = 'data-v-previewtest'
 const FRONTEND_ROOT = new URL('../../', import.meta.url)
-const DOC_CONTENT_SFC = new URL('src/components/doc-content.vue', FRONTEND_ROOT)
-const DOCUMENT_PREVIEW_SFC = new URL('src/components/document-preview.vue', FRONTEND_ROOT)
+const DOC_CONTENT_SFC = new URL('src/components/DocContent.vue', FRONTEND_ROOT)
+const DOCUMENT_PREVIEW_SFC = new URL('src/components/DocumentPreview.vue', FRONTEND_ROOT)
 const THEME_CSS = new URL('src/assets/theme/theme.css', FRONTEND_ROOT)
 
 type StyleLang = 'less' | 'sass' | 'scss' | 'styl' | 'stylus'
@@ -87,14 +87,28 @@ function compileScopedStyle(file: URL): string {
     .join('\n')
 }
 
-/** 读取 theme.css 里的 `--app-text-*` / `--app-space-*` 令牌。 */
+/** 读取 theme.css 里的 `--gy-text-*` / `--gy-space-*` 与 `--app-text-*` / `--app-space-*` 令牌。 */
 function readThemeTokens(): Map<string, string> {
   const css = readFileSync(fileURLToPath(THEME_CSS), 'utf8')
-  const tokens = new Map<string, string>()
-  for (const match of css.matchAll(/--(app-(?:text|space)-[\w-]+)\s*:\s*([\d.]+px)/g)) {
-    tokens.set(`--${match[1]}`, match[2])
+  const rawTokens = new Map<string, string>()
+  for (const match of css.matchAll(/--((?:gy|app)-(?:text|space)-[\w-]+)\s*:\s*([^;\n}]+)/g)) {
+    rawTokens.set(`--${match[1]}`, match[2].trim())
   }
-  return tokens
+  const resolved = new Map<string, string>()
+  for (const [name, rawVal] of rawTokens) {
+    let cur: string | undefined = rawVal
+    let guard = 0
+    while (cur && guard < 5) {
+      const aliasMatch = cur.match(/^var\(\s*(--[\w-]+)\s*\)$/)
+      if (!aliasMatch) break
+      cur = rawTokens.get(aliasMatch[1])
+      guard += 1
+    }
+    if (cur && /^[\d.]+px$/.test(cur)) {
+      resolved.set(name, cur)
+    }
+  }
+  return resolved
 }
 
 const TOKENS = readThemeTokens()

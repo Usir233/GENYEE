@@ -424,8 +424,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.question-minimap__panel::-webkit-scrollbar {
-  display: none;
+@supports not (scrollbar-color: auto) {
+  .question-minimap__panel {
+    scrollbar-width: auto;
+  }
+
+  .question-minimap__panel::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .question-minimap__preview {

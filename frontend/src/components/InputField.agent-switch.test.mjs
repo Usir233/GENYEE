@@ -6,22 +6,44 @@ import ts from 'typescript'
 import { computed, reactive, ref } from 'vue'
 import { chatSubmitShortcut } from '../utils/chatSubmitShortcut.ts'
 
-const inputField = readFileSync(new URL('./Input-field.vue', import.meta.url), 'utf8')
+const inputField = readFileSync(new URL('./InputField.vue', import.meta.url), 'utf8')
+const agentScope = readFileSync(new URL('./chat-input/useChatInputAgentScope.ts', import.meta.url), 'utf8')
+const controlBar = readFileSync(new URL('./chat-input/InputControlBar.vue', import.meta.url), 'utf8')
+const steerQueue = readFileSync(new URL('./chat-input/SteerQueueBar.vue', import.meta.url), 'utf8')
 const settingsStore = readFileSync(new URL('../stores/settings.ts', import.meta.url), 'utf8')
 
 test('composer shortcuts queue Enter, inject drafts, and promote the first queued message when empty', () => {
-  const code = inputField.slice(inputField.indexOf('const steerShortcutLabel ='), inputField.indexOf('const onPaste ='))
+  const code = inputField.slice(
+    inputField.indexOf('const steerShortcutLabel ='),
+    inputField.indexOf('// End onKeydown'),
+  )
   const sends = [], promotes = []
   const query = ref('draft')
   const composing = ref(false)
-  const props = reactive({ isReplying: true, canSteer: true, queuedSteers: [
-    { steer_id: 'pending', delivery: 'after', pending: true },
-    { steer_id: 'first', delivery: 'after' }, { steer_id: 'second', delivery: 'after' },
-  ] })
+  const props = reactive({
+    isReplying: true,
+    canSteer: true,
+    queuedSteers: [
+      { steer_id: 'pending', delivery: 'after', pending: true },
+      { steer_id: 'first', delivery: 'after' },
+      { steer_id: 'second', delivery: 'after' },
+    ],
+  })
   const { onKeydown } = vm.runInNewContext(ts.transpile(`${code}\n({ onKeydown })`), {
-    navigator: { platform: 'MacIntel' }, computed, props, query, chatSubmitShortcut,
-    isComposing: composing, showMention: ref(false),
-    createSession: (...args) => sends.push(args), emit: (...args) => promotes.push(args),
+    Boolean,
+    navigator: { platform: 'MacIntel' },
+    computed,
+    props,
+    query,
+    chatSubmitShortcut,
+    isComposing: composing,
+    showMention: ref(false),
+    getTextareaEl: () => null,
+    allSelectedItems: ref([]),
+    removeSelectedItem: () => {},
+    mentionSelectorRef: ref(null),
+    createSession: (...args) => sends.push(args),
+    emit: (...args) => promotes.push(args),
   })
   const enter = { key: 'Enter', keyCode: 13, preventDefault() {}, shiftKey: false, ctrlKey: false, altKey: false }
   onKeydown(query.value, { e: enter })
@@ -45,9 +67,9 @@ test('selecting an agent leaves web search off until the user enables it', () =>
   assert.notEqual(getSelectedAgentStart, -1)
   assert.match(selectAgentAction, /this\.settings\.webSearchEnabled = false/)
 
-  const handleSelectAgentStart = inputField.indexOf('const handleSelectAgent = async')
-  const handleSelectAgentEnd = inputField.indexOf('const clearvalue', handleSelectAgentStart)
-  const handleSelectAgent = inputField.slice(handleSelectAgentStart, handleSelectAgentEnd)
+  const handleSelectAgentStart = agentScope.indexOf('const handleSelectAgent = async')
+  const handleSelectAgentEnd = agentScope.indexOf('const handleGoToAgentSettings =', handleSelectAgentStart)
+  const handleSelectAgent = agentScope.slice(handleSelectAgentStart, handleSelectAgentEnd)
 
   assert.notEqual(handleSelectAgentStart, -1)
   assert.notEqual(handleSelectAgentEnd, -1)
@@ -57,9 +79,9 @@ test('selecting an agent leaves web search off until the user enables it', () =>
 })
 
 test('shared-agent web search button waits for source readiness metadata', () => {
-  const showWebSearchStart = inputField.indexOf('const showWebSearchButton = computed')
-  const showWebSearchEnd = inputField.indexOf('const showImageUploadButton', showWebSearchStart)
-  const showWebSearchButton = inputField.slice(showWebSearchStart, showWebSearchEnd)
+  const showWebSearchStart = agentScope.indexOf('const showWebSearchButton = computed')
+  const showWebSearchEnd = agentScope.indexOf('const showImageUploadButton', showWebSearchStart)
+  const showWebSearchButton = agentScope.slice(showWebSearchStart, showWebSearchEnd)
 
   assert.notEqual(showWebSearchStart, -1)
   assert.notEqual(showWebSearchEnd, -1)
@@ -68,36 +90,31 @@ test('shared-agent web search button waits for source readiness metadata', () =>
 })
 
 test('one composer action switches between stop and send', () => {
-  const controlsStart = inputField.indexOf('class="control-right"')
-  const controls = inputField.slice(controlsStart, controlsStart + 2200)
+  const controlsStart = controlBar.indexOf('class="control-right"')
+  const controls = controlBar.slice(controlsStart, controlsStart + 2200)
   assert.notEqual(controlsStart, -1)
-  assert.doesNotMatch(inputField, /steer-delivery-toggle/)
-  assert.doesNotMatch(inputField, /setSteerDelivery/)
+  assert.doesNotMatch(`${inputField}\n${controlBar}`, /steer-delivery-toggle/)
+  assert.doesNotMatch(`${inputField}\n${controlBar}`, /setSteerDelivery/)
   assert.match(inputField, /emit\('steer-msg', val\.trim\(\), steerMentions, delivery\)/)
   assert.match(controls, /v-if="isReplying && \(!canSteer \|\| !query\.trim\(\)\)"/)
-  assert.match(controls, /handleStop/)
-  assert.match(controls, /v-else[\s\S]*createSession\(query\)[\s\S]*send-btn/)
+  assert.match(inputField, /@stop="handleStop"/)
+  assert.match(inputField, /@send="createSession\(query\)"/)
+  assert.match(controls, /v-else[\s\S]*send-btn[\s\S]*emit\('send'\)/)
   assert.match(controls, /<t-icon name="arrow-up"/)
   assert.doesNotMatch(controls, /steer-inject-btn|<t-icon[^>]*'time'/)
 })
 
-// Only agent turns have a round boundary to take a mid-run message at, and a
-// teardown that hands leftovers to a follow-up run. Queueing on a quick-answer
-// turn would park the message until it expired, so the composer keeps its old
-// stop-only behaviour there.
 test('mid-run send is limited to agent sessions', () => {
-  const chatView = readFileSync(
-    new URL('../views/chat/index.vue', import.meta.url), 'utf8')
+  const chatView = readFileSync(new URL('../views/chat/index.vue', import.meta.url), 'utf8')
   assert.match(chatView, /:canSteer="isAgentStreamSession\(\)"/)
 
   const fnStart = inputField.indexOf('const createSession = async')
-  const fnEnd = inputField.indexOf('const updateAgentModeDropdownPosition =', fnStart)
+  const fnEnd = inputField.indexOf('// End createSession', fnStart)
   const fn = inputField.slice(fnStart, fnEnd)
   assert.notEqual(fnStart, -1)
   assert.ok(fnEnd > fnStart)
   assert.match(fn, /if \(!props\.canSteer\)/)
   assert.ok(fn.includes("emit('steer-msg'"))
-  // The guard must come before anything queues the message.
   assert.ok(
     fn.indexOf('props.canSteer') < fn.indexOf("emit('steer-msg'"),
     'canSteer must be checked before emitting steer-msg',
@@ -105,14 +122,14 @@ test('mid-run send is limited to agent sessions', () => {
 })
 
 test('queued follow-ups sit in one block with send-now and remove', () => {
-  assert.match(inputField, /class="steer-queue"/)
-  assert.match(inputField, /queuedSteers/)
-  assert.match(inputField, /emit\('promote-steer', item\.steer_id\)/)
-  assert.match(inputField, /emit\('remove-steer', item\.steer_id\)/)
-  assert.match(inputField, /class="steer-queue-action steer-queue-remove"/)
-  assert.match(inputField, /\$t\('input\.steerQueueSendNow'\)/)
-  assert.match(inputField, /:disabled="item\.promoting \|\| item\.pending"/)
-  assert.match(inputField, /\.steer-queue-item \+ \.steer-queue-item/)
+  assert.match(steerQueue, /class="steer-queue"/)
+  assert.match(steerQueue, /queuedSteers/)
+  assert.match(steerQueue, /emit\('promote-steer', item\.steer_id\)/)
+  assert.match(steerQueue, /emit\('remove-steer', item\.steer_id\)/)
+  assert.match(steerQueue, /class="steer-queue-action steer-queue-remove"/)
+  assert.match(steerQueue, /\$t\('input\.steerQueueSendNow'\)/)
+  assert.match(steerQueue, /:disabled="item\.promoting \|\| item\.pending"/)
+  assert.match(steerQueue, /\.steer-queue-item \+ \.steer-queue-item/)
 })
 
 test('mid-run send refuses attachments that have already uploaded', () => {

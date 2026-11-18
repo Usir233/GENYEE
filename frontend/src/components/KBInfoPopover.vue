@@ -156,6 +156,7 @@
     <button
       type="button"
       class="kb-info-button"
+      :aria-label="t('knowledgeBase.infoCard.tooltip')"
       :class="{ 'has-warning': kbInfo?.vector_store_status === 'unavailable' }"
     >
       <t-icon name="info-circle" size="16px" />
@@ -172,15 +173,39 @@ import { useOrganizationStore } from '@/stores/organization'
 import { useAuthStore } from '@/stores/auth'
 import { formatStringDate } from '@/utils'
 
+export interface KbPopoverInfo {
+  id?: string
+  type?: string
+  description?: string
+  created_at?: string
+  updated_at?: string
+  creator_id?: string
+  my_permission?: string
+  share_count?: number
+  chunk_count?: number
+  knowledge_count?: number
+  vector_store_source?: 'builtin' | 'dedicated' | 'workspace_default'
+  vector_store_name?: string
+  vector_store_engine_type?: string
+  vector_store_status?: 'available' | 'unavailable'
+  storage_provider_config?: { provider?: string } | null
+  vlm_config?: { enabled?: boolean } | null
+  asr_config?: { enabled?: boolean } | null
+  extract_config?: { enabled?: boolean } | null
+  indexing_strategy?: { wiki_enabled?: boolean } | null
+  chunking_config?: {
+    strategy?: string
+    chunk_size?: number
+    chunk_overlap?: number
+    enable_parent_child?: boolean
+    parent_chunk_size?: number
+    child_chunk_size?: number
+    token_limit?: number
+  } | null
+}
+
 const props = defineProps<{
-  // The KB detail / list object. Typed as any to avoid coupling to the
-  // backend's exhaustive shape; the popover reads optional fields and
-  // falls back gracefully when they are missing.
-  kbInfo: any
-  // Optional pre-computed list of supported file extensions (e.g.
-  // ["pdf", "docx", …]). The popover does not fetch parser engines on
-  // its own — call sites that already know which formats are reachable
-  // pass them in; FAQ KBs simply omit the prop.
+  kbInfo: KbPopoverInfo | null | undefined
   supportedFileTypes?: string[]
 }>()
 
@@ -205,7 +230,7 @@ const isOwner = computed<boolean>(() => {
 const currentSharedKb = computed(() => {
   const id = props.kbInfo?.id
   if (!id) return null
-  return orgStore.sharedKnowledgeBases?.find?.((s: any) => s.knowledge_base?.id === id) ?? null
+  return orgStore.sharedKnowledgeBases?.find?.((s: { knowledge_base?: { id?: string } }) => s.knowledge_base?.id === id) ?? null
 })
 
 const isViaShare = computed<boolean>(() => !!currentSharedKb.value)
@@ -261,12 +286,12 @@ const lastUpdatedLabel = computed<string>(() => {
 
 const supportedFileTypesSorted = computed<string[]>(() => {
   if (!props.supportedFileTypes?.length) return []
-  return [...props.supportedFileTypes].sort()
+  return props.supportedFileTypes.toSorted()
 })
 
 type CapabilityTheme = 'primary' | 'success' | 'warning' | 'default'
 const capabilities = computed<Array<{ key: string; label: string; theme: CapabilityTheme }>>(() => {
-  const kb: any = props.kbInfo
+  const kb = props.kbInfo
   if (!kb) return []
   const items: Array<{ key: string; label: string; theme: CapabilityTheme }> = []
   if (kb.vlm_config?.enabled) {
@@ -297,7 +322,7 @@ const chunkingStrategyLabel = computed<string>(() => {
 })
 
 const chunkingRows = computed<Array<{ key: string; label: string; value: string }>>(() => {
-  const kb: any = props.kbInfo
+  const kb = props.kbInfo
   if (!kb || kb.type === 'faq') return []
   const cfg = kb.chunking_config
   if (!cfg) return []
@@ -344,7 +369,7 @@ const chunkingRows = computed<Array<{ key: string; label: string; value: string 
 })
 
 const statRows = computed<Array<{ key: string; label: string; value: number | string }>>(() => {
-  const kb: any = props.kbInfo
+  const kb = props.kbInfo
   if (!kb) return []
   const items: Array<{ key: string; label: string; value: number | string }> = []
   // FAQ KBs store every Q/A pair as a chunk, so chunk_count is the

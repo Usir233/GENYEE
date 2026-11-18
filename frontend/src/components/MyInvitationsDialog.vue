@@ -133,6 +133,15 @@ function formatDate(s: string): string {
   }
 }
 
+function extractErrorInfo(err: unknown): { status?: number; message?: string } {
+  if (!err || typeof err !== 'object') return {}
+  const obj = err as { status?: unknown; message?: unknown }
+  return {
+    status: typeof obj.status === 'number' ? obj.status : undefined,
+    message: typeof obj.message === 'string' ? obj.message : undefined,
+  }
+}
+
 async function reload() {
   loading.value = true
   error.value = ''
@@ -146,8 +155,8 @@ async function reload() {
     } else {
       error.value = resp.message || t('tenantInvitation.errors.generic')
     }
-  } catch (err: any) {
-    error.value = err?.message || t('tenantInvitation.errors.generic')
+  } catch (err: unknown) {
+    error.value = extractErrorInfo(err).message || t('tenantInvitation.errors.generic')
   } finally {
     loading.value = false
   }
@@ -169,12 +178,12 @@ async function onAccept(row: TenantInvitation) {
     } else {
       MessagePlugin.error(resp.message || t('tenantInvitation.errors.generic'))
     }
-  } catch (err: any) {
-    const status = err?.status
+  } catch (err: unknown) {
+    const { status, message } = extractErrorInfo(err)
     if (status === 404) MessagePlugin.error(t('tenantInvitation.errors.notFound'))
     else if (status === 403) MessagePlugin.error(t('tenantInvitation.errors.forbidden'))
-    else if (status === 409) MessagePlugin.error(err?.message || t('tenantInvitation.errors.notPending'))
-    else MessagePlugin.error(err?.message || t('tenantInvitation.errors.generic'))
+    else if (status === 409) MessagePlugin.error(message || t('tenantInvitation.errors.notPending'))
+    else MessagePlugin.error(message || t('tenantInvitation.errors.generic'))
   } finally {
     acting.value = null
   }
@@ -191,12 +200,12 @@ async function onDecline(row: TenantInvitation) {
     } else {
       MessagePlugin.error(resp.message || t('tenantInvitation.errors.generic'))
     }
-  } catch (err: any) {
-    const status = err?.status
+  } catch (err: unknown) {
+    const { status, message } = extractErrorInfo(err)
     if (status === 404) MessagePlugin.error(t('tenantInvitation.errors.notFound'))
     else if (status === 403) MessagePlugin.error(t('tenantInvitation.errors.forbidden'))
-    else if (status === 409) MessagePlugin.error(err?.message || t('tenantInvitation.errors.notPending'))
-    else MessagePlugin.error(err?.message || t('tenantInvitation.errors.generic'))
+    else if (status === 409) MessagePlugin.error(message || t('tenantInvitation.errors.notPending'))
+    else MessagePlugin.error(message || t('tenantInvitation.errors.generic'))
   } finally {
     acting.value = null
   }

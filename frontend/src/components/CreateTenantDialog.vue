@@ -106,9 +106,10 @@ const handleSubmit = async () => {
     MessagePlugin.success(t('tenant.create.success'))
     emit('created', response.data)
     emit('update:visible', false)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to create tenant:', error)
-    MessagePlugin.error(error?.message || t('tenant.create.failed'))
+    const msg = error && typeof error === 'object' && 'message' in error ? String((error as { message?: unknown }).message || '') : ''
+    MessagePlugin.error(msg || t('tenant.create.failed'))
   } finally {
     submitting.value = false
   }

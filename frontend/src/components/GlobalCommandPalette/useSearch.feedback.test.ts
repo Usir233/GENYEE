@@ -241,7 +241,7 @@ test('workspace switch invalidates cached KBs and drops in-flight cross-workspac
   assert.equal(f.vm.messageGroups.length, 0)
   assert.equal(f.vm.loading, false)
   assert.deepEqual(
-    Array.from(f.vm.knowledgeBases, (k: any) => k.id),
+    Array.from(f.vm.knowledgeBases, (k: { id: string }) => k.id),
     ['kb-tenant-b'],
   )
 

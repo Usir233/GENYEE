@@ -203,7 +203,7 @@ function updateBanners(page: NotificationPage) {
   // Seed the first successful response without replaying historical notifications.
   if (bannersInitialized && !panelVisible.value && fresh.length) {
     const next = [...fresh, ...banners.value]
-      .sort((a, b) => Number(b.type === 'pending') - Number(a.type === 'pending')).slice(0, 3)
+      .toSorted((a, b) => Number(b.type === 'pending') - Number(a.type === 'pending')).slice(0, 3)
     const retained = new Set(next.map(banner => banner.key))
     for (const banner of banners.value) if (!retained.has(banner.key)) dismissBanner(banner.key)
     banners.value = next

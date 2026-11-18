@@ -572,9 +572,10 @@ const runDebug = async () => {
     })
     history.value = history.value.slice(0, 6)
     resultTab.value = 'response'
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (seq !== debugRequestSeq) return
-    MessagePlugin.error(error?.message || t('modelSettings.debug.requestFailed'))
+    const msg = error && typeof error === 'object' && 'message' in error ? String((error as { message?: unknown }).message || '') : ''
+    MessagePlugin.error(msg || t('modelSettings.debug.requestFailed'))
   } finally {
     if (seq === debugRequestSeq) running.value = false
   }

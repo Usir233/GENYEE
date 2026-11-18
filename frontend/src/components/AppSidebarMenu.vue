@@ -18,19 +18,19 @@
                             <span class="cmdk-tip-keys">{{ cmdModKeyLabel }}K</span>
                         </span>
                     </template>
-                    <div class="header-icon-btn" @click="commandPaletteStore.openPalette('')"
+                    <button type="button" class="header-icon-btn" @click="commandPaletteStore.openPalette('')"
                         :aria-label="t('menu.search')">
                         <img class="header-icon-img" :src="getImgSrc('search.svg')" alt="">
-                    </div>
+                    </button>
                 </t-tooltip>
-                <div class="sidebar-toggle" @click="uiStore.toggleSidebar" :title="t('menu.collapseSidebar')">
+                <button type="button" class="sidebar-toggle" @click="uiStore.toggleSidebar" :title="t('menu.collapseSidebar')" :aria-label="t('menu.collapseSidebar')">
                     <svg viewBox="0 0 20 20" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="currentColor" stroke-width="1.5" />
                         <line x1="7.5" y1="1.5" x2="7.5" y2="18.5" stroke="currentColor" stroke-width="1.5" />
                         <line x1="4" y1="7.5" x2="4" y2="12.5" stroke="currentColor" stroke-width="1.5"
                             stroke-linecap="round" />
                     </svg>
-                </div>
+                </button>
             </div>
         </div>
         <!-- 折叠时：展开按钮 -->
@@ -392,9 +392,10 @@ const activeBucket = computed(() => sessionBuckets.value[activeSessionBucketKey.
 const hasAnySession = computed(() =>
     Object.values(sessionBuckets.value).some((bucket) => bucket.items.length > 0),
 );
-type MenuItem = { title: string; icon: string; path: string; childrenPath?: string; children?: any[] };
+type MenuChildRow = Record<string, unknown> & { id: string };
+type MenuItem = { title: string; icon: string; path: string; childrenPath?: string; children?: MenuChildRow[] };
 const { menuArr, visibleMenuArr } = storeToRefs(usemenuStore);
-let activeSubmenu = ref<string>('');
+const activeSubmenu = ref<string>('');
 const isLiteEdition = ref(false);
 
 // 批量管理状态
@@ -405,7 +406,7 @@ const batchDeleting = ref(false)
 const allSessionIds = computed(() => {
     const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item: MenuItem) => item.path === 'creatChat');
     if (!chatMenu?.children) return [];
-    return (chatMenu.children as any[]).map((s: any) => s.id);
+    return chatMenu.children.map((s) => String(s.id));
 })
 
 const isAllBatchSelected = computed(() =>
@@ -430,24 +431,10 @@ const isInKnowledgeBase = computed<boolean>(() => {
         route.name === 'knowledgeBaseSettings';
 });
 
-// 是否在知识库列表页面
-const isInKnowledgeBaseList = computed<boolean>(() => {
-    return route.name === 'knowledgeBaseList';
-});
-
 // 是否在创建聊天页面
 const isInCreatChat = computed<boolean>(() => {
     return route.name === 'globalCreatChat' || route.name === 'kbCreatChat';
 });
-
-// 是否在对话详情页
-const isInChatDetail = computed<boolean>(() => route.name === 'chat');
-
-// 是否在智能体列表页面
-const isInAgentList = computed<boolean>(() => route.name === 'agentList');
-
-// 是否在组织列表页面
-const isInOrganizationList = computed<boolean>(() => route.name === 'organizationList');
 
 // 统一的菜单项激活状态判断
 const isMenuItemActive = (itemPath: string): boolean => {
@@ -500,13 +487,9 @@ const topMenuItems = computed<MenuItem[]>(() => {
     return (visibleMenuArr.value as unknown as MenuItem[]).filter((item: MenuItem) => TOP_MENU_PATHS.has(item.path));
 });
 
-const bottomMenuItems = computed<MenuItem[]>(() => {
-    return (visibleMenuArr.value as unknown as MenuItem[]).filter((item: MenuItem) => !TOP_MENU_PATHS.has(item.path));
-});
-
 // 当前知识库信息
 const currentKbName = ref<string>('')
-const currentKbInfo = ref<any>(null)
+const currentKbInfo = ref<Record<string, unknown> | null>(null)
 
 // 进行中的置顶/取消置顶请求，避免重复点击
 const pinningIds = ref<Set<string>>(new Set())
@@ -697,7 +680,37 @@ const handleInlineBatchDelete = () => {
     });
 };
 
-const handleSessionMenuClick = (data: { value: string }, item: any) => {
+interface SidebarSessionRowItem {
+    id: string
+    path: string
+    title: string
+    is_pinned?: boolean
+    description?: string
+    user_id?: string
+    parent_session_id?: string
+}
+
+interface SessionMenuOptionItem {
+    content: string
+    value: string
+    theme?: 'default' | 'success' | 'warning' | 'error' | 'primary'
+    prefixIcon?: () => ReturnType<typeof h>
+}
+
+interface RawSessionSummaryItem {
+    id: string
+    title?: string
+    created_at?: string
+    updated_at?: string
+    is_pinned?: boolean
+    pinned_at?: string | null
+    im_platform?: string
+    description?: string
+    user_id?: string
+    parent_session_id?: string
+}
+
+const handleSessionMenuClick = (data: { value: string }, item: SidebarSessionRowItem) => {
     if (data?.value === 'delete') {
         delCard(item);
     } else if (data?.value === 'clearMessages') {
@@ -711,8 +724,8 @@ const handleSessionMenuClick = (data: { value: string }, item: any) => {
 
 // 基于会话来源推导展示用的短标签已经被 platformLogo(<img>) 取代，Web 会话没有图标。
 
-const buildSessionMenuOptions = (item: any) => {
-    const options: any[] = [];
+const buildSessionMenuOptions = (item: SidebarSessionRowItem): SessionMenuOptionItem[] => {
+    const options: SessionMenuOptionItem[] = [];
     if (item.is_pinned) {
         options.push({
             content: t('menu.unpin'),
@@ -750,7 +763,7 @@ const updateSessionInBuckets = (
     syncMenuStoreFromBuckets();
 };
 
-const renameSessionTitle = async (item: any, title: string) => {
+const renameSessionTitle = async (item: SidebarSessionRowItem, title: string) => {
     try {
         await renameSession(item.id, title, item.description || '');
         MessagePlugin.success(t('menu.renameSessionSuccess'));
@@ -759,7 +772,7 @@ const renameSessionTitle = async (item: any, title: string) => {
     }
 };
 
-const togglePin = (item: any, pin: boolean) => {
+const togglePin = (item: SidebarSessionRowItem, pin: boolean) => {
     if (pinningIds.value.has(item.id)) return;
     pinningIds.value.add(item.id);
 
@@ -770,7 +783,7 @@ const togglePin = (item: any, pin: boolean) => {
     });
 };
 
-const clearMessages = (item: any) => {
+const clearMessages = (item: SidebarSessionRowItem) => {
     clearSession(item.id).then(() => {
         MessagePlugin.success(t('menu.clearMessagesSuccess'));
     }).catch(() => {
@@ -778,19 +791,19 @@ const clearMessages = (item: any) => {
     });
 };
 
-const delCard = (item: any) => {
+const delCard = (item: SidebarSessionRowItem) => {
     removeSession(item.id).catch(() => MessagePlugin.error(t('chat.deleteSessionFailed')))
 }
 
 
-const debounce = (fn: (...args: any[]) => void, delay: number) => {
+const debounce = <T extends unknown[]>(fn: (...args: T) => void, delay: number) => {
     let timer: ReturnType<typeof setTimeout>
-    return (...args: any[]) => {
+    return (...args: T) => {
         clearTimeout(timer)
         timer = setTimeout(() => fn(...args), delay)
     }
 }
-const mapSessionRow = (item: any) => ({
+const mapSessionRow = (item: RawSessionSummaryItem) => ({
     title: item.title ? item.title : t('menu.newSession'),
     path: `chat/${item.id}`,
     id: item.id,
@@ -871,7 +884,7 @@ const probeChannelBucketCounts = async (keys: string[], token: number) => {
             const bucket = sessionBuckets.value[key];
             if (!bucket) return;
             try {
-                const res: any = await getSessionsList(1, 1, bucket.apiSource);
+                const res = await getSessionsList(1, 1, bucket.apiSource) as { total?: number } | undefined;
                 if (token !== bucketRequestToken) return;
                 sessionBuckets.value = {
                     ...sessionBuckets.value,
@@ -900,9 +913,12 @@ const loadBucketPage = async (key: string, page?: number, token?: number) => {
     };
 
     try {
-        const res: any = await getSessionsList(nextPage, SIDEBAR_BUCKET_PAGE_SIZE, bucket.apiSource);
+        const res = await getSessionsList(nextPage, SIDEBAR_BUCKET_PAGE_SIZE, bucket.apiSource) as {
+            data?: RawSessionSummaryItem[]
+            total?: number
+        } | undefined;
         if (activeToken !== bucketRequestToken) return;
-        const rows = (res?.data || []).map((item: any) => mapSessionRow(item));
+        const rows = (res?.data || []).map((item) => mapSessionRow(item));
         const current = sessionBuckets.value[key];
         sessionBuckets.value = {
             ...sessionBuckets.value,
@@ -950,7 +966,9 @@ const syncActiveBucketFromChat = async (sessionId: string | undefined) => {
     // to "my chats". Only switch when that folder is actually present.
     if (!bucketKey) {
         try {
-            const res: any = await getSession(sessionId);
+            const res = await getSession(sessionId) as {
+                data?: { im_platform?: string; description?: string; user_id?: string }
+            } | undefined;
             const candidate = originGroupKey(resolveSessionOrigin({
                 id: sessionId,
                 im_platform: res?.data?.im_platform || '',
@@ -1043,13 +1061,13 @@ async function loadCurrentKbInfo(kbId: string) {
 
 const loadSessionOriginMeta = async () => {
     try {
-        const res: any = await listAllIMChannels();
+        const res = await listAllIMChannels() as { data?: Array<{ platform: string }> } | undefined;
         imPlatforms.value = configuredPlatforms(res?.data || []);
     } catch {
         imPlatforms.value = [];
     }
     try {
-        const res: any = await listAllEmbedChannels();
+        const res = await listAllEmbedChannels() as { data?: Array<{ id?: string; name?: string }> } | undefined;
         const names: Record<string, string> = {};
         for (const ch of res?.data || []) {
             if (ch?.id && ch?.name) names[ch.id] = ch.name;
@@ -1058,6 +1076,11 @@ const loadSessionOriginMeta = async () => {
     } catch {
         embedChannelNames.value = {};
     }
+};
+
+const routeParamString = (params: Record<string, string | string[] | undefined>, key: string): string => {
+    const val = params[key];
+    return typeof val === 'string' ? val : (Array.isArray(val) ? val[0] || '' : '');
 };
 
 const handleSessionMutation = (event: Event) => {
@@ -1099,7 +1122,7 @@ onMounted(async () => {
         }
     }).catch(() => { })
 
-    await loadCurrentKbInfo((route.params as any)?.kbId as string)
+    await loadCurrentKbInfo(routeParamString(route.params as Record<string, string | string[] | undefined>, 'kbId'))
 
     await loadSessionOriginMeta();
     await getMessageList();
@@ -1132,7 +1155,8 @@ watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
 
     // 创建新会话时 creatChat 会先 updataMenuChildren，再跳转 chat/:id。
     // 侧栏实际渲染 sessionBuckets，需按 buckets 判断是否缺失，不能把 menuStore 当真相来源。
-    const newChatId = (newvalue[1] as any)?.chatid as string | undefined;
+    const newParams = newvalue[1] as Record<string, string | string[] | undefined>;
+    const newChatId = routeParamString(newParams, 'chatid') || undefined;
     if (nameStr === 'chat' && newChatId) {
         ensureSessionInSidebar(newChatId);
         void syncActiveBucketFromChat(newChatId);
@@ -1143,20 +1167,20 @@ watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
 
     // 如果切换了知识库，更新知识库名称但不重新加载对话列表
     if (newvalue[1].kbId !== oldvalue?.[1]?.kbId) {
-        loadCurrentKbInfo((newvalue[1] as any)?.kbId as string);
+        loadCurrentKbInfo(routeParamString(newParams, 'kbId'));
     }
 });
-let knowledgeIcon = ref('zhishiku-green.svg');
-let prefixIcon = ref('prefixIcon.svg');
-let logoutIcon = ref('logout.svg');
-let settingIcon = ref('setting.svg');
-let agentIcon = ref('agent.svg');
-let artifactIcon = ref('artifact.svg');
-let toolboxIcon = ref('toolbox.svg');
-let automationIcon = ref('automation.svg');
-let organizationIcon = ref('organization.svg');
-let pathPrefix = ref(route.name)
-const getIcon = (path: string) => {
+const knowledgeIcon = ref('zhishiku-green.svg');
+const prefixIcon = ref('prefixIcon.svg');
+const logoutIcon = ref('logout.svg');
+const settingIcon = ref('setting.svg');
+const agentIcon = ref('agent.svg');
+const artifactIcon = ref('artifact.svg');
+const toolboxIcon = ref('toolbox.svg');
+const automationIcon = ref('automation.svg');
+const organizationIcon = ref('organization.svg');
+const pathPrefix = ref(route.name)
+const getIcon = (_path: string) => {
     // 根据当前路由状态更新所有图标
     const kbActiveState = getIconActiveState('knowledge-bases');
     const creatChatActiveState = getIconActiveState('creatChat');
@@ -1213,13 +1237,8 @@ const handleMenuClick = async (path: string) => {
     }
 }
 
-// 处理退出登录确认
-const handleLogout = () => {
-    gotopage('logout')
-}
-
 const getCurrentKbId = async (): Promise<string | null> => {
-    const kbId = (route.params as any)?.kbId as string
+    const kbId = routeParamString(route.params as Record<string, string | string[] | undefined>, 'kbId')
     if (isInKnowledgeBase.value && kbId) {
         return kbId
     }
@@ -1235,7 +1254,7 @@ const gotopage = async (path: string) => {
             await logoutApi();
         } catch (error) {
             // 即使API调用失败，也继续执行本地清理
-            console.error('注销API调用失败:', error);
+            console.error('Logout API call failed:', error);
         }
         // 清理所有状态和本地存储
         authStore.logout();
@@ -1264,9 +1283,9 @@ const getImgSrc = (url: string) => {
     return new URL(`/src/assets/img/${url}`, import.meta.url).href;
 }
 
-const mouseenteMenu = (path: string) => {
+const mouseenteMenu = (_path: string) => {
 }
-const mouseleaveMenu = (path: string) => {
+const mouseleaveMenu = (_path: string) => {
 }
 
 let sidebarResizeStartWidth = 0
@@ -1382,6 +1401,9 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         justify-content: center;
         width: 28px;
         height: 28px;
+        padding: 0;
+        border: 0;
+        background: transparent;
         flex-shrink: 0;
         cursor: pointer;
         color: var(--td-text-color-secondary);
@@ -1436,30 +1458,34 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         scrollbar-color: transparent transparent;
         transition: scrollbar-color var(--app-motion-base) ease;
 
-        &::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        &::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        &::-webkit-scrollbar-thumb {
-            background-color: transparent;
-            border-radius: var(--app-radius-sm);
-            transition: background-color var(--app-motion-base) ease;
-        }
-
         &:hover {
-            scrollbar-color: var(--td-scrollbar-color) transparent;
+            scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
+        }
+
+        @supports not (scrollbar-color: auto) {
+            scrollbar-width: auto;
+
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            &::-webkit-scrollbar-track {
+                background: var(--gy-scrollbar-track);
+            }
 
             &::-webkit-scrollbar-thumb {
-                background-color: var(--td-scrollbar-color);
+                background-color: transparent;
+                border-radius: var(--gy-radius-sm);
+                transition: background-color var(--gy-motion-base) ease;
             }
-        }
 
-        &::-webkit-scrollbar-thumb:hover {
-            background-color: var(--td-scrollbar-hover-color);
+            &:hover::-webkit-scrollbar-thumb {
+                background-color: var(--gy-scrollbar-thumb);
+            }
+
+            &::-webkit-scrollbar-thumb:hover {
+                background-color: var(--gy-scrollbar-thumb-hover);
+            }
         }
     }
 
@@ -1864,6 +1890,9 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
     justify-content: center;
     width: 28px;
     height: 28px;
+    padding: 0;
+    border: 0;
+    background: transparent;
     flex-shrink: 0;
     cursor: pointer;
     border-radius: var(--app-radius-sm);
@@ -2029,12 +2058,14 @@ html[theme-mode="dark"] .aside_box .menu_top:hover {
     scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
-html[theme-mode="dark"] .aside_box .menu_top:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.22);
-}
+@supports not (scrollbar-color: auto) {
+    html[theme-mode="dark"] .aside_box .menu_top:hover::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.22);
+    }
 
-html[theme-mode="dark"] .aside_box .menu_top::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.38);
+    html[theme-mode="dark"] .aside_box .menu_top::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.38);
+    }
 }
 
 // Dark mode: invert the top search icon button image to match text color

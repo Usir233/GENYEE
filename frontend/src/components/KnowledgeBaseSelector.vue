@@ -28,7 +28,7 @@
           <div class="kb-item-left">
             <div class="checkbox" :class="{ checked: isSelected(kb.id) }">
               <svg v-if="isSelected(kb.id)" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M10 3L4.5 8.5L2 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 3L4.5 8.5L2 6" stroke="var(--gy-text-inverse)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </div>
             <div class="kb-icon" :class="{ 'faq': kb.type === 'faq' }">
@@ -55,8 +55,8 @@
 
       <!-- 底部操作 -->
       <div class="kb-actions">
-        <button @click="selectAll" class="kb-btn">{{ $t('common.selectAll') }}</button>
-        <button @click="clearAll" class="kb-btn">{{ $t('common.clear') }}</button>
+        <button type="button" @click="selectAll" class="kb-btn">{{ $t('common.selectAll') }}</button>
+        <button type="button" @click="clearAll" class="kb-btn">{{ $t('common.clear') }}</button>
       </div>
     </div>
   </div>
@@ -81,9 +81,15 @@ interface KnowledgeBase {
 
 const { t } = useI18n()
 
+type AnchorTarget =
+  | HTMLElement
+  | DOMRect
+  | { value?: HTMLElement | DOMRect | null }
+  | { $el?: HTMLElement | null }
+
 const props = defineProps<{
   visible: boolean
-  anchorEl?: any | null // 支持 DOM 节点、ref、组件实例
+  anchorEl?: AnchorTarget | null // 支持 DOM 节点、ref、组件实例
   dropdownWidth?: number
   offsetY?: number
 }>()
@@ -118,7 +124,7 @@ const filteredKnowledgeBases = computed(() => {
 const selectedKbIds = computed(() => settingsStore.settings.selectedKnowledgeBases || [])
 
 // helper: 从 props.anchorEl 获取真实 DOM 元素（支持多种传入形式）
-const resolveAnchorEl = () => {
+const resolveAnchorEl = (): HTMLElement | DOMRect | null => {
   const a = props.anchorEl
   if (!a) return null
   // 如果是 Vue ref：取 .value
@@ -127,7 +133,6 @@ const resolveAnchorEl = () => {
   }
   // 如果是组件实例（可能有 $el）
   if (typeof a === 'object' && '$el' in a) {
-    // @ts-ignore
     return a.$el ?? null
   }
   // 直接 DOM 节点或 DOMRect
@@ -137,7 +142,11 @@ const resolveAnchorEl = () => {
 const isSelected = (id: string) => selectedKbIds.value.includes(id)
 
 const toggleKb = (id: string) => {
-  isSelected(id) ? settingsStore.removeKnowledgeBase(id) : settingsStore.addKnowledgeBase(id)
+  if (isSelected(id)) {
+    settingsStore.removeKnowledgeBase(id)
+  } else {
+    settingsStore.addKnowledgeBase(id)
+  }
 }
 
 const toggleSelection = () => {
@@ -203,12 +212,12 @@ const updateDropdownPosition = () => {
   // 获取 anchor 的 bounding rect（相对于视口）
   let rawRect: { top: number; left: number; right: number; bottom: number; width: number; height: number } | null = null
   try {
-    if (typeof anchor.getBoundingClientRect === 'function') {
+    if ('getBoundingClientRect' in anchor && typeof anchor.getBoundingClientRect === 'function') {
       const r = anchor.getBoundingClientRect()
       rawRect = { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height }
-    } else if (anchor.width !== undefined && anchor.left !== undefined) {
+    } else if ('width' in anchor && 'left' in anchor && anchor.width !== undefined && anchor.left !== undefined) {
       // Already a DOMRect-like
-      rawRect = anchor as DOMRect
+      rawRect = anchor
     }
   } catch (e) {
     console.error('[KnowledgeBaseSelector] Error getting bounding rect:', e)
@@ -237,7 +246,6 @@ const updateDropdownPosition = () => {
 
   // 垂直定位：紧贴按钮，使用合理的高度避免空白
   const preferredDropdownHeight = 280 // 优选高度（紧凑且够用）
-  const maxDropdownHeight = 360 // 最大高度
   const minDropdownHeight = 200 // 最小高度
   const topMargin = 20 // 顶部留白
   const spaceBelow = vh - rect.bottom // 下方剩余空间

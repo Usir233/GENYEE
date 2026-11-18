@@ -41,9 +41,9 @@ const badgeStyle = computed((): Record<string, string> => (
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border-radius: 9px;
-  background: rgba(0, 82, 217, 0.1);
-  color: #0052d9;
+  border-radius: var(--gy-radius-md);
+  background: color-mix(in oklab, var(--gy-accent-blue) 10%, transparent);
+  color: var(--gy-accent-blue);
 }
 
 .sandbox-badge--md {
@@ -55,7 +55,7 @@ const badgeStyle = computed((): Record<string, string> => (
 .sandbox-badge--sm {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--gy-radius-sm);
   font-size: var(--app-text-base);
 }
 
@@ -67,13 +67,13 @@ const badgeStyle = computed((): Record<string, string> => (
 }
 
 .sandbox-badge--e2b {
-  background: rgba(98, 53, 187, 0.1);
-  color: #6235bb;
+  background: color-mix(in oklab, var(--gy-accent-purple) 10%, transparent);
+  color: var(--gy-accent-purple);
 }
 
 .sandbox-badge--docker {
-  background: rgba(29, 99, 237, 0.1);
-  color: #1d63ed;
+  background: color-mix(in oklab, var(--gy-accent-blue) 12%, transparent);
+  color: var(--gy-accent-blue);
 }
 
 .sandbox-badge--mono::before {

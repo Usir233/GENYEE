@@ -8,7 +8,7 @@ import * as manualDraft from '../utils/manualKnowledgeDraft.ts'
 import * as markdownEditing from '../utils/markdownEditing.ts'
 import * as sidebarWidth from '../utils/sidebarWidth.ts'
 
-function deferred<T = any>() {
+function deferred<T = unknown>() {
   let resolve!: (value: T) => void
   let reject!: (error: unknown) => void
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
@@ -18,6 +18,10 @@ function detail(id: string) {
   return { data: { id, knowledge_base_id: 'kb', title: `Title ${id}`, parse_status: 'draft',
     metadata: { content: `Content ${id}`, status: 'draft', updated_at: `Time ${id}` }, tags: [{ id: `tag-${id}` }] } }
 }
+interface ManualWriteRecord {
+  id: string
+  payload: { content?: string; tag_ids?: string[] }
+}
 function setup(t: TestContext, api: Record<string, unknown> = {}, ensure = async () => {}) {
   const f = fixture(t)
   pinia.setActivePinia(pinia.createPinia())
@@ -26,8 +30,8 @@ function setup(t: TestContext, api: Record<string, unknown> = {}, ensure = async
   })
   const ui = useUIStore()
   const messages: string[] = []
-  const writes: any[] = []
-  const page = f.component(new URL('./manual-knowledge-editor.vue', import.meta.url), {
+  const writes: ManualWriteRecord[] = []
+  const page = f.component(new URL('./ManualKnowledgeEditor.vue', import.meta.url), {
     marked: { marked },
     'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
     'tdesign-vue-next': { DialogPlugin: { confirm: () => ({ destroy() {} }) }, MessagePlugin: {
@@ -38,7 +42,7 @@ function setup(t: TestContext, api: Record<string, unknown> = {}, ensure = async
     '@/utils/manualKnowledgeDraft': manualDraft,
     '@/api/knowledge-base': {
       getKnowledgeDetails: async (id: string) => detail(id),
-      updateManualKnowledge: async (id: string, payload: unknown) => { writes.push({ id, payload }); return { success: true } },
+      updateManualKnowledge: async (id: string, payload: ManualWriteRecord['payload']) => { writes.push({ id, payload }); return { success: true } },
       ...api,
     },
     '@/stores/uploadConfirm': { useUploadConfirmStore: () => ({}) },
@@ -70,7 +74,7 @@ test('a late document response cannot replace the current document then save its
   await p.vm.handleSave('draft')
   assert.equal(p.writes[0].id, 'b')
   assert.equal(p.writes[0].payload.content, 'Content b')
-  assert.deepEqual([...p.writes[0].payload.tag_ids], ['tag-b'])
+  assert.deepEqual([...(p.writes[0].payload.tag_ids || [])], ['tag-b'])
   assert.deepEqual(displayed, { title: 'Title b', updated: 'Time b' })
 })
 
@@ -175,9 +179,9 @@ for (const outcome of ['success', 'failure'] as const) {
     const currentSave = deferred()
     let saveCalls = 0
     const p = setup(t, {
-      updateManualKnowledge: async (id: string, payload: unknown) => {
+      updateManualKnowledge: async (id: string, payload: ManualWriteRecord['payload']) => {
         const call = ++saveCalls
-        const res: any = await (call === 1 ? oldSave.promise : currentSave.promise)
+        const res = await (call === 1 ? oldSave.promise : currentSave.promise)
         p.writes.push({ id, payload })
         return res
       },

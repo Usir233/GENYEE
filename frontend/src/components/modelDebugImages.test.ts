@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { createRenderer, h, nextTick, reactive } from 'vue'
+import { createRenderer, h, nextTick, reactive, type Component } from 'vue'
 
 const require = createRequire(import.meta.url)
 const filename = fileURLToPath(new URL('./ModelDebugDrawer.vue', import.meta.url))
@@ -18,21 +18,54 @@ const compiled = ts.transpileModule(script, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
+interface DebugRequestPayload {
+  id: string
+  input: string
+  documents: string[]
+  file: { name: string } | null
+  options: { similarity?: boolean }
+}
+
+interface DebugDrawerVm {
+  hasImageMode: boolean
+  showFilePicker: boolean
+  useSimilarityMode: boolean
+  input: string
+  documentsText: string
+  inputMode: string
+  canRun: boolean
+  imagePreview: string
+  file: unknown
+  selectedModelId: string
+  onNativeFileChange: (event: { target: { files: Array<{ name: string; size: number; type: string }> } }) => void
+  runDebug: () => Promise<void>
+  clearFile: () => void
+}
+
+type HostNode = Record<string, unknown>
+
 async function fixture(type: string, images = true, legacyVision = false) {
-  const requests: any[] = []
+  const requests: DebugRequestPayload[] = []
   const revoked: string[] = []
   const props = reactive({ visible: false, models: [
     { id: 'image-model', name: 'model', type, source: 'remote', parameters: { supports_vision: legacyVision }, capabilities: { input: images ? ['text', 'image'] : ['text'], thinking_levels: [] } },
     { id: 'text-model', name: 'text', type, source: 'remote', parameters: {}, capabilities: { input: ['text'], thinking_levels: [] } },
   ] })
-  const exports: any = {}
+  const exports: { default?: Component & { render?: () => null } } = {}
   runInNewContext(compiled, {
     exports, console, document: { activeElement: null }, HTMLElement: class {},
     URL: { createObjectURL: () => 'blob:preview', revokeObjectURL: (url: string) => revoked.push(url) },
     require(name: string) {
       if (name === 'vue') return require('vue')
       if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key, locale: { value: 'en-US' } }) }
-      if (name === '@/api/model') return { debugModel: async (id: string, data: any) => { requests.push({ id, ...data }); return { ok: true, elapsed_ms: 1, raw_response: [], observations: {} } } }
+      if (name === '@/api/model') {
+        return {
+          debugModel: async (id: string, data: Omit<DebugRequestPayload, 'id'>) => {
+            requests.push({ id, ...data })
+            return { ok: true, elapsed_ms: 1, raw_response: [], observations: {} }
+          },
+        }
+      }
       if (name === '@/stores/modelProviders') return { useModelProvidersStore: () => ({ ensureLoaded: async () => {}, labelFor: () => '' }) }
       if (name === '@/utils') return { fileSizeVerification: () => false }
       if (name === '@/utils/reasoningEffort') return require('../utils/reasoningEffort.ts')
@@ -41,14 +74,14 @@ async function fixture(type: string, images = true, legacyVision = false) {
       return { default: {} }
     },
   })
-  exports.default.render = () => null
-  const renderer = createRenderer<any, any>({
+  exports.default!.render = () => null
+  const renderer = createRenderer<HostNode, HostNode>({
     createElement: () => ({}), createText: () => ({}), createComment: () => ({}),
     insert() {}, remove() {}, setElementText() {}, setText() {}, patchProp() {},
     parentNode: () => null, nextSibling: () => null,
   })
-  let vm: any
-  const app = renderer.createApp({ setup: () => () => h(exports.default, { ...props, ref: (value: any) => { vm = value } }) })
+  let vm!: DebugDrawerVm
+  const app = renderer.createApp({ setup: () => () => h(exports.default!, { ...props, ref: (value: unknown) => { vm = value as DebugDrawerVm } }) })
   app.mount({})
   props.visible = true
   await nextTick()
@@ -71,7 +104,7 @@ for (const type of ['Embedding', 'Rerank']) {
       assert.equal(f.vm.imagePreview, 'blob:preview')
       assert.equal(f.vm.canRun, true)
       await f.vm.runDebug()
-      assert.equal(f.requests[0].file.name, file.name)
+      assert.equal(f.requests[0].file!.name, file.name)
       assert.equal(f.requests[0].input, type === 'Embedding' ? '' : 'a cat')
       assert.equal(f.requests[0].documents.length, 0)
       f.vm.clearFile()
@@ -104,7 +137,7 @@ test('embedding similarity sends the query, candidates and an optional image', a
     f.vm.onNativeFileChange({ target: { files: [file] } })
     assert.equal(f.vm.canRun, true, 'an image is a candidate on its own')
     await f.vm.runDebug()
-    assert.equal(f.requests[1].file.name, file.name)
+    assert.equal(f.requests[1].file!.name, file.name)
   } finally { f.dispose() }
 })
 
@@ -132,11 +165,11 @@ test('image-capable chat sends text and an optional image, including image-only 
     assert.equal(f.vm.canRun, true)
     await f.vm.runDebug()
     assert.equal(f.requests[0].input, '')
-    assert.equal(f.requests[0].file.name, file.name)
+    assert.equal(f.requests[0].file!.name, file.name)
     f.vm.input = 'describe'
     await f.vm.runDebug()
     assert.equal(f.requests[1].input, 'describe')
-    assert.equal(f.requests[1].file.name, file.name)
+    assert.equal(f.requests[1].file!.name, file.name)
   } finally { f.dispose() }
 })
 
@@ -171,7 +204,7 @@ for (const type of ['VLLM', 'ASR']) {
       f.vm.onNativeFileChange({ target: { files: [file] } })
       assert.equal(f.vm.canRun, true)
       await f.vm.runDebug()
-      assert.equal(f.requests[0].file.name, file.name)
+      assert.equal(f.requests[0].file!.name, file.name)
     } finally { f.dispose() }
   })
 }

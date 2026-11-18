@@ -4,7 +4,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 test('renderer mount failure becomes a visible preview error instead of a blank page', () => {
-  const source = readFileSync(new URL('./document-preview.vue', import.meta.url), 'utf8')
+  const source = readFileSync(new URL('./DocumentPreview.vue', import.meta.url), 'utf8')
   const hook = source.slice(source.indexOf('onErrorCaptured((err)'), source.indexOf("const previewType ="))
   assert.ok(hook.startsWith('onErrorCaptured('))
   const error = { value: '' }, loading = { value: true }

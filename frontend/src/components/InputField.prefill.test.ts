@@ -10,7 +10,7 @@ import { createServer, type ViteDevServer } from 'vite'
 import { parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
 
-const input = parse(readFileSync(new URL('./Input-field.vue', import.meta.url), 'utf8')).descriptor.scriptSetup!.content
+const input = parse(readFileSync(new URL('./InputField.vue', import.meta.url), 'utf8')).descriptor.scriptSetup!.content
 const inputSource = ts.createSourceFile('input.ts', input, ts.ScriptTarget.ES2022, true)
 const mount = inputSource.statements.find(node => ts.isExpressionStatement(node)
   && ts.isCallExpression(node.expression) && node.expression.expression.getText(inputSource) === 'onMounted')!
@@ -109,7 +109,8 @@ async function fixture(path = '/platform/creatChat', initial = '') {
         onVoiceKeydown: noop, onVoiceKeyup: noop, onVoiceWindowBlur: noop, onVoiceVisibilityChange: noop,
         CHAT_FILE_DROP_EVENT: '', handleChatFileDrop: noop, fileIdToKbId: ref({}),
         closeAgentModeSelector: noop, closeModelSelector: noop, closeMentionSelector: noop,
-        showModelSelector: ref(false), showAgentModeSelector: ref(false), resizeHandler: null, scrollHandler: null,
+        updateModelDropdownPosition: noop, updateAgentModeDropdownPosition: noop,
+        showModelSelector: ref(false), showAgentModeSelector: ref(false), viewportResizeObserver: null, resizeHandler: null, scrollHandler: null,
       })
       onUnmounted(() => { state.connected = false })
       return () => h('textarea')

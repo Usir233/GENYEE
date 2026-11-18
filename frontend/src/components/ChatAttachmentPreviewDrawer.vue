@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import DocumentPreview from '@/components/document-preview.vue'
+import DocumentPreview from '@/components/DocumentPreview.vue'
 import { useChatAttachmentPreviewDrawer } from '@/composables/useChatAttachmentPreviewDrawer'
 
 const drawer = useChatAttachmentPreviewDrawer()
@@ -82,13 +82,21 @@ function close() {
   drawer?.close()
 }
 
+let viewportObserver: ResizeObserver | null = null
+
 onMounted(() => {
   loadMainDrawerWidth()
   window.addEventListener('resize', onWindowResize)
+  if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && document.documentElement) {
+    viewportObserver = new ResizeObserver(() => onWindowResize())
+    viewportObserver.observe(document.documentElement)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
+  viewportObserver?.disconnect()
+  viewportObserver = null
   cleanupMainDrawerResize()
 })
 </script>

@@ -31,7 +31,7 @@ interface KnowledgeDetailResponse {
   knowledge_base_id: string
   title?: string
   file_name?: string
-  metadata?: any
+  metadata?: unknown
   parse_status?: string
   tags?: Array<{ id: string }>
 }
@@ -619,10 +619,10 @@ const loadKnowledgeBases = async (version: number) => {
 
     const isDocumentKb = (type?: string) => !type || type === 'document'
 
-    const ownKbs = chatResources.rawKnowledgeBases
+    const ownKbs = chatResources.rawKnowledgeBases as Array<{ id: string; name: string; type?: string }>
     const list: KnowledgeBaseOption[] = ownKbs
-      .filter((item: any) => isDocumentKb(item.type))
-      .map((item: any) => ({ label: item.name, value: item.id }))
+      .filter((item) => isDocumentKb(item.type))
+      .map((item) => ({ label: item.name, value: item.id }))
 
     // Knowledge bases shared to the user with write access (editor/admin)
     // also accept manually-added content, so they must appear in the picker;
@@ -669,22 +669,24 @@ const loadKnowledgeBases = async (version: number) => {
 }
 
 const parseManualMetadata = (
-  metadata: any,
+  metadata: unknown,
 ): { content: string; status: ManualStatus; updatedAt?: string } | null => {
   if (!metadata) {
     return null
   }
   try {
-    let parsed = metadata
+    let parsed: unknown = metadata
     if (typeof metadata === 'string') {
       parsed = JSON.parse(metadata)
     }
     if (parsed && typeof parsed === 'object') {
-      const status = parsed.status === 'publish' ? 'publish' : 'draft'
+      const record = parsed as { status?: unknown; content?: unknown; updated_at?: unknown; updatedAt?: unknown }
+      const status = record.status === 'publish' ? 'publish' : 'draft'
+      const updatedRaw = record.updated_at ?? record.updatedAt
       return {
-        content: parsed.content || '',
+        content: typeof record.content === 'string' ? record.content : '',
         status,
-        updatedAt: parsed.updated_at || parsed.updatedAt,
+        updatedAt: typeof updatedRaw === 'string' ? updatedRaw : undefined,
       }
     }
   } catch (error) {
@@ -700,7 +702,7 @@ const loadKnowledgeContent = async (version: number) => {
   }
   contentLoading.value = true
   try {
-    const res: any = await getKnowledgeDetails(targetId)
+    const res = await getKnowledgeDetails(targetId) as { data?: KnowledgeDetailResponse } | undefined
     if (!isCurrentLoad(version) || currentKnowledgeId.value !== targetId) return
     const data: KnowledgeDetailResponse | undefined = res?.data
     if (!data) {
@@ -830,9 +832,10 @@ const handleSave = async (targetStatus: ManualStatus) => {
     payload.tag_ids = [...manualTagIds.value]
 
     if (targetStatus === 'publish') {
-      let kbInfo: any
+      type UploadConfirmKbInfo = Parameters<typeof uploadConfirmStore.open>[0]['kbInfo']
+      let kbInfo: UploadConfirmKbInfo | undefined
       try {
-        const kbRes: any = await getKnowledgeBaseById(saveKbId)
+        const kbRes = await getKnowledgeBaseById(saveKbId) as { data?: UploadConfirmKbInfo } | undefined
         if (!isCurrentLoad(generation)) return
         kbInfo = kbRes?.data
       } catch {
@@ -864,15 +867,16 @@ const handleSave = async (targetStatus: ManualStatus) => {
       }
     }
 
-    let response: any
+    type ManualSaveResponse = { success?: boolean; message?: string; data?: { id?: string } }
+    let response: ManualSaveResponse | undefined
     let knowledgeID = saveKnowledgeId
     const kbId = saveKbId
 
     if (saveMode === 'edit' && saveKnowledgeId) {
-      response = await updateManualKnowledge(saveKnowledgeId, payload)
+      response = await updateManualKnowledge(saveKnowledgeId, payload) as ManualSaveResponse
       if (!isCurrentLoad(generation)) return
     } else {
-      response = await createManualKnowledge(saveKbId, payload)
+      response = await createManualKnowledge(saveKbId, payload) as ManualSaveResponse
       if (!isCurrentLoad(generation)) return
       knowledgeID = response?.data?.id || knowledgeID
       currentKnowledgeId.value = knowledgeID || null
@@ -898,9 +902,10 @@ const handleSave = async (targetStatus: ManualStatus) => {
       const message = response?.message || t('manualEditor.error.saveFailed')
       MessagePlugin.error(message)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (!isCurrentLoad(generation)) return
-    const message = error?.error?.message || error?.message || t('manualEditor.error.saveFailed')
+    const errObj = error && typeof error === 'object' ? (error as { error?: { message?: string }; message?: string }) : undefined
+    const message = errObj?.error?.message || errObj?.message || t('manualEditor.error.saveFailed')
     MessagePlugin.error(message)
   } finally {
     if (generation === initGeneration) saving.value = false
@@ -1377,9 +1382,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   overflow-x: auto;
+  scrollbar-width: none;
 
-  &::-webkit-scrollbar {
-    height: 0;
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
+
+    &::-webkit-scrollbar {
+      height: 0;
+    }
   }
 }
 

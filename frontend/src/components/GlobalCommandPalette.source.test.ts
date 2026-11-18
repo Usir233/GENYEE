@@ -5,7 +5,8 @@ import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { createRenderer, defineComponent, h, markRaw, nextTick, reactive, ref, toRefs } from 'vue'
+import { createRenderer, defineComponent, h, markRaw, nextTick, reactive, ref, toRefs, type Component, type PropType } from 'vue'
+import type { SourceLocateRequest } from '../utils/sourceLocator'
 
 const require = createRequire(import.meta.url)
 const flush = async () => {
@@ -13,18 +14,36 @@ const flush = async () => {
   await nextTick()
 }
 
+interface HostProps {
+  class?: string
+  index?: number
+  onClick: () => void
+  onKeydown: (event: { key: string; metaKey?: boolean; preventDefault: () => void }) => void
+  [key: string]: unknown
+}
+
 type Host = {
   tag: string
-  props: Record<string, any>
+  props: HostProps
   children: Host[]
   parent: Host | null
   addEventListener(): void
   querySelector(): null
 }
 
+interface CapturedPreviewProps {
+  knowledgeId?: string
+  locate?: SourceLocateRequest | null
+}
+
+interface DispatchedCustomEvent {
+  type: string
+  detail: { kbId?: string; knowledgeId?: string }
+}
+
 async function fixture(options: { kbId?: string; unsupported?: boolean; missingKb?: boolean } = {}) {
   const route = reactive({ fullPath: '/platform/creatChat', params: { kbId: options.kbId || '' } })
-  const pushed: unknown[] = [], requests: string[] = [], recent: string[] = [], events: any[] = [], chats: unknown[][] = []
+  const pushed: unknown[] = [], requests: string[] = [], recent: string[] = [], events: DispatchedCustomEvent[] = [], chats: unknown[][] = []
   const auth = reactive({ effectiveTenantId: 1, user: { id: 'user-1' }, hasRole: () => false })
   const store = reactive({
     open: true, initialQuery: '', recentQueries: [] as string[],
@@ -43,9 +62,9 @@ async function fixture(options: { kbId?: string; unsupported?: boolean; missingK
     fileGroups: ref([group]), messageGroups: ref([]), kbMatches: ref([]), knowledgeBases: ref([]),
     agentMatches: ref([]), sessionMatches: ref([]), totalChunks: ref(2), totalMessages: ref(0), clearResults() {},
   }
-  let preview: any = null
+  let preview: CapturedPreviewProps | null = null
   const Preview = defineComponent({
-    props: { knowledgeId: String, locate: Object },
+    props: { knowledgeId: String, locate: Object as PropType<SourceLocateRequest | null> },
     setup(props) { preview = props; return () => h('preview') },
   })
   const passSlots = defineComponent({
@@ -58,22 +77,22 @@ async function fixture(options: { kbId?: string; unsupported?: boolean; missingK
     },
   })
   const router = { push: (target: unknown) => pushed.push(target), resolve: () => ({ href: '/knowledge' }) }
-  const window = { addEventListener() {}, removeEventListener() {}, dispatchEvent: (event: any) => events.push(event) }
+  const window = { addEventListener() {}, removeEventListener() {}, dispatchEvent: (event: DispatchedCustomEvent) => events.push(event) }
   class CustomEvent {
     type: string
     detail: unknown
     constructor(type: string, options: { detail: unknown }) { this.type = type; this.detail = options.detail }
   }
-  function component(filename: string): any {
+  function component(filename: string): { __esModule?: boolean; default: Component } {
     const { descriptor } = parse(readFileSync(new URL(filename, import.meta.url), 'utf8'))
     const compiled = ts.transpileModule(compileScript(descriptor, {
       id: filename, inlineTemplate: true,
     }).content, {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText
-    const exports: any = {}
+    const exports: { __esModule?: boolean; default: Component } = { default: { render: () => null } }
     runInNewContext(compiled, {
-      exports, console, window, CustomEvent,
+      exports, console, window, CustomEvent, AbortController, AbortSignal, fetch,
       require(name: string) {
         if (name === 'vue') return require('vue')
         if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key }) }
@@ -93,7 +112,7 @@ async function fixture(options: { kbId?: string; unsupported?: boolean; missingK
         if (name === './ChatReferenceSourceView.vue') return component('./ChatReferenceSourceView.vue')
         // The real source view resolves the KB name through the shared cache.
         if (name === '@/stores/chatResources') return { useChatResourcesStore: () => ({ fetchKnowledgeBaseById: async () => ({ name: 'Travel knowledge base' }) }) }
-        if (name === '@/components/document-preview.vue') return Preview
+        if (name === '@/components/DocumentPreview.vue') return Preview
         if (name === '@/api/knowledge-base/index') return {
           getKnowledgeDetails: async (id: string) => {
             requests.push(`document:${id}`)
@@ -112,7 +131,14 @@ async function fixture(options: { kbId?: string; unsupported?: boolean; missingK
     return exports
   }
 
-  const node = (tag = ''): Host => markRaw({ tag, props: {}, children: [], parent: null, addEventListener() {}, querySelector: () => null })
+  const node = (tag = ''): Host => markRaw({
+    tag,
+    props: { onClick() {}, onKeydown() {} },
+    children: [],
+    parent: null,
+    addEventListener() {},
+    querySelector: () => null,
+  })
   const renderer = createRenderer<Host, Host>({
     createElement: tag => node(tag), createText: () => node('#text'), createComment: () => node('#comment'),
     insert(child, parent, anchor) {
@@ -164,15 +190,15 @@ test('mouse and keyboard open different chunks of the same document using curren
   await f.click('result', 0)
   assert.equal(f.store.open, false)
   assert.equal(f.hasDrawer(), true)
-  assert.equal(f.preview().knowledgeId, 'handbook')
-  assert.equal(f.preview().locate.sourceMarkdown, 'Current source passage for taxi')
+  assert.equal(f.preview()?.knowledgeId, 'handbook')
+  assert.equal(f.preview()?.locate?.sourceMarkdown, 'Current source passage for taxi')
   assert.ok(f.requests.includes('chunk:taxi'))
   assert.deepEqual(f.pushed, [])
   await f.click('close-drawer')
   await f.open()
   await f.key('ArrowDown')
   await f.key('Enter')
-  assert.equal(f.preview().locate.sourceMarkdown, 'Current source passage for train')
+  assert.equal(f.preview()?.locate?.sourceMarkdown, 'Current source passage for train')
   assert.ok(f.requests.includes('chunk:train'))
   assert.deepEqual(f.recent, ['travel', 'travel'])
 })
@@ -191,7 +217,7 @@ for (const kbId of ['', 'travel-kb']) {
       assert.deepEqual(f.pushed, [])
     } else {
       assert.equal(f.pushed.length, 1)
-      const target = f.pushed[0] as any
+      const target = f.pushed[0] as { path: string; query: { knowledge_id?: string } }
       assert.equal(target.path, '/platform/knowledge-bases/travel-kb')
       assert.equal(target.query.knowledge_id, 'handbook')
     }

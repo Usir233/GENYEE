@@ -161,7 +161,7 @@
                 :value="managedSkill.enabled"
                 :disabled="isBusy(managedSkill)"
                 :loading="togglingId === managedSkill.id"
-                @change="(v: any) => managedSkill && toggleEnabled(managedSkill, Boolean(v))"
+                @change="(v: unknown) => managedSkill && toggleEnabled(managedSkill, Boolean(v))"
               />
               <t-tooltip
                 v-if="managedSkill.status === 'failed' && !managedUpgradable"
@@ -332,7 +332,7 @@
                       :value="skill.enabled"
                       :disabled="isBusy(skill)"
                       :loading="togglingId === skill.id"
-                      @change="(v: any) => toggleEnabled(skill, Boolean(v))"
+                      @change="(v: unknown) => toggleEnabled(skill, Boolean(v))"
                     />
                   </t-tooltip>
                   <t-popup
@@ -1059,9 +1059,9 @@ async function submitEnvs(
     // submitted ones; newer typing during the request must survive cleanup.
     envDrafts[skill.id] = clearSubmittedSkillEnvDrafts(envDrafts[skill.id] || {}, envs)
     if (successKey) MessagePlugin.success(t(successKey))
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (!isCurrent()) return
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillEnv.saveFailed'))
+    MessagePlugin.error(extractSkillErrorMessage(e) || t('settings.sandbox.skillEnv.saveFailed'))
   } finally {
     envSavesInFlight.value = clearSkillEnvSaveInFlight(
       envSavesInFlight.value,
@@ -1221,9 +1221,9 @@ async function loadSkills(silent = false) {
     if (wasBusy && !skills.value.some(isBusy)) {
       void refreshImage()
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (!silent && generation === panelGeneration) {
-      MessagePlugin.error(e?.message || t('settings.sandbox.skillLoadFailed'))
+      MessagePlugin.error(extractSkillErrorMessage(e) || t('settings.sandbox.skillLoadFailed'))
     }
   } finally {
     if (!silent && generation === panelGeneration) loading.value = false
@@ -1247,8 +1247,15 @@ function isZipFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip'
 }
 
-function skillBundleErrorMessage(err: any, fallbackKey: string): string {
-  const raw = String(err?.message || '')
+function extractSkillErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message: string }).message
+  }
+  return ''
+}
+
+function skillBundleErrorMessage(err: unknown, fallbackKey: string): string {
+  const raw = extractSkillErrorMessage(err)
   if (/cannot exceed \d+\s*MB/i.test(raw)) {
     return t('settings.sandbox.skillBundleTooLarge', { size: MAX_SKILL_BUNDLE_SIZE_MB })
   }
@@ -1295,7 +1302,7 @@ async function uploadFile(file: File) {
     MessagePlugin.success(t('settings.sandbox.skillUploadAccepted'))
     const skillId = res?.data?.skill_id || ''
     emit('installed', skillId)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
     MessagePlugin.error(skillBundleErrorMessage(e, 'settings.sandbox.skillUploadFailed'))
   } finally {
@@ -1327,7 +1334,7 @@ async function installFromSource() {
     sourceInput.value = ''
     const skillId = res?.data?.skill_id || ''
     emit('installed', skillId)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
     MessagePlugin.error(skillBundleErrorMessage(e, 'settings.sandbox.skillSourceFailed'))
   } finally {
@@ -1360,9 +1367,9 @@ async function toggleEnabled(skill: ConfigSkill, enabled: boolean) {
     MessagePlugin.success(
       enabled ? t('settings.sandbox.skillEnabled') : t('settings.sandbox.skillDisabled'),
     )
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillToggleFailed'))
+    MessagePlugin.error(extractSkillErrorMessage(e) || t('settings.sandbox.skillToggleFailed'))
   } finally {
     if (generation === panelGeneration) togglingId.value = ''
   }
@@ -1383,9 +1390,9 @@ async function retrySkill(skill: ConfigSkill) {
     await loadSkills()
     if (generation !== panelGeneration) return
     followProgress(skill.id)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillRetryFailed'))
+    MessagePlugin.error(extractSkillErrorMessage(e) || t('settings.sandbox.skillRetryFailed'))
   } finally {
     if (generation === panelGeneration) retryingId.value = ''
   }
@@ -1412,9 +1419,9 @@ async function upgradeSkill(skill: ConfigSkill) {
     await loadSkills()
     if (generation !== panelGeneration) return
     followProgress(skill.id)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillUploadFailed'))
+    MessagePlugin.error(extractSkillErrorMessage(e) || t('settings.sandbox.skillUploadFailed'))
   } finally {
     if (generation === panelGeneration) upgradingId.value = ''
   }
@@ -1434,9 +1441,9 @@ async function stopSkill(skill: ConfigSkill) {
     }
     MessagePlugin.success(t('settings.sandbox.skillStopAccepted'))
     await loadSkills()
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillStopFailed'))
+    MessagePlugin.error(extractSkillErrorMessage(e) || t('settings.sandbox.skillStopFailed'))
   } finally {
     if (generation === panelGeneration) stoppingId.value = ''
   }
@@ -1464,12 +1471,12 @@ async function removeSkill(skill: ConfigSkill) {
     await refreshImage()
     if (generation !== panelGeneration) return
     followProgress(skill.id)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (generation !== panelGeneration) return
     uninstallingId.value = ''
     uninstallingName.value = ''
     sawRemoving.value = false
-    MessagePlugin.error(e?.message || t('common.deleteFailed'))
+    MessagePlugin.error(extractSkillErrorMessage(e) || t('common.deleteFailed'))
   } finally {
     if (generation === panelGeneration) deletingId.value = ''
   }
@@ -2307,14 +2314,20 @@ onUnmounted(() => {
   &__body {
     max-height: min(360px, 52vh);
     overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
+    @supports not (scrollbar-color: auto) {
+      scrollbar-width: auto;
 
-    &::-webkit-scrollbar-thumb {
-      background: var(--td-bg-color-component-disabled);
-      border-radius: 3px;
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--gy-scrollbar-thumb);
+        border-radius: var(--gy-radius-xs);
+      }
     }
   }
 }

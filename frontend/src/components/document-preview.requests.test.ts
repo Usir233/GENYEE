@@ -5,11 +5,11 @@ import { runInNewContext } from 'node:vm'
 import test, { type TestContext } from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { createRenderer, h, nextTick, reactive, ref } from 'vue'
+import { createRenderer, h, nextTick, reactive, ref, type Component } from 'vue'
 import * as filePreview from '../utils/filePreview'
 
 const require = createRequire(import.meta.url)
-const filename = new URL('./document-preview.vue', import.meta.url)
+const filename = new URL('./DocumentPreview.vue', import.meta.url)
 const { descriptor } = parse(readFileSync(filename, 'utf8'), { filename: filename.pathname })
 const script = compileScript(descriptor, { id: 'preview-request-test' }).content
   .replace('__expose();', '')
@@ -24,17 +24,44 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 const flush = () => new Promise<void>(resolve => setImmediate(resolve))
-function element() {
+
+interface MockElement {
+  childNodes: unknown[]
+  innerHTML: string
+  replaceChildren: (...children: unknown[]) => void
+}
+
+interface PreviewProps {
+  knowledgeId: string
+  fileName: string
+  fileType: string
+  active: boolean
+  sourceBlob?: Blob
+}
+
+interface PreviewVm {
+  loadPreview: () => Promise<void>
+  textContent: string
+  error: string
+  loading: boolean
+  blobUrl: string
+  epubHtml: string
+  docxContainer: MockElement | null
+}
+
+type HostNode = Record<string, unknown> | MockElement
+
+function element(): MockElement {
   return {
-    childNodes: [] as any[],
+    childNodes: [] as unknown[],
     get innerHTML() { return this.childNodes.join('') },
     set innerHTML(value: string) { this.childNodes = value ? [value] : [] },
-    replaceChildren(...children: any[]) { this.childNodes = children },
+    replaceChildren(...children: unknown[]) { this.childNodes = children },
   }
 }
 function fixture(t: TestContext, dependencies: Record<string, unknown> = {}) {
-  const exports: any = {}, created: string[] = [], revoked: string[] = []
-  const props = reactive<any>({ knowledgeId: 'A', fileName: 'a.txt', fileType: 'txt', active: false })
+  const exports: { default?: Component & { render?: () => null } } = {}, created: string[] = [], revoked: string[] = []
+  const props = reactive<PreviewProps>({ knowledgeId: 'A', fileName: 'a.txt', fileType: 'txt', active: false })
   runInNewContext(compiled, {
     exports,
     require(name: string) {
@@ -51,20 +78,20 @@ function fixture(t: TestContext, dependencies: Record<string, unknown> = {}) {
     document: { createElement: element, addEventListener() {}, removeEventListener() {}, activeElement: {} },
     window: { addEventListener() {}, removeEventListener() {} },
   })
-  const component = exports.default
+  const component = exports.default!
   component.render = () => null
-  const renderer = createRenderer<any, any>({
+  const renderer = createRenderer<HostNode, HostNode>({
     createElement: element, createText: () => ({}), createComment: () => ({}),
     insert() {}, remove() {}, setElementText() {}, setText() {}, patchProp() {},
     parentNode: () => null, nextSibling: () => null,
   })
-  const instance = ref<any>()
+  const instance = ref<PreviewVm>()
   const app = renderer.createApp({ render: () => h(component, { ...props, ref: instance }) })
   app.mount({})
   let closed = false
   const close = () => { if (!closed) { closed = true; app.unmount() } }
   t.after(close)
-  return { vm: instance.value, props, created, revoked, close }
+  return { vm: instance.value!, props, created, revoked, close }
 }
 
 for (const outcome of ['success', 'failure'] as const) {

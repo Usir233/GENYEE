@@ -151,15 +151,15 @@ watch(() => props.visible, async (open) => {
     background: var(--td-component-stroke);
 
     &:nth-child(1) {
-      background: #ff5f57;
+      background: var(--gy-danger);
     }
 
     &:nth-child(2) {
-      background: #febc2e;
+      background: var(--gy-warning);
     }
 
     &:nth-child(3) {
-      background: #28c840;
+      background: var(--gy-success);
     }
   }
 
@@ -179,7 +179,7 @@ watch(() => props.visible, async (open) => {
   &__screen {
     flex: 1;
     min-height: 420px;
-    background: #f5f7fa;
+    background: var(--gy-surface-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -190,7 +190,7 @@ watch(() => props.visible, async (open) => {
   width: 100%;
   height: 100%;
   border: none;
-  background: #fff;
+  background: var(--gy-surface);
   display: block;
 }
 
@@ -201,8 +201,8 @@ watch(() => props.visible, async (open) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--app-radius-xl);
   overflow: hidden;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  background: linear-gradient(180deg, var(--gy-surface) 0%, var(--gy-surface-subtle) 100%);
+  box-shadow: var(--gy-shadow-md);
 }
 
 .widget-mock-page {
@@ -237,7 +237,7 @@ watch(() => props.visible, async (open) => {
   height: 48px;
   border: none;
   border-radius: 50%;
-  color: #fff;
+  color: var(--gy-text-inverse);
   font-size: var(--app-text-3xl);
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
@@ -257,7 +257,7 @@ watch(() => props.visible, async (open) => {
   max-height: calc(100% - 88px);
   border-radius: var(--app-radius-xl);
   overflow: hidden;
-  background: #fff;
+  background: var(--gy-surface);
   box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
   z-index: 2;
   border: 1px solid var(--td-component-stroke);

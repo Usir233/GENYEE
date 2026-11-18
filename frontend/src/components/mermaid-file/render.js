@@ -9,8 +9,8 @@ addEventListener('message', async function render(event) {
   removeEventListener('message', render)
   const port = event.ports[0]
   try {
-    mermaid.initialize(event.data.config)
-    const { svg } = await mermaid.render('file-diagram', event.data.source)
+    window.mermaid.initialize(event.data.config)
+    const { svg } = await window.mermaid.render('file-diagram', event.data.source)
     const tpl = document.createElement('template')
     tpl.innerHTML = svg
     const root = tpl.content.querySelector('svg')

@@ -17,7 +17,7 @@
           :value="panelWidth"
           :min="minPanelWidth"
           :max="maxPanelWidth"
-          @start="resizeStartWidth = panelWidth"
+          @start="startResizePanel"
           @resize="resizePanel"
           @end="savePanelWidths"
         />
@@ -218,12 +218,26 @@ const viewportWidth = ref(typeof window === 'undefined' ? 1440 : window.innerWid
 const onViewportResize = () => {
   viewportWidth.value = window.innerWidth
 }
-onMounted(() => window.addEventListener('resize', onViewportResize))
-onBeforeUnmount(() => window.removeEventListener('resize', onViewportResize))
+let viewportObserver: ResizeObserver | null = null
+onMounted(() => {
+  window.addEventListener('resize', onViewportResize)
+  if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && document.documentElement) {
+    viewportObserver = new ResizeObserver(() => onViewportResize())
+    viewportObserver.observe(document.documentElement)
+  }
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onViewportResize)
+  viewportObserver?.disconnect()
+  viewportObserver = null
+})
 
 const WIDTH_STORAGE_KEY = 'genyee.references-panel-widths'
 const preferredWidths = reactive<{ source?: number; list?: number }>({})
 let resizeStartWidth = 0
+function startResizePanel() {
+  resizeStartWidth = panelWidth.value
+}
 onMounted(() => {
   try {
     const stored = JSON.parse(localStorage.getItem(WIDTH_STORAGE_KEY) || '{}')

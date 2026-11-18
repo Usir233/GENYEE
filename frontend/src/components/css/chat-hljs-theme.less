@@ -1,24 +1,24 @@
-// Chat code block token colors, flipped by the theme-mode attribute.
+// Chat & preview code block token colors, derived from semantic design tokens.
 :root {
-  --chat-code-fg: #24292e;
-  --chat-code-keyword: #d73a49;
-  --chat-code-title: #6f42c1;
-  --chat-code-attr: #005cc5;
-  --chat-code-string: #032f62;
-  --chat-code-builtin: #e36209;
-  --chat-code-comment: #6a737d;
-  --chat-code-name: #22863a;
-  --chat-code-section: #005cc5;
+  --chat-code-fg: var(--gy-text-primary);
+  --chat-code-keyword: var(--td-error-color-7);
+  --chat-code-title: var(--gy-accent-purple);
+  --chat-code-attr: var(--gy-accent-blue);
+  --chat-code-string: color-mix(in oklab, var(--gy-accent-blue) 76%, var(--gy-text-primary));
+  --chat-code-builtin: var(--td-warning-color-6);
+  --chat-code-comment: var(--gy-text-tertiary);
+  --chat-code-name: var(--td-success-color-6);
+  --chat-code-section: var(--gy-accent-blue);
 }
 
 html[theme-mode='dark'] {
-  --chat-code-fg: #c9d1d9;
-  --chat-code-keyword: #ff7b72;
-  --chat-code-title: #d2a8ff;
-  --chat-code-attr: #79c0ff;
-  --chat-code-string: #a5d6ff;
-  --chat-code-builtin: #ffa657;
-  --chat-code-comment: #8b949e;
-  --chat-code-name: #7ee787;
-  --chat-code-section: #1f6feb;
+  --chat-code-fg: var(--gy-text-primary);
+  --chat-code-keyword: var(--td-error-color-8);
+  --chat-code-title: var(--gy-accent-purple);
+  --chat-code-attr: var(--gy-accent-blue);
+  --chat-code-string: color-mix(in oklab, var(--gy-accent-blue) 68%, var(--gy-text-primary));
+  --chat-code-builtin: var(--td-warning-color-7);
+  --chat-code-comment: var(--gy-text-secondary);
+  --chat-code-name: var(--td-success-color-7);
+  --chat-code-section: var(--gy-accent-blue);
 }

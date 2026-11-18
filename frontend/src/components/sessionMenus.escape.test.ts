@@ -5,14 +5,25 @@ import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { cloneVNode, createRenderer, defineComponent, h, markRaw, nextTick } from 'vue'
+import { cloneVNode, createRenderer, defineComponent, h, markRaw, nextTick, type Component } from 'vue'
 
 const require = createRequire(import.meta.url)
+
+type EventHandler = ((event: unknown) => void) | undefined
+
+interface HostProps {
+  class?: string
+  'aria-label'?: string
+  'aria-expanded'?: boolean
+  onClick?: EventHandler | EventHandler[]
+  onKeydown?: EventHandler | EventHandler[]
+  [key: string]: unknown
+}
 
 type Host = {
   tag: string
   text: string
-  props: Record<string, any>
+  props: HostProps
   children: Host[]
   parent: Host | null
   focus(): void
@@ -27,7 +38,7 @@ function fixture(name: 'ChatHeader' | 'SessionSidebarRow') {
   }).content, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  const exports: any = {}
+  const exports: { default?: Component } = {}
   runInNewContext(compiled, {
     exports, console,
     require(module: string) {
@@ -46,10 +57,13 @@ function fixture(name: 'ChatHeader' | 'SessionSidebarRow') {
   })
 
   let activeElement: Host | null = null
-  const node = (tag = '', text = ''): Host => markRaw({
-    tag, text, props: {}, children: [], parent: null,
-    focus() { activeElement = this }, select() {}, addEventListener() {},
-  })
+  const node = (tag = '', text = ''): Host => {
+    const host: Host = markRaw({
+      tag, text, props: {}, children: [], parent: null,
+      focus() { activeElement = host }, select() {}, addEventListener() {},
+    })
+    return host
+  }
   const renderer = createRenderer<Host, Host>({
     createElement: tag => node(tag), createText: text => node('#text', text), createComment: () => node('#comment'),
     insert(child, parent, anchor) {
@@ -91,7 +105,7 @@ function fixture(name: 'ChatHeader' | 'SessionSidebarRow') {
       ],
       onMenuClick: () => events.push('menu-click'), onRenameSubmit: () => events.push('rename-submit'),
     }
-  const app = renderer.createApp(exports.default, props)
+  const app = renderer.createApp(exports.default!, props)
   app.component('t-popup', Popup)
   for (const name of ['t-icon', 't-loading', 't-checkbox', 'router-link']) app.component(name, { render: () => null })
   const root = node('root')

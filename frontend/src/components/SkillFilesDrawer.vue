@@ -159,13 +159,21 @@ watch(
   },
 )
 
+let viewportObserver: ResizeObserver | null = null
+
 onMounted(() => {
   loadWidth()
   window.addEventListener('resize', onWindowResize, { passive: true })
+  if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && document.documentElement) {
+    viewportObserver = new ResizeObserver(() => onWindowResize())
+    viewportObserver.observe(document.documentElement)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
+  viewportObserver?.disconnect()
+  viewportObserver = null
   cleanupResize()
 })
 </script>

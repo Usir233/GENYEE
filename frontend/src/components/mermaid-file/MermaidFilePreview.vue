@@ -74,7 +74,7 @@ onBeforeUnmount(() => {
       tabindex="-1"
       @load="connect"
     />
-    <button v-if="src" class="open-diagram" :aria-label="t('preview.fullscreen')" @click="open">
+    <button v-if="src" type="button" class="open-diagram" :aria-label="t('preview.fullscreen')" @click="open">
       <img ref="img" :src="src" :alt="title" @load="loaded" @error="failed" />
     </button>
   </div>

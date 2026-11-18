@@ -683,12 +683,12 @@ const platformOptions = computed(() => ([
 
 const localeOptions = computed(() => ([
   { value: '' as IMLocale, label: t('agentEditor.im.replyLanguageDefault') },
-  { value: 'zh-CN' as IMLocale, label: '简体中文' },
-  { value: 'zh-TW' as IMLocale, label: '繁體中文' },
-  { value: 'en-US' as IMLocale, label: 'English' },
-  { value: 'ja-JP' as IMLocale, label: '日本語' },
-  { value: 'ko-KR' as IMLocale, label: '한국어' },
-  { value: 'ru-RU' as IMLocale, label: 'Русский' },
+  { value: 'zh-CN' as IMLocale, label: t('language.autonyms.zhCN') },
+  { value: 'zh-TW' as IMLocale, label: t('language.autonyms.zhTW') },
+  { value: 'en-US' as IMLocale, label: t('language.autonyms.enUS') },
+  { value: 'ja-JP' as IMLocale, label: t('language.autonyms.jaJP') },
+  { value: 'ko-KR' as IMLocale, label: t('language.autonyms.koKR') },
+  { value: 'ru-RU' as IMLocale, label: t('language.autonyms.ruRU') },
 ]));
 
 // Feishu and Lark are the same product on separate clouds, so each has its own
@@ -742,7 +742,50 @@ let wechatPollTimer: ReturnType<typeof setTimeout> | null = null;
 const editingCredentialsConfigured = ref(false);
 const credentialsDirty = ref(false);
 
-const defaultCredentials = (): Record<string, any> => ({});
+interface IMCredentialsDraft {
+  bot_id?: string
+  bot_secret?: string
+  ws_endpoint?: string
+  corp_id?: string
+  agent_secret?: string
+  token?: string
+  encoding_aes_key?: string
+  corp_agent_id?: number
+  api_base_url?: string
+  app_id?: string
+  app_secret?: string
+  verification_token?: string
+  encrypt_key?: string
+  app_token?: string
+  bot_token?: string
+  signing_secret?: string
+  secret_token?: string
+  client_id?: string
+  client_secret?: string
+  card_template_id?: string
+  gateway_url?: string
+  site_url?: string
+  outgoing_token?: string
+  bot_user_id?: string
+  post_to_main?: boolean
+  send_msg_url?: string
+  secret?: string
+  timeout_seconds?: number
+  allowed_webhook_host_suffix?: string
+  ilink_bot_id?: string
+  ilink_user_id?: string
+  [key: string]: unknown
+}
+
+function getImErrorMessage(e: unknown): string {
+  if (!e || typeof e !== 'object') return ''
+  const obj = e as { message?: unknown; error?: unknown }
+  if (typeof obj.message === 'string' && obj.message) return obj.message
+  if (typeof obj.error === 'string' && obj.error) return obj.error
+  return ''
+}
+
+const defaultCredentials = (): IMCredentialsDraft => ({});
 
 const formData = ref({
   target_agent_id: '',
@@ -900,9 +943,9 @@ async function startWeChatBinding() {
 
     // Start long-polling for scan status
     startStatusPolling(seq);
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (seq === wechatBindSeq) {
-      MessagePlugin.error(e?.message || 'Failed to generate QR code');
+      MessagePlugin.error(getImErrorMessage(e) || 'Failed to generate QR code');
     }
   } finally {
     if (seq === wechatBindSeq) {
@@ -966,7 +1009,7 @@ async function loadChannels() {
     ]);
     allChannels.value = channelRes.data || [];
     agents.value = chatResources.agents as CustomAgent[];
-    knowledgeBases.value = chatResources.rawKnowledgeBases.map((kb: any) => ({ id: kb.id, name: kb.name }));
+    knowledgeBases.value = (chatResources.rawKnowledgeBases as Array<{ id: string; name: string }>).map((kb) => ({ id: kb.id, name: kb.name }));
   } catch {
     allChannels.value = [];
   } finally {
@@ -1000,7 +1043,7 @@ async function editChannel(channel: IMChannel | IMChannelOverview) {
   stopWeChatPolling();
   wizardStep.value = 0;
   let fullChannel: IMChannel | null = null;
-  const overviewConfigured = Boolean((channel as any).credentials_configured);
+  const overviewConfigured = Boolean((channel as { credentials_configured?: boolean }).credentials_configured);
   if (!('credentials' in channel)) {
     try {
       const res = await listIMChannels(channel.agent_id);
@@ -1021,7 +1064,7 @@ async function editChannel(channel: IMChannel | IMChannelOverview) {
   editingEnabled.value = fullChannel.enabled;
   editingCredentialsConfigured.value = Boolean(
     overviewConfigured
-    || (fullChannel as any).credentials_configured
+    || (fullChannel as IMChannel & { credentials_configured?: boolean }).credentials_configured
     || Object.keys(fullChannel.credentials || {}).length > 0,
   );
   channelNameTouched.value = true;
@@ -1136,8 +1179,8 @@ async function handleSave() {
     showCreateDialog.value = false;
     resetForm();
     await loadChannels();
-  } catch (e: any) {
-    const msg = e?.message || (typeof e?.error === 'string' ? e.error : null) || t('common.operationFailed');
+  } catch (e: unknown) {
+    const msg = getImErrorMessage(e) || t('common.operationFailed');
     MessagePlugin.error(msg);
   } finally {
     saving.value = false;
@@ -1148,8 +1191,8 @@ async function handleToggle(channel: IMChannel | IMChannelOverview) {
   try {
     await toggleIMChannel(channel.id);
     await loadChannels();
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.operationFailed'));
+  } catch (e: unknown) {
+    MessagePlugin.error(getImErrorMessage(e) || t('common.operationFailed'));
   }
 }
 
@@ -1158,8 +1201,8 @@ async function handleDelete(id: string) {
     await deleteIMChannel(id);
     MessagePlugin.success(t('common.deleteSuccess'));
     await loadChannels();
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.operationFailed'));
+  } catch (e: unknown) {
+    MessagePlugin.error(getImErrorMessage(e) || t('common.operationFailed'));
   }
 }
 
@@ -1244,7 +1287,7 @@ onUnmounted(() => {
 
 .im-step.active .im-step-num {
   background: var(--td-brand-color);
-  color: #fff;
+  color: var(--gy-text-inverse);
   border-color: var(--td-brand-color);
 }
 
@@ -1464,7 +1507,7 @@ onUnmounted(() => {
 
   .bound-icon {
     font-size: var(--app-text-2xl);
-    color: #07c160;
+    color: var(--gy-success);
   }
 }
 
@@ -1517,7 +1560,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  color: var(--gy-text-inverse);
   cursor: pointer;
   font-size: var(--app-text-sm);
 

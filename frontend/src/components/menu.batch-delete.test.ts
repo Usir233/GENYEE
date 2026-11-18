@@ -7,7 +7,7 @@ import { createEmptyBucket, removeSessionFromBuckets } from './sessionSidebarBuc
 
 // Execute the sidebar handlers with deferred API responses and real bucket reconciliation.
 // Mock only the dialog and API boundaries so targets and local effects remain observable.
-const source = readFileSync(new URL('./menu.vue', import.meta.url), 'utf8')
+const source = readFileSync(new URL('./AppSidebarMenu.vue', import.meta.url), 'utf8')
 const start = source.indexOf('const enterBatchMode = '),
   end = source.indexOf('const handleSessionMenuClick = ', start)
 assert(start >= 0 && end > start)

@@ -3,10 +3,11 @@ import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import ts from 'typescript'
-import { computed, effectScope, reactive, ref, watch } from 'vue'
-import { supportedLevels, levelLabelKey, levelFromLegacy, clampLevel } from '../utils/reasoningEffort'
+import { computed, effectScope, reactive, ref, watch, type ComputedRef } from 'vue'
+import type { ModelConfig } from '../api/model'
+import { supportedLevels, levelLabelKey, levelFromLegacy, clampLevel, type ReasoningLevel } from '../utils/reasoningEffort'
 
-const source = readFileSync(new URL('./Input-field.vue', import.meta.url), 'utf8')
+const source = readFileSync(new URL('./chat-input/useChatInputModelReasoning.ts', import.meta.url), 'utf8')
 const start = source.indexOf('const selectedModel = computed(')
 const end = source.indexOf('// 模型展示名', start)
 assert.ok(start > 0 && end > start)
@@ -14,16 +15,42 @@ const compiled = ts.transpileModule(source.slice(start, end), {
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText
 
+interface ReasoningFixtureOutput {
+  reasoningLevels: ComputedRef<ReasoningLevel[]>
+  displayedReasoningLevel: ComputedRef<ReasoningLevel>
+  selectReasoningLevel: (level: ReasoningLevel) => void
+}
+
 function fixture() {
-  const availableModels = ref<any[]>([])
+  const availableModels = ref<Partial<ModelConfig>[]>([])
   const selectedModelId = ref('model-a')
+  const props = reactive({ embeddedMode: false, modelId: '', defaultModelId: '' })
   const settingsStore = reactive({ reasoningEffortOverride: '', _isApplyingSessionState: false })
   const currentAgentConfig = ref({ thinking: true, reasoning_effort: 'high' })
   const scope = effectScope()
-  const output: any = {}
-  scope.run(() => runInNewContext(compiled + '\nObject.assign(output, { reasoningLevels, displayedReasoningLevel, selectReasoningLevel });', {
-    computed, ref, watch, supportedLevels, levelLabelKey, levelFromLegacy, clampLevel, currentAgentConfig, availableModels, selectedModelId, settingsStore, output, t: (key: string) => key,
-  }))
+  const output = {} as ReasoningFixtureOutput
+  scope.run(() =>
+    runInNewContext(
+      compiled + '\nObject.assign(output, { reasoningLevels, displayedReasoningLevel, selectReasoningLevel });',
+      {
+        computed,
+        ref,
+        watch,
+        props,
+        EMBEDDED_AUTO_MODEL: '__auto__',
+        supportedLevels,
+        levelLabelKey,
+        levelFromLegacy,
+        clampLevel,
+        currentAgentConfig,
+        availableModels,
+        selectedModelId,
+        settingsStore,
+        output,
+        t: (key: string) => key,
+      },
+    ),
+  )
   return { availableModels, selectedModelId, settingsStore, currentAgentConfig, ...output, close: () => scope.stop() }
 }
 
@@ -49,7 +76,9 @@ test('composer reasoning follows model capabilities and discards incompatible ov
     f.selectedModelId.value = 'model-c'
     assert.equal(f.reasoningLevels.value.length, 0)
     assert.equal(f.settingsStore.reasoningEffortOverride, '')
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })
 
 test('session restoration waits for model data and does not validate against the previous session model', () => {
@@ -65,7 +94,9 @@ test('session restoration waits for model data and does not validate against the
     f.selectedModelId.value = 'model-b'
     f.settingsStore._isApplyingSessionState = false
     assert.equal(f.settingsStore.reasoningEffortOverride, 'max')
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })
 
 test('default displays the agent level without sending an override, and selection can restore inheritance', () => {
@@ -85,5 +116,7 @@ test('default displays the agent level without sending an override, and selectio
     assert.equal(f.displayedReasoningLevel.value, 'off', 'legacy boolean still supplies the default')
     f.currentAgentConfig.value.thinking = true
     assert.equal(f.displayedReasoningLevel.value, 'auto')
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })

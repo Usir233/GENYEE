@@ -174,7 +174,7 @@ import ChatView from '@/views/chat/index.vue'
 import ChildAgentTabBar from '@/views/chat/components/ChildAgentTabBar.vue'
 import { createChildAgentTabs, childAgentTabsKey } from '@/composables/useChildAgentTabs'
 import { useFloatingPreviewDrag } from '@/composables/useFloatingPreviewDrag'
-import InputField from '@/components/Input-field.vue'
+import InputField from '@/components/InputField.vue'
 import PanelResizeHandle from '@/components/PanelResizeHandle.vue'
 import ResourceIcon from '@/components/icons/ResourceIcon.vue'
 import AssistantContextMenu from './AssistantContextMenu.vue'
@@ -194,7 +194,7 @@ import {
   type AssistantOpenRequest,
 } from '@/stores/assistant'
 import { removeSession, SESSION_MUTATION_EVENT, type SessionMutationDetail } from '@/components/sessionMutations'
-import type { PageContextPayload } from '@/api/chat/streame'
+import type { PageContextPayload } from '@/api/chat/stream'
 
 const { t, te } = useI18n()
 const route = useRoute()
@@ -417,7 +417,7 @@ async function startConversation(query: string, focus?: AssistantOpenRequest['fo
   const owner = conversationOwner.value
   starting.value = true
   try {
-    const res: any = await createSessions({ kind: 'assistant' })
+    const res = await createSessions({ kind: 'assistant' }) as { data?: { id?: string } } | undefined
     // A workspace switch can complete while session creation is in flight.
     if (conversationOwner.value !== owner) return
     const sessionId = res?.data?.id
@@ -464,12 +464,16 @@ async function loadHistory(reset = false) {
   historyLoading.value = true
   historyError.value = false
   try {
-    const res: any = await getSessionsList(historyPage.value + 1, 20, undefined, 'assistant')
+    const res = await getSessionsList(historyPage.value + 1, 20, undefined, 'assistant') as {
+      success?: boolean
+      data?: SessionSummary[]
+      total?: number
+    } | undefined
     if (generation !== historyGeneration || owner !== conversationOwner.value) return
     if (!res?.success) throw new Error('session list failed')
     const seen = new Set(history.value.map(session => session.id))
-    history.value.push(...(res.data as SessionSummary[]).filter(session => !seen.has(session.id)))
-    historyTotal.value = res.total
+    history.value.push(...(res.data || []).filter(session => !seen.has(session.id)))
+    historyTotal.value = res.total ?? 0
     historyPage.value++
   } catch {
     if (generation === historyGeneration && owner === conversationOwner.value) historyError.value = true
@@ -530,16 +534,17 @@ async function validateSession(id: string) {
     return
   }
   try {
-    const res: any = await getSession(id)
+    const res = await getSession(id) as { data?: { kind?: string } } | undefined
     if (owner !== conversationOwner.value || id !== assistant.sessionId) return
     if (res?.data?.kind !== 'assistant') {
       startNewConversation()
       return
     }
     readySessionId.value = id
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (owner !== conversationOwner.value || id !== assistant.sessionId) return
-    const status = error?.$httpStatus ?? error?.response?.status ?? error?.status
+    const errObj = error && typeof error === 'object' ? (error as { $httpStatus?: number; status?: number; response?: { status?: number } }) : undefined
+    const status = errObj?.$httpStatus ?? errObj?.response?.status ?? errObj?.status
     if (status === 403 || status === 404) startNewConversation()
     else sessionLoadError.value = true
   }
@@ -566,13 +571,20 @@ const handleSessionMutation = (event: Event) => {
   const detail = (event as CustomEvent<SessionMutationDetail>).detail
   if (detail?.removed && detail.sessionId === assistant.sessionId) startNewConversation()
 }
+let viewportObserver: ResizeObserver | null = null
 onMounted(() => {
   window.addEventListener(SESSION_MUTATION_EVENT, handleSessionMutation)
   window.addEventListener('resize', onViewportResize)
+  if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && document.documentElement) {
+    viewportObserver = new ResizeObserver(() => onViewportResize())
+    viewportObserver.observe(document.documentElement)
+  }
 })
 onUnmounted(() => {
   window.removeEventListener(SESSION_MUTATION_EVENT, handleSessionMutation)
   window.removeEventListener('resize', onViewportResize)
+  viewportObserver?.disconnect()
+  viewportObserver = null
   if (typeof document !== 'undefined') {
     document.documentElement.classList.remove('has-assistant-dock')
     document.documentElement.style.removeProperty('--assistant-dock-width')

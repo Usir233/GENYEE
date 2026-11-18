@@ -1,88 +1,215 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { createRenderer, h, nextTick, reactive } from 'vue'
+import { createRenderer, h, nextTick, reactive, type Component } from 'vue'
+import type { SpansResponse, TimelineSummaryPayload } from './processing-timeline/types.ts'
 
 const require = createRequire(import.meta.url)
-const { descriptor } = parse(readFileSync(new URL('./knowledge-processing-timeline.vue', import.meta.url), 'utf8'))
+const componentsDir = dirname(fileURLToPath(import.meta.url))
+const { descriptor } = parse(readFileSync(new URL('./KnowledgeProcessingTimeline.vue', import.meta.url), 'utf8'))
 const compiled = ts.transpileModule(compileScript(descriptor, {
   id: 'timeline-requests-test',
 }).content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-const flush = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
+const flush = async () => { await new Promise(r => setImmediate(r)); await nextTick() }
 
-function deferred() {
-  let resolve!: (value: any) => void
-  let reject!: (error: Error) => void
-  const promise = new Promise((yes, no) => { resolve = yes; reject = no })
-  return { promise, resolve, reject }
+interface Deferred<T = unknown> {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (error: Error) => void
+}
+
+function deferred<T = unknown>(): Deferred<T> {
+  let resolveFn!: (value: T) => void
+  let rejectFn!: (error: Error) => void
+  const promise = new Promise<T>((yes, no) => { resolveFn = yes; rejectFn = no })
+  return { promise, resolve: resolveFn, reject: rejectFn }
 }
 
 function spans(id: string, attempt = 1, latest = attempt) {
-  return { success: true, data: {
-    knowledge_id: id, attempt, latest_attempt: latest, parse_status: 'completed',
-    trace: { span_id: `${id}-${attempt}`, status: 'done', duration_ms: attempt * 1000, children: [] },
-  } }
+  return {
+    success: true,
+    data: {
+      knowledge_id: id,
+      attempt,
+      latest_attempt: latest,
+      parse_status: 'completed',
+      trace: { span_id: `${id}-${attempt}`, name: 'root', status: 'done', duration_ms: attempt * 1000, children: [] },
+    },
+  }
+}
+
+interface TimelineSetupState {
+  data: SpansResponse | null
+  selectedAttempt: number | undefined
+  failedAttempts: number
+  loading: boolean
+  lastFetchOk: boolean
+  lastFetchedAt: number
+  currentKnowledgeFileType: string
+  processOverrides: Record<string, unknown> | null
+  attemptStatuses: Map<number, string>
+  fetchSpans: (opts?: { manual?: boolean }) => Promise<void>
+  onAttemptChange: (n: number) => void
+}
+
+interface ComponentPublicInstanceWithSetup {
+  $: { setupState: TimelineSetupState }
 }
 
 async function fixture(options: { autoPoll?: boolean; compact?: boolean } = {}) {
-  const props = reactive({ knowledgeId: 'A', parseStatus: 'completed', gracePoll: false, autoPoll: false, compact: false, ...options })
-  const requests: Array<ReturnType<typeof deferred> & { id: string; attempt?: number }> = []
-  const details: Array<ReturnType<typeof deferred> & { id: string }> = []
-  const events: boolean[] = [], summaries: any[] = [], warnings: unknown[][] = []
+  const props = reactive({
+    knowledgeId: 'A',
+    parseStatus: 'completed',
+    gracePoll: false,
+    autoPoll: false,
+    compact: false,
+    ...options,
+  })
+  const requests: Array<Deferred & { id: string; attempt?: number }> = []
+  const details: Array<Deferred & { id: string }> = []
+  const events: boolean[] = []
+  const summaries: TimelineSummaryPayload[] = []
+  const warnings: unknown[][] = []
   const timers = new Map<number, { callback: () => void; delay: number }>()
   let timerID = 0
-  const exports: any = {}
-  runInNewContext(compiled, {
-    exports,
-    console: { ...console, warn: (...args: unknown[]) => warnings.push(args) },
-    setInterval: (callback: () => void, delay: number) => {
-      const id = ++timerID; timers.set(id, { callback, delay }); return id
-    },
-    clearInterval: (id: number) => timers.delete(id),
-    window: { addEventListener() {}, removeEventListener() {} },
-    require(name: string) {
+
+  const localModuleCache = new Map<string, Record<string, unknown>>()
+
+  function makeCustomRequire(baseDir: string): (name: string) => unknown {
+    return (name: string): unknown => {
       if (name === 'vue') return require('vue')
       if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key }) }
       if (name === 'tdesign-vue-next') return { MessagePlugin: { success() {}, error() {} } }
-      if (name === '@/api/knowledge-base/index') return {
-        getKnowledgeSpans: (id: string, attempt?: number) => {
-          const request = { ...deferred(), id, attempt }; requests.push(request); return request.promise
-        },
-        getKnowledgeDetails: (id: string) => {
-          const request = { ...deferred(), id }; details.push(request); return request.promise
-        },
+      if (name === '@/api/knowledge-base/index') {
+        return {
+          getKnowledgeSpans: (id: string, attempt?: number) => {
+            const request = { ...deferred(), id, attempt }
+            requests.push(request)
+            return request.promise
+          },
+          getKnowledgeDetails: (id: string) => {
+            const request = { ...deferred(), id }
+            details.push(request)
+            return request.promise
+          },
+          reparseKnowledge: async () => ({}),
+          cancelKnowledgeParse: async () => ({}),
+        }
       }
       if (name === '@/utils/clipboard') return { copyWithToast() {} }
       if (name.startsWith('@/utils/')) return require(`../utils/${name.slice('@/utils/'.length)}.ts`)
       if (name.endsWith('.vue')) return { render: () => null }
+      if (name.startsWith('./') || name.startsWith('../')) {
+        const resolvedBase = resolve(baseDir, name)
+        const tsFile = resolvedBase.endsWith('.ts') ? resolvedBase : `${resolvedBase}.ts`
+        const cached = localModuleCache.get(tsFile)
+        if (cached) return cached
+        const modExports: Record<string, unknown> = {}
+        localModuleCache.set(tsFile, modExports)
+        const tsSource = readFileSync(tsFile, 'utf8')
+        const jsOut = ts.transpileModule(tsSource, {
+          compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+        }).outputText
+        runInNewContext(jsOut, {
+          exports: modExports,
+          module: { exports: modExports },
+          console: { ...console, warn: (...args: unknown[]) => warnings.push(args) },
+          Date,
+          Math,
+          Number,
+          String,
+          Boolean,
+          Object,
+          Array,
+          Set,
+          Map,
+          JSON,
+          RegExp,
+          Error,
+          Promise,
+          setInterval: (callback: () => void, delay: number) => {
+            const id = ++timerID
+            timers.set(id, { callback, delay })
+            return id
+          },
+          clearInterval: (id: number) => timers.delete(id),
+          window: { addEventListener() {}, removeEventListener() {} },
+          require: makeCustomRequire(dirname(tsFile)),
+        })
+        return modExports
+      }
       throw new Error(`Unexpected import: ${name}`)
+    }
+  }
+
+  const exports: { default?: Component & { render?: () => null } } = {}
+  runInNewContext(compiled, {
+    exports,
+    console: { ...console, warn: (...args: unknown[]) => warnings.push(args) },
+    setInterval: (callback: () => void, delay: number) => {
+      const id = ++timerID
+      timers.set(id, { callback, delay })
+      return id
     },
+    clearInterval: (id: number) => timers.delete(id),
+    window: { addEventListener() {}, removeEventListener() {} },
+    require: makeCustomRequire(componentsDir),
   })
-  // Exercise actual setup, watchers and lifecycle with a headless Vue host.
-  // Observe emitted badge/summary state without rendering the template.
+
+  assert.ok(exports.default)
   exports.default.render = () => null
-  const renderer = createRenderer<any, any>({
-    createElement: () => ({}), createText: () => ({}), createComment: () => ({}),
-    insert() {}, remove() {}, setElementText() {}, setText() {}, patchProp() {},
-    parentNode: () => null, nextSibling: () => null,
+
+  type HostNode = Record<string, unknown>
+  const renderer = createRenderer<HostNode, HostNode>({
+    createElement: () => ({}),
+    createText: () => ({}),
+    createComment: () => ({}),
+    insert() {},
+    remove() {},
+    setElementText() {},
+    setText() {},
+    patchProp() {},
+    parentNode: () => null,
+    nextSibling: () => null,
   })
-  let instance: any
-  const app = renderer.createApp({ setup: () => () => h(exports.default, {
-    ...props, ref: (value: any) => { if (value) instance = value },
-    'onUpdate:hasSpans': (value: boolean) => events.push(value),
-    'onUpdate:summary': (value: any) => summaries.push(value),
-  }) })
+  let instance: ComponentPublicInstanceWithSetup | undefined
+  const Comp = exports.default
+  const app = renderer.createApp({
+    setup: () => () =>
+      h(Comp, {
+        ...props,
+        ref: (value: unknown) => {
+          if (value) instance = value as ComponentPublicInstanceWithSetup
+        },
+        'onUpdate:hasSpans': (value: boolean) => events.push(value),
+        'onUpdate:summary': (value: TimelineSummaryPayload) => summaries.push(value),
+      }),
+  })
   app.mount({})
   await flush()
+  assert.ok(instance)
   return {
-    props, requests, details, events, summaries, warnings, timers,
+    props,
+    requests,
+    details,
+    events,
+    summaries,
+    warnings,
+    timers,
     state: instance.$.setupState,
-    switchTo: async (id: string) => { props.knowledgeId = id; await flush() },
-    poll: () => { for (const timer of timers.values()) if (timer.delay === 2000) timer.callback() },
+    switchTo: async (id: string) => {
+      props.knowledgeId = id
+      await flush()
+    },
+    poll: () => {
+      for (const timer of timers.values()) if (timer.delay === 2000) timer.callback()
+    },
     dispose: () => app.unmount(),
   }
 }
@@ -98,7 +225,7 @@ for (const outcome of ['success', 'failure', 'empty'] as const) {
     if (outcome === 'failure') f.requests[0]!.reject(new Error('old request failed'))
     else f.requests[0]!.resolve(outcome === 'success' ? spans('A') : { success: false })
     await flush()
-    assert.equal(f.state.data.knowledge_id, 'B')
+    assert.equal(f.state.data?.knowledge_id, 'B')
     assert.equal(f.state.selectedAttempt, 2)
     assert.deepEqual(f.events, events)
     assert.equal(JSON.stringify(f.summaries), summary)
@@ -126,7 +253,7 @@ test('A to B to A rejects the first A even though its document ID matches again'
   assert.deepEqual(f.requests.map(r => r.id), ['A', 'B', 'A'])
   f.requests[2]!.resolve(spans('A', 3)); await flush()
   f.requests[0]!.resolve(spans('A')); f.requests[1]!.resolve(spans('B', 2)); await flush()
-  assert.equal(f.state.data.attempt, 3)
+  assert.equal(f.state.data?.attempt, 3)
   assert.equal(f.state.selectedAttempt, 3)
 })
 
@@ -137,7 +264,7 @@ test('changing attempt during a request fetches the selection and ignores the ea
   f.requests[1]!.resolve(spans('A', 2)); await flush()
   f.requests[0]!.resolve(spans('A')); await flush()
   assert.equal(f.state.selectedAttempt, 2)
-  assert.equal(f.state.data.attempt, 2)
+  assert.equal(f.state.data?.attempt, 2)
 })
 
 for (const outcome of ['success', 'failure'] as const) {
@@ -150,7 +277,7 @@ for (const outcome of ['success', 'failure'] as const) {
     else f.details[0]!.resolve({ success: true, data: { file_type: 'docx', metadata: { process_overrides: { source: 'A' } } } })
     await flush()
     assert.equal(f.state.currentKnowledgeFileType, 'pdf')
-    assert.equal(f.state.processOverrides.source, 'B')
+    assert.equal(f.state.processOverrides?.source, 'B')
   })
 }
 
@@ -175,7 +302,7 @@ test('unmount ignores pending spans, historical statuses and document details', 
   for (const request of f.requests.slice(1)) request.resolve(spans('A', request.attempt || 9))
   f.details[0]!.resolve({ success: true, data: { file_type: 'pdf' } })
   await refresh; await flush()
-  assert.equal(f.state.data.attempt, 2)
+  assert.equal(f.state.data?.attempt, 2)
   assert.equal(f.state.currentKnowledgeFileType, '')
   assert.equal(f.state.attemptStatuses.has(1), false)
   assert.deepEqual(f.events, events)

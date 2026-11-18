@@ -269,7 +269,7 @@ import type { FileBrowserContext } from '@/composables/useMentionFileBrowser';
 import type { BrowserKnowledgeBase } from '@/utils/mentionFileBrowser';
 import { fitBrowserViewport } from '@/utils/mentionFileBrowser';
 import { getRootZoom } from '@/utils/zoom';
-import { computed, watch, ref, nextTick, onBeforeUnmount } from 'vue';
+import { computed, watch, ref, nextTick, onBeforeUnmount, type StyleValue } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { getKnowledgeBaseById } from '@/api/knowledge-base';
@@ -277,11 +277,25 @@ import { getKnowledgeDetails } from '@/api/knowledge-base';
 import { useSettingsStore } from '@/stores/settings';
 import { SKILL_ICON, type MentionItem, type MentionItemType } from '@/types/mention';
 
-type DetailState = { loading: boolean; error?: string; data?: any };
+interface MentionDetailData {
+  name?: string;
+  type?: string;
+  description?: string;
+  chunk_count?: number;
+  knowledge_count?: number;
+  count?: number;
+  org_name?: string;
+  title?: string;
+  file_name?: string;
+  knowledge_base_name?: string;
+  knowledge_base_id?: string;
+}
+
+type DetailState = { loading: boolean; error?: string; data?: MentionDetailData };
 
 const props = defineProps<{
   visible: boolean;
-  style: any;
+  style?: StyleValue;
   items: MentionItem[];
   /** 当前可见列表（全局搜索结果或分组内列表）中的高亮下标 */
   activeIndex: number;
@@ -594,6 +608,13 @@ const fetchDetail = (item: MentionItem) => {
   if (item.type === 'file') return fetchFileDetail(item);
 };
 
+function extractDetailErrorMessage(e: unknown): string {
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message || 'Failed to load';
+  }
+  return 'Failed to load';
+}
+
 async function fetchKbDetail(item: { id: string }) {
   if (detailCache.value[item.id]?.data || detailCache.value[item.id]?.loading) return;
   detailCache.value = { ...detailCache.value, [item.id]: { loading: true } };
@@ -602,10 +623,11 @@ async function fetchKbDetail(item: { id: string }) {
       agent_id: agentIdForDetail.value,
       agent_source_tenant_id: agentSourceTenantIdForDetail.value,
     } : undefined;
-    const res: any = await getKnowledgeBaseById(item.id, opts);
-    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, data: res?.data ?? res } };
-  } catch (e: any) {
-    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, error: e?.message || 'Failed to load' } };
+    const res = await getKnowledgeBaseById(item.id, opts) as { data?: MentionDetailData } | MentionDetailData | undefined;
+    const data = res && typeof res === 'object' && 'data' in res ? res.data : res;
+    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, data } };
+  } catch (e: unknown) {
+    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, error: extractDetailErrorMessage(e) } };
   }
 }
 
@@ -617,10 +639,11 @@ async function fetchFileDetail(item: { id: string }) {
       agent_id: agentIdForDetail.value,
       agent_source_tenant_id: agentSourceTenantIdForDetail.value,
     } : undefined;
-    const res: any = await getKnowledgeDetails(item.id, opts);
-    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, data: res?.data ?? res } };
-  } catch (e: any) {
-    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, error: e?.message || 'Failed to load' } };
+    const res = await getKnowledgeDetails(item.id, opts) as { data?: MentionDetailData } | MentionDetailData | undefined;
+    const data = res && typeof res === 'object' && 'data' in res ? res.data : res;
+    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, data } };
+  } catch (e: unknown) {
+    detailCache.value = { ...detailCache.value, [item.id]: { loading: false, error: extractDetailErrorMessage(e) } };
   }
 }
 
@@ -856,7 +879,7 @@ const scrollToRow = (index: number) => {
 }
 
 .mention-row.active .mention-row__icon.faq-icon {
-  color: var(--genyee-faq-color, #0052d9);
+  color: var(--genyee-faq-color, var(--gy-accent-blue));
 }
 
 .mention-row__name {
@@ -1008,9 +1031,9 @@ const scrollToRow = (index: number) => {
   color: var(--td-brand-color);
 }
 .mention-detail-content .detail-type-badge.faq {
-  border-color: rgba(0, 82, 217, 0.16);
-  background: rgba(0, 82, 217, 0.08);
-  color: var(--genyee-faq-color, #0052d9);
+  border-color: color-mix(in oklab, var(--gy-accent-blue) 16%, transparent);
+  background: color-mix(in oklab, var(--gy-accent-blue) 8%, transparent);
+  color: var(--genyee-faq-color, var(--gy-accent-blue));
 }
 .mention-detail-content .detail-desc {
   margin: 0 0 8px;

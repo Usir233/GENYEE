@@ -426,7 +426,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #fff;
+    color: var(--gy-text-inverse);
     background: rgba(0, 0, 0, 0.55);
   }
 }

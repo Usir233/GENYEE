@@ -352,11 +352,15 @@ async function copyMarkdown(): Promise<void> {
   busyAction.value = 'markdown'
   try {
     const messages = await collectAllSessionMessages(async (beforeTime, limit) => {
-      const response: any = await getMessageList({
+      const response = await getMessageList({
         session_id: session.id,
         created_at: beforeTime,
         limit,
-      })
+      }) as {
+        success?: boolean
+        data?: Parameters<typeof buildSessionMarkdown>[0]['messages']
+        message?: string
+      } | undefined
       if (!response?.success || !Array.isArray(response.data)) {
         throw new Error(response?.message || 'failed to load session messages')
       }
@@ -640,7 +644,7 @@ async function submitDeleteSession(): Promise<void> {
 
   &.is-danger {
     border-color: transparent;
-    color: #fff;
+    color: var(--gy-text-inverse);
     background: var(--td-error-color-6);
 
     &:hover:not(:disabled) {

@@ -53,6 +53,67 @@ export interface CmdkMsgGroup {
   items: MessageSearchGroupItem[]
 }
 
+interface RawKbRecord {
+  id?: string | number
+  name?: string
+  type?: string
+}
+
+interface RawSharedKbRecord {
+  knowledge_base?: RawKbRecord | null
+}
+
+interface RawAgentRecord {
+  id?: string | number
+  name?: string
+  description?: string
+  avatar?: string
+  is_builtin?: boolean
+}
+
+interface RawSharedAgentRecord {
+  agent?: RawAgentRecord | null
+  org_name?: string
+}
+
+interface RawMenuChild {
+  id?: string | number
+  title?: string
+}
+
+interface RawMenuSection {
+  path?: string
+  children?: RawMenuChild[]
+}
+
+interface RawSemanticChunkHit {
+  id: string
+  chunk_index: number
+  knowledge_id?: string
+  knowledge_base_id?: string
+  knowledge_title?: string
+  knowledge_filename?: string
+  content?: string
+  matched_content?: string
+  match_type?: string
+  score?: number
+}
+
+interface SemanticSearchResponse {
+  success?: boolean
+  data?: RawSemanticChunkHit[] | null
+}
+
+interface MessageSearchPayload {
+  items?: MessageSearchGroupItem[] | null
+  total?: number
+}
+
+interface MessageSearchResponse {
+  success?: boolean
+  data?: MessageSearchPayload | null
+}
+
 /**
  * useCmdkSearch — debounced, cancellable search that fans out to
  *   • /api/v1/knowledge-search (chunks / files)
@@ -114,16 +175,16 @@ export function useCmdkSearch(options: {
         const chatResources = useChatResourcesStore()
         await chatResources.ensureKnowledgeBases()
         if (epoch !== scopeEpoch) return false
-        const own: CmdkKb[] = chatResources.rawKnowledgeBases.map((kb: any) => ({
-          id: String(kb.id),
+        const own: CmdkKb[] = (chatResources.rawKnowledgeBases as RawKbRecord[]).map((kb) => ({
+          id: String(kb.id ?? ''),
           name: kb.name || '',
           type: kb.type,
         }))
         const ownIds = new Set(own.map(k => k.id))
-        const sharedList: CmdkKb[] = (orgStore.sharedKnowledgeBases || [])
-          .filter((s: any) => s?.knowledge_base != null)
-          .map((s: any) => ({
-            id: String(s.knowledge_base.id),
+        const sharedList: CmdkKb[] = ((orgStore.sharedKnowledgeBases || []) as RawSharedKbRecord[])
+          .filter((s): s is { knowledge_base: RawKbRecord } => s?.knowledge_base != null)
+          .map((s) => ({
+            id: String(s.knowledge_base.id ?? ''),
             name: s.knowledge_base.name || '',
             type: s.knowledge_base.type,
           }))
@@ -171,8 +232,8 @@ export function useCmdkSearch(options: {
         const chatResources = useChatResourcesStore()
         await chatResources.ensureAgents()
         if (epoch !== scopeEpoch) return
-        const own: CmdkAgent[] = chatResources.agents.map((a: any) => ({
-          id: String(a.id),
+        const own: CmdkAgent[] = (chatResources.agents as RawAgentRecord[]).map((a) => ({
+          id: String(a.id ?? ''),
           name: a.name || '',
           description: a.description,
           avatar: a.avatar,
@@ -180,10 +241,10 @@ export function useCmdkSearch(options: {
           source: 'own',
         }))
         const ownIds = new Set(own.map(a => a.id))
-        const sharedList: CmdkAgent[] = (orgStore.sharedAgents || [])
-          .filter((s: any) => s?.agent != null)
-          .map((s: any) => ({
-            id: String(s.agent.id),
+        const sharedList: CmdkAgent[] = ((orgStore.sharedAgents || []) as RawSharedAgentRecord[])
+          .filter((s): s is { agent: RawAgentRecord; org_name?: string } => s?.agent != null)
+          .map((s) => ({
+            id: String(s.agent.id ?? ''),
             name: s.agent.name || '',
             description: s.agent.description,
             avatar: s.agent.avatar,
@@ -222,9 +283,9 @@ export function useCmdkSearch(options: {
   // cached (the sidebar already paginates them). Good enough for "jump to a
   // session I've seen recently" — not a substitute for message-content search.
   const sessionList = computed<CmdkSessionItem[]>(() => {
-    const chatMenu = (menuStore.menuArr as any[]).find((m: any) => m.path === 'creatChat')
-    const children = (chatMenu?.children as any[]) || []
-    return children.map((c: any) => ({
+    const chatMenu = (menuStore.menuArr as RawMenuSection[]).find((m) => m.path === 'creatChat')
+    const children = chatMenu?.children || []
+    return children.map((c) => ({
       id: String(c.id || ''),
       title: c.title || '',
     }))
@@ -282,11 +343,11 @@ export function useCmdkSearch(options: {
     }
     if (seq !== requestSeq) return
 
-    const knowledgePromise = !knowledgeAvailable
+    const knowledgePromise: Promise<RawSemanticChunkHit[]> = !knowledgeAvailable
       ? Promise.reject(new Error('Knowledge base discovery failed'))
       : kbIds.length > 0
-        ? knowledgeSemanticSearch({ query: q, knowledge_base_ids: kbIds })
-            .then((res: any) => {
+        ? (knowledgeSemanticSearch({ query: q, knowledge_base_ids: kbIds }) as Promise<SemanticSearchResponse | undefined>)
+            .then((res) => {
               // A nil Go slice is serialized as null, which is a valid empty result.
               if (!res?.success || (res.data !== null && !Array.isArray(res.data))) {
                 throw new Error('Invalid knowledge search response')
@@ -295,14 +356,14 @@ export function useCmdkSearch(options: {
             })
         : Promise.resolve([])
 
-    const messagesPromise = scoped
+    const messagesPromise: Promise<{ items: MessageSearchGroupItem[]; total: number }> = scoped
       ? Promise.resolve({ items: [], total: 0 })
-      : searchMessages({ query: q, mode: 'hybrid', limit: 30 })
-          .then((res: any) => {
+      : (searchMessages({ query: q, mode: 'hybrid', limit: 30 }) as Promise<MessageSearchResponse | undefined>)
+          .then((res) => {
             if (!res?.success || !res.data || (res.data.items !== null && !Array.isArray(res.data.items))) {
               throw new Error('Invalid message search response')
             }
-            return { ...res.data, items: res.data.items || [] }
+            return { total: res.data.total ?? 0, items: res.data.items || [] }
           })
 
     const [knowledgeResult, messageResult] = await Promise.allSettled([knowledgePromise, messagesPromise])
@@ -318,19 +379,19 @@ export function useCmdkSearch(options: {
       searchFailures.value.push('messages')
       console.error('[cmdk] message search failed', messageResult.reason)
     }
-    const chunks = knowledgeResult.status === 'fulfilled' ? knowledgeResult.value : []
-    const msgRes = messageResult.status === 'fulfilled' ? messageResult.value : { items: [], total: 0 }
+    const chunks: RawSemanticChunkHit[] = knowledgeResult.status === 'fulfilled' ? knowledgeResult.value : []
+    const msgRes = messageResult.status === 'fulfilled' ? messageResult.value : { items: [] as MessageSearchGroupItem[], total: 0 }
 
     // Group chunks by knowledge_id.
     const fmap = new Map<string, CmdkFileGroup>()
-    for (const item of chunks as any[]) {
+    for (const item of chunks) {
       const kid = item.knowledge_id || 'unknown'
       if (!fmap.has(kid)) {
         fmap.set(kid, {
           knowledgeId: kid,
           kbId: item.knowledge_base_id || '',
           title: item.knowledge_title || item.knowledge_filename || kid,
-          kbName: getKbName(item.knowledge_base_id),
+          kbName: getKbName(item.knowledge_base_id || ''),
           chunks: [],
         })
       }
@@ -340,7 +401,7 @@ export function useCmdkSearch(options: {
         knowledge_id: kid,
         knowledge_base_id: item.knowledge_base_id || '',
         knowledge_title: item.knowledge_title || '',
-        kb_name: getKbName(item.knowledge_base_id),
+        kb_name: getKbName(item.knowledge_base_id || ''),
         content: item.content || '',
         matched_content: item.matched_content,
         match_type: item.match_type || 'vector',
@@ -348,11 +409,11 @@ export function useCmdkSearch(options: {
       })
     }
     fileGroups.value = Array.from(fmap.values())
-    totalChunks.value = (chunks as any[]).length
+    totalChunks.value = chunks.length
 
     // Group messages by session_id.
     const mmap = new Map<string, CmdkMsgGroup>()
-    const items: MessageSearchGroupItem[] = (msgRes as any).items || []
+    const items: MessageSearchGroupItem[] = msgRes.items || []
     for (const m of items) {
       const sid = m.session_id || 'unknown'
       if (!mmap.has(sid)) {
@@ -365,7 +426,7 @@ export function useCmdkSearch(options: {
       mmap.get(sid)!.items.push(m)
     }
     messageGroups.value = Array.from(mmap.values())
-    totalMessages.value = (msgRes as any).total || items.length
+    totalMessages.value = msgRes.total || items.length
 
     loading.value = false
   }
@@ -373,7 +434,7 @@ export function useCmdkSearch(options: {
   // Watch query changes (debounced). lockedKbIds is tracked as a derived
   // string so the search re-runs when the KB scope toggles.
   const lockedSignature = () =>
-    (options.lockedKbIds?.() || []).slice().sort().join(',')
+    (options.lockedKbIds?.() || []).toSorted().join(',')
 
   const retrySearch = () => {
     const trimmed = query.value.trim()

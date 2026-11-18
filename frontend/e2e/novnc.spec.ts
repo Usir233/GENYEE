@@ -13,11 +13,16 @@ test('@desktop chat sends and survives reload when the remote desktop decoder pr
     { id: 'question', role: 'user', content: '已发送的问题应该显示在对话区。', is_completed: true, created_at: '2026-01-01T00:00:00Z' },
     { id: 'answer', role: 'assistant', content: '恢复后的回答', is_completed: true, created_at: '2026-01-01T00:00:01Z' },
   ] } }))
+  interface DecoderProbeWindow extends Window {
+    __decoderChecks?: number
+    VideoDecoder?: unknown
+  }
   await page.addInitScript(() => {
-    ;(window as any).__decoderChecks = 0
-    ;(window as any).VideoDecoder = class {
+    const win = window as DecoderProbeWindow
+    win.__decoderChecks = 0
+    win.VideoDecoder = class {
       static isConfigSupported() {
-        ;(window as any).__decoderChecks++
+        win.__decoderChecks = (win.__decoderChecks ?? 0) + 1
         return new Promise(() => {})
       }
     }
@@ -30,9 +35,9 @@ test('@desktop chat sends and survives reload when the remote desktop decoder pr
   await expect(page.locator('.msg_list')).toContainText('已发送的问题应该显示在对话区。')
   await expect(page.locator('.bot_msg')).toContainText('恢复后的回答')
   expect(creations).toBe(1)
-  expect(await page.evaluate(() => (window as any).__decoderChecks)).toBe(0)
+  expect(await page.evaluate(() => (window as DecoderProbeWindow).__decoderChecks)).toBe(0)
   await page.reload()
   await expect(page).toHaveURL(/chat\/delayed-session/)
   await expect(page.locator('[data-guide="chat-input"] textarea')).toBeVisible()
-  expect(await page.evaluate(() => (window as any).__decoderChecks)).toBe(0)
+  expect(await page.evaluate(() => (window as DecoderProbeWindow).__decoderChecks)).toBe(0)
 })

@@ -7,11 +7,11 @@ import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { DOMParser } from '@xmldom/xmldom'
 import ts from 'typescript'
-import { createRenderer, h, ref } from 'vue'
+import { createRenderer, h, ref, type Component } from 'vue'
 import * as filePreview from '../utils/filePreview'
 
 const require = createRequire(import.meta.url)
-const filename = fileURLToPath(new URL('./document-preview.vue', import.meta.url))
+const filename = fileURLToPath(new URL('./DocumentPreview.vue', import.meta.url))
 const { descriptor } = parse(readFileSync(filename, 'utf8'), { filename })
 const script = compileScript(descriptor, { id: 'preview-encoding-test' }).content
   .replace('__expose();', '')
@@ -20,8 +20,18 @@ const compiled = ts.transpileModule(script, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
+interface PreviewVm {
+  loadPreview: () => Promise<void>
+  error: string
+  loading: boolean
+  previewType: string
+  excelHtml: string
+}
+
+type HostNode = Record<string, unknown>
+
 function fixture(bytes: Uint8Array, fileType: string) {
-  const exports: any = {}
+  const exports: { default?: Component & { render?: () => null } } = {}
   runInNewContext(compiled, {
     exports,
     require(name: string) {
@@ -37,14 +47,14 @@ function fixture(bytes: Uint8Array, fileType: string) {
     document: { addEventListener() {}, removeEventListener() {}, activeElement: {} },
     window: { addEventListener() {}, removeEventListener() {} },
   })
-  const component = exports.default
+  const component = exports.default!
   component.render = () => null
-  const renderer = createRenderer<any, any>({
+  const renderer = createRenderer<HostNode, HostNode>({
     createElement: () => ({}), createText: () => ({}), createComment: () => ({}),
     insert() {}, remove() {}, setElementText() {}, setText() {}, patchProp() {},
     parentNode: () => null, nextSibling: () => null,
   })
-  const instance = ref<any>()
+  const instance = ref<PreviewVm>()
   const app = renderer.createApp({
     render: () => h(component, {
       ref: instance,
@@ -55,7 +65,7 @@ function fixture(bytes: Uint8Array, fileType: string) {
     }),
   })
   app.mount({})
-  return { vm: instance.value, close: () => app.unmount() }
+  return { vm: instance.value!, close: () => app.unmount() }
 }
 
 for (const fileType of ['csv', 'tsv', 'tab']) {

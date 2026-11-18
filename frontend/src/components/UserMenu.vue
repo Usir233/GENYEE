@@ -241,7 +241,7 @@ const router = useRouter()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
 const { formatRole, roleIcon } = useRoleLabel()
-const { homeTenantId, isHomeTenantActive, isHomeTenant } = useHomeTenant()
+const { homeTenantId, isHomeTenant } = useHomeTenant()
 
 // 顶部用户卡片展示的空间名 / 当前角色：跟着 tenant 切换器实时变。
 // activeTenantName 优先用切换器选中的名字（含 fallback 到 home tenant 名字），
@@ -535,7 +535,12 @@ const openDocs = () => {
   }
 }
 
-const githubUrl = computed(() => toSafeExternalOrAppUrl((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '', false))
+const githubUrl = computed(() =>
+  toSafeExternalOrAppUrl(
+    (window as Window & { __RUNTIME_CONFIG__?: { GITHUB_URL?: string } }).__RUNTIME_CONFIG__?.GITHUB_URL || '',
+    false,
+  ),
+)
 
 // 打开 GitHub
 const openGithub = () => {
@@ -554,7 +559,7 @@ const handleLogout = async () => {
     await logoutApi()
   } catch (error) {
     // 即使API调用失败，也继续执行本地清理
-    console.error('注销API调用失败:', error)
+    console.error('Logout API call failed:', error)
   }
 
   // 清理所有状态和本地存储

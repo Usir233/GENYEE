@@ -7,7 +7,7 @@ import { ref } from 'vue';
 
 // Execute the existing confirmation handler, including its real caret cleanup.
 // The browser emits the same file item as recent/global search; there is no new submission protocol.
-const source = readFileSync(new URL('./Input-field.vue', import.meta.url), 'utf8');
+const source = readFileSync(new URL('./chat-input/useChatInputMentions.ts', import.meta.url), 'utf8');
 const selection = source.slice(source.indexOf('const onMentionSelect ='), source.indexOf('const removeFile ='));
 const settings = readFileSync(new URL('../stores/settings.ts', import.meta.url), 'utf8');
 const params = settings.slice(settings.indexOf('getSuggestedQuestionsParams(limit?: number)'), settings.indexOf('// 选择智能体（'));

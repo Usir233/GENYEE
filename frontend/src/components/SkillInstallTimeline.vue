@@ -72,7 +72,7 @@
 <script setup lang="ts">
 import { onUnmounted, reactive, ref, watch } from 'vue'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
-import { useChatStreamHandler } from '@/composables/useChatStreamHandler'
+import { useChatStreamHandler, type ChatMessage } from '@/composables/useChatStreamHandler'
 import { getMessageList } from '@/api/chat'
 import { configSkillTranscriptUrl, getConfigSkillGuidance, steerConfigSkill, reinstallConfigSkill, type SkillInstallGuidanceState } from '@/api/system'
 import { getApiBaseUrl } from '@/utils/api-base'
@@ -146,9 +146,12 @@ async function sendGuidance() {
       emit('restarted')
     }
     guidanceText.value = ''
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (epoch === guidanceEpoch) {
-      guidanceError.value = err?.response?.data?.error?.message || err?.message || i18n.global.t('settings.sandbox.skillGuidance.failed')
+      const errObj = err && typeof err === 'object'
+        ? (err as { response?: { data?: { error?: { message?: string } } }; message?: string })
+        : undefined
+      guidanceError.value = errObj?.response?.data?.error?.message || errObj?.message || i18n.global.t('settings.sandbox.skillGuidance.failed')
     }
   } finally {
     sendingGuidance.value = false
@@ -167,7 +170,7 @@ watch(
 )
 onUnmounted(() => { guidanceEpoch++; clearTimeout(guidanceTimer) })
 
-const messages = reactive<any[]>([])
+const messages = reactive<ChatMessage[]>([])
 const commandOutput = ref<{ command: string; started_at: string; output: string; done: boolean } | null>(null)
 const loading = ref(false)
 const isReplying = ref(false)
@@ -210,11 +213,11 @@ function applyPrompt(content: string) {
 }
 
 async function loadPersisted(run: number) {
-  const res: any = await getMessageList({
+  const res = await getMessageList({
     session_id: props.sessionId,
     limit: 100,
     created_at: '',
-  })
+  }) as { data?: Parameters<typeof handleMsgList>[0] } | undefined
   if (run !== openRun) return
   handleMsgList(res?.data || [])
 }
@@ -268,9 +271,14 @@ async function follow(run: number): Promise<boolean> {
       // reopening the popup after a refresh showed an empty transcript.
       if (run !== openRun) return
       if (!ev.data) return
-      let frame: any
+      type TranscriptFrame = Parameters<typeof processStreamChunk>[0] & {
+        response_type?: string
+        data?: { command: string; started_at: string; output: string; done: boolean } | null
+        content?: string
+      }
+      let frame: TranscriptFrame
       try {
-        frame = JSON.parse(ev.data)
+        frame = JSON.parse(ev.data) as TranscriptFrame
       } catch {
         return
       }

@@ -537,12 +537,12 @@ const headerTitleModeOptions = computed(() => ([
 
 const defaultLocaleOptions = computed(() => ([
   { label: t('embedPublish.defaultLocaleBrowser'), value: '' },
-  { label: '简体中文', value: 'zh-CN' },
-  { label: '繁體中文', value: 'zh-TW' },
-  { label: 'English', value: 'en-US' },
-  { label: '한국어', value: 'ko-KR' },
-  { label: '日本語', value: 'ja-JP' },
-  { label: 'Русский', value: 'ru-RU' },
+  { label: t('language.autonyms.zhCN'), value: 'zh-CN' },
+  { label: t('language.autonyms.zhTW'), value: 'zh-TW' },
+  { label: t('language.autonyms.enUS'), value: 'en-US' },
+  { label: t('language.autonyms.koKR'), value: 'ko-KR' },
+  { label: t('language.autonyms.jaJP'), value: 'ja-JP' },
+  { label: t('language.autonyms.ruRU'), value: 'ru-RU' },
 ]))
 
 const channelMenuOptions = (ch: EmbedChannel) => {
@@ -970,8 +970,10 @@ const saveForm = async () => {
         }
       }
     }
-  } catch (err: any) {
-    const apiMsg = typeof err?.message === 'string' ? err.message : ''
+  } catch (err: unknown) {
+    const apiMsg = err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+      ? (err as { message: string }).message
+      : ''
     const originsMsg = apiMsg ? mapOriginsApiError(apiMsg) : null
     if (originsMsg) {
       originsError.value = originsMsg
@@ -1160,7 +1162,7 @@ const toggleEnabled = async (ch: EmbedChannel, enabled: boolean) => {
 
 .im-step.active .im-step-num {
   background: var(--td-brand-color);
-  color: #fff;
+  color: var(--gy-text-inverse);
   border-color: var(--td-brand-color);
 }
 
@@ -1516,7 +1518,7 @@ const toggleEnabled = async (ch: EmbedChannel, enabled: boolean) => {
   height: 36px;
   border: none;
   border-radius: 50%;
-  color: #fff;
+  color: var(--gy-text-inverse);
   font-size: var(--app-text-xl);
   line-height: 1;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);

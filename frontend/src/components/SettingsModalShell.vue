@@ -218,22 +218,28 @@ function showBadge(item: SettingsModalNavItem): boolean {
     padding: 8px 8px 12px;
     overflow-y: auto;
     min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
+    @supports not (scrollbar-color: auto) {
+      scrollbar-width: auto;
 
-    &::-webkit-scrollbar-track {
-      background: var(--td-bg-color-secondarycontainer);
-    }
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
 
-    &::-webkit-scrollbar-thumb {
-      background: var(--td-gray-color-5);
-      border-radius: 3px;
-    }
+      &::-webkit-scrollbar-track {
+        background: var(--td-bg-color-secondarycontainer);
+      }
 
-    &::-webkit-scrollbar-thumb:hover {
-      background: var(--td-gray-color-6);
+      &::-webkit-scrollbar-thumb {
+        background: var(--gy-scrollbar-thumb);
+        border-radius: var(--gy-radius-xs);
+      }
+
+      &::-webkit-scrollbar-thumb:hover {
+        background: var(--gy-scrollbar-thumb-hover);
+      }
     }
   }
 
@@ -332,22 +338,28 @@ function showBadge(item: SettingsModalNavItem): boolean {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
+    @supports not (scrollbar-color: auto) {
+      scrollbar-width: auto;
 
-    &::-webkit-scrollbar-track {
-      background: var(--td-bg-color-container);
-    }
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
 
-    &::-webkit-scrollbar-thumb {
-      background: var(--td-gray-color-5);
-      border-radius: 3px;
-    }
+      &::-webkit-scrollbar-track {
+        background: var(--td-bg-color-container);
+      }
 
-    &::-webkit-scrollbar-thumb:hover {
-      background: var(--td-gray-color-6);
+      &::-webkit-scrollbar-thumb {
+        background: var(--gy-scrollbar-thumb);
+        border-radius: var(--gy-radius-xs);
+      }
+
+      &::-webkit-scrollbar-thumb:hover {
+        background: var(--gy-scrollbar-thumb-hover);
+      }
     }
   }
 

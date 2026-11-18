@@ -15,10 +15,10 @@ const fnEnd = modeSource.indexOf('\n}', fnStart) + 2
 assert.ok(fnStart > 0 && fnEnd > fnStart, 'customAgentStreamMode not found in agent-mode.ts')
 const modeFn = ts.transpile(modeSource.slice(fnStart, fnEnd).replace('export ', ''))
 
-const source = readFileSync(new URL('./Input-field.vue', import.meta.url), 'utf8')
+const source = readFileSync(new URL('./chat-input/useChatInputAgentScope.ts', import.meta.url), 'utf8')
 const start = source.indexOf('const syncSelectedAgentModeFromConfig =')
 const end = source.indexOf('// 默认选中的 builtin', start)
-assert.ok(start > 0 && end > start, 'agent mode sync not found in Input-field.vue')
+assert.ok(start > 0 && end > start, 'agent mode sync not found in useChatInputAgentScope.ts')
 const loaderCode = ts.transpile(`${source.slice(start, end)}\n({ loadAgents })`)
 
 // `configAvailable` mirrors the SFC fallback: until the agents snapshot is

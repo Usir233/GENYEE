@@ -5,14 +5,14 @@
   height: 38px;
   color: var(--td-text-color-secondary);
 
-  &.kind-file-word { color: #5381c4; }
-  &.kind-file-excel { color: #419781; }
-  &.kind-file-powerpoint { color: #c18a4e; }
-  &.kind-file-pdf { color: #c56868; }
+  &.kind-file-word { color: var(--gy-accent-blue); }
+  &.kind-file-excel { color: var(--gy-success); }
+  &.kind-file-powerpoint { color: var(--gy-warning); }
+  &.kind-file-pdf { color: var(--gy-danger); }
   &.kind-image,
-  &.kind-video { color: #9273bd; }
+  &.kind-video { color: var(--gy-accent-purple); }
   &.kind-code,
-  &.kind-sound { color: #5d95ad; }
+  &.kind-sound { color: var(--gy-accent-teal); }
 
   .file-sheet {
     fill: var(--td-bg-color-container);
@@ -31,7 +31,7 @@
   }
 
   text {
-    fill: #fff;
+    fill: var(--gy-text-inverse);
     font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 7px;
     font-weight: 650;

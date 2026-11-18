@@ -10,7 +10,7 @@ function readComponent(relPath: string): string {
   return readFileSync(new URL(relPath, import.meta.url), 'utf8')
 }
 
-function compileSfcComponent(relPath: string, customRequire: (id: string) => any, globals: Record<string, any> = {}) {
+function compileSfcComponent(relPath: string, customRequire: (id: string) => unknown, globals: Record<string, unknown> = {}): vue.Component {
   const source = readComponent(relPath)
   const { descriptor } = parse(source, { filename: relPath })
   const compiled = compileScript(descriptor, {
@@ -20,7 +20,7 @@ function compileSfcComponent(relPath: string, customRequire: (id: string) => any
   const js = ts.transpileModule(compiled.content, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  const exports: any = {}
+  const exports: { default?: vue.Component } = {}
   vm.runInNewContext(js, {
     exports,
     console: { error: () => {}, warn: () => {} },
@@ -30,34 +30,43 @@ function compileSfcComponent(relPath: string, customRequire: (id: string) => any
     ...globals,
     require: customRequire,
   })
-  return exports.default
+  return exports.default!
 }
 
-function makeHostNode(tag: string, text = '') {
+interface HostNode {
+  tag: string
+  text: string
+  props: Record<string, unknown>
+  children: HostNode[]
+  parent: HostNode | null
+  focus: () => void
+}
+
+function makeHostNode(tag: string, text = ''): HostNode {
   return vue.markRaw({
     tag,
     text,
-    props: {} as Record<string, any>,
-    children: [] as any[],
-    parent: null as any,
+    props: {} as Record<string, unknown>,
+    children: [] as HostNode[],
+    parent: null as HostNode | null,
     focus: () => {},
   })
 }
 
-function createHostRenderer(root: any) {
-  return vue.createRenderer<any, any>({
+function createHostRenderer(root: HostNode) {
+  return vue.createRenderer<HostNode, HostNode>({
     createElement: (tag) => makeHostNode(tag),
     createText: (text) => makeHostNode('#text', text),
     createComment: () => makeHostNode('#comment'),
     insert: (child, parent, anchor) => {
-      if (child.parent) child.parent.children = child.parent.children.filter((c: any) => c !== child)
+      if (child.parent) child.parent.children = child.parent.children.filter((c: HostNode) => c !== child)
       child.parent = parent
       const idx = anchor ? parent.children.indexOf(anchor) : -1
       if (idx < 0) parent.children.push(child)
       else parent.children.splice(idx, 0, child)
     },
     remove: (child) => {
-      if (child.parent) child.parent.children = child.parent.children.filter((c: any) => c !== child)
+      if (child.parent) child.parent.children = child.parent.children.filter((c: HostNode) => c !== child)
       child.parent = null
     },
     setElementText: (el, text) => { el.text = text; el.children = [] },
@@ -69,7 +78,7 @@ function createHostRenderer(root: any) {
   })
 }
 
-const collectText = (el: any): string =>
+const collectText = (el: HostNode): string =>
   (el.text || '') + (el.children || []).map(collectText).join('')
 
 test('CredentialResource preserves configured state when parent switches api and meta in the same flush', async () => {
@@ -87,7 +96,7 @@ test('CredentialResource preserves configured state when parent switches api and
     'model-b': { api_key: { configured: true } },
   }
 
-  let pendingSaveResolve: ((v: any) => void) | null = null
+  let pendingSaveResolve: ((v: unknown) => void) | null = null
   const Parent = vue.defineComponent({
     setup() {
       // Mirror ModelEditorDialog / WebSearchSettings: meta computed is declared before api computed
@@ -114,7 +123,7 @@ test('CredentialResource preserves configured state when parent switches api and
   const renderer = createHostRenderer(root)
   const app = renderer.createApp(Parent)
   app.component('t-icon', { render: () => null })
-  app.component('t-button', { props: ['onClick'], setup(p: any, { slots }: any) { return () => vue.h('button', { onClick: p.onClick }, slots.default?.()) } })
+  app.component('t-button', vue.defineComponent({ props: ['onClick'], setup(p, { slots }) { return () => vue.h('button', { onClick: p.onClick }, slots.default?.()) } }))
   app.component('t-input', { props: ['modelValue'], render: () => null })
   app.mount(root)
   await vue.nextTick()
@@ -135,8 +144,8 @@ test('CredentialResource preserves configured state when parent switches api and
 })
 
 test('TenantSelector does not drop clearSearch while searchTenants is in flight or overwrite setAllTenants with filtered results', async () => {
-  const searchCalls: Array<{ keyword?: string; resolve: (items: any[]) => void }> = []
-  const allTenantsUpdates: any[][] = []
+  const searchCalls: Array<{ keyword?: string; resolve: (items: Array<{ id: number; name: string }>) => void }> = []
+  const allTenantsUpdates: unknown[][] = []
 
   const Comp = compileSfcComponent(
     './TenantSelector.vue',
@@ -153,7 +162,7 @@ test('TenantSelector does not drop clearSearch while searchTenants is in flight 
             canCreateTenant: false,
             memberships: [],
             allTenants: [],
-            setAllTenants: (list: any[]) => allTenantsUpdates.push(list),
+            setAllTenants: (list: unknown[]) => allTenantsUpdates.push(list),
             setSelectedTenant: () => {},
             refreshFromAuthMe: async () => {},
           }),
@@ -195,7 +204,7 @@ test('TenantSelector does not drop clearSearch while searchTenants is in flight 
   const app2 = renderer.createApp(Comp)
   app2.config.globalProperties.$t = (k: string) => k
   for (const stub of ['t-icon', 't-input', 't-loading', 't-tag']) {
-    app2.component(stub, { setup(_p: any, { slots }: any) { return () => vue.h('span', slots.default?.()) } })
+    app2.component(stub, vue.defineComponent({ setup(_p, { slots }) { return () => vue.h('span', slots.default?.()) } }))
   }
   app2.mount(root)
   await vue.nextTick()
@@ -212,7 +221,7 @@ test('TenantSelector does not drop clearSearch while searchTenants is in flight 
 })
 
 test('SandboxConfigEditorDrawer, SandboxSkillsPanel, and ModelEditorDialog enforce secret identity and generation guards', () => {
-  const sandboxDrawer = readComponent('./SandboxConfigEditorDrawer.vue')
+  const sandboxDrawer = `${readComponent('./SandboxConfigEditorDrawer.vue')}\n${readComponent('./sandbox-config/useSandboxNetworkRules.ts')}`
   assert.match(sandboxDrawer, /originalKey/, 'envRows must track originalKey so renaming a stored env key does not submit ***')
   assert.match(sandboxDrawer, /inFlightFromSkills\.value = false/, 'reset() must clear inFlightFromSkills')
 
@@ -225,20 +234,20 @@ test('SandboxConfigEditorDrawer, SandboxSkillsPanel, and ModelEditorDialog enfor
   assert.match(modelDialog, /stopDownloadPolling/, 'ModelEditorDialog must stop Ollama download polling on reset/close/re-download')
 })
 
-test('PdfSourceViewer, AttachmentUpload, Input-field, ChatHeader, guides, and selectors clean up timers, blobs, and stale loads', () => {
+test('PdfSourceViewer, AttachmentUpload, InputField, ChatHeader, guides, and selectors clean up timers, blobs, and stale loads', () => {
   const pdfViewer = readComponent('./source-preview/PdfSourceViewer.vue')
   assert.match(pdfViewer, /watch\(\s*\(\)\s*=>\s*props\.data/, 'PdfSourceViewer must react when props.data changes')
 
-  const manualEditor = readComponent('./manual-knowledge-editor.vue')
-  assert.match(manualEditor, /initGeneration/, 'manual-knowledge-editor must guard initialize/loadKnowledgeContent with generation token')
+  const manualEditor = readComponent('./ManualKnowledgeEditor.vue')
+  assert.match(manualEditor, /initGeneration/, 'ManualKnowledgeEditor must guard initialize/loadKnowledgeContent with generation token')
 
   const attachmentUpload = readComponent('./AttachmentUpload.vue')
   const pollStatusFn = attachmentUpload.slice(attachmentUpload.indexOf('const pollStatus ='), attachmentUpload.indexOf('const clearPoll ='))
   assert.match(pollStatusFn, /disposed/, 'AttachmentUpload.pollStatus must bail out when disposed')
 
-  const inputField = readComponent('./Input-field.vue')
+  const inputField = readComponent('./InputField.vue')
   const unmountedBlock = inputField.slice(inputField.indexOf('onUnmounted(() => {'), inputField.indexOf('// 监听路由变化'))
-  assert.match(unmountedBlock, /revokeObjectURL/, 'Input-field onUnmounted must revoke uploadedImages preview ObjectURLs')
+  assert.match(unmountedBlock, /revokeObjectURL/, 'InputField onUnmounted must revoke uploadedImages preview ObjectURLs')
 
   const chatHeader = readComponent('./ChatHeader.vue')
   assert.match(chatHeader, /editingSessionId/, 'ChatHeader must bind title editing to the session ID that started editing')

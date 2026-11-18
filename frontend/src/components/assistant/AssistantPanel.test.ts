@@ -8,6 +8,7 @@ import * as vue from 'vue'
 import * as pinia from 'pinia'
 import ts from 'typescript'
 import * as childAgentTabs from '../../composables/useChildAgentTabs'
+import type { useAssistantStore as UseAssistantStoreFn } from '../../stores/assistant'
 
 const filename = fileURLToPath(new URL('./AssistantPanel.vue', import.meta.url))
 const { descriptor } = parse(readFileSync(filename, 'utf8'), { filename })
@@ -17,8 +18,8 @@ const groupingScript = readFileSync(new URL('../sessionGrouping.ts', import.meta
 const assistantApiScript = readFileSync(new URL('../../api/assistant.ts', import.meta.url), 'utf8')
 const dragScript = readFileSync(new URL('../../composables/useFloatingPreviewDrag.ts', import.meta.url), 'utf8')
 
-function evaluate(source: string, dependencies: Record<string, unknown>, globals = {}) {
-  const exports: any = {}
+function evaluate<T = Record<string, unknown>>(source: string, dependencies: Record<string, unknown>, globals = {}): T {
+  const exports: Record<string, unknown> = {}
   runInNewContext(ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, {
@@ -28,7 +29,7 @@ function evaluate(source: string, dependencies: Record<string, unknown>, globals
       throw new Error(`Unexpected component dependency: ${name}`)
     },
   })
-  return exports
+  return exports as T
 }
 
 function storage() {
@@ -45,10 +46,57 @@ const flush = async () => {
   await vue.nextTick()
 }
 
+interface HostScopeSnapshot {
+  knowledgeBaseIds: string[]
+  pageContext: {
+    knowledge_id?: string
+    knowledge_base_id?: string
+    agent_id?: string
+    wiki_issue_ids?: string[]
+    page?: string
+    section?: string
+    model_id?: string
+    session_id?: string
+    message_id?: string
+    title?: string
+    view?: string
+    selection?: { text?: string; field?: string; ref?: string; start_line?: number; end_line?: number }
+  } | null
+  assistantAccess: string
+}
+
+interface DialogConfirmOptions {
+  onConfirm: () => Promise<void> | void
+  onClose?: () => void
+}
+
+interface HostNodeStyle {
+  width: string
+  right?: string
+  top?: string
+  [key: string]: string | undefined
+}
+
+interface HostNodeProps {
+  class?: string
+  style: HostNodeStyle
+  role?: string
+  variant?: string
+  disabled?: boolean
+  'aria-label'?: string
+  onClick: () => void
+  onPointerdown: (e: unknown) => void
+  onPointermove: (e: unknown) => void
+  onPointerup: (e: unknown) => void
+  [key: string]: unknown
+}
+
+type ApiOverrideFn = (...args: unknown[]) => Promise<unknown>
+
 async function fixture(
-  createSession: (data?: any) => Promise<any> = async () => ({ data: { id: 'new-session' } }),
+  createSession: (data?: { kind?: string }) => Promise<{ data?: { id?: string } }> = async () => ({ data: { id: 'new-session' } }),
   workspaceConfig = { display_name: '', max_access_level: 'confirm' },
-  api: Record<string, (...args: any[]) => Promise<any>> = {},
+  api: Record<string, ApiOverrideFn> = {},
 ) {
   let workspaceRefreshes = 0
   let workspaceChanged: (() => void) | undefined
@@ -60,18 +108,18 @@ async function fixture(
   sessionStorage.setItem('genyee:assistant-session:user-a:2', 'workspace-b-session')
   sessionStorage.setItem('genyee:assistant-session:user-b:1', 'user-b-session')
   const localStorage = storage()
-  const stores = evaluate(storeScript, {
+  const stores = evaluate<{ useAssistantStore: typeof UseAssistantStoreFn }>(storeScript, {
     vue, pinia, './auth': { useAuthStore: () => auth }, '@/api/assistant': assistantApi,
   }, { sessionStorage, localStorage })
   const storeRoot = pinia.createPinia()
   pinia.setActivePinia(storeRoot)
   const assistant = stores.useAssistantStore()
   const mounted: Array<{ sessionId: string; query: string }> = []
-  const sent: Array<{ sessionId: string; query: string; scope: any }> = []
+  const sent: Array<{ sessionId: string; query: string; scope: HostScopeSnapshot }> = []
   const menuEntries: unknown[] = []
   const errors: string[] = []
-  const dialogs: any[] = []
-  const listCalls: any[][] = []
+  const dialogs: DialogConfirmOptions[] = []
+  const listCalls: unknown[][] = []
   const deleted: string[] = []
   const emptyComponent = vue.defineComponent({ inheritAttrs: false, render: () => null })
   const ChatView = vue.defineComponent({
@@ -82,31 +130,31 @@ async function fixture(
         mounted.push({ sessionId: props.session_id, query: props.initialQuery })
         // ChatView sends initialQuery on mount and reads hostScope during send.
         if (props.initialQuery) {
-          sent.push({ sessionId: props.session_id, query: props.initialQuery, scope: props.hostScope() })
+          sent.push({ sessionId: props.session_id, query: props.initialQuery, scope: props.hostScope() as HostScopeSnapshot })
         }
       })
       return () => null
     },
   })
   const viewport = { innerWidth: 1440, innerHeight: 1000, addEventListener() {}, removeEventListener() {} }
-  const route = vue.reactive({ name: '', params: {} as Record<string, string> })
+  const route = vue.reactive({ name: '', params: {} as Record<string, string>, query: {} as Record<string, string> })
   const floatingDrag = evaluate(dragScript, { vue }, {
     window: viewport,
     ResizeObserver: class { observe() {} disconnect() {} },
   })
-  const component = evaluate(panelScript, {
+  const component = evaluate<{ default: vue.Component }>(panelScript, {
     vue,
     'vue-i18n': { useI18n: () => ({ t: (key: string) => key, te: () => true }) },
     'vue-router': { useRoute: () => route },
     'tdesign-vue-next': {
       MessagePlugin: { error: (message: string) => errors.push(message) },
-      DialogPlugin: { confirm: (options: any) => { dialogs.push(options); return { destroy() {} } } },
+      DialogPlugin: { confirm: (options: DialogConfirmOptions) => { dialogs.push(options); return { destroy() {} } } },
     },
     '@/views/chat/index.vue': ChatView,
     '@/views/chat/components/ChildAgentTabBar.vue': emptyComponent,
     '@/composables/useChildAgentTabs': childAgentTabs,
     '@/composables/useFloatingPreviewDrag': floatingDrag,
-    '@/components/Input-field.vue': emptyComponent,
+    '@/components/InputField.vue': emptyComponent,
     '@/components/PanelResizeHandle.vue': emptyComponent,
     '@/components/icons/ResourceIcon.vue': emptyComponent,
     './AssistantContextMenu.vue': emptyComponent,
@@ -115,7 +163,7 @@ async function fixture(
     '@/api/chat': {
       createSessions: createSession,
       getSession: api.getSession || (async () => ({ success: true, data: { kind: 'assistant' } })),
-      getSessionsList: async (...args: any[]) => {
+      getSessionsList: async (...args: unknown[]) => {
         listCalls.push(args)
         return api.getSessionsList ? api.getSessionsList(...args) : { success: true, data: [], total: 0 }
       },
@@ -136,9 +184,14 @@ async function fixture(
         deleted.push(id)
       },
     },
-  }, { window: viewport }).default
-  type HostNode = { children: HostNode[]; parent?: HostNode; tag?: string; props: Record<string, any>; style: Record<string, any>; text?: string }
-  const node = (tag?: string): HostNode => ({ children: [], tag, props: {}, style: {} })
+  }, { window: viewport, ResizeObserver: class { observe() {} disconnect() {} } }).default
+  type HostNode = { children: HostNode[]; parent?: HostNode; tag?: string; props: HostNodeProps; style: Record<string, string>; text?: string }
+  const node = (tag?: string): HostNode => ({
+    children: [],
+    tag,
+    props: { style: { width: '0px' }, onClick() {}, onPointerdown() {}, onPointermove() {}, onPointerup() {} },
+    style: {},
+  })
   const remove = (child: HostNode) => {
     if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1)
     child.parent = undefined
@@ -546,7 +599,7 @@ test('session creation finishing after a workspace switch cannot replace the res
 })
 
 test('assistant creation marks the kind and never inserts a sidebar entry', async () => {
-  const requests: any[] = []
+  const requests: Array<{ kind?: string } | undefined> = []
   const f = await fixture(async body => {
     requests.push(body)
     return { data: { id: 'assistant-session' } }
@@ -555,7 +608,7 @@ test('assistant creation marks the kind and never inserts a sidebar entry', asyn
     f.assistant.open({ query: 'Help me' })
     await flush()
     assert.equal(requests.length, 1)
-    assert.equal(requests[0].kind, 'assistant')
+    assert.equal(requests[0]?.kind, 'assistant')
     assert.equal(f.menuEntries.length, 0)
     assert.equal(f.sent[0].sessionId, 'assistant-session')
   } finally { f.close() }
@@ -563,12 +616,15 @@ test('assistant creation marks the kind and never inserts a sidebar entry', asyn
 
 test('history loads, paginates, highlights and switches the current session', async () => {
   const f = await fixture(undefined, undefined, {
-    getSessionsList: async page => ({
-      success: true, total: 21,
-      data: Array.from({ length: page === 1 ? 20 : 1 }, (_, i) => ({
-        id: `history-${(page - 1) * 20 + i}`, title: '', updated_at: new Date().toISOString(),
-      })),
-    }),
+    getSessionsList: async rawPage => {
+      const page = Number(rawPage)
+      return {
+        success: true, total: 21,
+        data: Array.from({ length: page === 1 ? 20 : 1 }, (_, i) => ({
+          id: `history-${(page - 1) * 20 + i}`, title: '', updated_at: new Date().toISOString(),
+        })),
+      }
+    },
   })
   try {
     f.assistant.setSession('history-0')
@@ -659,7 +715,7 @@ test('history distinguishes empty and failed loads and retries the same page', a
 })
 
 test('a history response from the previous workspace is discarded', async () => {
-  let resolve!: (value: any) => void
+  let resolve!: (value: unknown) => void
   const f = await fixture(undefined, undefined, {
     getSessionsList: () => new Promise(done => { resolve = done }),
   })

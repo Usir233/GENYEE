@@ -30,7 +30,7 @@
         :aria-label="t('menu.sessionUnread')" :title="t('menu.sessionUnread')">
         <span class="session-unread-indicator__dot" aria-hidden="true" />
       </span>
-      <span v-else-if="item.parent_session_id" class="session-row-badge session-fork-indicator" role="img" aria-label="由其他会话分叉而来">
+      <span v-else-if="item.parent_session_id" class="session-row-badge session-fork-indicator" role="img" :aria-label="t('menu.forkedFromOtherSession')">
         <t-icon name="git-branch" class="submenu_fork_icon" />
       </span>
       <t-popup v-if="!batchMode" v-model:visible="menuOpen" :overlay-class-name="menuOverlayClass" trigger="click" destroy-on-close
@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { normalizeSessionTitleDraft, SESSION_TITLE_MAX_LENGTH } from './sessionTitleEdit'
 import { useSessionTitleMotion } from '@/composables/useSessionTitleMotion'
@@ -85,7 +85,7 @@ interface SessionMenuOption {
   content: string
   value: string
   theme?: 'default' | 'success' | 'warning' | 'error' | 'primary'
-  prefixIcon?: any
+  prefixIcon?: Component | (() => unknown)
 }
 
 type MenuMode = 'menu' | 'clear' | 'delete'
@@ -487,7 +487,7 @@ const confirmDangerAction = (): void => {
 
   &.is-danger {
     border-color: transparent;
-    color: #fff;
+    color: var(--gy-text-inverse);
     background: var(--td-error-color-6);
 
     &:hover:not(:disabled) {

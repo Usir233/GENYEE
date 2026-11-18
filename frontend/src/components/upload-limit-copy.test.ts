@@ -33,7 +33,7 @@ test('knowledge upload hints interpolate the configured limit in every locale', 
 })
 
 test('empty state and drag overlay pass the runtime limit to both upload hints', () => {
-  for (const name of ['empty-knowledge.vue', 'upload-mask.vue']) {
+  for (const name of ['EmptyKnowledge.vue', 'UploadMask.vue']) {
     const source = readFileSync(new URL(`./${name}`, import.meta.url), 'utf8')
 
     assert.match(source, /import \{ MAX_FILE_SIZE_MB \} from '@\/utils'/)

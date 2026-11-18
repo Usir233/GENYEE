@@ -1,4 +1,3 @@
-// @ts-nocheck
 <script setup lang="ts">
 import { indexEmbeddedSourceImages } from '@/utils/sourceImage';
 import { ref, shallowRef, watch, onMounted, onUnmounted, onErrorCaptured, nextTick, defineAsyncComponent } from 'vue';
@@ -9,7 +8,7 @@ import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import 'katex/dist/katex.min.css';
 import { useI18n } from 'vue-i18n';
-import { sanitizeHTML, sanitizeMarkdownHTML, sanitizeSvgForDataUrl, hydrateProtectedFileImages } from '@/utils/security';
+import { sanitizeHTML, sanitizeSvgForDataUrl, hydrateProtectedFileImages } from '@/utils/security';
 import { preparePptxPreview, isCompletePptxRender } from '@/utils/pptxPreview';
 import { findMarkdownSourceRange } from '@/utils/markdownSourceLocate';
 import { renderDocumentPreviewMarkdown } from '@/utils/documentPreviewMarkdown';
@@ -24,7 +23,6 @@ import {
   ensureSafePreviewBlob,
   FILE_PREVIEW_SNIFF_BYTES,
   getHighlightLang as resolveHighlightLang,
-  getPreviewMimeType,
   isSvgPreviewExt,
   prettyPrintJson,
   resolveFilePreviewExt,
@@ -426,9 +424,8 @@ async function renderMarkdown(blob: Blob, isCurrent: () => boolean) {
   const text = await blob.text();
   if (!isCurrent()) return;
 
-  // 校验文本内容是否有效
   if (!text || typeof text !== 'string') {
-    markdownHtml.value = '<p style="color: var(--td-text-color-disabled); text-align: center; padding: 20px;">文档内容为空</p>';
+    markdownHtml.value = `<p style="color: var(--gy-text-disabled); text-align: center; padding: 20px;">${escapePreviewHtml(t('preview.emptyContent'))}</p>`;
     return;
   }
 
@@ -671,13 +668,22 @@ async function loadPreview() {
     loadedSourceBlob = sourceBlob;
     // PPTX renders asynchronously and locates from its rendered event.
     if (kind !== 'pptx') scheduleLocate();
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (!isCurrent()) return;
     console.error('Document preview failed:', err);
-    error.value = err?.message || t('preview.loadFailed');
+    const msg = err && typeof err === 'object' && 'message' in err ? (err as { message?: unknown }).message : undefined;
+    error.value = typeof msg === 'string' && msg ? msg : t('preview.loadFailed');
   } finally {
     if (isCurrent()) loading.value = false;
   }
+}
+
+function extractPreviewError(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const msg = (err as { message?: unknown }).message;
+    if (typeof msg === 'string') return msg;
+  }
+  return '';
 }
 
 function cleanup() {
@@ -709,7 +715,7 @@ function cleanup() {
   imageNaturalHeight.value = 0;
   loadedForId = '';
   if (docxContainer.value) {
-    docxContainer.value.innerHTML = '';
+    docxContainer.value.replaceChildren();
   }
 }
 
@@ -1133,7 +1139,7 @@ onUnmounted(() => {
 
     <!-- PPTX -->
     <div v-else-if="previewType === 'pptx' && pptxData" ref="previewContent" tabindex="0" :aria-label="fileName" class="preview-pptx">
-      <vue-office-pptx :key="loadedForId" :src="pptxData" @rendered="onPptxRendered" @error="(e: any) => { error = e?.message || $t('preview.loadFailed'); }" />
+      <vue-office-pptx :key="loadedForId" :src="pptxData" @rendered="onPptxRendered" @error="(e: unknown) => { error = extractPreviewError(e) || $t('preview.loadFailed'); }" />
     </div>
 
     <!-- Excel -->
@@ -1601,7 +1607,7 @@ onUnmounted(() => {
     width: 100%;
     max-height: calc(100vh - 240px);
     border-radius: @border-radius;
-    background: #000;
+    background: var(--td-gray-color-14);
   }
 }
 
@@ -1693,7 +1699,7 @@ onUnmounted(() => {
         top: 1px;
         width: 4px;
         height: 8px;
-        border: solid #fff;
+        border: solid var(--gy-text-inverse);
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
       }
@@ -1811,9 +1817,11 @@ onUnmounted(() => {
      github-dark colors when dark mode is active. Non-scoped on purpose so
      it covers every hljs block (txt/code preview, markdown code fences). -->
 <style lang="less">
+@import './css/chat-hljs-theme.less';
+
 html[theme-mode="dark"] {
   .hljs {
-    color: #c9d1d9;
+    color: var(--chat-code-fg);
     background: transparent;
   }
   .hljs-doctag,
@@ -1823,13 +1831,13 @@ html[theme-mode="dark"] {
   .hljs-template-variable,
   .hljs-type,
   .hljs-variable.language_ {
-    color: #ff7b72;
+    color: var(--chat-code-keyword);
   }
   .hljs-title,
   .hljs-title.class_,
   .hljs-title.class_.inherited__,
   .hljs-title.function_ {
-    color: #d2a8ff;
+    color: var(--chat-code-title);
   }
   .hljs-attr,
   .hljs-attribute,
@@ -1841,53 +1849,53 @@ html[theme-mode="dark"] {
   .hljs-selector-attr,
   .hljs-selector-class,
   .hljs-selector-id {
-    color: #79c0ff;
+    color: var(--chat-code-attr);
   }
   .hljs-regexp,
   .hljs-string,
   .hljs-meta .hljs-string {
-    color: #a5d6ff;
+    color: var(--chat-code-string);
   }
   .hljs-built_in,
   .hljs-symbol {
-    color: #ffa657;
+    color: var(--chat-code-builtin);
   }
   .hljs-comment,
   .hljs-code,
   .hljs-formula {
-    color: #8b949e;
+    color: var(--chat-code-comment);
   }
   .hljs-name,
   .hljs-quote,
   .hljs-selector-tag,
   .hljs-selector-pseudo {
-    color: #7ee787;
+    color: var(--chat-code-name);
   }
   .hljs-subst {
-    color: #c9d1d9;
+    color: var(--chat-code-fg);
   }
   .hljs-section {
-    color: #1f6feb;
+    color: var(--chat-code-section);
     font-weight: bold;
   }
   .hljs-bullet {
-    color: #f2cc60;
+    color: var(--gy-highlight);
   }
   .hljs-emphasis {
-    color: #c9d1d9;
+    color: var(--chat-code-fg);
     font-style: italic;
   }
   .hljs-strong {
-    color: #c9d1d9;
+    color: var(--chat-code-fg);
     font-weight: bold;
   }
   .hljs-addition {
-    color: #aff5b4;
-    background-color: #033a16;
+    color: var(--td-success-color-8);
+    background-color: var(--gy-success-soft);
   }
   .hljs-deletion {
-    color: #ffdcd7;
-    background-color: #67060c;
+    color: var(--td-error-color-8);
+    background-color: var(--gy-danger-soft);
   }
 }
 </style>

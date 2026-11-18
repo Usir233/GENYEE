@@ -80,15 +80,15 @@ test('history retries its cursor and preserves reading position when new results
   assert.equal(vm.loadError, 'more')
   assert.equal(vm.nextCursor, 'older')
   await vm.retry()
-  assert.equal(vm.items.map((item: any) => item.id).join(','), 'one,two,three')
+  assert.equal(vm.items.map((item: { id: string }) => item.id).join(','), 'one,two,three')
   assert.equal(cursors.slice(-2).join(','), 'older,older')
   newer = true
   await vm.refresh()
   assert.equal(vm.pending.length, 0, 'resolved approvals disappear while browsing history')
   assert.equal(vm.hasNew, true)
-  assert.equal(vm.items.map((item: any) => item.id).join(','), 'one,two,three')
+  assert.equal(vm.items.map((item: { id: string }) => item.id).join(','), 'one,two,three')
   await vm.refresh(true)
-  assert.equal(vm.items.map((item: any) => item.id).join(','), 'new,one')
+  assert.equal(vm.items.map((item: { id: string }) => item.id).join(','), 'new,one')
   assert.equal(vm.hasNew, false)
   assert.equal(vm.nextCursor, 'older')
 })
@@ -106,7 +106,7 @@ test('a response from a previous workspace cannot repopulate the notification pa
   await flush()
   first.resolve(page([notice('workspace-one')]))
   await old
-  assert.equal(vm.items.map((item: any) => item.id).join(','), 'workspace-two')
+  assert.equal(vm.items.map((item: { id: string }) => item.id).join(','), 'workspace-two')
   assert.equal(vm.pending.length, 0)
 })
 
@@ -134,7 +134,7 @@ test('banners skip the initial backlog, deduplicate polls, and prioritize new ap
     pending: [approval, { ...approval, id: 'new-approval' }],
   })
   await vm.refresh()
-  assert.deepEqual(Array.from(vm.banners, (banner: any) => banner.key),
+  assert.deepEqual(Array.from(vm.banners, (banner: { key: string }) => banner.key),
     ['pending:new-approval', 'result:new-1', 'result:new-2'])
   assert.equal(vm.banners[0].type, 'pending')
   await vm.refresh()

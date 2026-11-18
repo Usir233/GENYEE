@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { searchTenants, type TenantInfo } from '@/api/tenant'
 import { useI18n } from 'vue-i18n'
@@ -469,21 +469,27 @@ onUnmounted(() => {
   max-height: 280px;
   overflow-y: auto;
   padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 2px;
+    &::-webkit-scrollbar-track {
+      background: var(--gy-scrollbar-track);
+    }
 
-    &:hover {
-      background: var(--td-bg-color-component-disabled);
+    &::-webkit-scrollbar-thumb {
+      background: var(--gy-scrollbar-thumb);
+      border-radius: var(--gy-radius-xs);
+
+      &:hover {
+        background: var(--gy-scrollbar-thumb-hover);
+      }
     }
   }
 }

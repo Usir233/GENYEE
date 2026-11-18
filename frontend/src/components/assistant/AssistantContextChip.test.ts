@@ -10,29 +10,50 @@ const source = readFileSync(new URL('./AssistantContextChip.vue', import.meta.ur
 const { descriptor } = parse(source)
 const script = compileScript(descriptor, { id: 'context-chip-test' }).content
 
+interface PageContextDraft {
+  agentId?: string
+  agentName?: string
+  knowledgeBaseId?: string
+  knowledgeBaseName?: string
+  knowledgeTitle?: string
+  knowledgeId?: string
+  page?: string
+  modelId?: string
+  modelName?: string
+  mcpServiceId?: string
+  chatSessionId?: string
+  messageId?: string
+}
+
+interface CompiledChip {
+  setup: (props: Record<string, never>, ctx: { expose: () => void }) => { segments: { value: Iterable<string> } }
+}
+
 test('agent breadcrumb uses its name and falls back to the id', () => {
-  const assistant = vue.reactive({
-    pageContext: { agentId: 'agent-a', agentName: 'Agent A' } as any, contextAttached: true,
+  const assistant = vue.reactive<{ pageContext: PageContextDraft | null; contextAttached: boolean }>({
+    pageContext: { agentId: 'agent-a', agentName: 'Agent A' }, contextAttached: true,
   })
   const dependencies: Record<string, unknown> = {
     vue, 'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
     '@/stores/assistant': { useAssistantStore: () => assistant },
   }
-  const exports: any = {}
+  const exports: { default?: CompiledChip } = {}
   runInNewContext(ts.transpileModule(script, {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, { exports, require: (name: string) => dependencies[name] })
-  const state = exports.default.setup({}, { expose() {} })
+  const state = exports.default!.setup({}, { expose() {} })
   assert.deepEqual(Array.from(state.segments.value), ['Agent A'])
-  assistant.pageContext.agentName = ''
+  assistant.pageContext!.agentName = ''
   assert.deepEqual(Array.from(state.segments.value), ['agent-a'])
   assistant.pageContext = { knowledgeBaseId: 'kb', knowledgeBaseName: 'KB', knowledgeTitle: 'Doc', knowledgeId: 'doc' }
   assert.deepEqual(Array.from(state.segments.value), ['KB', 'Doc'])
 })
 
 test('settings and chat breadcrumbs name the page and the open resource', () => {
-  const assistant = vue.reactive({ pageContext: { page: 'settings_models' } as any, contextAttached: true })
-  const exports: any = {}
+  const assistant = vue.reactive<{ pageContext: PageContextDraft | null; contextAttached: boolean }>({
+    pageContext: { page: 'settings_models' }, contextAttached: true,
+  })
+  const exports: { default?: CompiledChip } = {}
   runInNewContext(ts.transpileModule(script, {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, {
@@ -42,7 +63,7 @@ test('settings and chat breadcrumbs name the page and the open resource', () => 
       '@/stores/assistant': { useAssistantStore: () => assistant },
     } as Record<string, unknown>)[name],
   })
-  const state = exports.default.setup({}, { expose() {} })
+  const state = exports.default!.setup({}, { expose() {} })
   assert.deepEqual(Array.from(state.segments.value), ['assistant.context.pages.settings_models'])
   assistant.pageContext = { page: 'settings_models', modelId: 'm-1', modelName: 'Qwen' }
   assert.deepEqual(Array.from(state.segments.value), ['assistant.context.pages.settings_models', 'Qwen'])
@@ -55,11 +76,11 @@ test('settings and chat breadcrumbs name the page and the open resource', () => 
 })
 
 test('a dialog open over the page shows under the page', () => {
-  const assistant = vue.reactive({
-    pageContext: { knowledgeBaseId: 'kb', knowledgeBaseName: 'KB', knowledgeTitle: 'Doc', knowledgeId: 'doc' } as any,
+  const assistant = vue.reactive<{ pageContext: PageContextDraft | null; pageView: string; contextAttached: boolean }>({
+    pageContext: { knowledgeBaseId: 'kb', knowledgeBaseName: 'KB', knowledgeTitle: 'Doc', knowledgeId: 'doc' },
     pageView: 'Edit Markdown', contextAttached: true,
   })
-  const exports: any = {}
+  const exports: { default?: CompiledChip } = {}
   runInNewContext(ts.transpileModule(script, {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, {
@@ -69,7 +90,7 @@ test('a dialog open over the page shows under the page', () => {
       '@/stores/assistant': { useAssistantStore: () => assistant },
     } as Record<string, unknown>)[name],
   })
-  const state = exports.default.setup({}, { expose() {} })
+  const state = exports.default!.setup({}, { expose() {} })
   assert.deepEqual(Array.from(state.segments.value), ['KB', 'Edit Markdown'])
   assistant.pageContext = null
   assert.deepEqual(Array.from(state.segments.value), ['Edit Markdown'], 'a dialog alone is enough')
@@ -78,10 +99,10 @@ test('a dialog open over the page shows under the page', () => {
 })
 
 test('a page that publishes nothing shows its route title', () => {
-  const assistant = vue.reactive({
-    pageContext: null as any, pageTitle: 'Toolbox / Skills', pageView: '', contextAttached: true,
+  const assistant = vue.reactive<{ pageContext: PageContextDraft | null; pageTitle: string; pageView: string; contextAttached: boolean }>({
+    pageContext: null, pageTitle: 'Toolbox / Skills', pageView: '', contextAttached: true,
   })
-  const exports: any = {}
+  const exports: { default?: CompiledChip } = {}
   runInNewContext(ts.transpileModule(script, {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, {
@@ -91,7 +112,7 @@ test('a page that publishes nothing shows its route title', () => {
       '@/stores/assistant': { useAssistantStore: () => assistant },
     } as Record<string, unknown>)[name],
   })
-  const state = exports.default.setup({}, { expose() {} })
+  const state = exports.default!.setup({}, { expose() {} })
   assert.deepEqual(Array.from(state.segments.value), ['Toolbox', 'Skills'])
   assistant.pageTitle = 'Agents'
   assistant.pageView = 'Agents / Tools'

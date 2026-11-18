@@ -7,7 +7,7 @@ import { compileScript, parse } from '@vue/compiler-sfc'
 import { DOMParser } from '@xmldom/xmldom'
 import ts from 'typescript'
 import * as vue from 'vue'
-import { createSSRApp } from 'vue'
+import { createSSRApp, type Component } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import * as security from '../utils/security.ts'
 
@@ -17,7 +17,7 @@ function readComponent(relPath: string): string {
   return readFileSync(new URL(relPath, import.meta.url), 'utf8')
 }
 
-function compileSfcComponent(relPath: string, customRequire: (id: string) => any) {
+function compileSfcComponent(relPath: string, customRequire: (id: string) => unknown): Component {
   const source = readComponent(relPath)
   const { descriptor } = parse(source, { filename: relPath })
   const compiled = compileScript(descriptor, {
@@ -27,7 +27,7 @@ function compileSfcComponent(relPath: string, customRequire: (id: string) => any
   const js = ts.transpileModule(compiled.content, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  const exports: any = {}
+  const exports: { default?: Component } = {}
   vm.runInNewContext(js, {
     exports,
     console: { error: () => {}, warn: () => {} },
@@ -43,6 +43,7 @@ function compileSfcComponent(relPath: string, customRequire: (id: string) => any
     localStorage: { getItem: () => null, setItem: () => {} },
     require: customRequire,
   })
+  assert.ok(exports.default, `Failed to load default export for ${relPath}`)
   return exports.default
 }
 
@@ -133,7 +134,12 @@ test('ChatReferencesDrawer blocks unsafe web item hrefs and never loads external
   })
 
   const app = createSSRApp({ render: () => vue.h(Comp, { embeddedMode: true }) })
-  app.component('t-icon', { props: ['name'], setup(p: any) { return () => vue.h('i', { 'data-icon': p.name }) } })
+  app.component('t-icon', {
+    props: ['name'],
+    setup(p: Record<string, unknown>) {
+      return () => vue.h('i', { 'data-icon': p.name })
+    },
+  })
   const ctx: { teleports?: Record<string, string> } = {}
   const main = await renderToString(app, ctx)
   const html = main + (ctx.teleports?.body || '')
@@ -143,21 +149,26 @@ test('ChatReferencesDrawer blocks unsafe web item hrefs and never loads external
   assert.match(html, /href="https:\/\/internal\.corp\.local\/wiki"/)
 })
 
-test('doc-content escapes HTML in Mermaid/code blocks, adds noopener on source link, and guards audio blob races', () => {
-  const src = readComponent('./doc-content.vue')
+test('DocContent escapes HTML in Mermaid/code blocks, adds noopener on source link, and guards audio blob races', () => {
+  const docContentSrc = readComponent('./DocContent.vue')
+  const pipelineSrc = readComponent('./doc-content/useChunkMarkdownPipeline.ts')
+  const headerSrc = readComponent('./doc-content/DocSummaryMetadataHeader.vue')
+  const combinedSrc = `${docContentSrc}\n${pipelineSrc}\n${headerSrc}`
+
   assert.doesNotMatch(
-    src,
+    combinedSrc,
     /return `<div class="mermaid" id="\$\{id\}">\$\{text\}<\/div>`/,
     'Mermaid block must HTML-escape raw diagram text so </div> cannot break out of container',
   )
-  assert.doesNotMatch(src, /javascript:void\(0\)/, 'source link must not fall back to javascript:void(0)')
-  const urlSection = src.slice(src.lastIndexOf("details.type === 'url'"), src.lastIndexOf('showSummarySection'))
+  assert.match(pipelineSrc, /escapeCodeHtml\(/, 'Mermaid/code renderer must HTML-escape diagram text')
+  assert.doesNotMatch(combinedSrc, /javascript:void\(0\)/, 'source link must not fall back to javascript:void(0)')
+  const urlSection = headerSrc.slice(headerSrc.lastIndexOf("details.type === 'url'"), headerSrc.lastIndexOf('showSummarySection'))
   assert.match(urlSection, /rel="noopener noreferrer"/)
-  assert.match(src, /audioLoadSeq/, 'loadAudioPreview must guard against stale document switches and unmount')
+  assert.match(docContentSrc, /audioLoadSeq/, 'loadAudioPreview must guard against stale document switches and unmount')
 })
 
-test('document-preview sanitizes rendered DOCX DOM nodes and escapes Excel sheet names', () => {
-  const src = readComponent('./document-preview.vue')
+test('DocumentPreview sanitizes rendered DOCX DOM nodes and escapes Excel sheet names', () => {
+  const src = readComponent('./DocumentPreview.vue')
   assert.match(src, /sanitizeRenderedDocxDom\(rendered\)/, 'renderDocx must sanitize rendered DOM before replaceChildren')
   assert.doesNotMatch(
     src,
@@ -166,9 +177,18 @@ test('document-preview sanitizes rendered DOCX DOM nodes and escapes Excel sheet
   )
 })
 
+interface MockRenderNode {
+  tag: string
+  text: string
+  props: Record<string, unknown>
+  children: MockRenderNode[]
+  parent: MockRenderNode | null
+  getBoundingClientRect: () => { right: number }
+}
+
 test('SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and ignores stale file responses', async () => {
-  const pendingFiles: Array<{ path: string; resolve: (v: any) => void }> = []
-  let listItems: Array<{ path: string }> = [{ path: 'a.md' }, { path: 'b.svg' }]
+  const pendingFiles: Array<{ path: string; resolve: (v: unknown) => void }> = []
+  const listItems: Array<{ path: string }> = [{ path: 'a.md' }, { path: 'b.svg' }]
 
   const Comp = compileSfcComponent('./SkillFilesPanel.vue', (id) => {
     if (id === 'vue') return vue
@@ -198,42 +218,42 @@ test('SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and
     throw new Error(`Unexpected import: ${id}`)
   })
 
-  // Custom DOMParser global so sanitizeSvgForDataUrl runs in Node
-  const prevDOMParser = (globalThis as any).DOMParser
-  ;(globalThis as any).DOMParser = DOMParser
+  const globalRecord = globalThis as Record<string, unknown>
+  const prevDOMParser = globalRecord.DOMParser
+  globalRecord.DOMParser = DOMParser
   try {
-    let instance: any
+    let instance: unknown
     const Wrapper = vue.defineComponent({
       setup() {
         return () => vue.h(Comp, {
           catalogId: 'cat-1',
           drawerWidth: 720,
-          ref: (el: any) => { instance = el },
+          ref: (el: unknown) => { instance = el },
         })
       },
     })
-    const makeNode = (tag: string, text = '') => vue.markRaw({
+    const makeNode = (tag: string, text = ''): MockRenderNode => vue.markRaw({
       tag,
       text,
-      props: {} as Record<string, any>,
-      children: [] as any[],
-      parent: null as any,
+      props: {},
+      children: [],
+      parent: null,
       getBoundingClientRect: () => ({ right: 220 }),
     })
     const root = makeNode('root')
-    const renderer = vue.createRenderer<any, any>({
+    const renderer = vue.createRenderer<MockRenderNode, MockRenderNode>({
       createElement: (tag) => makeNode(tag),
       createText: (text) => makeNode('#text', text),
       createComment: () => makeNode('#comment'),
       insert: (child, parent, anchor) => {
-        if (child.parent) child.parent.children = child.parent.children.filter((c: any) => c !== child)
+        if (child.parent) child.parent.children = child.parent.children.filter((c) => c !== child)
         child.parent = parent
         const idx = anchor ? parent.children.indexOf(anchor) : -1
         if (idx < 0) parent.children.push(child)
         else parent.children.splice(idx, 0, child)
       },
       remove: (child) => {
-        if (child.parent) child.parent.children = child.parent.children.filter((c: any) => c !== child)
+        if (child.parent) child.parent.children = child.parent.children.filter((c) => c !== child)
         child.parent = null
       },
       setElementText: (el, text) => { el.text = text; el.children = [] },
@@ -245,28 +265,31 @@ test('SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and
     })
     const app = renderer.createApp(Wrapper)
     app.config.globalProperties.$t = (k: string) => k
-    app.component('t-loading', { props: ['loading', 'size'], setup(_p: any, { slots }: any) { return () => vue.h('div', slots.default?.()) } })
+    app.component('t-loading', {
+      props: ['loading', 'size'],
+      setup(_p: Record<string, unknown>, ctx: vue.SetupContext) {
+        return () => vue.h('div', ctx.slots.default?.())
+      },
+    })
     app.component('t-icon', { props: ['name', 'size'], render: () => null })
     app.mount(root)
     await new Promise((r) => setImmediate(r))
 
-    // Initial selectFile('a.md') is pending in pendingFiles[0]
     assert.equal(pendingFiles.length, 1)
     assert.equal(pendingFiles[0].path, 'a.md')
 
-    // User clicks 'b.svg' BEFORE 'a.md' finishes: locate button for b.svg and click it
-    const findButtons = (node: any, out: any[] = []): any[] => {
+    const findButtons = (node: MockRenderNode, out: MockRenderNode[] = []): MockRenderNode[] => {
       if (node.tag === 'button') out.push(node)
       for (const c of node.children || []) findButtons(c, out)
       return out
     }
     const bBtn = findButtons(root).find((b) => b.props?.title === 'b.svg')
     assert.ok(bBtn, 'expected b.svg tree button')
-    bBtn.props.onClick()
+    const onClick = bBtn.props.onClick as () => void
+    onClick()
     await vue.nextTick()
     assert.equal(pendingFiles.length, 2)
 
-    // b.svg resolves FIRST with an SVG containing <script>alert(1)</script>
     const maliciousSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><script>alert(1)</script><rect width="10" height="10"/></svg>'
     pendingFiles[1].resolve({
       data: {
@@ -278,7 +301,6 @@ test('SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and
     await new Promise((r) => setImmediate(r))
     await vue.nextTick()
 
-    // Late resolution of 'a.md' MUST BE IGNORED so b.svg stays displayed!
     pendingFiles[0].resolve({
       data: {
         encoding: 'utf-8',
@@ -288,7 +310,7 @@ test('SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and
     await new Promise((r) => setImmediate(r))
     await vue.nextTick()
 
-    const findImgs = (node: any, out: any[] = []): any[] => {
+    const findImgs = (node: MockRenderNode, out: MockRenderNode[] = []): MockRenderNode[] => {
       if (node.tag === 'img') out.push(node)
       for (const c of node.children || []) findImgs(c, out)
       return out
@@ -301,7 +323,7 @@ test('SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and
     void instance
     app.unmount()
   } finally {
-    ;(globalThis as any).DOMParser = prevDOMParser
+    globalRecord.DOMParser = prevDOMParser
   }
 })
 

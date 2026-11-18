@@ -26,26 +26,38 @@ export function notifySessionMutation(detail: SessionMutationDetail): void {
   window.dispatchEvent(new CustomEvent<SessionMutationDetail>(SESSION_MUTATION_EVENT, { detail }))
 }
 
-function ensureSuccess(response: any): any {
+interface SessionMutationApiResponse<T = Record<string, unknown>> {
+  success?: boolean
+  message?: string
+  data?: T
+}
+
+function ensureSuccess<T = Record<string, unknown>>(
+  response: SessionMutationApiResponse<T> | null | undefined,
+): SessionMutationApiResponse<T> & { success: true } {
   if (!response?.success) {
     throw new Error(response?.message || 'session mutation failed')
   }
-  return response
+  return response as SessionMutationApiResponse<T> & { success: true }
 }
 
 export async function renameSession(
   sessionId: string,
   title: string,
   description = '',
-): Promise<any> {
-  const response = ensureSuccess(await updateSession(sessionId, { title, description }))
+): Promise<Record<string, unknown> | undefined> {
+  const response = ensureSuccess<{ title?: string } & Record<string, unknown>>(
+    (await updateSession(sessionId, { title, description })) as SessionMutationApiResponse<{ title?: string } & Record<string, unknown>>,
+  )
   const nextTitle = response.data?.title || title
   notifySessionMutation({ sessionId, patch: { title: nextTitle } })
   return response.data
 }
 
 export async function setSessionPinned(sessionId: string, pinned: boolean): Promise<void> {
-  const response = ensureSuccess(pinned ? await pinSession(sessionId) : await unpinSession(sessionId))
+  ensureSuccess(
+    (pinned ? await pinSession(sessionId) : await unpinSession(sessionId)) as SessionMutationApiResponse,
+  )
   notifySessionMutation({
     sessionId,
     patch: {
@@ -56,11 +68,11 @@ export async function setSessionPinned(sessionId: string, pinned: boolean): Prom
 }
 
 export async function clearSession(sessionId: string): Promise<void> {
-  ensureSuccess(await clearSessionMessages(sessionId))
+  ensureSuccess((await clearSessionMessages(sessionId)) as SessionMutationApiResponse)
   notifySessionMutation({ sessionId, messagesCleared: true })
 }
 
 export async function removeSession(sessionId: string): Promise<void> {
-  ensureSuccess(await delSession(sessionId))
+  ensureSuccess((await delSession(sessionId)) as SessionMutationApiResponse)
   notifySessionMutation({ sessionId, removed: true })
 }

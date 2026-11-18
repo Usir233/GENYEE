@@ -2,28 +2,32 @@
 .chat-scrollbar() {
     scrollbar-gutter: stable;
     scrollbar-width: thin;
-    scrollbar-color: var(--td-component-stroke) transparent;
+    scrollbar-color: var(--td-component-stroke) var(--gy-scrollbar-track);
 
     &:hover,
     &:focus-within {
-        scrollbar-color: var(--td-scrollbar-color) transparent;
+        scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
     }
 
-    &::-webkit-scrollbar {
-        width: 6px;
-    }
+    @supports not (scrollbar-color: auto) {
+        scrollbar-width: auto;
 
-    &::-webkit-scrollbar-track {
-        background: transparent;
-    }
+        &::-webkit-scrollbar {
+            width: 6px;
+        }
 
-    &::-webkit-scrollbar-thumb {
-        border-radius: var(--app-radius-sm);
-        background: var(--td-component-stroke);
-    }
+        &::-webkit-scrollbar-track {
+            background: var(--gy-scrollbar-track);
+        }
 
-    &:hover::-webkit-scrollbar-thumb,
-    &:focus-within::-webkit-scrollbar-thumb {
-        background: var(--td-scrollbar-color);
+        &::-webkit-scrollbar-thumb {
+            border-radius: var(--gy-radius-sm);
+            background: var(--td-component-stroke);
+        }
+
+        &:hover::-webkit-scrollbar-thumb,
+        &:focus-within::-webkit-scrollbar-thumb {
+            background: var(--gy-scrollbar-thumb);
+        }
     }
 }

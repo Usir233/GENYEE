@@ -32,6 +32,10 @@ function assistantName(t: Composer['t']): string {
   return useAssistantStore().displayName || t('assistant.title')
 }
 
+function splitKeywords(raw: string, ...extra: string[]): string[] {
+  return [...raw.split(',').map((s) => s.trim()), ...extra.map((s) => s.trim())].filter(Boolean)
+}
+
 /**
  * Build the flat command list. Commands are intentionally static — dynamic
  * entities (KBs / agents / sessions) live in their own result groups.
@@ -43,7 +47,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'open-assistant',
       label: t('commandPalette.quick.assistant', { name: assistantName(t) }),
       icon: 'assistant',
-      keywords: ['assistant', 'help', 'genyee', 'kora', '助手', '帮助', 'ассистент', useAssistantStore().displayName].filter(Boolean),
+      keywords: splitKeywords(t('commandPalette.keywords.assistant'), useAssistantStore().displayName),
       run: () => {
         close()
         useAssistantStore().open()
@@ -53,7 +57,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'new-chat',
       label: t('commandPalette.quick.newChat'),
       icon: 'chat-add',
-      keywords: ['new', 'chat', 'conversation', '新建', '对话', 'создать'],
+      keywords: splitKeywords(t('commandPalette.keywords.newChat')),
       run: () => {
         close()
         // 当前已在新对话页时重复点击命令不会触发路由守卫。
@@ -65,7 +69,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'open-kb-list',
       label: t('commandPalette.quick.knowledgeBases'),
       icon: 'folder',
-      keywords: ['kb', 'knowledge', 'base', '知识库', '文档'],
+      keywords: splitKeywords(t('commandPalette.keywords.knowledgeBases')),
       run: () => {
         close()
         router.push('/platform/knowledge-bases')
@@ -75,7 +79,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'open-agents',
       label: t('commandPalette.quick.agents'),
       icon: 'user-circle',
-      keywords: ['agent', 'bot', '智能体', '助手'],
+      keywords: splitKeywords(t('commandPalette.keywords.agents')),
       run: () => {
         close()
         router.push('/platform/agents')
@@ -85,7 +89,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'open-organizations',
       label: t('commandPalette.quick.organizations'),
       icon: 'usergroup',
-      keywords: ['org', 'organization', 'team', 'space', '组织', '共享'],
+      keywords: splitKeywords(t('commandPalette.keywords.organizations')),
       run: () => {
         close()
         router.push('/platform/organizations')
@@ -95,7 +99,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'open-settings',
       label: t('commandPalette.quick.settings'),
       icon: 'setting',
-      keywords: ['settings', 'preferences', 'config', '设置', '配置'],
+      keywords: splitKeywords(t('commandPalette.keywords.settings')),
       run: () => {
         close()
         router.push('/platform/settings')
@@ -105,7 +109,7 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       id: 'open-product-tour',
       label: t('commandPalette.quick.productTour'),
       icon: 'help-circle',
-      keywords: ['guide', 'tour', 'onboarding', 'help', '引导', '新手', '教程'],
+      keywords: splitKeywords(t('commandPalette.keywords.productTour')),
       run: () => {
         close()
         openNewUserGuide()

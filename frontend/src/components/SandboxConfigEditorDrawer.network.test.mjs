@@ -1,38 +1,55 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import {
+  denyOutRowCoversAllIPv4,
+  isStoredNetworkSecretRecoverable,
+  useSandboxNetworkRules,
+} from './sandbox-config/useSandboxNetworkRules.ts'
 
-const source = readFileSync(
-  new URL('./SandboxConfigEditorDrawer.vue', import.meta.url), 'utf8')
+const drawerSource = readFileSync(
+  new URL('./SandboxConfigEditorDrawer.vue', import.meta.url),
+  'utf8',
+)
+const networkEditorSource = readFileSync(
+  new URL('./sandbox-config/SandboxNetworkPolicyEditor.vue', import.meta.url),
+  'utf8',
+)
+const networkRulesSource = readFileSync(
+  new URL('./sandbox-config/useSandboxNetworkRules.ts', import.meta.url),
+  'utf8',
+)
 
 test('network policy lives in the runtime step, right below the runtime config', () => {
-  const runtimeSections = source.indexOf("currentStepKey === 'runtime'")
-  const networkSection = source.indexOf('settings.sandbox.sectionNetwork')
-  const envSection = source.indexOf('settings.sandbox.sectionEnvironment')
+  const runtimeSections = drawerSource.indexOf("currentStepKey === 'runtime'")
+  const networkSection = drawerSource.indexOf('<SandboxNetworkPolicyEditor')
+  const envSection = drawerSource.indexOf('settings.sandbox.sectionEnvironment')
 
   assert.ok(runtimeSections !== -1, 'runtime step must exist')
-  assert.ok(networkSection !== -1, 'network policy section must exist')
+  assert.ok(networkSection !== -1, 'network policy component must exist in runtime step')
+  assert.ok(
+    networkEditorSource.includes('settings.sandbox.sectionNetwork'),
+    'network policy section heading must exist',
+  )
   assert.ok(
     networkSection > runtimeSections && networkSection < envSection,
     'network policy must sit between the runtime config and the env vars',
   )
   assert.ok(
-    !source.includes("currentStepKey === 'network'"),
+    !drawerSource.includes("currentStepKey === 'network'"),
     'network policy must not become a fourth wizard step',
   )
 })
 
 test('runtime numbers are laid out two per row with per-field tips', () => {
-  const runtimeBlock = source.slice(
-    source.indexOf('settings.sandbox.sectionRuntime'),
-    source.indexOf('settings.sandbox.sectionNetwork'),
+  const runtimeBlock = drawerSource.slice(
+    drawerSource.indexOf('settings.sandbox.sectionRuntime'),
+    drawerSource.indexOf('<SandboxNetworkPolicyEditor'),
   )
   assert.ok(
     runtimeBlock.includes('form-grid form-grid--two'),
     'timeouts must be compressed into the two-column grid',
   )
-  // Each number keeps its own sentence; the previous layout put those in
-  // block paragraphs, which is what made the step so tall.
   assert.ok(
     runtimeBlock.includes(":tips=\"$t('settings.sandbox.httpTimeoutHelp')\""),
     'http timeout keeps its own explanation, now inline',
@@ -54,14 +71,13 @@ test('runtime numbers are laid out two per row with per-field tips', () => {
 })
 
 test('docker network mode moved into the network policy section', () => {
-  const networkBlock = source.slice(source.indexOf('settings.sandbox.sectionNetwork'))
   assert.ok(
-    networkBlock.includes('settings.sandbox.dockerNetworkMode'),
+    networkEditorSource.includes('settings.sandbox.dockerNetworkMode'),
     'the docker bridge/none selector belongs with the other network controls',
   )
-  const runtimeBlock = source.slice(
-    source.indexOf('settings.sandbox.sectionRuntime'),
-    source.indexOf('settings.sandbox.sectionNetwork'),
+  const runtimeBlock = drawerSource.slice(
+    drawerSource.indexOf('settings.sandbox.sectionRuntime'),
+    drawerSource.indexOf('<SandboxNetworkPolicyEditor'),
   )
   assert.ok(
     !runtimeBlock.includes('settings.sandbox.dockerNetworkMode'),
@@ -70,19 +86,20 @@ test('docker network mode moved into the network policy section', () => {
 })
 
 test('inbound is always credential-required and never shown', () => {
-  assert.doesNotMatch(
-    source,
-    /settings\.sandbox\.inboundAccess/,
-    'the inbound radio must not appear in the form',
-  )
-  assert.doesNotMatch(
-    source,
-    /allowPublicInbound/,
-    'the form must not keep a public-inbound control',
-  )
-  const payloadBlock = source.slice(
-    source.indexOf('function collectNetworkPolicy'),
-    source.indexOf('function close'),
+  for (const src of [drawerSource, networkEditorSource, networkRulesSource]) {
+    assert.doesNotMatch(
+      src,
+      /settings\.sandbox\.inboundAccess/,
+      'the inbound radio must not appear in the form',
+    )
+    assert.doesNotMatch(
+      src,
+      /allowPublicInbound/,
+      'the form must not keep a public-inbound control',
+    )
+  }
+  const payloadBlock = networkRulesSource.slice(
+    networkRulesSource.indexOf('function collectNetworkPolicy'),
   )
   assert.doesNotMatch(
     payloadBlock,
@@ -90,25 +107,24 @@ test('inbound is always credential-required and never shown', () => {
     'saves must omit allow_public_inbound so the zero value (require credentials) is stored',
   )
   assert.match(
-    source,
+    networkRulesSource,
     /const denyEgressByDefault = ref\(false\)/,
     'egress allowed is the default',
   )
 })
 
 test('injected header values are password inputs and survive an untouched edit', () => {
-  const payloadBlock = source.slice(
-    source.indexOf('function collectNetworkPolicy'),
-    source.indexOf('function close'),
+  const payloadBlock = networkRulesSource.slice(
+    networkRulesSource.indexOf('function collectNetworkPolicy'),
   )
-  const templateBlock = source.slice(0, source.indexOf('<script setup'))
+  const templateBlock = networkEditorSource.slice(0, networkEditorSource.indexOf('<script setup'))
   assert.match(
-    source,
+    networkEditorSource,
     /<t-input v-model="inject\.secret" type="password"/,
     'Cube injected credentials must not be rendered in clear text',
   )
   assert.match(
-    source,
+    networkEditorSource,
     /<t-input v-model="header\.value" type="password"/,
     'E2B injected credentials must not be rendered in clear text',
   )
@@ -135,40 +151,27 @@ test('injected header values are password inputs and survive an untouched edit',
 })
 
 test('stored network secret recoverability requires the loaded identity', () => {
-  const helper = source.match(
-    /function isStoredNetworkSecretRecoverable\([\s\S]*?\): boolean \{\n([\s\S]*?)\n\}/,
-  )
-  assert.ok(helper, 'the shared recoverability helper must exist')
-  const isRecoverable = new Function(
-    'row',
-    'originalParentIdentity',
-    'originalChildIdentity',
-    'currentParentIdentity',
-    'currentChildIdentity',
-    helper[1],
-  )
   const storedRow = { stored: true }
-
   assert.equal(
-    isRecoverable(storedRow, 'rule-a', 'Authorization', 'rule-a', 'Authorization'),
+    isStoredNetworkSecretRecoverable(storedRow, 'rule-a', 'Authorization', 'rule-a', 'Authorization'),
     true,
     'a stored row under its loaded identity keeps the placeholder',
   )
   assert.equal(
-    isRecoverable(storedRow, 'rule-a', 'Authorization', 'rule-b', 'Authorization'),
+    isStoredNetworkSecretRecoverable(storedRow, 'rule-a', 'Authorization', 'rule-b', 'Authorization'),
     false,
     'a renamed row must request a new value',
   )
 })
 
 test('domain allow without deny-all is warned about in place', () => {
-  const classifierBlock = source.slice(
-    source.indexOf('const domainAllowNeedsDenyAll'),
-    source.indexOf('const inFlightFromSkills'),
+  const classifierBlock = networkRulesSource.slice(
+    networkRulesSource.indexOf('const domainAllowNeedsDenyAll'),
+    networkRulesSource.indexOf('function resetNetworkAndEnv'),
   )
   assert.match(
-    source,
-    /<t-alert v-if="domainAllowNeedsDenyAll"[\s\S]*?:message="\$t\('settings\.sandbox\.domainAllowNeedsDenyAll'\)"/,
+    networkEditorSource,
+    /<t-alert[\s\S]*?v-if="domainAllowNeedsDenyAll"[\s\S]*?:message="\$t\('settings\.sandbox\.domainAllowNeedsDenyAll'\)"/,
     'the in-place warning alert must remain rendered',
   )
   assert.match(
@@ -182,31 +185,20 @@ test('domain allow without deny-all is warned about in place', () => {
     'an explicit deny-all row must suppress the warning',
   )
   assert.match(
-    source,
-    /function denyOutRowCoversAllIPv4\(row: string\): boolean \{[\s\S]*\\\/0\$/,
-    'any IPv4 /0 CIDR must count as deny-all, matching the backend validator',
-  )
-  assert.match(
     classifierBlock,
     /return !\/\^\[0-9\.\/\]\+\$\/\.test\(value\)/,
     'only non-IP/CIDR allow rows must trigger the warning',
   )
 
-  const helper = source.match(
-    /function denyOutRowCoversAllIPv4\(row: string\): boolean \{\n([\s\S]*?)\n\}/,
-  )
-  assert.ok(helper, 'the deny-all classifier must exist')
-  const coversAll = new Function('row', helper[1])
-  assert.equal(coversAll('0.0.0.0/0'), true)
-  assert.equal(coversAll('  1.2.3.4/0  '), true)
-  assert.equal(coversAll('10.0.0.0/8'), false)
-  assert.equal(coversAll('0.0.0.0/32'), false)
+  assert.equal(denyOutRowCoversAllIPv4('0.0.0.0/0'), true)
+  assert.equal(denyOutRowCoversAllIPv4('  1.2.3.4/0  '), true)
+  assert.equal(denyOutRowCoversAllIPv4('10.0.0.0/8'), false)
+  assert.equal(denyOutRowCoversAllIPv4('0.0.0.0/32'), false)
 })
 
 test('docker payload omits hidden allow and deny lists', () => {
-  const payloadBlock = source.slice(
-    source.indexOf('function collectNetworkPolicy'),
-    source.indexOf('function close'),
+  const payloadBlock = networkRulesSource.slice(
+    networkRulesSource.indexOf('function collectNetworkPolicy'),
   )
   assert.match(
     payloadBlock,
@@ -221,19 +213,15 @@ test('docker payload omits hidden allow and deny lists', () => {
 })
 
 test('docker hides egress radios that it cannot honour', () => {
-  const networkBlock = source.slice(
-    source.indexOf('settings.sandbox.sectionNetwork'),
-    source.indexOf('settings.sandbox.sectionEnvironment'),
-  )
   assert.match(
-    networkBlock,
+    networkEditorSource,
     /v-if="backend !== 'docker'"[\s\S]*settings\.sandbox\.egressDefault/,
     'egress radios must not render for Docker',
   )
 })
 
 test('cube L7 rules collapse to a name bar', () => {
-  const templateBlock = source.slice(0, source.indexOf('<script setup'))
+  const templateBlock = networkEditorSource.slice(0, networkEditorSource.indexOf('<script setup'))
   const cubeBlock = templateBlock.slice(templateBlock.indexOf('settings.sandbox.cubeL7Rules'))
   const e2bBlock = cubeBlock.slice(cubeBlock.indexOf('settings.sandbox.e2bHostRules'))
   const cubeRulesBlock = cubeBlock.slice(0, cubeBlock.indexOf('settings.sandbox.e2bHostRules'))
@@ -259,7 +247,7 @@ test('cube L7 rules collapse to a name bar', () => {
     'rule details must stay hidden until the bar is expanded',
   )
   assert.equal(
-    cubeRulesBlock.includes("settings.sandbox.removeRule"),
+    cubeRulesBlock.includes('settings.sandbox.removeRule'),
     false,
     'the expanded body must not grow with a second delete control',
   )
@@ -279,7 +267,7 @@ test('cube L7 rules collapse to a name bar', () => {
     'E2B rule details must stay hidden until the bar is expanded',
   )
   assert.equal(
-    e2bBlock.includes("settings.sandbox.removeRule"),
+    e2bBlock.includes('settings.sandbox.removeRule'),
     false,
     'E2B expanded body must not grow with a second delete control',
   )
@@ -299,63 +287,40 @@ test('cube L7 rules collapse to a name bar', () => {
     'the name bar must offer move-down',
   )
 
-  const mover = source.match(
-    /function moveCubeRule\(index: number, delta: number\) \{\n([\s\S]*?)\n\}/,
-  )
-  assert.ok(mover, 'moveCubeRule must exist')
-  const move = new Function('cubeRules', 'index', 'delta', `${mover[1]}`)
-  const rules = [{ key: 'a' }, { key: 'b' }, { key: 'c' }]
-  move({ value: rules }, 2, -1)
-  assert.deepEqual(rules.map((row) => row.key), ['a', 'c', 'b'])
-  move({ value: rules }, 0, -1)
-  assert.deepEqual(rules.map((row) => row.key), ['a', 'c', 'b'], 'the first row cannot move up')
-  move({ value: rules }, 2, 1)
-  assert.deepEqual(rules.map((row) => row.key), ['a', 'c', 'b'], 'the last row cannot move down')
+  const state = useSandboxNetworkRules({ value: 'cube' })
+  state.addCubeRule()
+  state.cubeRules.value[0].name = 'a'
+  state.addCubeRule()
+  state.cubeRules.value[1].name = 'b'
+  assert.equal(state.cubeRules.value[0].expanded, false, 'adding a Cube rule collapses previous rules')
+  assert.equal(state.cubeRules.value[1].expanded, true, 'newly added Cube rule stays open')
+  state.addCubeRule()
+  state.cubeRules.value[2].name = 'c'
+  state.moveCubeRule(2, -1)
+  assert.deepEqual(state.cubeRules.value.map((row) => row.name), ['a', 'c', 'b'])
+  state.moveCubeRule(0, -1)
+  assert.deepEqual(state.cubeRules.value.map((row) => row.name), ['a', 'c', 'b'], 'the first row cannot move up')
+  state.moveCubeRule(2, 1)
+  assert.deepEqual(state.cubeRules.value.map((row) => row.name), ['a', 'c', 'b'], 'the last row cannot move down')
 
-  assert.match(
-    source,
-    /for \(const rule of cubeRules\.value\) rule\.expanded = false/,
-    'adding a Cube rule must collapse the others so the list stays a stack of name bars',
-  )
-  assert.match(
-    source,
-    /for \(const rule of e2bHostRules\.value\) rule\.expanded = false/,
-    'adding an E2B rule must collapse the others so the list stays a stack of name bars',
-  )
-  assert.match(
-    source,
-    /expanded: true, inject: \[\]/,
-    'the Cube rule just added stays open so it can be filled in',
-  )
-  assert.match(
-    source,
-    /host: '', expanded: true, headers: \[\]/,
-    'the E2B rule just added stays open so it can be filled in',
-  )
-  const cubeLoadBlock = source.slice(
-    source.indexOf('cubeRules.value = (net.cube_rules || []).map'),
-    source.indexOf('e2bHostRules.value = (net.e2b_host_rules || []).map'),
-  )
-  const e2bLoadBlock = source.slice(
-    source.indexOf('e2bHostRules.value = (net.e2b_host_rules || []).map'),
-    source.indexOf('checkResult.value = null'),
-  )
-  assert.match(
-    cubeLoadBlock,
-    /expanded: false/,
-    'Cube rules loaded from a saved config start collapsed',
-  )
-  assert.match(
-    e2bLoadBlock,
-    /expanded: false/,
-    'E2B rules loaded from a saved config start collapsed',
-  )
+  state.addE2BHostRule()
+  state.addE2BHostRule()
+  assert.equal(state.e2bHostRules.value[0].expanded, false)
+  assert.equal(state.e2bHostRules.value[1].expanded, true)
+
+  state.resetNetworkAndEnv({
+    network: {
+      cube_rules: [{ name: 'saved-cube', methods: ['GET'] }],
+      e2b_host_rules: [{ host: 'api.example.com', headers: {} }],
+    },
+  })
+  assert.equal(state.cubeRules.value[0].expanded, false, 'Cube rules loaded from saved config start collapsed')
+  assert.equal(state.e2bHostRules.value[0].expanded, false, 'E2B rules loaded from saved config start collapsed')
 })
 
 test('deny rules omit hidden injected secrets', () => {
-  const payloadBlock = source.slice(
-    source.indexOf('function collectNetworkPolicy'),
-    source.indexOf('function close'),
+  const payloadBlock = networkRulesSource.slice(
+    networkRulesSource.indexOf('function collectNetworkPolicy'),
   )
   assert.match(
     payloadBlock,
@@ -366,18 +331,18 @@ test('deny rules omit hidden injected secrets', () => {
 
 test('policy-restricted egress does not claim full outbound verification', () => {
   assert.match(
-    source,
+    drawerSource,
     /EGRESS_RESTRICTED_REASON = 'egress_restricted_by_policy'/,
     'the hint must recognize the skip reason the check API returns',
   )
   assert.match(
-    source,
+    drawerSource,
     /settings\.sandbox\.checkScopePolicyRestricted/,
     'deny-by-default must not reuse the "outbound was verified" copy',
   )
-  const hintBlock = source.slice(
-    source.indexOf('const checkScopeHint = computed'),
-    source.indexOf('function checkDetail'),
+  const hintBlock = drawerSource.slice(
+    drawerSource.indexOf('const checkScopeHint = computed'),
+    drawerSource.indexOf('function checkDetail'),
   )
   const restrictedAt = hintBlock.indexOf('checkScopePolicyRestricted')
   const fullAt = hintBlock.indexOf('checkScopeFull')

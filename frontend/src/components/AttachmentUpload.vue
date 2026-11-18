@@ -28,6 +28,14 @@ export interface AttachmentFile {
   error?: string;
 }
 
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+  }
+  return fallback;
+}
+
 const props = defineProps<{
   maxFiles?: number;
   maxSize?: number; // in MB
@@ -50,15 +58,10 @@ let sessionEpoch = 0;
 
 // Supported file types (matching backend)
 const supportedTypes = ref([
-  // Documents
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.epub', '.mhtml', '.xmind',
-  // Text
   '.txt', '.md', '.csv', '.json', '.xml', '.html',
-	'.markdown', '.yaml', '.yml', '.log',
-	// Images are parsed as documents here; the dedicated image button remains
-	// available for direct multimodal chat.
-	'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp',
-  // Audio
+  '.markdown', '.yaml', '.yml', '.log',
+  '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp',
   '.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac',
 ]);
 
@@ -66,19 +69,19 @@ onMounted(async () => {
   try {
     await editorResources.ensureParserEngines();
     const discovered = editorResources.parserEngines
-      .filter(engine => engine.Available !== false)
-      .flatMap(engine => engine.FileTypes || [])
-      .filter(type => type && type.toLowerCase() !== 'url')
-      .map(type => `.${type.replace(/^\./, '').toLowerCase()}`);
+      .filter((engine) => engine.available !== false)
+      .flatMap((engine) => engine.file_types || [])
+      .filter((type) => type && type.toLowerCase() !== 'url')
+      .map((type) => `.${type.replace(/^\./, '').toLowerCase()}`);
     supportedTypes.value = [...new Set([...supportedTypes.value, ...discovered])];
   } catch {
     // The static baseline remains available when engine discovery is offline.
   }
 });
 
-const maxFiles = computed(() => props.maxFiles || 5);
+const maxFilesLimit = computed(() => props.maxFiles || 5);
 const maxSizeMB = computed(() => props.maxSize || MAX_FILE_SIZE_MB);
-const maxSize = computed(() => maxSizeMB.value * 1024 * 1024); // Convert MB to bytes
+const maxSizeBytes = computed(() => maxSizeMB.value * 1024 * 1024);
 
 const triggerFileSelect = () => {
   if (props.disabled) return;
@@ -88,34 +91,31 @@ const triggerFileSelect = () => {
 const handleFileSelect = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (!input.files) return;
-  
+
   await addFiles(Array.from(input.files));
-  input.value = ''; // Reset input
+  input.value = '';
 };
 
 const addFiles = async (files: File[]) => {
   if (props.disabled) return;
-  
+
   for (const file of files) {
-    // Check max files limit
-    if (attachments.value.length >= maxFiles.value) {
-      MessagePlugin.warning(t('chat.attachmentTooMany', { max: maxFiles.value }));
+    if (attachments.value.length >= maxFilesLimit.value) {
+      MessagePlugin.warning(t('chat.attachmentTooMany', { max: maxFilesLimit.value }));
       break;
     }
-    
-    // Check file size
-    if (file.size > maxSize.value) {
+
+    if (file.size > maxSizeBytes.value) {
       MessagePlugin.warning(t('chat.attachmentTooLarge', { name: file.name, max: maxSizeMB.value }));
       continue;
     }
-    
-    // Check file type
+
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!supportedTypes.value.includes(ext)) {
       MessagePlugin.warning(t('chat.attachmentTypeNotSupported', { name: file.name }));
       continue;
     }
-    
+
     const attachment: AttachmentFile = {
       file,
       id: `${Date.now()}-${Math.random()}`,
@@ -127,9 +127,6 @@ const addFiles = async (files: File[]) => {
     };
 
     attachments.value.push(attachment);
-    // Vue wraps objects inserted into a ref-backed array with a reactive proxy.
-    // Keep using that proxy in async upload/poll callbacks; mutating the raw
-    // object above does not trigger the attachment status UI to re-render.
     const reactiveAttachment = attachments.value[attachments.value.length - 1];
     emit('update:files', [...attachments.value]);
     if (props.sessionId) {
@@ -153,14 +150,26 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
       props.agentSourceTenantId,
       'auto',
       (progress) => {
-        if (disposed || (props.sessionId !== uploadSessionId || sessionEpoch !== uploadEpoch) || !attachments.value.some(item => item.id === attachment.id)) return;
+        if (
+          disposed
+          || props.sessionId !== uploadSessionId
+          || sessionEpoch !== uploadEpoch
+          || !attachments.value.some((item) => item.id === attachment.id)
+        ) {
+          return;
+        }
         attachment.progress = progress;
         emitFiles();
       },
     );
     attachment.documentId = response.data.id;
-    if (disposed || (props.sessionId !== uploadSessionId || sessionEpoch !== uploadEpoch) || !attachments.value.some(item => item.id === attachment.id)) {
-      const index = attachments.value.findIndex(item => item.id === attachment.id);
+    if (
+      disposed
+      || props.sessionId !== uploadSessionId
+      || sessionEpoch !== uploadEpoch
+      || !attachments.value.some((item) => item.id === attachment.id)
+    ) {
+      const index = attachments.value.findIndex((item) => item.id === attachment.id);
       if (index !== -1) {
         attachments.value.splice(index, 1);
         emitFiles();
@@ -174,9 +183,14 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
     if (attachment.status !== 'ready' && attachment.status !== 'failed') {
       scheduleStatusPoll(attachment, uploadSessionId, uploadEpoch);
     }
-  } catch (error: any) {
-    if (disposed || (props.sessionId !== uploadSessionId || sessionEpoch !== uploadEpoch) || !attachments.value.some(item => item.id === attachment.id)) {
-      const index = attachments.value.findIndex(item => item.id === attachment.id);
+  } catch (error: unknown) {
+    if (
+      disposed
+      || props.sessionId !== uploadSessionId
+      || sessionEpoch !== uploadEpoch
+      || !attachments.value.some((item) => item.id === attachment.id)
+    ) {
+      const index = attachments.value.findIndex((item) => item.id === attachment.id);
       if (index !== -1) {
         attachments.value.splice(index, 1);
         emitFiles();
@@ -184,42 +198,45 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
       return;
     }
     attachment.status = 'failed';
-    attachment.error = error?.message || t('chat.attachmentUploadFailed');
+    attachment.error = extractErrorMessage(error, t('chat.attachmentUploadFailed'));
     emitFiles();
   }
 };
 
 const scheduleStatusPoll = (attachment: AttachmentFile, uploadSessionId: string, uploadEpoch: number) => {
   clearPoll(attachment.id);
-  pollTimers.set(attachment.id, setTimeout(() => void pollStatus(attachment, uploadSessionId, uploadEpoch), 800));
+  pollTimers.set(
+    attachment.id,
+    setTimeout(() => void pollStatus(attachment, uploadSessionId, uploadEpoch), 800),
+  );
 };
 
 const pollStatus = async (attachment: AttachmentFile, uploadSessionId: string, uploadEpoch: number) => {
-  if (!attachment.documentId || !attachments.value.some(item => item.id === attachment.id)) return;
+  if (!attachment.documentId || !attachments.value.some((item) => item.id === attachment.id)) return;
   const documentId = attachment.documentId;
   const discardIfStale = () => {
     if (props.sessionId === uploadSessionId && sessionEpoch === uploadEpoch && !disposed) return false;
-    const index = attachments.value.findIndex(item => item.id === attachment.id);
+    const index = attachments.value.findIndex((item) => item.id === attachment.id);
     if (index !== -1) {
       attachments.value.splice(index, 1);
       emitFiles();
     }
-    // A document already uploaded may have been sent while parsing. Keep the
-    // server copy; it is subject to the normal temporary-attachment expiry.
     return true;
   };
   if (discardIfStale()) return;
   try {
     const response = await getTemporaryAttachment(uploadSessionId, documentId);
-    if (discardIfStale() || !attachments.value.some(item => item.id === attachment.id)) return;
+    if (discardIfStale() || !attachments.value.some((item) => item.id === attachment.id)) return;
     attachment.status = response.data.status;
     attachment.error = response.data.error_message;
     emitFiles();
-    if (attachment.status !== 'ready' && attachment.status !== 'failed') scheduleStatusPoll(attachment, uploadSessionId, uploadEpoch);
-  } catch (error: any) {
-    if (discardIfStale() || !attachments.value.some(item => item.id === attachment.id)) return;
+    if (attachment.status !== 'ready' && attachment.status !== 'failed') {
+      scheduleStatusPoll(attachment, uploadSessionId, uploadEpoch);
+    }
+  } catch (error: unknown) {
+    if (discardIfStale() || !attachments.value.some((item) => item.id === attachment.id)) return;
     attachment.status = 'failed';
-    attachment.error = error?.message || t('chat.attachmentParseFailed');
+    attachment.error = extractErrorMessage(error, t('chat.attachmentParseFailed'));
     emitFiles();
   }
 };
@@ -230,25 +247,27 @@ const clearPoll = (id: string) => {
   pollTimers.delete(id);
 };
 
-// A mounted composer can be reused by the embedded assistant without a route
-// change. Do not leave A's attachments available to send in session B.
-watch(() => props.sessionId, (nextSession, previousSession) => {
-  sessionEpoch += 1;
-  // Local files selected before a new session exists belong to its first send.
-  if (!previousSession || nextSession === previousSession) return;
-  const pending = attachments.value;
-  attachments.value = [];
-  pending.forEach(attachment => {
-    clearPoll(attachment.id);
-  });
-  if (pending.length) emitFiles();
-}, { flush: 'sync' });
+watch(
+  () => props.sessionId,
+  (nextSession, previousSession) => {
+    sessionEpoch += 1;
+    if (!previousSession || nextSession === previousSession) return;
+    const pending = attachments.value;
+    attachments.value = [];
+    pending.forEach((attachment) => {
+      clearPoll(attachment.id);
+    });
+    if (pending.length) emitFiles();
+  },
+  { flush: 'sync' },
+);
 
 const removeAttachment = (id: string) => {
-  const index = attachments.value.findIndex(a => a.id === id);
+  const index = attachments.value.findIndex((a) => a.id === id);
   if (index !== -1) {
     const attachment = attachments.value[index];
-    const uploadSessionId = (attachment as AttachmentFile & { _sessionId?: string })._sessionId || props.sessionId;
+    const uploadSessionId =
+      (attachment as AttachmentFile & { _sessionId?: string })._sessionId || props.sessionId;
     clearPoll(id);
     attachments.value.splice(index, 1);
     emitFiles();
@@ -266,8 +285,12 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const statusLabel = (attachment: AttachmentFile): string => {
-  if (attachment.status === 'uploading') return t('chat.attachmentUploading', { progress: attachment.progress || 0 });
-  if (attachment.status === 'uploaded' || attachment.status === 'processing') return t('chat.attachmentParsing');
+  if (attachment.status === 'uploading') {
+    return t('chat.attachmentUploading', { progress: attachment.progress || 0 });
+  }
+  if (attachment.status === 'uploaded' || attachment.status === 'processing') {
+    return t('chat.attachmentParsing');
+  }
   if (attachment.status === 'ready') return t('chat.attachmentReady');
   if (attachment.status === 'failed') return attachment.error || t('chat.attachmentParseFailed');
   return '';
@@ -275,7 +298,7 @@ const statusLabel = (attachment: AttachmentFile): string => {
 
 onUnmounted(() => {
   disposed = true;
-  pollTimers.forEach(timer => clearTimeout(timer));
+  pollTimers.forEach((timer) => clearTimeout(timer));
   pollTimers.clear();
 });
 
@@ -284,17 +307,16 @@ defineExpose({
   triggerFileSelect,
   addFiles,
   clear: () => {
-    pollTimers.forEach(timer => clearTimeout(timer));
+    pollTimers.forEach((timer) => clearTimeout(timer));
     pollTimers.clear();
     attachments.value = [];
     emit('update:files', []);
-  }
+  },
 });
 </script>
 
 <template>
   <div class="attachment-upload">
-    <!-- Hidden file input -->
     <input
       ref="fileInputRef"
       type="file"
@@ -303,8 +325,7 @@ defineExpose({
       style="display: none"
       @change="handleFileSelect"
     />
-    
-    <!-- Attachment list -->
+
     <div v-if="attachments.length > 0" class="attachment-preview-bar">
       <div
         v-for="attachment in attachments"
@@ -315,16 +336,33 @@ defineExpose({
         <div class="attachment-preview-info">
           <div class="attachment-preview-name" :title="attachment.name">{{ attachment.name }}</div>
           <div class="attachment-preview-meta">{{ formatFileSize(attachment.size) }}</div>
-          <div v-if="attachment.status !== 'local'" class="attachment-preview-status" :class="`is-${attachment.status}`">
-            <span v-if="attachment.status === 'uploading' || attachment.status === 'uploaded' || attachment.status === 'processing'" class="attachment-status-spinner" />
+          <div
+            v-if="attachment.status !== 'local'"
+            class="attachment-preview-status"
+            :class="`is-${attachment.status}`"
+          >
+            <span
+              v-if="
+                attachment.status === 'uploading' ||
+                attachment.status === 'uploaded' ||
+                attachment.status === 'processing'
+              "
+              class="attachment-status-spinner"
+            />
             {{ statusLabel(attachment) }}
           </div>
         </div>
-        <span class="attachment-preview-remove" @click="removeAttachment(attachment.id)" :aria-label="$t('common.remove')">×</span>
+        <button
+          type="button"
+          class="attachment-preview-remove"
+          :aria-label="$t('common.remove')"
+          @click="removeAttachment(attachment.id)"
+        >
+          ×
+        </button>
       </div>
     </div>
-    
-    <!-- Upload button (shown in control bar) -->
+
     <slot name="trigger" :trigger="triggerFileSelect" :count="attachments.length" />
   </div>
 </template>
@@ -349,7 +387,7 @@ defineExpose({
   gap: 10px;
   padding: 8px 32px 8px 10px;
   border-radius: var(--app-radius-md);
-  border: 1px solid var(--td-border-level-1-color);
+  border: 1px solid var(--gy-border-subtle);
   background: var(--td-bg-color-container);
   max-width: 240px;
   min-width: 140px;
@@ -386,8 +424,12 @@ defineExpose({
     font-size: var(--app-text-xs);
     color: var(--td-text-color-secondary);
 
-    &.is-ready { color: var(--td-success-color); }
-    &.is-failed { color: var(--td-error-color); }
+    &.is-ready {
+      color: var(--td-success-color);
+    }
+    &.is-failed {
+      color: var(--td-error-color);
+    }
   }
 
   .attachment-status-spinner {
@@ -398,7 +440,7 @@ defineExpose({
     border: 1px solid currentColor;
     border-right-color: transparent;
     border-radius: 50%;
-    animation: gy-spin .8s linear infinite;
+    animation: gy-spin 0.8s linear infinite;
   }
 
   .attachment-preview-remove {
@@ -407,8 +449,10 @@ defineExpose({
     right: 6px;
     width: 18px;
     height: 18px;
-    background: rgba(0, 0, 0, 0.18);
-    color: #fff;
+    padding: 0;
+    border: 0;
+    background: color-mix(in oklab, var(--td-gray-color-14) 24%, transparent);
+    color: var(--gy-text-inverse);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -418,9 +462,8 @@ defineExpose({
     line-height: 1;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.4);
+      background: color-mix(in oklab, var(--td-gray-color-14) 48%, transparent);
     }
   }
 }
-
 </style>

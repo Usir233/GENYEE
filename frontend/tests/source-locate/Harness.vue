@@ -6,8 +6,12 @@ import PdfSourceViewer, { type PdfLocateResult } from '../../src/components/sour
 import { sourceQuoteText, type SourceLocateRequest } from '../../src/utils/sourceLocator'
 import { fixturePdf } from './pdfFixture'
 import parsedFixtures from './parsedFixtures.json'
-import DocumentPreview from '../../src/components/document-preview.vue'
+import DocumentPreview from '../../src/components/DocumentPreview.vue'
 import { docxFixture, docxImageFixture, sheetFixture, epubFixture } from './officeFixtures'
+
+type CssHighlightMap = { get(name: string): Iterable<Range> | undefined }
+const getCssHighlight = (name: string): Iterable<Range> | undefined =>
+  (CSS as unknown as { highlights?: CssHighlightMap }).highlights?.get(name)
 
 const otherBlob = ref<Blob | null>(null)
 const otherExt = ref('')
@@ -77,7 +81,7 @@ onMounted(async () => {
           assert(images.length === 1 && images[0]!.dataset.sourceImageDigest === fixture.imageDigest, 'wrong source image')
         }
         if (fixture.highlightText) {
-          const highlight = (CSS as any).highlights?.get('source-locate')
+          const highlight = getCssHighlight('source-locate')
           const text = highlight ? [...highlight].map((range: Range) => range.toString()).join('') : [...document.querySelectorAll('.source-locate-mark')].map(e => e.textContent).join('')
           assert(text === fixture.highlightText, 'highlight must contain only the exact cited quotation')
         }
@@ -111,7 +115,7 @@ onMounted(async () => {
   await runOther('DOCX rejects a different image identity', await docxImageFixture(), 'docx', { imageDigest: '0'.repeat(64) }, r => assert(!r.found, JSON.stringify(r)))
   const fenced = '# Source document\n\nOpening unrelated paragraph.\n\n- **Explanation**: Releasing the branch preserves the current commit and files.\n\n```bash\ngit -C /example/tree switch --detach\n```'
   const highlightedText = () => {
-    const highlight = (CSS as any).highlights?.get('source-locate')
+    const highlight = getCssHighlight('source-locate')
     return highlight ? [...highlight].map((r: Range) => r.toString()).join('') : [...document.querySelectorAll('.source-locate-mark')].map(e => e.textContent).join('')
   }
   // Manual/clipped documents have no source_locators. Match their raw chunk
@@ -192,7 +196,7 @@ onMounted(async () => {
   }, r => {
     assert(r.found && !r.precise, JSON.stringify(r))
     assert(highlightedText() === completeBoundaryText, highlightedText())
-    const range = [...(CSS as any).highlights.get('source-locate')][0] as Range
+    const range = [...(getCssHighlight('source-locate') ?? [])][0] as Range
     assert(range.startContainer.parentElement?.closest('p')?.previousElementSibling?.textContent === 'Second occurrence', 'wrong repeated paragraph occurrence')
   })
   const docx = await docxFixture()

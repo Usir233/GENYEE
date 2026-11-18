@@ -34,7 +34,9 @@ export function modeAfterLoad(state: HostApprovalModeState, result: HostApproval
   return result.mode
 }
 
-export function readModeResponse(res: any): { mode: HostApprovalMode; defaultMode: HostApprovalMode } {
+export function readModeResponse(
+  res: { data?: { mode?: unknown; default?: unknown } } | null | undefined,
+): { mode: HostApprovalMode; defaultMode: HostApprovalMode } {
   return {
     mode: parseHostApprovalMode(res?.data?.mode),
     defaultMode: parseHostApprovalMode(res?.data?.default),

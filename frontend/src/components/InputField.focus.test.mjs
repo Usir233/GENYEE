@@ -4,9 +4,9 @@ import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-const source = readFileSync(new URL('./Input-field.vue', import.meta.url), 'utf8')
-const focusCode = source.slice(source.indexOf('const focusInput ='), source.indexOf('const onInput ='))
-const sendCode = source.slice(source.indexOf('const createSession ='), source.indexOf('const updateAgentModeDropdownPosition ='))
+const source = readFileSync(new URL('./InputField.vue', import.meta.url), 'utf8')
+const focusCode = source.slice(source.indexOf('const focusInput ='), source.indexOf('const hostApprovalModeVisible ='))
+const sendCode = source.slice(source.indexOf('const createSession ='), source.indexOf('// End createSession'))
 
 test('host page navigation preserves the assistant draft and uploads but clears the main chat composer', () => {
   const start = source.indexOf('onBeforeRouteUpdate(')

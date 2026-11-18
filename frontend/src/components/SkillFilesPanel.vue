@@ -550,9 +550,10 @@ async function selectFile(path: string) {
       highlightedHtml.value = highlightText(data.content, path)
       if (isMarkdown(path)) renderMarkdown(data.content)
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (unmounted || seq !== fileSeq) return
-    fileError.value = e?.message || t('settings.sandbox.skillFilesFileLoadFailed')
+    const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message?: unknown }).message || '') : ''
+    fileError.value = msg || t('settings.sandbox.skillFilesFileLoadFailed')
   } finally {
     if (!unmounted && seq === fileSeq) fileLoading.value = false
   }
@@ -591,9 +592,10 @@ async function loadFiles() {
     expandedDirs.value = dirs
     const initial = list.some((item) => item.path === 'SKILL.md') ? 'SKILL.md' : list[0]?.path
     if (initial) await selectFile(initial)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (unmounted || seq !== treeSeq) return
-    listError.value = e?.message || t('settings.sandbox.skillFilesLoadFailed')
+    const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message?: unknown }).message || '') : ''
+    listError.value = msg || t('settings.sandbox.skillFilesLoadFailed')
   } finally {
     if (!unmounted && seq === treeSeq) listLoading.value = false
   }
@@ -638,14 +640,20 @@ watch(
   overflow: auto;
   padding: 8px 8px 12px;
   background: var(--td-bg-color-settings-modal);
+  scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--td-bg-color-component-disabled);
-    border-radius: 3px;
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--gy-scrollbar-thumb);
+      border-radius: var(--gy-radius-xs);
+    }
   }
 }
 
@@ -766,15 +774,21 @@ watch(
   overflow: auto;
   overscroll-behavior: contain;
   padding: 16px 20px 32px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--td-bg-color-component-disabled);
-    border-radius: var(--app-radius-xs);
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--gy-scrollbar-thumb);
+      border-radius: var(--gy-radius-xs);
+    }
   }
 }
 

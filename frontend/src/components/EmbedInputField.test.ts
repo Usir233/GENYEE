@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import ts from 'typescript'
-import { createRenderer, defineComponent, h, nextTick } from 'vue'
+import { createRenderer, defineComponent, h, nextTick, type Component } from 'vue'
 
 const require = createRequire(import.meta.url)
 const filename = fileURLToPath(new URL('./EmbedInputField.vue', import.meta.url))
@@ -17,12 +17,24 @@ const compiled = ts.transpileModule(compileScript(descriptor, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
-type Node = { tag: string; props: Record<string, any>; children: Node[]; parent?: Node; querySelector: () => null }
-const node = (tag: string): Node => ({ tag, props: {}, children: [], querySelector: () => null })
+interface NodeProps {
+  src?: string
+  class?: string
+  accept?: string
+  onClick: () => void
+  onPaste?: (event: unknown) => void
+  onChange: (event: { target: { files: File[]; value: string } }) => void
+  [key: string]: unknown
+}
+
+type Node = { tag: string; props: NodeProps; children: Node[]; parent?: Node; querySelector: () => null }
+const node = (tag: string): Node => ({ tag, props: { onClick() {}, onChange() {} }, children: [], querySelector: () => null })
+
+type SentTuple = [string, File[], unknown[], (() => void)?]
 
 async function fixture(showFileUploadToggle = true, maxFileSize = 50 * 1024 * 1024) {
-  const sent: any[][] = [], alerts: string[] = [], revoked: string[] = []
-  const exports: any = {}
+  const sent: SentTuple[] = [], alerts: string[] = [], revoked: string[] = []
+  const exports: { default?: Component } = {}
   runInNewContext(compiled, {
     exports, HTMLTextAreaElement: class {},
     URL: { createObjectURL: URL.createObjectURL, revokeObjectURL(url: string) { revoked.push(url); URL.revokeObjectURL(url) } },
@@ -44,9 +56,9 @@ async function fixture(showFileUploadToggle = true, maxFileSize = 50 * 1024 * 10
     setElementText() {}, setText() {}, patchProp(el, key, _old, value) { el.props[key] = value },
     parentNode: el => el.parent || null, nextSibling: () => null,
   })
-  const app = renderer.createApp(exports.default, {
+  const app = renderer.createApp(exports.default!, {
     isReplying: false, showFileUploadToggle,
-    onSendMsg: (...args: any[]) => {
+    onSendMsg: (...args: SentTuple) => {
       sent.push(args)
       args[3]?.()
     },
