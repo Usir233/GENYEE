@@ -20,7 +20,9 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-// OllamaService manages Ollama service
+// OllamaService manages Ollama service.
+//
+//nolint:revive // external callers use ollama.OllamaService
 type OllamaService struct {
 	client      *api.Client
 	baseURL     string
@@ -79,7 +81,9 @@ func GetOllamaService() (*OllamaService, error) {
 
 var (
 	ollamaUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	ollamaQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password)=)[^&\s"']+`)
+	ollamaQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password)=)[^&\s"']+`,
+	)
 )
 
 func redactOllamaURL(u *url.URL) string {
@@ -124,7 +128,9 @@ func ollamaCheckRedirect(req *http.Request, via []*http.Request) error {
 	if scheme != "http" && scheme != "https" {
 		return fmt.Errorf("redirect blocked: unsupported scheme %s", scheme)
 	}
-	if len(via) > 0 && (!strings.EqualFold(via[0].URL.Scheme, req.URL.Scheme) || !strings.EqualFold(via[0].URL.Host, req.URL.Host)) {
+	if len(via) > 0 &&
+		(!strings.EqualFold(via[0].URL.Scheme, req.URL.Scheme) ||
+			!strings.EqualFold(via[0].URL.Host, req.URL.Host)) {
 		if via[0].Method != http.MethodGet && via[0].Method != http.MethodHead {
 			return fmt.Errorf("cross-origin redirect replay is forbidden")
 		}
@@ -228,7 +234,7 @@ func (s *OllamaService) PullModel(ctx context.Context, modelName string) error {
 
 	// Use official client to pull model
 	pullReq := &api.PullRequest{
-		Name: modelName,
+		Model: modelName,
 	}
 
 	err = s.client.Pull(ctx, pullReq, func(progress api.ProgressResponse) error {
@@ -317,7 +323,7 @@ func (s *OllamaService) CreateModel(ctx context.Context, name, modelfile string)
 // GetModelInfo gets model information
 func (s *OllamaService) GetModelInfo(ctx context.Context, modelName string) (*api.ShowResponse, error) {
 	req := &api.ShowRequest{
-		Name: modelName,
+		Model: modelName,
 	}
 
 	resp, err := s.client.Show(ctx, req)
@@ -328,7 +334,9 @@ func (s *OllamaService) GetModelInfo(ctx context.Context, modelName string) (*ap
 	return resp, nil
 }
 
-// OllamaModelInfo represents detailed information about an Ollama model
+// OllamaModelInfo represents detailed information about an Ollama model.
+//
+//nolint:revive // external callers use ollama.OllamaModelInfo
 type OllamaModelInfo struct {
 	Name       string    `json:"name"`
 	Size       int64     `json:"size"`
@@ -379,7 +387,7 @@ func (s *OllamaService) ListModelsDetailed(ctx context.Context) ([]OllamaModelIn
 // DeleteModel deletes a model
 func (s *OllamaService) DeleteModel(ctx context.Context, modelName string) error {
 	req := &api.DeleteRequest{
-		Name: modelName,
+		Model: modelName,
 	}
 
 	err := s.client.Delete(ctx, req)

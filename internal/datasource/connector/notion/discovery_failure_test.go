@@ -121,7 +121,10 @@ func TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions(t *testing.T
 			t.Fatalf("expected error on database query failure, got items=%+v cursor=%+v", items, next)
 		}
 		if len(items) != 0 || next != nil {
-			t.Fatalf("failed database query must not emit tombstones or advance cursor: items=%+v cursor=%+v", items, next)
+			t.Fatalf(
+				"failed database query must not emit tombstones or advance cursor: items=%+v cursor=%+v",
+				items, next,
+			)
 		}
 	})
 
@@ -153,10 +156,16 @@ func TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions(t *testing.T
 		config := makeNotionConfig(&Config{APIKey: "test-token"}, server.URL, []string{"ds-1"})
 		items, next, err := NewConnector().FetchIncremental(context.Background(), config, truncationPrevCursor())
 		if err == nil {
-			t.Fatalf("expected error when data_source query sets has_more=true without next_cursor, got items=%+v", items)
+			t.Fatalf(
+				"expected error when data_source query sets has_more=true without next_cursor, got items=%+v",
+				items,
+			)
 		}
 		if len(items) != 0 || next != nil {
-			t.Fatalf("incomplete data_source query must not delete records or advance cursor: items=%+v cursor=%+v", items, next)
+			t.Fatalf(
+				"incomplete data_source query must not delete records or advance cursor: items=%+v cursor=%+v",
+				items, next,
+			)
 		}
 	})
 
@@ -174,4 +183,3 @@ func TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions(t *testing.T
 		}
 	})
 }
-

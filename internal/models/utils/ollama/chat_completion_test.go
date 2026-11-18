@@ -186,4 +186,3 @@ func TestGenerateRejectsResponsesWithoutDone(t *testing.T) {
 		t.Fatalf("Generate error = %v, want io.ErrUnexpectedEOF", err)
 	}
 }
-

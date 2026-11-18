@@ -34,7 +34,11 @@ func TestRejectsMalformedRankingEntries(t *testing.T) {
 			got, err := c.Rerank(context.Background(), "query", []string{"first", "second"})
 			require.Error(t, err)
 			require.Nil(t, got)
-			got, err = c.RerankImages(context.Background(), "query", []api.EmbedImage{{Data: []byte{1}, MIMEType: "image/png"}, {Data: []byte{2}, MIMEType: "image/png"}})
+			imgs := []api.EmbedImage{
+				{Data: []byte{1}, MIMEType: "image/png"},
+				{Data: []byte{2}, MIMEType: "image/png"},
+			}
+			got, err = c.RerankImages(context.Background(), "query", imgs)
 			require.Error(t, err)
 			require.Nil(t, got)
 		})
@@ -49,7 +53,10 @@ func TestPreservesValidRankingEntries(t *testing.T) {
 		"empty":          {`{"rankings":[]}`, []api.RerankResult{}},
 		"explicit zeros": {`{"rankings":[{"index":0,"logit":0}]}`, []api.RerankResult{{Index: 0, Score: 0}}},
 		"partial":        {`{"rankings":[{"index":1,"logit":0.7}]}`, []api.RerankResult{{Index: 1, Score: 0.7}}},
-		"reordered":      {`{"rankings":[{"index":1,"logit":0.7},{"index":0,"logit":0.1}]}`, []api.RerankResult{{Index: 1, Score: 0.7}, {Index: 0, Score: 0.1}}},
+		"reordered": {
+			`{"rankings":[{"index":1,"logit":0.7},{"index":0,"logit":0.1}]}`,
+			[]api.RerankResult{{Index: 1, Score: 0.7}, {Index: 0, Score: 0.1}},
+		},
 		"negative logit": {`{"rankings":[{"index":0,"logit":-3.1}]}`, []api.RerankResult{{Index: 0, Score: -3.1}}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -60,7 +67,11 @@ func TestPreservesValidRankingEntries(t *testing.T) {
 				got[i].Text = ""
 			} // NIM attaches the submitted text; compare index/score here.
 			require.Equal(t, tc.want, got)
-			got, err = c.RerankImages(context.Background(), "query", []api.EmbedImage{{Data: []byte{1}, MIMEType: "image/png"}, {Data: []byte{2}, MIMEType: "image/png"}})
+			imgs := []api.EmbedImage{
+				{Data: []byte{1}, MIMEType: "image/png"},
+				{Data: []byte{2}, MIMEType: "image/png"},
+			}
+			got, err = c.RerankImages(context.Background(), "query", imgs)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)
 		})
@@ -118,7 +129,7 @@ func validationClient(t *testing.T, payload string) *Client {
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
 	secutils.ResetSSRFWhitelistForTest()
 	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(payload))
 	}))
@@ -139,19 +150,20 @@ func TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets(t *testing.T) {
 	defer srv.Close()
 
 	c := newClient(t, srv.URL, api.RerankSettings{})
-	got, err := c.Rerank(nil, "q", nil)
+	got, err := c.Rerank(nil, "q", nil) //nolint:staticcheck // verifying defensive nil-context handling
 	require.NoError(t, err)
 	require.Empty(t, got)
-	gotImg, err := c.RerankImages(nil, "q", nil)
+	gotImg, err := c.RerankImages(nil, "q", nil) //nolint:staticcheck // verifying defensive nil-context handling
 	require.NoError(t, err)
 	require.Empty(t, gotImg)
 	require.Zero(t, hits.Load(), "empty documents/images slice must not send HTTP POST")
 
-	got, err = c.Rerank(nil, "q", []string{"doc"})
+	got, err = c.Rerank(nil, "q", []string{"doc"}) //nolint:staticcheck // verifying defensive nil-context handling
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 
-	gotImg, err = c.RerankImages(nil, "q", []api.EmbedImage{{Data: []byte{1}, MIMEType: "image/png"}})
+	imgIn := []api.EmbedImage{{Data: []byte{1}, MIMEType: "image/png"}}
+	gotImg, err = c.RerankImages(nil, "q", imgIn) //nolint:staticcheck // verifying defensive nil-context handling
 	require.NoError(t, err)
 	require.Len(t, gotImg, 1)
 
@@ -162,7 +174,7 @@ func TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets(t *testing.T) {
 			Query:   map[string]string{"api_key": "nvapi-secret-token-999"},
 		},
 	})
-	_, err = bad.Rerank(nil, "q", []string{"doc"})
+	_, err = bad.Rerank(nil, "q", []string{"doc"}) //nolint:staticcheck // verifying defensive nil-context handling
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), "supersecretpw")
 	require.NotContains(t, err.Error(), "nvapi-secret-token-999")

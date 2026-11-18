@@ -284,7 +284,9 @@ func LogRequest(ctx context.Context, url, model string, body []byte, stream bool
 
 var (
 	endpointUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	endpointQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	endpointQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 func redactEndpointURL(rawURL string) string {

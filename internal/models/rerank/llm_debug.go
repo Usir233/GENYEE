@@ -27,7 +27,15 @@ func (d *debugReranker) GetModelID() string   { return d.inner.GetModelID() }
 // MaxPassageRunes forwards the wrapped reranker's limit.
 func (d *debugReranker) MaxPassageRunes(query string) int { return MaxPassageRunes(d.inner, query) }
 
-func logRerankDebug(ctx context.Context, model string, query string, documents []string, results []RankResult, callErr error, dur time.Duration) {
+func logRerankDebug(
+	ctx context.Context,
+	model string,
+	query string,
+	documents []string,
+	results []RankResult,
+	callErr error,
+	dur time.Duration,
+) {
 	if !logger.LLMDebugEnabled() {
 		return
 	}
@@ -46,22 +54,22 @@ func logRerankDebug(ctx context.Context, model string, query string, documents [
 
 	// Documents section
 	var docBuf strings.Builder
-	docBuf.WriteString(fmt.Sprintf("count=%d\n", len(documents)))
+	_, _ = fmt.Fprintf(&docBuf, "count=%d\n", len(documents))
 	for i, doc := range documents {
 		preview := strings.ReplaceAll(doc, "\n", "\\n")
 		preview = logger.TruncateRunes(preview, 200)
-		docBuf.WriteString(fmt.Sprintf("[%d] (len=%d) %s\n", i, len([]rune(doc)), preview))
+		_, _ = fmt.Fprintf(&docBuf, "[%d] (len=%d) %s\n", i, len([]rune(doc)), preview)
 	}
 	record.Sections = append(record.Sections, logger.RecordSection{Title: "Documents", Content: docBuf.String()})
 
 	// Results section
 	if results != nil {
 		var resBuf strings.Builder
-		resBuf.WriteString(fmt.Sprintf("count=%d\n", len(results)))
+		_, _ = fmt.Fprintf(&resBuf, "count=%d\n", len(results))
 		for _, r := range results {
 			docPreview := strings.ReplaceAll(r.Document.Text, "\n", "\\n")
 			docPreview = logger.TruncateRunes(docPreview, 200)
-			resBuf.WriteString(fmt.Sprintf("  [%d] score=%.6f  %s\n", r.Index, r.RelevanceScore, docPreview))
+			_, _ = fmt.Fprintf(&resBuf, "  [%d] score=%.6f  %s\n", r.Index, r.RelevanceScore, docPreview)
 		}
 		record.Sections = append(record.Sections, logger.RecordSection{Title: "Results", Content: resBuf.String()})
 	}

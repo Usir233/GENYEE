@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"path/filepath"
@@ -42,7 +43,11 @@ func NewPaddleOCRVLReader(overrides map[string]string) *PaddleOCRVLReader {
 	}
 }
 
+// Read parses a document via a self-hosted PaddleOCR-VL service.
 func (c *PaddleOCRVLReader) Read(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if c.endpoint == "" {
 		return &types.ReadResult{Error: "PaddleOCR-VL endpoint is not configured"}, nil
 	}
@@ -55,7 +60,7 @@ func (c *PaddleOCRVLReader) Read(ctx context.Context, req *types.ReadRequest) (*
 		return &types.ReadResult{Error: "no file content provided"}, nil
 	}
 
-	logger.Infof(context.Background(), "[PaddleOCR-VL] Parsing file=%s size=%d via %s",
+	logger.Infof(ctx, "[PaddleOCR-VL] Parsing file=%s size=%d via %s",
 		req.FileName, len(content), c.endpoint)
 
 	mdContent, imagesB64, layoutUnits, err := c.callLayoutParsing(ctx, req, content)
@@ -169,7 +174,7 @@ func (c *PaddleOCRVLReader) callLayoutParsing(
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)
@@ -215,15 +220,6 @@ func (c *PaddleOCRVLReader) callLayoutParsing(
 	return strings.Join(texts, "\n\n"), images, units, nil
 }
 
-// processImages decodes the inline base64 images returned by PaddleOCR-VL and
-// builds ImageRef entries, matching them against references in the markdown.
-func (c *PaddleOCRVLReader) processImages(
-	mdContent string, imagesB64 map[string]string,
-) ([]types.ImageRef, string) {
-	refs, md, _ := c.processImagesBounded(mdContent, imagesB64, minerUMaxImageBytes())
-	return refs, md
-}
-
 func (c *PaddleOCRVLReader) processImagesBounded(
 	mdContent string, imagesB64 map[string]string, maxImages int64,
 ) ([]types.ImageRef, string, error) {
@@ -261,8 +257,10 @@ func (c *PaddleOCRVLReader) processImagesBounded(
 		}
 
 		if int64(len(imgBytes)) > maxZipEntryBytes || totalBytes+int64(len(imgBytes)) > maxImages {
-			return nil, mdContent, fmt.Errorf("%w: PaddleOCR-VL inline images reached %d bytes and exceed limit %d bytes (%s)",
-				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv)
+			return nil, mdContent, fmt.Errorf(
+				"%w: PaddleOCR-VL inline images reached %d bytes and exceed limit %d bytes (%s)",
+				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv,
+			)
 		}
 		totalBytes += int64(len(imgBytes))
 
@@ -286,12 +284,26 @@ func (c *PaddleOCRVLReader) processImagesBounded(
 
 // PingPaddleOCRVL checks whether a self-hosted PaddleOCR-VL service is reachable.
 func PingPaddleOCRVL(endpoint string) (bool, string) {
-	endpoint = strings.TrimRight(endpoint, "/")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return PingPaddleOCRVLContext(ctx, endpoint)
+}
+
+// PingPaddleOCRVLContext checks whether a self-hosted PaddleOCR-VL service is reachable under ctx.
+func PingPaddleOCRVLContext(ctx context.Context, endpoint string) (bool, string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
 	if endpoint == "" {
-		return false, "未配置 PaddleOCR-VL 端点"
+		return false, "PaddleOCR-VL endpoint is not configured"
 	}
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
-		return false, fmt.Sprintf("PaddleOCR-VL 端点未通过 SSRF 校验: %v", err)
+		return false, fmt.Sprintf("PaddleOCR-VL endpoint blocked by SSRF check: %v", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/layout-parsing", nil)
+	if err != nil {
+		return false, fmt.Sprintf("failed to build PaddleOCR-VL probe request: %v", err)
 	}
 	client := utils.NewSSRFSafeHTTPClient(utils.SSRFSafeHTTPClientConfig{
 		Timeout:      5 * time.Second,
@@ -299,13 +311,14 @@ func PingPaddleOCRVL(endpoint string) (bool, string) {
 	})
 	// The pipeline only exposes POST /layout-parsing; an empty GET should still
 	// produce a routed HTTP response (e.g. 404/405) when the service is up.
-	resp, err := client.Get(endpoint + "/layout-parsing")
+	resp, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Sprintf("PaddleOCR-VL 服务不可达: %v", err)
+		return false, fmt.Sprintf("PaddleOCR-VL service unreachable: %v", err)
 	}
-	resp.Body.Close()
-	if resp.StatusCode >= 500 {
-		return false, fmt.Sprintf("PaddleOCR-VL 服务返回状态 %d", resp.StatusCode)
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorPreviewBytes))
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return false, fmt.Sprintf("PaddleOCR-VL service returned status %d", resp.StatusCode)
 	}
 	return true, ""
 }

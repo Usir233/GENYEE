@@ -60,7 +60,7 @@ func newFakeFeed(t *testing.T) *fakeFeed {
 			}
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!DOCTYPE html><html><head><title>%s</title></head>`+
+		_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html><head><title>%s</title></head>`+
 			`<body><nav>menu</nav><article><h1>Heading</h1>%s</article><footer>foot</footer></body></html>`,
 			"Full "+r.URL.Path, longArticleBody)
 	})
@@ -77,7 +77,7 @@ func newFakeFeed(t *testing.T) *fakeFeed {
 		w.Header().Set("Content-Type", "application/rss+xml")
 		base := "http://" + r.Host
 		desc := "summary fallback"
-		fmt.Fprintf(w, `<?xml version="1.0"?>
+		_, _ = fmt.Fprintf(w, `<?xml version="1.0"?>
 <rss version="2.0"><channel>
 <title>%s</title>
 <link>%s</link>
@@ -455,7 +455,7 @@ func TestRSSQuerySecretRedactedAndUnsafeFeedLinkSanitized(t *testing.T) {
 	closedFeedURL := closedSrv.URL + "/private.xml?token=" + secretToken
 	closedSrv.Close()
 
-	liveSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	liveSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
 		_, _ = fmt.Fprint(w, `<rss version="2.0"><channel><title>Hostile</title>
 <link>javascript:alert(1)</link><description>Feed</description>

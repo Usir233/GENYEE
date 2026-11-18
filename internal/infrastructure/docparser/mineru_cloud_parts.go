@@ -177,7 +177,6 @@ func (c *MinerUCloudReader) readSplitPDF(ctx context.Context, req *types.ReadReq
 		sub.FileName = fmt.Sprintf("%s-pages-%d-%d.pdf",
 			strings.TrimSuffix(req.FileName, filepath.Ext(req.FileName)), part.first, part.last)
 		result, e := c.readCloudPart(ctx, &sub)
-		partBytes = nil
 		if e != nil {
 			return nil, fmt.Errorf("OCR part %d/%d (pages %d-%d): %w", i+1, len(parts), part.first, part.last, e)
 		}
@@ -186,8 +185,13 @@ func (c *MinerUCloudReader) readSplitPDF(ctx context.Context, req *types.ReadReq
 		// MinerU parts can reuse image filenames. Namespace references before merging.
 		for _, ref := range result.ImageRefs {
 			if totalImageBytes+int64(len(ref.ImageData)) > maxImages {
-				return nil, fmt.Errorf("%w: merged MinerU Cloud images reached %d bytes and exceed limit %d bytes (%s)",
-					errResultPackageTooLarge, totalImageBytes+int64(len(ref.ImageData)), maxImages, mineruMaxImageBytesEnv)
+				return nil, fmt.Errorf(
+					"%w: merged MinerU Cloud images reached %d bytes and exceed limit %d bytes (%s)",
+					errResultPackageTooLarge,
+					totalImageBytes+int64(len(ref.ImageData)),
+					maxImages,
+					mineruMaxImageBytesEnv,
+				)
 			}
 			totalImageBytes += int64(len(ref.ImageData))
 			old := ref.OriginalRef

@@ -29,13 +29,16 @@ func TestDefaultPathMaxFileBytesAndNilContextSecretRedaction(t *testing.T) {
 		Settings: api.TranscriptionsSettings{MaxFileBytes: 16},
 	})
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Transcribe(nil, api.TranscriptionRequest{Audio: nil, FileName: "a.wav"})
 	require.Error(t, err)
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = c.Transcribe(nil, api.TranscriptionRequest{Audio: make([]byte, 32), FileName: "a.wav"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	out, err := c.Transcribe(nil, api.TranscriptionRequest{Audio: []byte("RIFF"), FileName: "a.wav"})
 	require.NoError(t, err)
 	assert.Equal(t, "/v1/audio/transcriptions", seenPath)
@@ -48,6 +51,7 @@ func TestDefaultPathMaxFileBytesAndNilContextSecretRedaction(t *testing.T) {
 			Query:   map[string]string{"api_key": "sk-transcribe-secret-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = bad.Transcribe(nil, api.TranscriptionRequest{Audio: []byte("RIFF"), FileName: "a.wav"})
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")

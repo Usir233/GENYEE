@@ -18,11 +18,12 @@ func SelectMMR(ctx context.Context, results []*types.SearchResult, k int, lambda
 	if k <= 0 || len(results) == 0 {
 		return nil
 	}
-	if math.IsNaN(lambda) {
+	switch {
+	case math.IsNaN(lambda):
 		lambda = DefaultMMRLambda
-	} else if lambda < 0 {
+	case lambda < 0:
 		lambda = 0
-	} else if lambda > 1 {
+	case lambda > 1:
 		lambda = 1
 	}
 

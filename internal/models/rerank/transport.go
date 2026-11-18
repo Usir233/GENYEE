@@ -12,7 +12,9 @@ import (
 
 var (
 	rerankUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	rerankQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	rerankQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 func redactRerankText(s string) string {

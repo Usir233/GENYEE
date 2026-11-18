@@ -129,11 +129,12 @@ func scoreCandidates(
 		imageModel, ok := rerank.AsImageReranker(model)
 		if ok {
 			imageScores, imgErr := imageModel.RerankImages(ctx, query, images)
-			if imgErr != nil {
+			switch {
+			case imgErr != nil:
 				logger.Warnf(ctx, "[Rerank] Image scoring failed, scoring those hits as text: %v", imgErr)
-			} else if hasNonFiniteRankScore(imageScores) {
+			case hasNonFiniteRankScore(imageScores):
 				logger.Warnf(ctx, "[Rerank] Image scoring returned non-finite score, scoring those hits as text")
-			} else {
+			default:
 				seenImage := make(map[int]bool, len(imagePositions))
 				for _, s := range imageScores {
 					if s.Index < 0 || s.Index >= len(imagePositions) || seenImage[s.Index] {

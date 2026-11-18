@@ -54,7 +54,9 @@ func TestOpenContinuedLabelAndRichString(t *testing.T) {
 				wb, err := Open(file)
 				require.NoError(t, err)
 				require.Len(t, wb.Sheets, 1)
-				require.Equal(t, []Cell{{Row: 0, Col: 0, Value: want}, {Row: 1, Col: 0, Value: "42"}}, wb.Sheets[0].Cells)
+				require.Equal(t,
+					[]Cell{{Row: 0, Col: 0, Value: want}, {Row: 1, Col: 0, Value: "42"}},
+					wb.Sheets[0].Cells)
 			})
 		}
 	}

@@ -174,7 +174,8 @@ func TestW5GitLabAudit_BreaksCyclicTreeWalkAndEnforcesDecodedBase64Cap(t *testin
 		t.Fatalf("newClient: %v", err)
 	}
 	cli.rawLimit = 8
-	if _, err := cli.raw(context.Background(), "1", "main", "big.md"); err == nil || !strings.Contains(err.Error(), "exceeds maximum size") {
-		t.Fatalf("expected base64 fallback exceeding rawLimit to fail with maximum size error, got %v", err)
+	_, rawErr := cli.raw(context.Background(), "1", "main", "big.md")
+	if rawErr == nil || !strings.Contains(rawErr.Error(), "exceeds maximum size") {
+		t.Fatalf("expected base64 fallback exceeding rawLimit to fail with maximum size error, got %v", rawErr)
 	}
 }

@@ -78,7 +78,9 @@ func errorPreviewString(body []byte) string {
 
 var (
 	urlUserinfoSecretRE = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	urlQuerySecretRE    = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password)=)[^&\s"']+`)
+	urlQuerySecretRE    = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password)=)[^&\s"']+`,
+	)
 )
 
 // redactURLForDisplay masks basic-auth credentials and secret query parameters

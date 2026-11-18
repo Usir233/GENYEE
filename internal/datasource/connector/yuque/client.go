@@ -128,7 +128,7 @@ func (c *client) doRequest(ctx context.Context, method, path string, result inte
 		}
 
 		body, readErr := readCapped(resp.Body, c.jsonLimit)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if readErr != nil {
 			lastErr = fmt.Errorf("read response body: %w", readErr)
 			if attempt < maxRetries && !errors.Is(readErr, errResponseTooLarge) {

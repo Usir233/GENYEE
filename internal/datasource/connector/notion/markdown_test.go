@@ -48,63 +48,91 @@ func TestRenderRichText(t *testing.T) {
 		{
 			name: "plain text",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "hello", Text: &notionTextContent{Content: "hello"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "hello",
+					Text: &notionTextContent{Content: "hello"}, Annotations: notionAnnotations{},
+				},
 			},
 			expected: "hello",
 		},
 		{
 			name: "bold text",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "bold", Text: &notionTextContent{Content: "bold"}, Annotations: notionAnnotations{Bold: true}},
+				{
+					Type: "text", PlainText: "bold",
+					Text: &notionTextContent{Content: "bold"}, Annotations: notionAnnotations{Bold: true},
+				},
 			},
 			expected: "**bold**",
 		},
 		{
 			name: "italic text",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "italic", Text: &notionTextContent{Content: "italic"}, Annotations: notionAnnotations{Italic: true}},
+				{
+					Type: "text", PlainText: "italic",
+					Text: &notionTextContent{Content: "italic"}, Annotations: notionAnnotations{Italic: true},
+				},
 			},
 			expected: "*italic*",
 		},
 		{
 			name: "code text",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "code", Text: &notionTextContent{Content: "code"}, Annotations: notionAnnotations{Code: true}},
+				{
+					Type: "text", PlainText: "code",
+					Text: &notionTextContent{Content: "code"}, Annotations: notionAnnotations{Code: true},
+				},
 			},
 			expected: "`code`",
 		},
 		{
 			name: "strikethrough",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "del", Text: &notionTextContent{Content: "del"}, Annotations: notionAnnotations{Strikethrough: true}},
+				{
+					Type: "text", PlainText: "del",
+					Text: &notionTextContent{Content: "del"}, Annotations: notionAnnotations{Strikethrough: true},
+				},
 			},
 			expected: "~~del~~",
 		},
 		{
 			name: "underline",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "ul", Text: &notionTextContent{Content: "ul"}, Annotations: notionAnnotations{Underline: true}},
+				{
+					Type: "text", PlainText: "ul",
+					Text: &notionTextContent{Content: "ul"}, Annotations: notionAnnotations{Underline: true},
+				},
 			},
 			expected: "<u>ul</u>",
 		},
 		{
 			name: "bold italic combo",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "bi", Text: &notionTextContent{Content: "bi"}, Annotations: notionAnnotations{Bold: true, Italic: true}},
+				{
+					Type: "text", PlainText: "bi",
+					Text:        &notionTextContent{Content: "bi"},
+					Annotations: notionAnnotations{Bold: true, Italic: true},
+				},
 			},
 			expected: "***bi***",
 		},
 		{
 			name: "text with link",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "click", Href: "https://example.com", Text: &notionTextContent{Content: "click"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "click", Href: "https://example.com",
+					Text: &notionTextContent{Content: "click"}, Annotations: notionAnnotations{},
+				},
 			},
 			expected: "[click](https://example.com)",
 		},
 		{
 			name: "equation",
 			texts: []notionRichText{
-				{Type: "equation", PlainText: "E=mc^2", Equation: &notionEquation{Expression: "E=mc^2"}, Annotations: notionAnnotations{}},
+				{
+					Type: "equation", PlainText: "E=mc^2",
+					Equation: &notionEquation{Expression: "E=mc^2"}, Annotations: notionAnnotations{},
+				},
 			},
 			expected: "$E=mc^2$",
 		},
@@ -129,8 +157,14 @@ func TestRenderRichText(t *testing.T) {
 		{
 			name: "multiple segments",
 			texts: []notionRichText{
-				{Type: "text", PlainText: "hello ", Text: &notionTextContent{Content: "hello "}, Annotations: notionAnnotations{}},
-				{Type: "text", PlainText: "world", Text: &notionTextContent{Content: "world"}, Annotations: notionAnnotations{Bold: true}},
+				{
+					Type: "text", PlainText: "hello ",
+					Text: &notionTextContent{Content: "hello "}, Annotations: notionAnnotations{},
+				},
+				{
+					Type: "text", PlainText: "world",
+					Text: &notionTextContent{Content: "world"}, Annotations: notionAnnotations{Bold: true},
+				},
 			},
 			expected: "hello **world**",
 		},
@@ -163,7 +197,10 @@ func TestBlocksToMarkdown_Paragraph(t *testing.T) {
 	blocks := []notionBlock{
 		makeBlock(t, "paragraph", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "Hello world", Text: &notionTextContent{Content: "Hello world"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "Hello world",
+					Text: &notionTextContent{Content: "Hello world"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -180,17 +217,26 @@ func TestBlocksToMarkdown_Headings(t *testing.T) {
 	blocks := []notionBlock{
 		makeBlock(t, "heading_1", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "H1", Text: &notionTextContent{Content: "H1"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "H1",
+					Text: &notionTextContent{Content: "H1"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 		makeBlock(t, "heading_2", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "H2", Text: &notionTextContent{Content: "H2"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "H2",
+					Text: &notionTextContent{Content: "H2"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 		makeBlock(t, "heading_3", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "H3", Text: &notionTextContent{Content: "H3"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "H3",
+					Text: &notionTextContent{Content: "H3"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -206,7 +252,10 @@ func TestBlocksToMarkdown_Code(t *testing.T) {
 		makeBlock(t, "code", map[string]interface{}{
 			"language": "go",
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "fmt.Println()", Text: &notionTextContent{Content: "fmt.Println()"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "fmt.Println()",
+					Text: &notionTextContent{Content: "fmt.Println()"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -221,12 +270,18 @@ func TestBlocksToMarkdown_List(t *testing.T) {
 	blocks := []notionBlock{
 		makeBlock(t, "bulleted_list_item", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "Item 1", Text: &notionTextContent{Content: "Item 1"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "Item 1",
+					Text: &notionTextContent{Content: "Item 1"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 		makeBlock(t, "bulleted_list_item", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "Item 2", Text: &notionTextContent{Content: "Item 2"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "Item 2",
+					Text: &notionTextContent{Content: "Item 2"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -242,13 +297,19 @@ func TestBlocksToMarkdown_ToDo(t *testing.T) {
 		makeBlock(t, "to_do", map[string]interface{}{
 			"checked": false,
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "Unchecked", Text: &notionTextContent{Content: "Unchecked"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "Unchecked",
+					Text: &notionTextContent{Content: "Unchecked"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 		makeBlock(t, "to_do", map[string]interface{}{
 			"checked": true,
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "Checked", Text: &notionTextContent{Content: "Checked"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "Checked",
+					Text: &notionTextContent{Content: "Checked"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -263,7 +324,10 @@ func TestBlocksToMarkdown_Quote(t *testing.T) {
 	blocks := []notionBlock{
 		makeBlock(t, "quote", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "A wise quote", Text: &notionTextContent{Content: "A wise quote"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "A wise quote",
+					Text: &notionTextContent{Content: "A wise quote"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -306,7 +370,10 @@ func TestBlocksToMarkdown_Image(t *testing.T) {
 				"expiry_time": "2026-01-15T11:00:00.000Z",
 			},
 			"caption": []notionRichText{
-				{Type: "text", PlainText: "A photo", Text: &notionTextContent{Content: "A photo"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "A photo",
+					Text: &notionTextContent{Content: "A photo"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}
@@ -344,14 +411,26 @@ func TestBlocksToMarkdown_Table(t *testing.T) {
 		Children: []notionBlock{
 			makeBlock(t, "table_row", map[string]interface{}{
 				"cells": [][]notionRichText{
-					{{Type: "text", PlainText: "Name", Text: &notionTextContent{Content: "Name"}, Annotations: notionAnnotations{}}},
-					{{Type: "text", PlainText: "Age", Text: &notionTextContent{Content: "Age"}, Annotations: notionAnnotations{}}},
+					{{
+						Type: "text", PlainText: "Name",
+						Text: &notionTextContent{Content: "Name"}, Annotations: notionAnnotations{},
+					}},
+					{{
+						Type: "text", PlainText: "Age",
+						Text: &notionTextContent{Content: "Age"}, Annotations: notionAnnotations{},
+					}},
 				},
 			}),
 			makeBlock(t, "table_row", map[string]interface{}{
 				"cells": [][]notionRichText{
-					{{Type: "text", PlainText: "Alice", Text: &notionTextContent{Content: "Alice"}, Annotations: notionAnnotations{}}},
-					{{Type: "text", PlainText: "30", Text: &notionTextContent{Content: "30"}, Annotations: notionAnnotations{}}},
+					{{
+						Type: "text", PlainText: "Alice",
+						Text: &notionTextContent{Content: "Alice"}, Annotations: notionAnnotations{},
+					}},
+					{{
+						Type: "text", PlainText: "30",
+						Text: &notionTextContent{Content: "30"}, Annotations: notionAnnotations{},
+					}},
 				},
 			}),
 		},
@@ -366,14 +445,20 @@ func TestBlocksToMarkdown_Table(t *testing.T) {
 func TestBlocksToMarkdown_NestedList(t *testing.T) {
 	parent := makeBlock(t, "bulleted_list_item", map[string]interface{}{
 		"rich_text": []notionRichText{
-			{Type: "text", PlainText: "Parent", Text: &notionTextContent{Content: "Parent"}, Annotations: notionAnnotations{}},
+			{
+				Type: "text", PlainText: "Parent",
+				Text: &notionTextContent{Content: "Parent"}, Annotations: notionAnnotations{},
+			},
 		},
 	})
 	parent.HasChildren = true
 	parent.Children = []notionBlock{
 		makeBlock(t, "bulleted_list_item", map[string]interface{}{
 			"rich_text": []notionRichText{
-				{Type: "text", PlainText: "Child", Text: &notionTextContent{Content: "Child"}, Annotations: notionAnnotations{}},
+				{
+					Type: "text", PlainText: "Child",
+					Text: &notionTextContent{Content: "Child"}, Annotations: notionAnnotations{},
+				},
 			},
 		}),
 	}

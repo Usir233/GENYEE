@@ -158,7 +158,9 @@ func sanitizeFiniteNonNegative(v float64) float64 {
 
 var (
 	transcriptionsUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	transcriptionsQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	transcriptionsQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 type redactedTranscriptionsErr struct {

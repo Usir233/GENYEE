@@ -177,7 +177,9 @@ func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]f
 
 var (
 	googleEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	googleEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	googleEmbedQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 type redactedGoogleEmbedErr struct {

@@ -12,7 +12,9 @@ import (
 
 var (
 	asrUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	asrQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	asrQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 func redactASRText(s string) string {
@@ -34,8 +36,17 @@ func validateASRBaseURL(baseURL string) error {
 	return nil
 }
 
+var sharedASRHTTPTransport = secutils.NewSSRFSafeTransport(
+	secutils.DefaultSSRFSafeHTTPClientConfig(),
+)
+
+const defaultASRRequestTimeout = 300 * time.Second
+
 func newASRHTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = defaultASRRequestTimeout
+	}
 	cfg := secutils.DefaultSSRFSafeHTTPClientConfig()
 	cfg.Timeout = timeout
-	return secutils.NewSSRFSafeHTTPClient(cfg)
+	return secutils.NewSSRFSafeHTTPClientWithTransport(cfg, sharedASRHTTPTransport)
 }

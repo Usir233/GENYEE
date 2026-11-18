@@ -57,4 +57,3 @@ func TestPlaceEmbeddingsRefusesNaNInfAndRaggedDimensions(t *testing.T) {
 		})
 	}
 }
-

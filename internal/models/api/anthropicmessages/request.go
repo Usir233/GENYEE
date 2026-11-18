@@ -206,11 +206,12 @@ func (c *Client) BuildRequestBody(messages []api.Message, opts *api.Options, str
 
 	if opts != nil {
 		acceptsTemperature := s.SupportsTemperature && (!plan.enabled || s.TemperatureWithThinking)
-		if opts.Isolated && acceptsTemperature {
+		switch {
+		case opts.Isolated && acceptsTemperature:
 			body["temperature"] = 0.0
-		} else if acceptsTemperature && opts.Temperature > 0 {
+		case acceptsTemperature && opts.Temperature > 0:
 			body["temperature"] = opts.Temperature
-		} else if s.SupportsTopP && opts.TopP > 0 && !plan.enabled {
+		case s.SupportsTopP && opts.TopP > 0 && !plan.enabled:
 			// temperature and top_p are mutually exclusive on current models;
 			// temperature wins when both are set.
 			body["top_p"] = opts.TopP
@@ -361,7 +362,8 @@ func (c *Client) convertMessages(messages []api.Message, _ *api.Options) ([]stri
 			if len(result) > 0 && result[len(result)-1].Role == "user" {
 				if blocks, ok := result[len(result)-1].Content.([]contentBlock); ok && len(blocks) > 0 &&
 					blocks[0].Type == "tool_result" {
-					result[len(result)-1].Content = append(blocks, block)
+					blocks = append(blocks, block)
+					result[len(result)-1].Content = blocks
 					continue
 				}
 			}

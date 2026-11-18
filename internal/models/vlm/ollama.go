@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	ollamaapi "github.com/ollama/ollama/api"
 )
@@ -44,6 +45,8 @@ func (v *OllamaVLM) PredictWithOptions(
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := api.WithLLMTimeout(ctx, vlmHTTPTimeout())
+	defer cancel()
 	if err := validateVLMImages(imgBytesList); err != nil {
 		return "", err
 	}
@@ -75,7 +78,11 @@ func (v *OllamaVLM) PredictWithOptions(
 	for _, img := range imgBytesList {
 		totalImageSize += len(img)
 	}
-	logger.Infof(ctx, "[VLM] Calling Ollama API, model=%s, numImages=%d, totalImageSize=%d", v.modelName, len(images), totalImageSize)
+	logger.Infof(
+		ctx,
+		"[VLM] Calling Ollama API, model=%s, numImages=%d, totalImageSize=%d",
+		v.modelName, len(images), totalImageSize,
+	)
 
 	var result, doneReason string
 	err := v.ollamaService.Chat(ctx, chatReq, func(resp ollamaapi.ChatResponse) error {
@@ -84,7 +91,7 @@ func (v *OllamaVLM) PredictWithOptions(
 		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("Ollama VLM request: %w", err)
+		return "", fmt.Errorf("ollama VLM request: %w", err)
 	}
 	if doneReason == "length" {
 		// Same contract as RemoteAPIVLM: a cut-off answer is incomplete and must
@@ -96,5 +103,8 @@ func (v *OllamaVLM) PredictWithOptions(
 	return result, nil
 }
 
+// GetModelName returns the configured VLM model name.
 func (v *OllamaVLM) GetModelName() string { return v.modelName }
-func (v *OllamaVLM) GetModelID() string   { return v.modelID }
+
+// GetModelID returns the configured VLM model ID.
+func (v *OllamaVLM) GetModelID() string { return v.modelID }

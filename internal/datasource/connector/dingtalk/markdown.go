@@ -396,11 +396,12 @@ func renderInlines(
 		case "link":
 			label := renderInlines(value.Children, depth+1, unknown)
 			href, ok := safeURL(value.Properties.Href)
-			if !ok {
+			switch {
+			case !ok:
 				builder.WriteString(label)
-			} else if label == "" {
+			case label == "":
 				fmt.Fprintf(&builder, "[%s](%s)", escapeLabel(href), href)
-			} else {
+			default:
 				fmt.Fprintf(&builder, "[%s](%s)", label, href)
 			}
 		default:

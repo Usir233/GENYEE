@@ -33,7 +33,9 @@ type authCaptureDocReaderServer struct {
 	authHeaderCh chan string
 }
 
-func (s *authCaptureDocReaderServer) ListEngines(ctx context.Context, _ *proto.ListEnginesRequest) (*proto.ListEnginesResponse, error) {
+func (s *authCaptureDocReaderServer) ListEngines(
+	ctx context.Context, _ *proto.ListEnginesRequest,
+) (*proto.ListEnginesResponse, error) {
 	var authVal string
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if vals := md.Get("authorization"); len(vals) > 0 {
@@ -55,7 +57,7 @@ func TestProbeGRPCDocumentReaderBlocksLoopbackSSRFByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	srv := grpc.NewServer()
 	capture := &authCaptureDocReaderServer{authHeaderCh: make(chan string, 1)}
@@ -67,7 +69,7 @@ func TestProbeGRPCDocumentReaderBlocksLoopbackSSRFByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer probe.Close()
+	defer func() { _ = probe.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -87,7 +89,7 @@ func TestConfiguredDocReaderSendsTokenOnlyToConfiguredEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	t.Setenv("DOCREADER_ADDR", lis.Addr().String())
 	t.Setenv("GRPC_AUTH_TOKEN", "configured-sidecar-token")
@@ -103,7 +105,7 @@ func TestConfiguredDocReaderSendsTokenOnlyToConfiguredEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -129,7 +131,7 @@ func TestGRPCDocumentReaderReachesHostnameConfiguredDocReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 	_, port, _ := net.SplitHostPort(lis.Addr().String())
 	addr := "localhost:" + port
 	t.Setenv("DOCREADER_ADDR", addr)
@@ -144,7 +146,7 @@ func TestGRPCDocumentReaderReachesHostnameConfiguredDocReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

@@ -64,11 +64,13 @@ func readCapped(body io.Reader, limit int64) ([]byte, error) {
 	return data, nil
 }
 
+// WikiNodeListFailure records a single child-node listing failure during a recursive wiki walk.
 type WikiNodeListFailure struct {
 	Node WikiNode
 	Err  error
 }
 
+// PartialWikiNodeListError aggregates sub-tree listing failures encountered during a wiki walk.
 type PartialWikiNodeListError struct {
 	Failures []WikiNodeListFailure
 }
@@ -131,7 +133,7 @@ func (c *Client) GetTenantAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("request token: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := readCapped(resp.Body, c.jsonLimit)
 	if err != nil {
@@ -275,7 +277,7 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 		}
 
 		respBody, readErr := readCapped(resp.Body, c.jsonLimit)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if readErr != nil {
 			lastErr = fmt.Errorf("read response body: %w", readErr)
 			if attempt < maxRetries && !errors.Is(readErr, errResponseTooLarge) {
@@ -304,7 +306,10 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 		}
 
 		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
-			lastErr = fmt.Errorf("feishu server error: status=%d body=%s", resp.StatusCode, truncate(string(respBody), 500))
+			lastErr = fmt.Errorf(
+				"feishu server error: status=%d body=%s",
+				resp.StatusCode, truncate(string(respBody), 500),
+			)
 			if attempt < max5xxRetries {
 				if sErr := sleepCtx(ctx, retry5xxDelay); sErr != nil {
 					return sErr
@@ -404,7 +409,10 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 			return nil, fmt.Errorf("list wiki spaces error: code=%d msg=%s", resp.Code, resp.Msg)
 		}
 
-		logger.Infof(ctx, "[Feishu] ListWikiSpaces: got %d spaces, has_more=%v", len(resp.Data.Items), resp.Data.HasMore)
+		logger.Infof(
+			ctx, "[Feishu] ListWikiSpaces: got %d spaces, has_more=%v",
+			len(resp.Data.Items), resp.Data.HasMore,
+		)
 		for i, s := range resp.Data.Items {
 			logger.Infof(ctx, "[Feishu]   space[%d]: id=%s name=%q visibility=%s", i, s.SpaceID, s.Name, s.Visibility)
 		}
@@ -660,26 +668,6 @@ func (c *Client) listWikiNodeDescendants(ctx context.Context, spaceID string, ro
 	return allNodes, nil
 }
 
-// getDocumentRawContent retrieves the raw text content of a Feishu docx document.
-// This returns plain text (not rich text / block structure).
-// Deprecated: prefer ExportAndDownload which preserves formatting.
-func (c *Client) getDocumentRawContent(ctx context.Context, documentID string) (string, error) {
-	if err := validateFeishuToken("document id", documentID); err != nil {
-		return "", err
-	}
-	path := fmt.Sprintf("/open-apis/docx/v1/documents/%s/raw_content", url.PathEscape(documentID))
-
-	var resp docRawContentResponse
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
-		return "", fmt.Errorf("get document raw content: %w", err)
-	}
-	if resp.Code != 0 {
-		return "", fmt.Errorf("get document raw content error: code=%d msg=%s", resp.Code, resp.Msg)
-	}
-
-	return resp.Data.Content, nil
-}
-
 // Ping verifies the credentials by attempting to get a tenant access token.
 func (c *Client) Ping(ctx context.Context) error {
 	_, err := c.GetTenantAccessToken(ctx)
@@ -893,7 +881,7 @@ func (c *Client) downloadRawBytes(ctx context.Context, path string) ([]byte, err
 
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusBadRequest {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, maxFeishuErrorPreviewBytes))
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if !isFeishuRateLimited(resp.StatusCode, body) {
 				logger.Errorf(ctx, "[Feishu] download GET %s → status=%d body=%s",
 					path, resp.StatusCode, truncate(string(body), 500))
@@ -914,8 +902,11 @@ func (c *Client) downloadRawBytes(ctx context.Context, path string) ([]byte, err
 
 		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, maxFeishuErrorPreviewBytes))
-			resp.Body.Close()
-			lastErr = fmt.Errorf("download server error: status=%d body=%s", resp.StatusCode, truncate(string(body), 500))
+			_ = resp.Body.Close()
+			lastErr = fmt.Errorf(
+				"download server error: status=%d body=%s",
+				resp.StatusCode, truncate(string(body), 500),
+			)
 			if attempt < feishuMax5xxRetries {
 				if sErr := sleepCtx(ctx, feishuRetry5xxDelay); sErr != nil {
 					return nil, sErr
@@ -927,8 +918,11 @@ func (c *Client) downloadRawBytes(ctx context.Context, path string) ([]byte, err
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, maxFeishuErrorPreviewBytes))
-			resp.Body.Close()
-			logger.Errorf(ctx, "[Feishu] download GET %s → status=%d body=%s", path, resp.StatusCode, truncate(string(body), 500))
+			_ = resp.Body.Close()
+			logger.Errorf(
+				ctx, "[Feishu] download GET %s → status=%d body=%s",
+				path, resp.StatusCode, truncate(string(body), 500),
+			)
 			return nil, fmt.Errorf("download failed: status=%d body=%s", resp.StatusCode, truncate(string(body), 500))
 		}
 
@@ -941,10 +935,10 @@ func (c *Client) downloadRawBytes(ctx context.Context, path string) ([]byte, err
 
 		data, readErr := io.ReadAll(io.LimitReader(resp.Body, maxFeishuDownloadBytes+1))
 		if readErr == nil && int64(len(data)) > maxFeishuDownloadBytes {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("%w (%d bytes): %s", ErrDownloadTooLarge, maxFeishuDownloadBytes, path)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if readErr != nil {
 			lastErr = fmt.Errorf("read download body: %w", readErr)
 			if attempt < feishuMaxRetries {

@@ -28,7 +28,9 @@ func (d *debugEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]flo
 	return result, err
 }
 
-func (d *debugEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+func (d *debugEmbedder) BatchEmbedWithPool(
+	ctx context.Context, _ Embedder, texts []string,
+) ([][]float32, error) {
 	return d.inner.BatchEmbedWithPool(ctx, d, texts)
 }
 
@@ -71,7 +73,9 @@ func singleToDouble(v []float32) [][]float32 {
 	return [][]float32{v}
 }
 
-func logEmbeddingDebug(ctx context.Context, model string, inputs []string, outputs [][]float32, callErr error, dur time.Duration) {
+func logEmbeddingDebug(
+	ctx context.Context, model string, inputs []string, outputs [][]float32, callErr error, dur time.Duration,
+) {
 	if !logger.LLMDebugEnabled() {
 		return
 	}
@@ -84,24 +88,24 @@ func logEmbeddingDebug(ctx context.Context, model string, inputs []string, outpu
 
 	// Input section: show each text with a preview
 	var inputBuf strings.Builder
-	inputBuf.WriteString(fmt.Sprintf("count=%d\n", len(inputs)))
+	_, _ = fmt.Fprintf(&inputBuf, "count=%d\n", len(inputs))
 	for i, t := range inputs {
 		preview := strings.ReplaceAll(t, "\n", "\\n")
 		preview = logger.TruncateRunes(preview, 200)
-		inputBuf.WriteString(fmt.Sprintf("[%d] (len=%d) %s\n", i, len([]rune(t)), preview))
+		_, _ = fmt.Fprintf(&inputBuf, "[%d] (len=%d) %s\n", i, len([]rune(t)), preview)
 	}
 	record.Sections = append(record.Sections, logger.RecordSection{Title: "Input", Content: inputBuf.String()})
 
 	// Output section
 	if outputs != nil {
 		var outBuf strings.Builder
-		outBuf.WriteString(fmt.Sprintf("count=%d\n", len(outputs)))
+		_, _ = fmt.Fprintf(&outBuf, "count=%d\n", len(outputs))
 		for i, vec := range outputs {
 			if len(vec) > 0 {
-				outBuf.WriteString(fmt.Sprintf("[%d] dims=%d, first_3=[%.6f, %.6f, %.6f]\n", i, len(vec),
-					safeIdx(vec, 0), safeIdx(vec, 1), safeIdx(vec, 2)))
+				_, _ = fmt.Fprintf(&outBuf, "[%d] dims=%d, first_3=[%.6f, %.6f, %.6f]\n", i, len(vec),
+					safeIdx(vec, 0), safeIdx(vec, 1), safeIdx(vec, 2))
 			} else {
-				outBuf.WriteString(fmt.Sprintf("[%d] empty\n", i))
+				_, _ = fmt.Fprintf(&outBuf, "[%d] empty\n", i)
 			}
 		}
 		record.Sections = append(record.Sections, logger.RecordSection{Title: "Output", Content: outBuf.String()})

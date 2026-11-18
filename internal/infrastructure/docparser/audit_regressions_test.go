@@ -145,7 +145,8 @@ func TestAuditW7_ImageResolver_SafeStorageExtRemoteSniffAndSVGDoctypeBlock(t *te
 	}
 
 	// 2. Inline SVG carrying <!DOCTYPE / <!ENTITY must be rejected.
-	dtdSVG := `<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY xxe "boom">]><svg xmlns="http://www.w3.org/2000/svg"><text>&xxe;</text></svg>`
+	dtdSVG := `<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY xxe "boom">]>` +
+		`<svg xmlns="http://www.w3.org/2000/svg"><text>&xxe;</text></svg>`
 	dtdMD := "![xxe](data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(dtdSVG)) + ")"
 	dtdSvc := &mockFileService{}
 	_, dtdImages, err := resolver.ResolveDataURIImages(context.Background(), dtdMD, dtdSvc, 7)
@@ -188,7 +189,9 @@ type overBudgetStreamServer struct {
 	proto.UnimplementedDocReaderServer
 }
 
-func (s *overBudgetStreamServer) ReadStream(_ *proto.ReadRequest, stream grpc.ServerStreamingServer[proto.ReadStreamResponse]) error {
+func (s *overBudgetStreamServer) ReadStream(
+	_ *proto.ReadRequest, stream grpc.ServerStreamingServer[proto.ReadStreamResponse],
+) error {
 	if err := stream.Send(&proto.ReadStreamResponse{
 		Payload: &proto.ReadStreamResponse_Meta{
 			Meta: &proto.ReadStreamMeta{MarkdownContent: "![](a.png) ![](b.png) ![](c.png)"},
@@ -231,7 +234,9 @@ func TestAuditW7_ImageBudgetAndGRPCCloseState(t *testing.T) {
 		t.Fatal("expected IsConnected() == true before Close()")
 	}
 
-	_, err = reader.Read(context.Background(), &types.ReadRequest{FileName: "scan.pdf", FileType: "pdf", FileContent: []byte("%PDF")})
+	_, err = reader.Read(context.Background(), &types.ReadRequest{
+		FileName: "scan.pdf", FileType: "pdf", FileContent: []byte("%PDF"),
+	})
 	if status.Code(err) != codes.ResourceExhausted {
 		t.Fatalf("expected ResourceExhausted when streamed images exceed budget, got %v", err)
 	}
@@ -246,7 +251,7 @@ func TestAuditW7_ImageBudgetAndGRPCCloseState(t *testing.T) {
 	// Self-hosted PaddleOCRVLReader & MinerUReader must also enforce cumulative image byte cap.
 	allowLocalhost(t)
 	bigB64 := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("p"), 3000))
-	paddleSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	paddleSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"errorCode": 0,
 			"result": map[string]any{
@@ -264,7 +269,8 @@ func TestAuditW7_ImageBudgetAndGRPCCloseState(t *testing.T) {
 	defer paddleSrv.Close()
 
 	pReader := NewPaddleOCRVLReader(map[string]string{"paddleocr_vl_endpoint": paddleSrv.URL})
-	if _, err := pReader.Read(context.Background(), &types.ReadRequest{FileContent: []byte("%PDF"), FileName: "doc.pdf", FileType: "pdf"}); err == nil {
+	pdfReq := &types.ReadRequest{FileContent: []byte("%PDF"), FileName: "doc.pdf", FileType: "pdf"}
+	if _, err := pReader.Read(context.Background(), pdfReq); err == nil {
 		t.Fatal("expected PaddleOCRVLReader to reject cumulative images exceeding GENYEE_MINERU_MAX_IMAGE_BYTES")
 	}
 }
@@ -302,7 +308,10 @@ func TestAuditW7_CloudUploadFilenameSanitizationAndSourceBlocksFileTypeFallback(
 				},
 			})
 		case r.Method == http.MethodGet && r.URL.Path == "/result.jsonl":
-			line := `{"result":{"layoutParsingResults":[{"prunedResult":{"page_size":[600,800],"parsing_res_list":[{"block_label":"text","block_content":"Hello PDF","block_bbox":[10,20,200,60]}]},"markdown":{"text":"Hello PDF","images":{}}}]}}`
+			line := `{"result":{"layoutParsingResults":[{"prunedResult":{"page_size":[600,800],` +
+				`"parsing_res_list":[{"block_label":"text","block_content":"Hello PDF",` +
+				`"block_bbox":[10,20,200,60]}]},` +
+				`"markdown":{"text":"Hello PDF","images":{}}}]}}`
 			_, _ = w.Write([]byte(line + "\n"))
 		default:
 			http.NotFound(w, r)
@@ -360,12 +369,12 @@ func TestAuditW7_HTTPDocumentReader_MaxFileSizeTrustedAddrAndBareHostPort(t *tes
 	secutils.SetSSRFWhitelistFromRaw("")
 	t.Cleanup(func() { secutils.SetSSRFWhitelistFromRaw("") })
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(httpReadResponse{MarkdownContent: "trusted ok"})
 	}))
 	defer srv.Close()
 
-	otherSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	otherSrv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	defer otherSrv.Close()
 
 	// 1. Operator-configured DOCREADER_ADDR (bare host:port) must work without SSRF_WHITELIST,
@@ -377,7 +386,9 @@ func TestAuditW7_HTTPDocumentReader_MaxFileSizeTrustedAddrAndBareHostPort(t *tes
 	if err != nil {
 		t.Fatalf("NewHTTPDocumentReader(configured bare host:port) failed: %v", err)
 	}
-	got, err := reader.Read(context.Background(), &types.ReadRequest{FileName: "a.md", FileType: "md", FileContent: []byte("hi")})
+	got, err := reader.Read(context.Background(), &types.ReadRequest{
+		FileName: "a.md", FileType: "md", FileContent: []byte("hi"),
+	})
 	if err != nil || got.MarkdownContent != "trusted ok" {
 		t.Fatalf("Read on operator-configured DOCREADER_ADDR = (%+v, %v), want 'trusted ok'", got, err)
 	}
@@ -424,20 +435,26 @@ func TestAuditW7_CloudPollPathEscapeErrorPreviewAndHTMLTableFences(t *testing.T)
 	}
 
 	// 2. PaddleOCRVLReader non-200 error message must be capped by readErrorPreview, not full body.
-	errSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	errSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte(strings.Repeat("E", 64*1024)))
 	}))
 	defer errSrv.Close()
 
 	selfPaddle := NewPaddleOCRVLReader(map[string]string{"paddleocr_vl_endpoint": errSrv.URL})
-	_, err := selfPaddle.Read(context.Background(), &types.ReadRequest{FileContent: []byte("%PDF"), FileName: "x.pdf", FileType: "pdf"})
+	_, err := selfPaddle.Read(context.Background(), &types.ReadRequest{
+		FileContent: []byte("%PDF"), FileName: "x.pdf", FileType: "pdf",
+	})
 	if err == nil || len(err.Error()) > maxErrorPreviewBytes+256 {
-		t.Fatalf("expected bounded error preview (<%d chars), got err len=%d", maxErrorPreviewBytes+256, len(fmt.Sprint(err)))
+		t.Fatalf(
+			"expected bounded error preview (<%d chars), got err len=%d",
+			maxErrorPreviewBytes+256, len(fmt.Sprint(err)),
+		)
 	}
 
 	// 3. NormalizeHTMLTables must ignore mid-line ```code``` spans when tracking fenced code blocks.
-	inputMD := "Use ```inline``` syntax:\n\n```html\n<table><tr><td>CodeExample</td></tr></table>\n```\n\n<table><tr><th>Header</th></tr><tr><td>RowVal</td></tr></table>"
+	inputMD := "Use ```inline``` syntax:\n\n```html\n<table><tr><td>CodeExample</td></tr></table>\n```\n\n" +
+		"<table><tr><th>Header</th></tr><tr><td>RowVal</td></tr></table>"
 	normalized := NormalizeHTMLTables(inputMD)
 	if !strings.Contains(normalized, "```html\n<table><tr><td>CodeExample</td></tr></table>\n```") {
 		t.Fatalf("fenced HTML table was corrupted after inline triple-backtick span:\n%s", normalized)

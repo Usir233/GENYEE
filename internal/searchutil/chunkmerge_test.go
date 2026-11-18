@@ -171,7 +171,8 @@ func TestMergeTextChunks_GapSeparator(t *testing.T) {
 func TestAppendWithOverlap_ContiguousRealContentRepeat(t *testing.T) {
 	repeat := "The system shall maintain a complete audit trail of all transactions."
 	acc := "3.2 Logging Requirements\n\n" + repeat
-	next := "\n\n5.1 Security Controls\n\n* Role-based access\n* Encryption at rest\n\n5.2 Compliance\n\n" + repeat + " This satisfies SOC 2."
+	next := "\n\n5.1 Security Controls\n\n* Role-based access\n* Encryption at rest\n\n" +
+		"5.2 Compliance\n\n" + repeat + " This satisfies SOC 2."
 	got := AppendWithOverlap(acc, next, 0)
 	want := acc + next
 	if got != want {

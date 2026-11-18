@@ -418,8 +418,7 @@ func TestLegacyFreeFormAPIExtraKeyIsRejected(t *testing.T) {
 		ExtraConfig: map[string]string{"api": "v1"},
 	})
 	if err == nil {
-		t.Skip("extra_config.api is now tolerant of legacy free-form values; " +
-			"delete this test and the release note that goes with it")
+		t.Fatal("expected legacy free-form extra_config.api value to be rejected")
 	}
 	t.Logf("documented break: %v", err)
 }

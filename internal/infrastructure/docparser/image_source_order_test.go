@@ -46,7 +46,9 @@ func TestSortImagesByPosition_远程和本地图按最终文档顺序合并(t *t
 			require.NoError(t, err, "本地图解析应成功")
 			markdown, remote, err := resolver.ResolveRemoteImages(context.Background(), markdown, fileSvc, 1)
 			require.NoError(t, err, "远程图解析应成功")
-			images := append(local, remote...)
+			images := make([]StoredImage, 0, len(local)+len(remote))
+			images = append(images, local...)
+			images = append(images, remote...)
 			require.Len(t, images, len(tc.wantRefs), "合并不得丢失图片")
 			// 来源定位附在图片对象上，排序后必须继续属于同一张图。
 			for i := range images {

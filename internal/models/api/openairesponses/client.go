@@ -110,12 +110,13 @@ func (c *Client) ChatStream(
 	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultStreamTimeout)
 
-	resp, data, err := c.send(ctx, messages, opts, true)
+	resp, data, err := c.send(ctx, messages, opts, true) //nolint:bodyclose // closed by streaming goroutine
 	if err != nil {
 		if api.IsMultimodalNotSupportedError(err) {
 			logger.Warnf(ctx, "[LLM Stream] Model %s does not support multimodal, retrying without images",
 				c.cfg.Endpoint.Model)
-			resp, data, err = c.send(ctx, api.StripImagesFromMessages(messages), opts, true)
+			stripped := api.StripImagesFromMessages(messages)
+			resp, data, err = c.send(ctx, stripped, opts, true) //nolint:bodyclose // closed by streaming goroutine
 		}
 		if err != nil {
 			cancel()
@@ -602,7 +603,9 @@ func (c *Client) completeStream(
 
 var (
 	responsesUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	responsesQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	responsesQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 type redactedResponsesErr struct {

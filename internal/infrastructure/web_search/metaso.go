@@ -52,6 +52,7 @@ func NewMetasoProvider(params types.WebSearchProviderParameters) (interfaces.Web
 	}, nil
 }
 
+// ValidateMetasoParameters validates Metaso search provider credentials and options.
 func ValidateMetasoParameters(params types.WebSearchProviderParameters) error {
 	if strings.TrimSpace(params.APIKey) == "" {
 		return fmt.Errorf("API key is required for Metaso provider")
@@ -70,6 +71,7 @@ func metasoScope(extraConfig map[string]string) string {
 	return defaultMetasoScope
 }
 
+// Name returns the provider name.
 func (p *MetasoProvider) Name() string { return "metaso" }
 
 // Search queries the Metaso API and converts its results to GENYEE's format.
@@ -106,7 +108,7 @@ func (p *MetasoProvider) Search(ctx context.Context, request types.WebSearchRequ
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute Metaso request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := readMetasoResponseBody(resp.Body)
 	if err != nil {
 		return nil, err
@@ -129,7 +131,9 @@ func (p *MetasoProvider) Search(ctx context.Context, request types.WebSearchRequ
 		if snippet == "" {
 			snippet = strings.TrimSpace(item.Snippet)
 		}
-		result := &types.WebSearchResult{Title: item.Title, URL: item.Link, Snippet: snippet, Content: item.RawContent, Source: "metaso"}
+		result := &types.WebSearchResult{
+			Title: item.Title, URL: item.Link, Snippet: snippet, Content: item.RawContent, Source: "metaso",
+		}
 		if includeDate {
 			if publishedAt, ok := parseMetasoDate(item.Date); ok {
 				result.PublishedAt = &publishedAt
@@ -151,7 +155,7 @@ func readMetasoResponseBody(reader io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read Metaso response: %w", err)
 	}
 	if len(body) > maxMetasoResponseBytes {
-		return nil, fmt.Errorf("Metaso response exceeds %d bytes", maxMetasoResponseBytes)
+		return nil, fmt.Errorf("metaso response exceeds %d bytes", maxMetasoResponseBytes)
 	}
 	return body, nil
 }
@@ -167,15 +171,15 @@ func metasoHTTPError(statusCode int, body []byte) error {
 			detail = strings.TrimSpace(apiError.Error)
 		}
 		if detail != "" {
-			return fmt.Errorf("Metaso API returned status %d: %s", statusCode, errorPreviewString([]byte(detail)))
+			return fmt.Errorf("metaso API returned status %d: %s", statusCode, errorPreviewString([]byte(detail)))
 		}
 	}
 	detail := errorPreviewString(body)
 
 	if detail == "" {
-		return fmt.Errorf("Metaso API returned status %d", statusCode)
+		return fmt.Errorf("metaso API returned status %d", statusCode)
 	}
-	return fmt.Errorf("Metaso API returned status %d: %s", statusCode, detail)
+	return fmt.Errorf("metaso API returned status %d: %s", statusCode, detail)
 }
 
 func parseMetasoDate(value string) (time.Time, bool) {

@@ -23,6 +23,7 @@ func TestEmbedNilContextAndRedactsSecretsInRequestError(t *testing.T) {
 			Query:   map[string]string{"api_key": "ark-secret-key-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Embed(nil, []string{"hello"}, api.EmbedDocument)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")
@@ -43,6 +44,7 @@ func TestPostValidatesEmbeddingVectorFinity(t *testing.T) {
 	c := New(Config{
 		Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "doubao-embedding-vision"},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Embed(nil, []string{"hello"}, api.EmbedDocument)
 	require.Error(t, err)
 

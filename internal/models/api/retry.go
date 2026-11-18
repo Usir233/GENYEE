@@ -67,15 +67,36 @@ func (e Endpoint) PostJSONWithRetry(
 // enclosing scope and the loop cannot fall through without it.
 func withRetry(ctx context.Context, policy RetryPolicy, label string, send func() error) error {
 	var lastErr error
+	var timer *time.Timer
+	defer func() {
+		if timer != nil {
+			timer.Stop()
+		}
+	}()
 	for attempt := 0; attempt <= policy.MaxRetries; attempt++ {
 		if attempt > 0 {
 			wait := policy.delay(attempt)
 			logger.Infof(ctx, "[%s] retrying (%d/%d) after %v: %v",
 				label, attempt, policy.MaxRetries, wait, lastErr)
-			select {
-			case <-time.After(wait):
-			case <-ctx.Done():
-				return ctx.Err()
+			if wait > 0 {
+				if timer == nil {
+					timer = time.NewTimer(wait)
+				} else {
+					if !timer.Stop() {
+						select {
+						case <-timer.C:
+						default:
+						}
+					}
+					timer.Reset(wait)
+				}
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			} else if err := ctx.Err(); err != nil {
+				return err
 			}
 		}
 		err := send()

@@ -28,11 +28,19 @@ func validateEmbeddingBaseURL(baseURL string) error {
 	return nil
 }
 
+// defaultEmbeddingRequestTimeout bounds one embedding HTTP call when no
+// positive timeout is configured, preventing hung sockets from blocking
+// indexing or search workers indefinitely.
+const defaultEmbeddingRequestTimeout = 60 * time.Second
+
 // newEmbeddingHTTPClient returns an HTTP client with connection-level SSRF
 // protection and redirect validation, aligned with internal/models/chat/transport.go.
 // All clients share sharedEmbeddingHTTPTransport so keep-alive connections are
 // pooled globally, while each keeps its own timeout.
 func newEmbeddingHTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = defaultEmbeddingRequestTimeout
+	}
 	cfg := secutils.DefaultSSRFSafeHTTPClientConfig()
 	cfg.Timeout = timeout
 	return secutils.NewSSRFSafeHTTPClientWithTransport(cfg, sharedEmbeddingHTTPTransport)

@@ -6,13 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRerankRejectsNilScoreInWireResponse(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"Response":{"ScoreList":[0.92,null],"RequestId":"req-1"}}`))
 	}))
@@ -94,4 +96,36 @@ func TestNewRejectsMalformedBaseURL(t *testing.T) {
 		})
 		require.Error(t, err, "baseURL %q should fail", raw)
 	}
+}
+
+func TestRerankDefaultClientEnforcesRequestDeadline(t *testing.T) {
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	secutils.ResetSSRFWhitelistForTest()
+	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
+
+	prev := defaultLKEAPRequestTimeout
+	defaultLKEAPRequestTimeout = 60 * time.Millisecond
+	t.Cleanup(func() { defaultLKEAPRequestTimeout = prev })
+
+	unblock := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-unblock:
+		}
+	}))
+	defer server.Close()
+	defer close(unblock)
+
+	client, err := New(Config{
+		SecretID:  "AKID-test",
+		SecretKey: "SK-test",
+		BaseURL:   server.URL,
+	})
+	require.NoError(t, err)
+
+	start := time.Now()
+	_, err = client.Rerank(context.Background(), "query", []string{"doc0"})
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), 2*time.Second)
 }

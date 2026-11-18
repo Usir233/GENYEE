@@ -6,10 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -93,7 +93,11 @@ func resolveMinerUEffort(raw string) string {
 	}
 }
 
+// Read parses a document via a self-hosted MinerU service.
 func (c *MinerUReader) Read(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if c.endpoint == "" {
 		return &types.ReadResult{Error: "MinerU endpoint is not configured"}, nil
 	}
@@ -145,7 +149,8 @@ func (c *MinerUReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 
 	mdContent, imageRefs = ensureOriginalImageRef(req, mdContent, imageRefs)
 
-	logger.Infof(context.Background(), "[MinerU] Parsed successfully, markdown=%d chars, images=%d", len(mdContent), len(imageRefs))
+	logger.Infof(ctx, "[MinerU] Parsed successfully, markdown=%d chars, images=%d",
+		len(mdContent), len(imageRefs))
 
 	return &types.ReadResult{
 		MarkdownContent: mdContent,
@@ -310,11 +315,14 @@ func (c *MinerUReader) callFileParse(
 	if c.effort != "" && strings.HasPrefix(c.backend, "hybrid-") {
 		fields["effort"] = c.effort
 	}
-	if c.vlmServerURL != "" && (strings.HasPrefix(c.backend, "vlm-http-client") || strings.HasPrefix(c.backend, "hybrid-http-client")) {
+	if c.vlmServerURL != "" &&
+		(strings.HasPrefix(c.backend, "vlm-http-client") || strings.HasPrefix(c.backend, "hybrid-http-client")) {
 		fields["server_url"] = c.vlmServerURL
 	}
 	for k, v := range fields {
-		_ = writer.WriteField(k, v)
+		if err := writer.WriteField(k, v); err != nil {
+			return "", nil, nil, fmt.Errorf("write form field %s: %w", k, err)
+		}
 	}
 
 	uploadFileName := minerUUploadFileName(fileName, fileType)
@@ -327,7 +335,9 @@ func (c *MinerUReader) callFileParse(
 	if _, err := part.Write(content); err != nil {
 		return "", nil, nil, fmt.Errorf("write file content: %w", err)
 	}
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return "", nil, nil, fmt.Errorf("close multipart writer: %w", err)
+	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint+"/file_parse", &body)
 	if err != nil {
@@ -350,7 +360,7 @@ func (c *MinerUReader) callFileParse(
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)
@@ -470,8 +480,10 @@ func (c *MinerUReader) processImagesBounded(
 		}
 
 		if int64(len(imgBytes)) > maxZipEntryBytes || totalBytes+int64(len(imgBytes)) > maxImages {
-			return nil, mdContent, fmt.Errorf("%w: MinerU inline images reached %d bytes and exceed limit %d bytes (%s)",
-				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv)
+			return nil, mdContent, fmt.Errorf(
+				"%w: MinerU inline images reached %d bytes and exceed limit %d bytes (%s)",
+				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv,
+			)
 		}
 		totalBytes += int64(len(imgBytes))
 
@@ -515,9 +527,19 @@ func validateMinerUOutboundURL(rawURL string) error {
 // it also probes an authenticated route (Jobs list in 4.0, usage in 4.1), since
 // /v1/health itself is public unless behind an authenticating gateway.
 func PingMinerU(endpoint, apiKey string) (bool, string) {
-	endpoint = strings.TrimRight(endpoint, "/")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return PingMinerUContext(ctx, endpoint, apiKey)
+}
+
+// PingMinerUContext checks if the self-hosted MinerU service is reachable under ctx.
+func PingMinerUContext(ctx context.Context, endpoint, apiKey string) (bool, string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
 	if endpoint == "" {
-		return false, "未配置 MinerU 端点"
+		return false, "MinerU endpoint is not configured"
 	}
 	if err := validateMinerUOutboundURL(endpoint); err != nil {
 		return false, err.Error()
@@ -526,11 +548,10 @@ func PingMinerU(endpoint, apiKey string) (bool, string) {
 		Timeout:      5 * time.Second,
 		MaxRedirects: 5,
 	})
-	ctx := context.Background()
 
 	protocol, err := detectMinerUProtocol(ctx, client, endpoint, apiKey)
 	if err != nil {
-		return false, fmt.Sprintf("MinerU 服务不可用: %v", err)
+		return false, fmt.Sprintf("MinerU service unavailable: %v", err)
 	}
 	if protocol == minerUProtocolV1 {
 		return pingMinerUV1Auth(ctx, client, endpoint, apiKey)
@@ -543,11 +564,12 @@ func PingMinerU(endpoint, apiKey string) (bool, string) {
 
 	resp, err := pingMinerULegacy(ctx, client, endpoint, apiKey)
 	if err != nil {
-		return false, fmt.Sprintf("MinerU 服务不可达: %v", err)
+		return false, fmt.Sprintf("MinerU service unreachable: %v", err)
 	}
-	resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		return false, fmt.Sprintf("MinerU 服务返回状态 %d", resp.StatusCode)
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorPreviewBytes))
+	if resp.StatusCode >= http.StatusBadRequest {
+		return false, fmt.Sprintf("MinerU service returned status %d", resp.StatusCode)
 	}
 	return true, ""
 }
@@ -558,7 +580,7 @@ func PingMinerU(endpoint, apiKey string) (bool, string) {
 func pingMinerULegacy(ctx context.Context, client *http.Client, endpoint, apiKey string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/docs", nil)
 	if err != nil {
-		return nil, fmt.Errorf("构建请求失败: %v", err)
+		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -575,24 +597,25 @@ func pingMinerUV1Auth(ctx context.Context, client *http.Client, endpoint, apiKey
 func pingMinerUAuth(ctx context.Context, client *http.Client, probeURL, apiKey string) (bool, string) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probeURL, nil)
 	if err != nil {
-		return false, fmt.Sprintf("构建请求失败: %v", err)
+		return false, fmt.Sprintf("failed to build request: %v", err)
 	}
 	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Sprintf("MinerU 服务不可达: %v", err)
+		return false, fmt.Sprintf("MinerU service unreachable: %v", err)
 	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorPreviewBytes))
 	_ = resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized {
 		if apiKey == "" {
-			return false, "MinerU 服务已启用鉴权，请配置 API Key"
+			return false, "MinerU service requires authentication, please configure API key"
 		}
-		return false, "MinerU API Key 无效"
+		return false, "invalid MinerU API key"
 	}
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Sprintf("MinerU 鉴权检查返回状态 %d，无法验证 API Key", resp.StatusCode)
+		return false, fmt.Sprintf("MinerU auth check returned status %d", resp.StatusCode)
 	}
 	return true, ""
 }
@@ -625,29 +648,6 @@ func normalizeMinerUMarkdown(content string) string {
 	return content
 }
 
-func mineruImageOriginalRefs(mdContent, imagePath string) []string {
-	normalizedTarget := normalizeMinerUImagePath(imagePath)
-	if normalizedTarget == "" {
-		return nil
-	}
-
-	referenced := extractImageRefsFromContent(mdContent)
-	seen := make(map[string]struct{}, len(referenced))
-	var matched []string
-	for _, refPath := range referenced {
-		if normalizeMinerUImagePath(refPath) != normalizedTarget {
-			continue
-		}
-		if _, ok := seen[refPath]; ok {
-			continue
-		}
-		matched = append(matched, refPath)
-		seen[refPath] = struct{}{}
-	}
-
-	return matched
-}
-
 // imgMarkdownPatternAllowSpaces matches markdown image syntax while allowing
 // spaces in the URL group, so that paths like "images/第 1 页.jpg" produced by
 // MinerU on Chinese documents are still detected as image references.
@@ -670,18 +670,4 @@ func extractImageRefsFromContent(content string) []string {
 	}
 
 	return refs
-}
-
-func normalizeMinerUImagePath(p string) string {
-	p = strings.TrimSpace(p)
-	if p == "" {
-		return ""
-	}
-	if decoded, err := url.PathUnescape(p); err == nil && decoded != "" {
-		p = decoded
-	}
-	p = strings.TrimPrefix(p, "./")
-	p = strings.TrimPrefix(p, "/")
-	p = strings.TrimPrefix(p, "images/")
-	return p
 }

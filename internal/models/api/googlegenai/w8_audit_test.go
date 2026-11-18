@@ -23,11 +23,13 @@ func TestChatRedactsQueryKeyAndUserinfoInRequestCreationError(t *testing.T) {
 			Query:   map[string]string{"key": "AIzaSySecretKey99999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Chat(nil, []api.Message{{Role: "user", Content: "hi"}}, nil)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "AIzaSySecretKey99999")
 	assert.NotContains(t, err.Error(), "supersecretpw")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = c.ChatStream(nil, []api.Message{{Role: "user", Content: "hi"}}, nil)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "AIzaSySecretKey99999")
@@ -43,7 +45,9 @@ func TestRequestURLEscapesModelNameAndNormalizesPrefix(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
 		seenQuery = r.URL.RawQuery
-		_, _ = w.Write([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"finishReason":"STOP"}]}`))
+		_, _ = w.Write([]byte(
+			`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"finishReason":"STOP"}]}`,
+		))
 	}))
 	defer srv.Close()
 
@@ -53,6 +57,7 @@ func TestRequestURLEscapesModelNameAndNormalizesPrefix(t *testing.T) {
 			Model:   "models/gemini-2.5-flash?key=injected#frag",
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	resp, err := c.Chat(nil, []api.Message{{Role: "user", Content: "hi"}}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "ok", resp.Content)

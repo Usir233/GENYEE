@@ -2,6 +2,7 @@
 // system protocol prompt, expansion of private <ref/> handles into canonical
 // <kb/> / <web/> tags, re-compaction of canonical tags replayed from history,
 // and the stream expander that keeps partial tags off the wire.
+
 package modelcontext
 
 import (
@@ -172,7 +173,9 @@ var (
 	documentAttrRE    = regexp.MustCompile(`(?i)\bknowledge_id\s*=\s*"([^"]+)"`)
 	documentElementRE = regexp.MustCompile(`(?is)<knowledge_id>\s*([^<]+?)\s*</knowledge_id>`)
 	kbAttrRE          = regexp.MustCompile(`(?i)\b(?:knowledge_base_id|kb_id)\s*=\s*"([^"]+)"`)
-	kbElementRE       = regexp.MustCompile(`(?is)<(?:knowledge_base_id|kb_id)>\s*([^<]+?)\s*</(?:knowledge_base_id|kb_id)>`)
+	kbElementRE       = regexp.MustCompile(
+		`(?is)<(?:knowledge_base_id|kb_id)>\s*([^<]+?)\s*</(?:knowledge_base_id|kb_id)>`,
+	)
 )
 
 // registerLabeledReferences covers metadata-oriented tools that do not have a

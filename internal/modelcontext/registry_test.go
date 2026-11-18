@@ -28,7 +28,9 @@ func TestRegistryOwnsEncodingOrderForSummarySlugs(t *testing.T) {
 		Arguments: `{"slugs":["res://0001"],"knowledge_id":"doc://1"}`,
 	}}}
 	registry.DecodeToolCalls(calls)
-	require.JSONEq(t, `{"slugs":["summary/`+knowledgeID+`"],"knowledge_id":"`+knowledgeID+`"}`, calls[0].Function.Arguments)
+	require.JSONEq(t,
+		`{"slugs":["summary/`+knowledgeID+`"],"knowledge_id":"`+knowledgeID+`"}`,
+		calls[0].Function.Arguments)
 	require.JSONEq(t, `{"slugs":["res://0001"],"knowledge_id":"doc://1"}`, calls[0].ModelArguments)
 	require.Equal(t, ArgumentResolutionResolved, calls[0].ArgumentResolution)
 	require.Empty(t, calls[0].UnresolvedHandles)
@@ -49,7 +51,9 @@ func TestRegistryProtocolOwnsResourceHandleRules(t *testing.T) {
 func TestOutputFilesAreRenderedOnlyForLiveModelResults(t *testing.T) {
 	result := &types.ToolResult{Success: true, Output: "generated", OutputFiles: []string{"sandbox:比赛信息.pptx"}}
 	registry := NewRegistry(true)
-	require.Equal(t, "generated\nOutput files: `sandbox:比赛信息.pptx`", registry.ModelToolResultForTool("shell_exec", result))
+	require.Equal(t,
+		"generated\nOutput files: `sandbox:比赛信息.pptx`",
+		registry.ModelToolResultForTool("shell_exec", result))
 	require.Equal(t, "generated", result.Output)
 	encoded, err := json.Marshal(result)
 	require.NoError(t, err)
@@ -198,7 +202,8 @@ func TestRegistryOwnsWikiIssueHandles(t *testing.T) {
 	registry := NewRegistry(true)
 	modelResult := registry.ModelToolResultForTool("wiki_read_issue", &types.ToolResult{
 		Success: true,
-		Output:  `[{"id":"issue-uuid","knowledge_base_id":"kb-real","suspected_knowledge_ids":["doc-real"],"slug":"concept/a","status":"pending"}]`,
+		Output: `[{"id":"issue-uuid","knowledge_base_id":"kb-real",` +
+			`"suspected_knowledge_ids":["doc-real"],"slug":"concept/a","status":"pending"}]`,
 	})
 	require.JSONEq(t,
 		`[{"id":"i1","knowledge_base_id":"kb://1","suspected_knowledge_ids":["doc://1"],`+
@@ -319,8 +324,9 @@ func TestModelToolResultForTool_failedSkillScriptKeepsStdout(t *testing.T) {
 	stdout := `{"chart":{"success":false,"error":{"error":"X轴字段不存在：工作项目","available":["name","value"]}}}`
 	got := registry.ModelToolResultForTool("execute_skill_script", &types.ToolResult{
 		Success: false,
-		Output:  "=== Script Execution: smart-charts/scripts/cli.py ===\n\n## Standard Output\n\n```\n" + stdout + "\n```\n",
-		Error:   "Script exited with code 1\n\n[Analyze the error above and try a different approach.]",
+		Output: "=== Script Execution: smart-charts/scripts/cli.py ===\n\n" +
+			"## Standard Output\n\n```\n" + stdout + "\n```\n",
+		Error: "Script exited with code 1\n\n[Analyze the error above and try a different approach.]",
 	})
 	require.Contains(t, got, "X轴字段不存在：工作项目")
 	require.Contains(t, got, "available")

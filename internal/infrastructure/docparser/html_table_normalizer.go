@@ -109,15 +109,6 @@ func normalizeOneHTMLTable(conv *converter.Converter, block string) string {
 	return converted
 }
 
-func indexInsideSpans(pos int, spans [][]int) bool {
-	for _, s := range spans {
-		if pos >= s[0] && pos < s[1] {
-			return true
-		}
-	}
-	return false
-}
-
 // stripHTMLLayoutAttrs removes presentational attributes from an HTML fragment
 // while preserving structural attributes (rowspan/colspan) and text content.
 func stripHTMLLayoutAttrs(fragment string) string {

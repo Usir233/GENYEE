@@ -51,7 +51,9 @@ func (l *langfuseChat) Chat(ctx context.Context, messages []Message, opts *ChatO
 	return resp, err
 }
 
-func (l *langfuseChat) ChatStream(ctx context.Context, messages []Message, opts *ChatOptions) (<-chan types.StreamResponse, error) {
+func (l *langfuseChat) ChatStream(
+	ctx context.Context, messages []Message, opts *ChatOptions,
+) (<-chan types.StreamResponse, error) {
 	mgr := langfuse.GetManager()
 	if !mgr.Enabled() {
 		return l.inner.ChatStream(ctx, messages, opts)
@@ -87,7 +89,7 @@ func (l *langfuseChat) ChatStream(ctx context.Context, messages []Message, opts 
 		var firstToken bool
 		var streamErr error
 
-		streamLoop:
+	streamLoop:
 		for resp := range ch {
 			if resp.ResponseType == types.ResponseTypeError {
 				streamErr = fmt.Errorf("%s", resp.Content)

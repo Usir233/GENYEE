@@ -4,6 +4,7 @@
 // maps them back to durable
 // identifiers. Request lifecycles use Registry so source and resource handles
 // cannot be encoded or decoded out of order.
+
 package modelcontext
 
 import (
@@ -20,6 +21,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
+// ChunkReference carries durable identifiers and metadata for a registered chunk.
 type ChunkReference struct {
 	ChunkID         string
 	KnowledgeID     string
@@ -532,17 +534,17 @@ func (r *sourceRegistry) walkJSON(
 	return value
 }
 
-func (r *sourceRegistry) handleForDurable(real string) string {
-	if handle, ok := r.chunks.handleForKey(real); ok {
+func (r *sourceRegistry) handleForDurable(durableID string) string {
+	if handle, ok := r.chunks.handleForKey(durableID); ok {
 		return handle
 	}
-	if handle, ok := r.docs.handleForKey(real); ok {
+	if handle, ok := r.docs.handleForKey(durableID); ok {
 		return handle
 	}
-	if handle, ok := r.kbs.handleForKey(real); ok {
+	if handle, ok := r.kbs.handleForKey(durableID); ok {
 		return handle
 	}
-	if handle, ok := r.webs.handleForKey(canonicalWebURL(real)); ok {
+	if handle, ok := r.webs.handleForKey(canonicalWebURL(durableID)); ok {
 		return handle
 	}
 	return ""

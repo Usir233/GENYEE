@@ -129,7 +129,9 @@ func (e *protocolEmbedder) GetModelName() string { return e.modelName }
 func (e *protocolEmbedder) GetModelID() string   { return e.modelID }
 func (e *protocolEmbedder) GetDimensions() int   { return e.dimensions }
 
-func (e *protocolEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+func (e *protocolEmbedder) BatchEmbedWithPool(
+	ctx context.Context, model Embedder, texts []string,
+) ([][]float32, error) {
 	if e != nil && e.EmbedderPooler != nil {
 		return e.EmbedderPooler.BatchEmbedWithPool(ctx, model, texts)
 	}

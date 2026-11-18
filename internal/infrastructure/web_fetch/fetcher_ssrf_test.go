@@ -19,9 +19,9 @@ import (
 
 func TestFetchURLContentBlocksRedirectToLoopback(t *testing.T) {
 	internalHit := make(chan struct{}, 1)
-	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		internalHit <- struct{}{}
-		fmt.Fprint(w, "<html><body>GENYEE_INTERNAL_CANARY_178193</body></html>")
+		_, _ = fmt.Fprint(w, "<html><body>GENYEE_INTERNAL_CANARY_178193</body></html>")
 	}))
 	defer internal.Close()
 
@@ -52,12 +52,12 @@ func TestChromiumSSRFProxyBlocksRawIPLiteralsAndDNSRebinding(t *testing.T) {
 	internalHit := make(chan string, 10)
 	internalSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		internalHit <- r.URL.Path
-		fmt.Fprint(w, "INTERNAL_SECRET")
+		_, _ = fmt.Fprint(w, "INTERNAL_SECRET")
 	}))
 	defer internalSrv.Close()
 
-	publicSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "<html><body>PUBLIC_OK</body></html>")
+	publicSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, "<html><body>PUBLIC_OK</body></html>")
 	}))
 	defer publicSrv.Close()
 	publicListenerAddr := publicSrv.Listener.Addr().String()
@@ -108,7 +108,7 @@ func TestChromiumSSRFProxyBlocksRawIPLiteralsAndDNSRebinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("startChromiumSSRFProxy failed: %v", err)
 	}
-	defer proxy.Close()
+	defer func() { _ = proxy.Close() }()
 
 	proxyURL, err := url.Parse(proxy.ProxyURL())
 	if err != nil {
@@ -159,6 +159,9 @@ func TestChromiumSSRFProxyBlocksRawIPLiteralsAndDNSRebinding(t *testing.T) {
 		}
 		_, _ = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", authority, authority)
 		resp, readErr := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: http.MethodConnect})
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 		_ = conn.Close()
 		if readErr != nil {
 			t.Fatalf("read CONNECT response for %s: %v", authority, readErr)
@@ -255,7 +258,7 @@ func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.
 	var upstreamSawHost string
 	publicSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		upstreamSawHost = r.Host
-		fmt.Fprint(w, "<html><body>OK</body></html>")
+		_, _ = fmt.Fprint(w, "<html><body>OK</body></html>")
 	}))
 	defer publicSrv.Close()
 	publicAddr := publicSrv.Listener.Addr().String()
@@ -271,7 +274,7 @@ func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.
 		func(p *chromiumSSRFProxy) {
 			// Simulate permissive validator to test proxy dialTarget / handleHTTP defenses directly.
 			p.validateURL = func(context.Context, string) error { return nil }
-			p.resolveIPs = func(_ context.Context, host string) ([]net.IP, error) {
+			p.resolveIPs = func(_ context.Context, _ string) ([]net.IP, error) {
 				return []net.IP{net.ParseIP("93.184.216.34")}, nil
 			}
 			p.dialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -286,7 +289,7 @@ func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.
 	if err != nil {
 		t.Fatalf("startChromiumSSRFProxy: %v", err)
 	}
-	defer proxy.Close()
+	defer func() { _ = proxy.Close() }()
 
 	proxyURL, _ := url.Parse(proxy.ProxyURL())
 	proxyClient := &http.Client{
@@ -316,6 +319,9 @@ func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.
 		}
 		_, _ = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", authority, authority)
 		resp, readErr := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: http.MethodConnect})
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 		_ = conn.Close()
 		if readErr != nil || resp.StatusCode != http.StatusForbidden {
 			t.Fatalf("expected CONNECT %s to return 403, got err=%v resp=%v", authority, readErr, resp)
@@ -327,7 +333,10 @@ func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.
 	if err != nil {
 		t.Fatalf("dial proxy: %v", err)
 	}
-	_, _ = io.WriteString(conn, "GET http://spa.public.example/app HTTP/1.1\r\nHost: 169.254.169.254\r\nConnection: close\r\n\r\n")
+	_, _ = io.WriteString(
+		conn,
+		"GET http://spa.public.example/app HTTP/1.1\r\nHost: 169.254.169.254\r\nConnection: close\r\n\r\n",
+	)
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	if err == nil {
 		_, _ = io.ReadAll(resp.Body)
@@ -346,7 +355,10 @@ func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.
 			return []net.IP{net.ParseIP("93.184.216.34")}, nil
 		},
 	}
-	for _, addr := range []string{"example.com:6379", "example.com:22", "localhost.:80", "metadata.google.internal.:80"} {
+	blockedAddrs := []string{
+		"example.com:6379", "example.com:22", "localhost.:80", "metadata.google.internal.:80",
+	}
+	for _, addr := range blockedAddrs {
 		if _, err := f.pinnedDialContext()(context.Background(), "tcp", addr); err == nil {
 			t.Fatalf("pinnedDialContext(%q) unexpectedly succeeded", addr)
 		}

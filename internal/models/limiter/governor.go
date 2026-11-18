@@ -57,6 +57,7 @@ func GateN(ctx context.Context, modelID string, modelLimit int) func() {
 	return GateNamedN(ctx, modelID, "", modelLimit)
 }
 
+// GateNamedN acquires a background concurrency slot for modelID and records modelName.
 func GateNamedN(ctx context.Context, modelID, modelName string, modelLimit int) func() {
 	if ctx == nil {
 		ctx = context.Background()

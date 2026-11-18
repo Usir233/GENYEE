@@ -275,12 +275,13 @@ func (c *Client) applySampling(body map[string]any, opts *api.Options) {
 	if !s.SupportsTemperature {
 		return
 	}
-	if opts.Isolated {
+	switch {
+	case opts.Isolated:
 		body["temperature"] = 0.0
-	} else if s.FixedTemperature != nil {
+	case s.FixedTemperature != nil:
 		body["temperature"] = *s.FixedTemperature
 		return
-	} else if opts.Temperature > 0 {
+	case opts.Temperature > 0:
 		body["temperature"] = opts.Temperature
 	}
 	if opts.TopP > 0 {

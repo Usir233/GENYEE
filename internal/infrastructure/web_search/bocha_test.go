@@ -28,15 +28,19 @@ func TestBochaProviderSearch(t *testing.T) {
 			t.Fatalf("unexpected request: %+v", request)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":200,"log_id":"x","msg":null,"data":{"webPages":{"value":[
-			{"name":"First","url":"https://example.com/1","summary":"Summary","snippet":"Snippet","dateLastCrawled":"2026-08-09T08:18:30Z"},
-			{"name":"Second","url":"https://example.com/2","snippet":"Fallback snippet","dateLastCrawled":"invalid"},
-			{"name":"Third","url":"https://example.com/3","snippet":"must be capped"}
-		]}}}`))
+		_, _ = w.Write([]byte(`{"code":200,"log_id":"x","msg":null,"data":{"webPages":{"value":[` +
+			`{"name":"First","url":"https://example.com/1","summary":"Summary",` +
+			`"snippet":"Snippet","dateLastCrawled":"2026-08-09T08:18:30Z"},` +
+			`{"name":"Second","url":"https://example.com/2","snippet":"Fallback snippet",` +
+			`"dateLastCrawled":"invalid"},` +
+			`{"name":"Third","url":"https://example.com/3","snippet":"must be capped"}` +
+			`]}}}`))
 	}))
 	defer server.Close()
 
-	bocha := &BochaProvider{client: server.Client(), baseURL: server.URL, apiKey: "sk-test", freshness: "oneWeek", summary: true}
+	bocha := &BochaProvider{
+		client: server.Client(), baseURL: server.URL, apiKey: "sk-test", freshness: "oneWeek", summary: true,
+	}
 	results, err := bocha.Search(context.Background(), types.WebSearchRequest{
 		Query: " GENYEE ", MaxResults: 2, IncludeDate: true,
 	})
@@ -117,7 +121,10 @@ func TestValidateBochaParameters(t *testing.T) {
 	if err := ValidateBochaParameters(types.WebSearchProviderParameters{}); err == nil {
 		t.Fatal("expected missing API key error")
 	}
-	if err := ValidateBochaParameters(types.WebSearchProviderParameters{APIKey: "sk-test", ExtraConfig: map[string]string{"freshness": "oneHour"}}); err == nil {
+	badFreshness := types.WebSearchProviderParameters{
+		APIKey: "sk-test", ExtraConfig: map[string]string{"freshness": "oneHour"},
+	}
+	if err := ValidateBochaParameters(badFreshness); err == nil {
 		t.Fatal("expected invalid freshness error")
 	}
 	if err := ValidateBochaParameters(types.WebSearchProviderParameters{APIKey: "sk-test"}); err != nil {
@@ -133,7 +140,9 @@ func TestBochaProviderHTTPError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"log_id":"4a995aed60e4088e","message":"Invalid API KEY","code":"401"}`))
 	}))
 	defer server.Close()
-	bocha := &BochaProvider{client: server.Client(), baseURL: server.URL, apiKey: "bad", freshness: defaultBochaFreshness, summary: true}
+	bocha := &BochaProvider{
+		client: server.Client(), baseURL: server.URL, apiKey: "bad", freshness: defaultBochaFreshness, summary: true,
+	}
 	_, err := bocha.Search(context.Background(), types.WebSearchRequest{Query: "test", MaxResults: 1})
 	if err == nil || !strings.Contains(err.Error(), "Invalid API KEY") {
 		t.Fatalf("error = %v", err)
@@ -146,7 +155,13 @@ func TestBochaProviderAPIErrorWithHTTPOK(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"429","message":"rate limited"}`))
 	}))
 	defer server.Close()
-	bocha := &BochaProvider{client: server.Client(), baseURL: server.URL, apiKey: "sk-test", freshness: defaultBochaFreshness, summary: true}
+	bocha := &BochaProvider{
+		client:    server.Client(),
+		baseURL:   server.URL,
+		apiKey:    "sk-test",
+		freshness: defaultBochaFreshness,
+		summary:   true,
+	}
 	_, err := bocha.Search(context.Background(), types.WebSearchRequest{Query: "test", MaxResults: 1})
 	if err == nil || !strings.Contains(err.Error(), "429") {
 		t.Fatalf("error = %v", err)
@@ -162,7 +177,13 @@ func TestBochaProviderSearchAcceptsStringAndNumericCode(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(body))
 		}))
-		bocha := &BochaProvider{client: server.Client(), baseURL: server.URL, apiKey: "sk-test", freshness: defaultBochaFreshness, summary: true}
+		bocha := &BochaProvider{
+			client:    server.Client(),
+			baseURL:   server.URL,
+			apiKey:    "sk-test",
+			freshness: defaultBochaFreshness,
+			summary:   true,
+		}
 		results, err := bocha.Search(context.Background(), types.WebSearchRequest{Query: "test", MaxResults: 1})
 		if err != nil || len(results) != 1 {
 			t.Fatalf("body %s: results = %v, err = %v", body, results, err)

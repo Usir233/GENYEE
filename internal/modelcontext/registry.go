@@ -21,6 +21,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
+// ArgumentResolution status values describe how tool-call handle decoding resolved arguments.
 const (
 	ArgumentResolutionUnchanged         = "unchanged"
 	ArgumentResolutionResolved          = "resolved"
@@ -31,8 +32,10 @@ const (
 const resourceHandleProtocolPrompt = `
 
 ## Resource handle protocol (system-owned)
-Some durable resources and high-entropy Wiki slugs are represented by request-local res://NNNN handles. Wiki issues may use iN handles.
-- Copy supplied handles exactly in links, images, and tool arguments; they refer only to the supplied resource versions.
+Some durable resources and high-entropy Wiki slugs are represented by ` +
+	`request-local res://NNNN handles. Wiki issues may use iN handles.
+- Copy supplied handles exactly in links, images, and tool arguments; ` +
+	`they refer only to the supplied resource versions.
 - For downloadable deliverables generated in the session workspace, use sandbox:<file name>; ` +
 	`never reuse or invent a resource handle. This download convention does not apply to ` +
 	`editing installed skill files.`
@@ -216,6 +219,7 @@ func (r *Registry) OrphanResourceHandles(decoded string) []string {
 	return r.resources.OrphanHandles(decoded)
 }
 
+// RegisterChunk allocates or updates the chunk://N handle for a retrieved chunk.
 func (r *Registry) RegisterChunk(ref ChunkReference) string {
 	if r == nil || r.sources == nil {
 		return ""
@@ -232,6 +236,7 @@ func (r *Registry) RegisterContextChunk(ref ChunkReference) string {
 	return r.sources.registerChunk(ref, false)
 }
 
+// RegisterDocument allocates or returns the doc://N handle for a document ID.
 func (r *Registry) RegisterDocument(id string) string {
 	if r == nil || r.sources == nil {
 		return ""
@@ -239,6 +244,7 @@ func (r *Registry) RegisterDocument(id string) string {
 	return r.sources.RegisterDocument(id)
 }
 
+// RegisterKnowledgeBase allocates or returns the kb://N handle for a knowledge base ID.
 func (r *Registry) RegisterKnowledgeBase(id string) string {
 	if r == nil || r.sources == nil {
 		return ""
@@ -264,6 +270,7 @@ func (r *Registry) EncodeKnownIssues(text string) string {
 	return r.issues.EncodeKnownText(text)
 }
 
+// RegisterWeb allocates or updates the url://N handle for a web URL.
 func (r *Registry) RegisterWeb(rawURL, title string) string {
 	if r == nil || r.sources == nil {
 		return ""
@@ -271,6 +278,7 @@ func (r *Registry) RegisterWeb(rawURL, title string) string {
 	return r.sources.RegisterWeb(rawURL, title)
 }
 
+// RegisterSearchResults registers every chunk and document in results.
 func (r *Registry) RegisterSearchResults(results []*types.SearchResult) {
 	if r == nil || r.sources == nil {
 		return
@@ -278,6 +286,7 @@ func (r *Registry) RegisterSearchResults(results []*types.SearchResult) {
 	r.sources.RegisterSearchResults(results)
 }
 
+// ChunkHandle returns the registered chunk://N handle for id, or "" if unknown.
 func (r *Registry) ChunkHandle(id string) string {
 	if r == nil || r.sources == nil {
 		return ""
@@ -321,11 +330,12 @@ func (r *Registry) ModelToolResultForTool(toolName string, result *types.ToolRes
 	copyResult.Output = r.resources.EncodeText(r.encodeToolPrivateResult(toolName, result.Output))
 	copyResult.Error = r.resources.EncodeText(r.encodeToolPrivateResult(toolName, result.Error))
 	var modelOutput string
-	if sourceOutputAllowed(toolName) {
+	switch {
+	case sourceOutputAllowed(toolName):
 		modelOutput = r.sources.ModelOutput(&copyResult)
-	} else if copyResult.Success {
+	case copyResult.Success:
 		modelOutput = copyResult.Output
-	} else {
+	default:
 		modelOutput = failedToolModelText(copyResult.Output, copyResult.Error)
 	}
 	// Even tools without structured source results can surface a known durable

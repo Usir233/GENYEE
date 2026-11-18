@@ -8,7 +8,9 @@ import (
 func TestSplitWithDiagnostics_LegacyStrategy_ReportsLegacyTier(t *testing.T) {
 	// Splittable input so the validator accepts the legacy output cleanly.
 	text := strings.Repeat("Hello world.\n\nNext paragraph here.\n\n", 50)
-	cfg := SplitterConfig{ChunkSize: 200, ChunkOverlap: 20, Separators: []string{"\n\n", "\n"}, Strategy: StrategyLegacy}
+	cfg := SplitterConfig{
+		ChunkSize: 200, ChunkOverlap: 20, Separators: []string{"\n\n", "\n"}, Strategy: StrategyLegacy,
+	}
 	chunks, diag := SplitWithDiagnostics(text, cfg)
 	if len(chunks) == 0 {
 		t.Fatal("expected chunks")
@@ -25,7 +27,8 @@ func TestSplitWithDiagnostics_LegacyStrategy_ReportsLegacyTier(t *testing.T) {
 }
 
 func TestSplitWithDiagnostics_AutoOnHeadingDoc_PicksHeading(t *testing.T) {
-	doc := strings.Repeat("# Top\nintro paragraph here.\n\n## Section A\nbody A here.\n\n## Section B\nbody B here.\n\n## Section C\nbody C here.\n\n", 1)
+	doc := "# Top\nintro paragraph here.\n\n## Section A\nbody A here.\n\n" +
+		"## Section B\nbody B here.\n\n## Section C\nbody C here.\n\n"
 	cfg := SplitterConfig{ChunkSize: 300, ChunkOverlap: 30, Strategy: StrategyAuto}
 	_, diag := SplitWithDiagnostics(doc, cfg)
 	if len(diag.TierChain) == 0 {
@@ -87,11 +90,11 @@ func TestSplitWithDiagnostics_ProfileSetForAuto(t *testing.T) {
 // explicit strategies bypass profiling and leave Profile nil so the
 // preview handler knows to materialize one if it needs stats.
 func TestSplitWithDiagnostics_ProfileNilForExplicit(t *testing.T) {
-	for _, strat := range []string{StrategyHeading, StrategyHeuristic, StrategyRecursive, StrategyLegacy} {
-		t.Run(strat, func(t *testing.T) {
-			_, diag := SplitWithDiagnostics("plain text", SplitterConfig{ChunkSize: 200, Strategy: strat})
+	for _, strategy := range []string{StrategyHeading, StrategyHeuristic, StrategyRecursive, StrategyLegacy} {
+		t.Run(strategy, func(t *testing.T) {
+			_, diag := SplitWithDiagnostics("plain text", SplitterConfig{ChunkSize: 200, Strategy: strategy})
 			if diag.Profile != nil {
-				t.Errorf("strategy %q should leave Profile nil, got %+v", strat, diag.Profile)
+				t.Errorf("strategy %q should leave Profile nil, got %+v", strategy, diag.Profile)
 			}
 		})
 	}
@@ -99,8 +102,12 @@ func TestSplitWithDiagnostics_ProfileNilForExplicit(t *testing.T) {
 
 func TestSplitParentChildWithDiagnostics_MatchesSplitParentChild(t *testing.T) {
 	text := strings.Repeat("## Record\n"+strings.Repeat("A sufficiently long entry body. ", 10)+"\n\n", 12)
-	parentCfg := SplitterConfig{ChunkSize: 300, ChunkOverlap: 30, Separators: []string{"\n\n", "\n"}, Strategy: StrategyHeading}
-	childCfg := SplitterConfig{ChunkSize: 100, ChunkOverlap: 20, Separators: []string{"\n\n", "\n"}, Strategy: StrategyHeading}
+	parentCfg := SplitterConfig{
+		ChunkSize: 300, ChunkOverlap: 30, Separators: []string{"\n\n", "\n"}, Strategy: StrategyHeading,
+	}
+	childCfg := SplitterConfig{
+		ChunkSize: 100, ChunkOverlap: 20, Separators: []string{"\n\n", "\n"}, Strategy: StrategyHeading,
+	}
 
 	want := SplitParentChild(text, parentCfg, childCfg)
 	got, diag := SplitParentChildWithDiagnostics(text, parentCfg, childCfg)

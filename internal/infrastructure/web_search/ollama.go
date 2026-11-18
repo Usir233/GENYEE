@@ -111,7 +111,7 @@ func (p *OllamaProvider) doSearch(ctx context.Context, req *http.Request) ([]*ty
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)

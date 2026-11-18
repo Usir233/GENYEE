@@ -79,16 +79,20 @@ func TestRemoteAPIVLMGuardsImageBoundsNilContextAndNonFiniteTemperature(t *testi
 	assert.InDelta(t, defaultTemp, v.temperature, 1e-9, "NaN temperature must fall back to defaultTemp")
 
 	// Nil ctx with small valid stub succeeds cleanly without panicking.
-	out, err := v.Predict(nil, [][]byte{bytes.Repeat([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, 3)}, "describe")
+	pngStub := bytes.Repeat([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, 3)
+	//nolint:staticcheck // verifying defensive nil-context handling
+	out, err := v.Predict(nil, [][]byte{pngStub}, "describe")
 	require.NoError(t, err)
 	assert.Equal(t, "caption", out)
 
 	// Pixel bomb header rejected before base64 allocation / network call.
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = v.Predict(nil, [][]byte{vlmBombHeader(10_000, 10_000)}, "describe")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceed maximum")
 
 	// Single image > 20 MiB rejected before base64 encoding.
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = v.Predict(nil, [][]byte{make([]byte, (20<<20)+1)}, "describe")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds")

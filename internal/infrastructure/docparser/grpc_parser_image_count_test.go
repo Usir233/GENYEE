@@ -17,7 +17,9 @@ type imageCountDocReaderClient struct {
 	frames []*pb.ReadStreamResponse
 }
 
-func (c imageCountDocReaderClient) ReadStream(context.Context, *pb.ReadRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[pb.ReadStreamResponse], error) {
+func (c imageCountDocReaderClient) ReadStream(
+	context.Context, *pb.ReadRequest, ...grpc.CallOption,
+) (grpc.ServerStreamingClient[pb.ReadStreamResponse], error) {
 	return &imageCountFrames{frames: c.frames}, nil
 }
 
@@ -45,16 +47,20 @@ func TestGRPCStreamImageCountOnlyAllocatesReceivedFrames(t *testing.T) {
 					MarkdownContent: "fixture", ImageCount: advertised,
 				}}}}
 				for i := 0; i < received; i++ {
-					frames = append(frames, &pb.ReadStreamResponse{Payload: &pb.ReadStreamResponse_Image{Image: &pb.ImageRef{
-						Filename: fmt.Sprintf("image%d.png", i), ImageData: []byte{byte(i)},
-					}}})
+					img := &pb.ImageRef{Filename: fmt.Sprintf("image%d.png", i), ImageData: []byte{byte(i)}}
+					frames = append(frames, &pb.ReadStreamResponse{
+						Payload: &pb.ReadStreamResponse_Image{Image: img},
+					})
 				}
 				reader := &GRPCDocumentReader{client: imageCountDocReaderClient{frames: frames}}
 				got, err := reader.Read(context.Background(), &types.ReadRequest{FileName: "fixture.pdf"})
 				require.NoError(t, err)
 				require.Equal(t, "fixture", got.MarkdownContent)
 				require.Len(t, got.ImageRefs, received, "the declared count is best-effort, not an image limit")
-				require.LessOrEqual(t, cap(got.ImageRefs), 2*received, "metadata alone must not allocate unreceived image slots")
+				require.LessOrEqual(
+					t, cap(got.ImageRefs), 2*received,
+					"metadata alone must not allocate unreceived image slots",
+				)
 				for i, ref := range got.ImageRefs {
 					require.Equal(t, fmt.Sprintf("image%d.png", i), ref.Filename)
 					require.Equal(t, []byte{byte(i)}, ref.ImageData)

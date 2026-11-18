@@ -266,7 +266,7 @@ func (f *Fetcher) fetchHTTP(ctx context.Context, rawURL string, parsedURL *url.U
 	if err != nil {
 		return nil, classifyRequestError(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	success := resp.StatusCode == http.StatusOK
 	if f.markdown {
 		success = resp.StatusCode >= 200 && resp.StatusCode < 300
@@ -326,14 +326,16 @@ func (f *Fetcher) pinnedDialContext() func(context.Context, string, string) (net
 			return nil, fmt.Errorf("invalid address %s: %w", address, err)
 		}
 		if utils.IsSystemProxy(address) {
-			return (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, address)
+			d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+			return d.DialContext(ctx, network, address)
 		}
 		host, err := canonicalizeFetchHost(rawHost)
 		if err != nil {
 			return nil, fmt.Errorf("connection blocked: %w", err)
 		}
 		if utils.IsSSRFWhitelistedContext(ctx, host) {
-			return (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, net.JoinHostPort(host, port))
+			d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+			return d.DialContext(ctx, network, net.JoinHostPort(host, port))
 		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -472,7 +474,7 @@ func renderWithChromium(ctx context.Context, target pinnedTarget) (string, error
 	if err != nil {
 		return "", fmt.Errorf("chromium SSRF proxy failed: %w", err)
 	}
-	defer proxy.Close()
+	defer func() { _ = proxy.Close() }()
 
 	minimalEnv := buildChromiumEnv(os.Environ())
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
@@ -536,8 +538,16 @@ func firstNonEmpty(values ...string) string {
 }
 
 func setBrowserHeaders(req *http.Request, parsedURL *url.URL) {
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	req.Header.Set(
+		"User-Agent",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "+
+			"(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+	)
+	req.Header.Set(
+		"Accept",
+		"text/html,application/xhtml+xml,application/xml;q=0.9,"+
+			"image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+	)
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6")
 	req.Header.Set("Accept-Encoding", "identity")
 	req.Header.Set("Cache-Control", "no-cache")

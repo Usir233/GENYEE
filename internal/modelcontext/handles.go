@@ -49,10 +49,12 @@ func (t *HandleTable) Resolve(handle string) (string, bool) {
 	return value, ok
 }
 
+// Empty reports whether the table holds zero handle mappings.
 func (t *HandleTable) Empty() bool {
 	return t == nil || t.table.size() == 0
 }
 
+// Len returns the number of registered handle mappings.
 func (t *HandleTable) Len() int {
 	if t == nil {
 		return 0

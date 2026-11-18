@@ -1,3 +1,4 @@
+// Package vlm provides vision-language model abstractions and provider implementations.
 package vlm
 
 import (

@@ -25,14 +25,17 @@ func TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets(t *testing.T) {
 	defer srv.Close()
 
 	c := New(Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "multimodal-embedding-v1"}})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err := c.Embed(nil, nil, api.EmbedDocument)
 	require.NoError(t, err)
 	assert.Empty(t, got)
+	//nolint:staticcheck // verifying defensive nil-context handling
 	gotImg, err := c.EmbedImages(nil, nil, api.EmbedDocument)
 	require.NoError(t, err)
 	assert.Empty(t, gotImg)
 	assert.Zero(t, hits.Load(), "empty batch must not send HTTP POST")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err = c.Embed(nil, []string{"one"}, api.EmbedDocument)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
@@ -44,6 +47,7 @@ func TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets(t *testing.T) {
 			Query:   map[string]string{"api_key": "sk-dashscope-secret-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = bad.Embed(nil, []string{"one"}, api.EmbedDocument)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")

@@ -251,7 +251,8 @@ func TestBaiduAndExaProvidersRejectOversizedAndBoundFailedBodies(t *testing.T) {
 	})
 
 	t.Run("json error helpers bound oversized message fields", func(t *testing.T) {
-		hugeMsg := `{"message":"` + strings.Repeat("中", maxErrorPreviewBytes) + `","error":{"code":"500","message":"` + strings.Repeat("文", maxErrorPreviewBytes) + `"}}`
+		hugeMsg := `{"message":"` + strings.Repeat("中", maxErrorPreviewBytes) +
+			`","error":{"code":"500","message":"` + strings.Repeat("文", maxErrorPreviewBytes) + `"}}`
 		for name, err := range map[string]error{
 			"bocha":    bochaHTTPError(500, []byte(hugeMsg)),
 			"metaso":   metasoHTTPError(500, []byte(hugeMsg)),
@@ -267,4 +268,3 @@ func TestBaiduAndExaProvidersRejectOversizedAndBoundFailedBodies(t *testing.T) {
 		}
 	})
 }
-

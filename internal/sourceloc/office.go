@@ -611,11 +611,12 @@ func resolvePart(dir, target string) (string, bool) {
 		return "", false
 	}
 	var cleaned string
-	if strings.HasPrefix(target, "/") {
+	switch {
+	case strings.HasPrefix(target, "/"):
 		cleaned = strings.TrimPrefix(path.Clean(target), "/")
-	} else if dir == "" || dir == "." {
+	case dir == "" || dir == ".":
 		cleaned = path.Clean(target)
-	} else {
+	default:
 		cleaned = path.Clean(path.Join(dir, target))
 	}
 	if cleaned == "" || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {

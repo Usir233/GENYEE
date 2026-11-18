@@ -267,10 +267,10 @@ func TestPingMinerUTasksUsesAuthenticatedUsage(t *testing.T) {
 			assert.Equal(t, status == http.StatusOK, ok, msg)
 			ok, msg = PingMinerU(server.URL, "wrong")
 			assert.False(t, ok)
-			assert.Contains(t, msg, "API Key 无效")
+			assert.Contains(t, msg, "invalid MinerU API key")
 			ok, msg = PingMinerU(server.URL, "")
 			assert.False(t, ok)
-			assert.Contains(t, msg, "配置 API Key")
+			assert.Contains(t, msg, "please configure API key")
 		})
 	}
 }

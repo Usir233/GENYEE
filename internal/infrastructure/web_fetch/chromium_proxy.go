@@ -224,7 +224,9 @@ func buildChromiumEnv(environ []string) []string {
 			continue
 		}
 		upperKey := strings.ToUpper(key)
-		if allowedChromiumEnvKeys[upperKey] && !strings.HasPrefix(upperKey, "LD_") && !strings.HasPrefix(upperKey, "DYLD_") {
+		if allowedChromiumEnvKeys[upperKey] &&
+			!strings.HasPrefix(upperKey, "LD_") &&
+			!strings.HasPrefix(upperKey, "DYLD_") {
 			out = append(out, key+"="+val)
 			switch upperKey {
 			case "PATH":
@@ -531,7 +533,7 @@ func (p *chromiumSSRFProxy) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upstream request rejected", status)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	stripHopHeaders(resp.Header)
 	for k, vals := range resp.Header {

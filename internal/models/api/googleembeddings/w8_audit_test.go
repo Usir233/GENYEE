@@ -25,6 +25,7 @@ func TestEmbedRedactsQueryKeyAndUserinfoInErrors(t *testing.T) {
 			Query:   map[string]string{"key": "AIzaSySuperSecretKey12345"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Embed(nil, []string{"hello"}, api.EmbedDocument)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "AIzaSySuperSecretKey12345")
@@ -48,14 +49,17 @@ func TestEmbedEscapesModelSegmentAndShortCircuitsEmptyInputs(t *testing.T) {
 
 	c := newClient(srv.URL+"/v1beta", "gemini-embedding-001?key=injected#frag", api.EmbeddingsSettings{}, 0)
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err := c.Embed(nil, nil, api.EmbedDocument)
 	require.NoError(t, err)
 	assert.Empty(t, got)
+	//nolint:staticcheck // verifying defensive nil-context handling
 	gotImg, err := c.EmbedImages(nil, nil, api.EmbedDocument)
 	require.NoError(t, err)
 	assert.Empty(t, gotImg)
 	assert.Zero(t, hits.Load(), "empty batch must not send HTTP POST")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err = c.Embed(nil, []string{"a"}, api.EmbedDocument)
 	require.NoError(t, err)
 	require.Len(t, got, 1)

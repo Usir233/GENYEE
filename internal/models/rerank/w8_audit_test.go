@@ -24,7 +24,9 @@ func (s *staticInnerReranker) Rerank(_ context.Context, _ string, _ []string) ([
 
 func (s *staticInnerReranker) AcceptsImages() bool { return true }
 
-func (s *staticInnerReranker) RerankImages(_ context.Context, _ string, _ []api.EmbedImage) ([]api.RerankResult, error) {
+func (s *staticInnerReranker) RerankImages(
+	_ context.Context, _ string, _ []api.EmbedImage,
+) ([]api.RerankResult, error) {
 	out := make([]api.RerankResult, len(s.results))
 	copy(out, s.results)
 	return out, nil
@@ -49,10 +51,12 @@ func TestProtocolRerankerNilContextAndRejectsNonFiniteScores(t *testing.T) {
 				settings:  api.RerankSettings{ImageInput: api.ImageInput{ImageField: "image", MaxImageBatchSize: 4}},
 				modelName: "rerank-v1",
 			}
+			//nolint:staticcheck // verifying defensive nil-context handling
 			_, err := r.Rerank(nil, "q", []string{"a", "b"})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "non-finite")
 
+			//nolint:staticcheck // verifying defensive nil-context handling
 			_, err = r.RerankImages(nil, "q", []Image{
 				{Data: []byte{1}, MIMEType: "image/png"},
 				{Data: []byte{2}, MIMEType: "image/png"},
@@ -70,6 +74,7 @@ func TestProtocolRerankerNilContextAndRejectsNonFiniteScores(t *testing.T) {
 		settings:  api.RerankSettings{ImageInput: api.ImageInput{ImageField: "image"}},
 		modelName: "rerank-v1",
 	}
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err := r.Rerank(nil, "q", []string{"a"})
 	require.NoError(t, err)
 	require.Len(t, got, 1)

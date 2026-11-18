@@ -13,8 +13,8 @@ import (
 	"html"
 	"image"
 	"image/gif"
-	_ "image/jpeg"
-	_ "image/png"
+	_ "image/jpeg" // Register JPEG decoding for image.Decode and DecodeConfig.
+	_ "image/png"  // Register PNG decoding for image.Decode and DecodeConfig.
 	"io"
 	"log"
 	"mime"
@@ -332,7 +332,9 @@ func (r *ImageResolver) saveReferencedImage(
 	}
 
 	fileName := uuid.New().String() + ext
-	servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(ctx, fileSvc, ref.ImageData, tenantID, fileName, false)
+	servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(
+		ctx, fileSvc, ref.ImageData, tenantID, fileName, false,
+	)
 	if saveErr != nil {
 		log.Printf("WARN: failed to save image %s: %v", refPath, saveErr)
 		return StoredImage{}, false
@@ -1828,7 +1830,9 @@ func fetchAndStoreRemoteImage(
 	if ext == "" {
 		ext = ".png" // safe default
 	}
-	servingURL, created, err := interfaces.SaveBytesWithOwnership(ctx, fileSvc, data, tenantID, uuid.New().String()+ext, false)
+	servingURL, created, err := interfaces.SaveBytesWithOwnership(
+		ctx, fileSvc, data, tenantID, uuid.New().String()+ext, false,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("save: %w", err)
 	}
@@ -2026,7 +2030,9 @@ func (r *ImageResolver) ResolveRemoteImages(
 
 // downloadImage fetches an image from remoteURL using the provided SSRF-safe
 // client. It validates Content-Type and enforces maxRemoteImageSize.
-func downloadImage(ctx context.Context, client *http.Client, remoteURL string) (data []byte, mimeType string, err error) {
+func downloadImage(
+	ctx context.Context, client *http.Client, remoteURL string,
+) (data []byte, mimeType string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, remoteURL, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("create request: %w", err)
@@ -2038,7 +2044,7 @@ func downloadImage(ctx context.Context, client *http.Client, remoteURL string) (
 	if err != nil {
 		return nil, "", fmt.Errorf("HTTP GET: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("unexpected status %d", resp.StatusCode)
@@ -2090,14 +2096,20 @@ func downloadImage(ctx context.Context, client *http.Client, remoteURL string) (
 		}
 	case "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp":
 		if sniffedMagic != mimeType {
-			return nil, "", fmt.Errorf("downloaded body magic (%s) does not match declared Content-Type %s", sniffedMagic, mimeType)
+			return nil, "", fmt.Errorf(
+				"downloaded body magic (%s) does not match declared Content-Type %s",
+				sniffedMagic, mimeType,
+			)
 		}
 		cfg, _, cfgErr := image.DecodeConfig(bytes.NewReader(body))
 		if cfgErr != nil || cfg.Width <= 0 || cfg.Height <= 0 {
 			return nil, "", errors.New("downloaded raster image has invalid header")
 		}
 		if uint64(cfg.Width) > maxInlineImagePixels/uint64(cfg.Height) {
-			return nil, "", fmt.Errorf("downloaded %s image %dx%d exceeds pixel budget", mimeType, cfg.Width, cfg.Height)
+			return nil, "", fmt.Errorf(
+				"downloaded %s image %dx%d exceeds pixel budget",
+				mimeType, cfg.Width, cfg.Height,
+			)
 		}
 		if mimeType == "image/gif" {
 			if valid, withinBudget := gifDecodeBudget(body); !valid || !withinBudget {

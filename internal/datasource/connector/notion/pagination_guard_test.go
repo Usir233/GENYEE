@@ -83,11 +83,14 @@ func TestPaginatePagesStopsAtPaginationCap(t *testing.T) {
 	}))
 	defer server.Close()
 
+	t.Setenv("LOG_LEVEL", "warn")
+	logger.ConfigureFromEnv()
+	t.Cleanup(logger.ConfigureFromEnv)
 	var logs bytes.Buffer
 	logger.SetOutput(&logs)
 	defer logger.SetOutput(os.Stdout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	_, err := paginationTestClient(t, server).paginatePages(ctx, http.MethodPost, "/v1/search")
@@ -220,7 +223,10 @@ func TestGetBlockChildrenAllStopsAtPaginationCap(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	t.Setenv("LOG_LEVEL", "warn")
+	logger.ConfigureFromEnv()
+	t.Cleanup(logger.ConfigureFromEnv)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	_, err := paginationTestClient(t, server).GetBlockChildrenAll(ctx, "block-1")

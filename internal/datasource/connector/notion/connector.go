@@ -53,7 +53,7 @@ func (c *Connector) Validate(ctx context.Context, config *types.DataSourceConfig
 // returns the full tree with parent links, so any pre-existing selection is
 // already present and revealed by the picker without on-demand loading.
 func (c *Connector) ResolveResourceAncestors(
-	ctx context.Context, config *types.DataSourceConfig, resourceIDs []string,
+	_ context.Context, _ *types.DataSourceConfig, _ []string,
 ) ([]string, error) {
 	return []string{}, nil
 }
@@ -133,7 +133,9 @@ func (c *Connector) ListResources(
 }
 
 // FetchAll performs a full sync of all documents from the specified resources.
-func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error) {
+func (c *Connector) FetchAll(
+	ctx context.Context, config *types.DataSourceConfig, resourceIDs []string,
+) ([]types.FetchedItem, error) {
 	notionCfg, err := parseNotionConfig(config)
 	if err != nil {
 		return nil, err
@@ -177,7 +179,9 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 
 // FetchIncremental performs an incremental sync based on cursor state.
 // On first sync (nil cursor), delegates to FetchAll for efficiency (no discovery needed).
-func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error) {
+func (c *Connector) FetchIncremental(
+	ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor,
+) ([]types.FetchedItem, *types.SyncCursor, error) {
 	notionCfg, err := parseNotionConfig(config)
 	if err != nil {
 		return nil, nil, err
@@ -659,7 +663,7 @@ func (c *Connector) buildRecordItem(
 
 	if record.RawProperties != nil {
 		var props map[string]interface{}
-		json.Unmarshal(record.RawProperties, &props)
+		_ = json.Unmarshal(record.RawProperties, &props)
 		for _, name := range propNames {
 			if propMap, ok := props[name].(map[string]interface{}); ok {
 				val := propertyToString(propMap)
@@ -759,7 +763,7 @@ func (c *Connector) buildDatabaseItem(
 
 		if record.RawProperties != nil {
 			var props map[string]interface{}
-			json.Unmarshal(record.RawProperties, &props)
+			_ = json.Unmarshal(record.RawProperties, &props)
 			for _, name := range propNames {
 				val := ""
 				if propMap, ok := props[name].(map[string]interface{}); ok {
@@ -897,7 +901,7 @@ func resolveFileUploads(ctx context.Context, client *notionClient, blocks []noti
 	for i := range blocks {
 		if isFileBlock(blocks[i].Type) && blocks[i].RawContent != nil {
 			var file notionFile
-			json.Unmarshal(blocks[i].RawContent, &file)
+			_ = json.Unmarshal(blocks[i].RawContent, &file)
 			if file.GetFileUploadID() != "" {
 				resolved, err := client.ResolveBlock(ctx, blocks[i].ID)
 				if err != nil {
@@ -1018,7 +1022,7 @@ func extractPropertySchema(record notionPage) (propNames []string) {
 		var prop struct {
 			Type string `json:"type"`
 		}
-		json.Unmarshal(propRaw, &prop)
+		_ = json.Unmarshal(propRaw, &prop)
 		if prop.Type != "title" {
 			propNames = append(propNames, name)
 		}
@@ -1100,7 +1104,9 @@ func computeExcludedSet(visibleIDs []string, parentOf map[string]string, selecte
 // excludedSetFromListResources fetches the picker hierarchy via ListResources
 // and computes the deselected set. Used by FetchAll where no other code path
 // already has the page list in hand.
-func (c *Connector) excludedSetFromListResources(ctx context.Context, config *types.DataSourceConfig, selectedIDs []string) map[string]bool {
+func (c *Connector) excludedSetFromListResources(
+	ctx context.Context, config *types.DataSourceConfig, selectedIDs []string,
+) map[string]bool {
 	visible, err := c.ListResources(ctx, config, "")
 	if err != nil {
 		logger.Warnf(ctx, "[Notion] failed to list visible resources for exclusion: %v", err)

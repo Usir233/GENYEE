@@ -14,10 +14,10 @@ func storedImageFixture(t *testing.T) (string, []byte) {
 	t.Helper()
 	parent := t.TempDir()
 	base := filepath.Join(parent, "files")
-	require.NoError(t, os.Mkdir(base, 0700))
+	require.NoError(t, os.Mkdir(base, 0o700))
 	data := []byte("\x89PNG\r\n\x1a\naudit-only image fixture")
-	require.NoError(t, os.WriteFile(filepath.Join(base, "allowed.png"), data, 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(parent, "outside.png"), data, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(base, "allowed.png"), data, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(parent, "outside.png"), data, 0o600))
 	require.NoError(t, os.Symlink("allowed.png", filepath.Join(base, "inside-link.png")))
 	require.NoError(t, os.Symlink(filepath.Join(parent, "outside.png"), filepath.Join(base, "outside-link.png")))
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", base)
@@ -56,10 +56,14 @@ func TestStoredImageFallbackStaysWithinLocalStorage(t *testing.T) {
 	base, data := storedImageFixture(t)
 	// Object/resource identifiers are not local filenames, even if similarly
 	// named files happen to exist under the base directory.
-	for _, ref := range []string{"s3://bucket/object.png", "resource://entry/object.png", "storage://backend/local://object.png"} {
+	for _, ref := range []string{
+		"s3://bucket/object.png",
+		"resource://entry/object.png",
+		"storage://backend/local://object.png",
+	} {
 		path := filepath.Join(base, filepath.FromSlash(ref))
-		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
-		require.NoError(t, os.WriteFile(path, data, 0600))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+		require.NoError(t, os.WriteFile(path, data, 0o600))
 	}
 	for _, ref := range []string{
 		"local://../outside.png",

@@ -51,7 +51,7 @@ func FuzzRead(f *testing.F) {
 		}
 	}
 	f.Add(buildWorkbookFile(workbookSpec{sheets: []testSheet{{name: "S"}}}))
-	f.Fuzz(func(t *testing.T, data []byte) {
+	f.Fuzz(func(_ *testing.T, data []byte) {
 		_, _ = Read(bytes.NewReader(data), int64(len(data)))
 	})
 }

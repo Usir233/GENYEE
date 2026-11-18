@@ -219,7 +219,10 @@ func TestValidateMetasoParameters(t *testing.T) {
 	if err := ValidateMetasoParameters(types.WebSearchProviderParameters{}); err == nil {
 		t.Fatal("expected missing API key error")
 	}
-	if err := ValidateMetasoParameters(types.WebSearchProviderParameters{APIKey: "mk-test", ExtraConfig: map[string]string{"scope": "unknown"}}); err == nil {
+	badScope := types.WebSearchProviderParameters{
+		APIKey: "mk-test", ExtraConfig: map[string]string{"scope": "unknown"},
+	}
+	if err := ValidateMetasoParameters(badScope); err == nil {
 		t.Fatal("expected invalid scope error")
 	}
 	if err := ValidateMetasoParameters(types.WebSearchProviderParameters{APIKey: "mk-test"}); err != nil {

@@ -88,7 +88,8 @@ func TestChunkerUTF8BoundaryAndInvalidByteSanitization(t *testing.T) {
 	rawProse := "Hello \xff\xfe world with invalid UTF-8 bytes."
 	for _, c := range SplitText(rawProse, DefaultConfig()) {
 		assert.True(t, utf8.ValidString(c.Content), "SplitText emitted invalid UTF-8 Content: %q", c.Content)
-		assert.True(t, utf8.ValidString(c.ContextHeader), "SplitText emitted invalid UTF-8 ContextHeader: %q", c.ContextHeader)
+		assert.True(t, utf8.ValidString(c.ContextHeader),
+			"SplitText emitted invalid UTF-8 ContextHeader: %q", c.ContextHeader)
 	}
 
 	rawHeadings := strings.Join([]string{
@@ -98,18 +99,18 @@ func TestChunkerUTF8BoundaryAndInvalidByteSanitization(t *testing.T) {
 		strings.Repeat("Second chapter prose \x80 sentence. ", 20),
 	}, "\n\n")
 
-	for _, strat := range []string{StrategyAuto, StrategyHeading, StrategyHeuristic, StrategyLegacy} {
+	for _, strategy := range []string{StrategyAuto, StrategyHeading, StrategyHeuristic, StrategyLegacy} {
 		chunks := Split(rawHeadings, SplitterConfig{
 			ChunkSize:    180,
 			ChunkOverlap: 20,
-			Strategy:     strat,
+			Strategy:     strategy,
 		})
-		require.NotEmpty(t, chunks, "strategy %s produced no chunks", strat)
+		require.NotEmpty(t, chunks, "strategy %s produced no chunks", strategy)
 		for i, c := range chunks {
 			assert.True(t, utf8.ValidString(c.Content),
-				"strategy %s chunk %d Content has invalid UTF-8", strat, i)
+				"strategy %s chunk %d Content has invalid UTF-8", strategy, i)
 			assert.True(t, utf8.ValidString(c.ContextHeader),
-				"strategy %s chunk %d ContextHeader has invalid UTF-8", strat, i)
+				"strategy %s chunk %d ContextHeader has invalid UTF-8", strategy, i)
 		}
 	}
 

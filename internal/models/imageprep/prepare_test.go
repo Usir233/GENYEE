@@ -138,4 +138,3 @@ func TestPrepareImageRejectsCorruptHeaderOnPassThrough(t *testing.T) {
 	_, err := Prepare(corruptPNG, Limits{MaxBytes: 1 << 20, MIMETypes: []string{"image/png"}})
 	require.Error(t, err)
 }
-

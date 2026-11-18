@@ -258,7 +258,7 @@ func TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors(t *testing.T) {
 	t.Cleanup(func() { retryPolicy = saved })
 
 	t.Run("gemini rejects empty vector values", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = fmt.Fprint(w, `{"embeddings":[{"values":[]}]}`)
 		}))
 		defer srv.Close()
@@ -275,7 +275,7 @@ func TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors(t *testing.T) {
 
 	t.Run("ark rejects ragged vectors across requests", func(t *testing.T) {
 		var call atomic.Int32
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			if call.Add(1) == 1 {
 				_, _ = fmt.Fprint(w, `{"data":{"embedding":[0.1,0.2]}}`)
 				return
@@ -303,4 +303,3 @@ func TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors(t *testing.T) {
 		require.Equal(t, [][]float32{{0.1, 0.2}}, single)
 	})
 }
-

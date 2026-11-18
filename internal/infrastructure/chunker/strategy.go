@@ -47,11 +47,11 @@ func Split(text string, cfg SplitterConfig) []Chunk {
 		if budget > 0 {
 			out = enforceChunkBudget(out, budget)
 		}
-		if v := ValidateChunks(out, totalChars, cfg.ChunkSize); v.OK {
+		v := ValidateChunks(out, totalChars, cfg.ChunkSize)
+		if v.OK {
 			return out
-		} else {
-			logger.Debugf(context.Background(), "chunker: tier %s rejected: %s", tier, v.Reason)
 		}
+		logger.Debugf(context.Background(), "chunker: tier %s rejected: %s", tier, v.Reason)
 		if tier == TierLegacy && i == len(chain)-1 {
 			lastOut = out
 		}
@@ -151,11 +151,15 @@ func SplitParentChild(text string, parentCfg, childCfg SplitterConfig) ParentChi
 // SplitParentChild. The result is identical to SplitParentChild; diagnostics
 // describe the strategy selected for the parent split over the full document.
 // It is intended for debug surfaces rather than the ingestion hot path.
-func SplitParentChildWithDiagnostics(text string, parentCfg, childCfg SplitterConfig) (ParentChildResult, *Diagnostics) {
+func SplitParentChildWithDiagnostics(
+	text string, parentCfg, childCfg SplitterConfig,
+) (ParentChildResult, *Diagnostics) {
 	return splitParentChild(text, parentCfg, childCfg, true)
 }
 
-func splitParentChild(text string, parentCfg, childCfg SplitterConfig, withDiagnostics bool) (ParentChildResult, *Diagnostics) {
+func splitParentChild(
+	text string, parentCfg, childCfg SplitterConfig, withDiagnostics bool,
+) (ParentChildResult, *Diagnostics) {
 	parentCfg = ensureDefaults(parentCfg)
 	childCfg = ensureDefaults(childCfg)
 

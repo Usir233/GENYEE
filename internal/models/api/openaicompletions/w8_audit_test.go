@@ -43,11 +43,13 @@ func TestChatNilContextAndSecretRedactionInRequestCreationError(t *testing.T) {
 			Query:   map[string]string{"api_key": "sk-secret-completions-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Chat(nil, []api.Message{{Role: "user", Content: "hi"}}, nil)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")
 	assert.NotContains(t, err.Error(), "sk-secret-completions-999")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = c.ChatStream(nil, []api.Message{{Role: "user", Content: "hi"}}, nil)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")

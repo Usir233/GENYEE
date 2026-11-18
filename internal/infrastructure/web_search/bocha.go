@@ -56,6 +56,7 @@ func NewBochaProvider(params types.WebSearchProviderParameters) (interfaces.WebS
 	}, nil
 }
 
+// ValidateBochaParameters validates Bocha search provider credentials and options.
 func ValidateBochaParameters(params types.WebSearchProviderParameters) error {
 	if strings.TrimSpace(params.APIKey) == "" {
 		return fmt.Errorf("API key is required for Bocha provider")
@@ -80,6 +81,7 @@ func bochaSummary(extraConfig map[string]string) bool {
 	return strings.TrimSpace(extraConfig["summary"]) != "false"
 }
 
+// Name returns the provider name.
 func (p *BochaProvider) Name() string { return "bocha" }
 
 // Search queries the Bocha API and converts its results to GENYEE's format.
@@ -115,7 +117,7 @@ func (p *BochaProvider) Search(ctx context.Context, request types.WebSearchReque
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute Bocha request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := readBochaResponseBody(resp.Body)
 	if err != nil {
 		return nil, err
@@ -129,7 +131,7 @@ func (p *BochaProvider) Search(ctx context.Context, request types.WebSearchReque
 		return nil, fmt.Errorf("failed to unmarshal Bocha response: %w", err)
 	}
 	if response.Code != 0 && response.Code != bochaCode(http.StatusOK) {
-		return nil, fmt.Errorf("Bocha API returned code %d", response.Code)
+		return nil, fmt.Errorf("bocha API returned code %d", response.Code)
 	}
 	results := make([]*types.WebSearchResult, 0, len(response.Data.WebPages.Value))
 	for _, item := range response.Data.WebPages.Value {
@@ -163,7 +165,7 @@ func readBochaResponseBody(reader io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read Bocha response: %w", err)
 	}
 	if len(body) > maxBochaResponseBytes {
-		return nil, fmt.Errorf("Bocha response exceeds %d bytes", maxBochaResponseBytes)
+		return nil, fmt.Errorf("bocha response exceeds %d bytes", maxBochaResponseBytes)
 	}
 	return body, nil
 }
@@ -179,15 +181,15 @@ func bochaHTTPError(statusCode int, body []byte) error {
 			detail = strings.TrimSpace(apiError.Msg)
 		}
 		if detail != "" {
-			return fmt.Errorf("Bocha API returned status %d: %s", statusCode, errorPreviewString([]byte(detail)))
+			return fmt.Errorf("bocha API returned status %d: %s", statusCode, errorPreviewString([]byte(detail)))
 		}
 	}
 	detail := errorPreviewString(body)
 
 	if detail == "" {
-		return fmt.Errorf("Bocha API returned status %d", statusCode)
+		return fmt.Errorf("bocha API returned status %d", statusCode)
 	}
-	return fmt.Errorf("Bocha API returned status %d: %s", statusCode, detail)
+	return fmt.Errorf("bocha API returned status %d: %s", statusCode, detail)
 }
 
 func parseBochaLastCrawled(value string) (time.Time, bool) {

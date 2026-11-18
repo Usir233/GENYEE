@@ -126,4 +126,3 @@ func TestModelDocumentInfoOutputPreservesValidUTF8UpdatedAt(t *testing.T) {
 		t.Fatalf("expected rune-safe CJK date prefix preserved, got: %s", got)
 	}
 }
-

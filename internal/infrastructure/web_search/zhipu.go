@@ -143,7 +143,7 @@ func (p *ZhipuProvider) Search(
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute Zhipu request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := readZhipuResponseBody(resp.Body)
 	if err != nil {
@@ -158,7 +158,7 @@ func (p *ZhipuProvider) Search(
 		return nil, fmt.Errorf("failed to unmarshal Zhipu response: %w", err)
 	}
 	if response.Error.Message != "" || response.Error.Code != "" {
-		return nil, fmt.Errorf("Zhipu API error (%s): %s", response.Error.Code, response.Error.Message)
+		return nil, fmt.Errorf("zhipu API error (%s): %s", response.Error.Code, response.Error.Message)
 	}
 
 	results := make([]*types.WebSearchResult, 0, len(response.SearchResult))
@@ -219,22 +219,28 @@ func readZhipuResponseBody(reader io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read Zhipu response: %w", err)
 	}
 	if len(body) > maxZhipuResponseBytes {
-		return nil, fmt.Errorf("Zhipu response exceeds %d bytes", maxZhipuResponseBytes)
+		return nil, fmt.Errorf("zhipu response exceeds %d bytes", maxZhipuResponseBytes)
 	}
 	return body, nil
 }
 
 func zhipuHTTPError(statusCode int, body []byte) error {
 	var response zhipuSearchResponse
-	if err := json.Unmarshal(body, &response); err == nil && (response.Error.Code != "" || response.Error.Message != "") {
-		return fmt.Errorf("Zhipu API returned status %d (%s): %s", statusCode, errorPreviewString([]byte(response.Error.Code)), errorPreviewString([]byte(response.Error.Message)))
+	if err := json.Unmarshal(body, &response); err == nil &&
+		(response.Error.Code != "" || response.Error.Message != "") {
+		return fmt.Errorf(
+			"zhipu API returned status %d (%s): %s",
+			statusCode,
+			errorPreviewString([]byte(response.Error.Code)),
+			errorPreviewString([]byte(response.Error.Message)),
+		)
 	}
 	detail := errorPreviewString(body)
 
 	if detail == "" {
-		return fmt.Errorf("Zhipu API returned status %d", statusCode)
+		return fmt.Errorf("zhipu API returned status %d", statusCode)
 	}
-	return fmt.Errorf("Zhipu API returned status %d: %s", statusCode, detail)
+	return fmt.Errorf("zhipu API returned status %d: %s", statusCode, detail)
 }
 
 type zhipuSearchRequest struct {

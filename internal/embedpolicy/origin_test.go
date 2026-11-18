@@ -86,7 +86,8 @@ func TestRejectTrailingDotEmptyPortAndMalformedHosts(t *testing.T) {
 			t.Errorf("NormalizePattern(%q) unexpectedly succeeded with %q", raw, got)
 		}
 	}
-	if got := FrameAncestors([]string{"*.example.com:", "*..example.com", "https://a.example."}); got != "frame-ancestors 'none'" {
+	malformed := []string{"*.example.com:", "*..example.com", "https://a.example."}
+	if got := FrameAncestors(malformed); got != "frame-ancestors 'none'" {
 		t.Fatalf("FrameAncestors accepted malformed patterns: %q", got)
 	}
 	if Allows("https://shop.example.com:8443", []string{"*.example.com:"}) {

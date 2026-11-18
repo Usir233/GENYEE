@@ -74,11 +74,13 @@ type CollectHandler struct {
 	items []types.FetchedItem
 }
 
+// Emit appends item to the in-memory batch buffer.
 func (h *CollectHandler) Emit(_ context.Context, item types.FetchedItem) error {
 	h.items = append(h.items, item)
 	return nil
 }
 
+// Checkpoint is a no-op for in-memory batch collection.
 func (h *CollectHandler) Checkpoint(_ context.Context, _ *types.SyncCursor) error { return nil }
 
 // fullSyncPending is checkpoint-only state. A retried full pass must skip work
@@ -93,7 +95,7 @@ const fullSyncPending = "feishu_full_sync_pending"
 // FetchIncremental pass config.ResourceIDs (after a non-empty check),
 // FetchAll passes its own argument without one.
 func runSync[N any](
-	ctx context.Context, client *Client, config *types.DataSourceConfig,
+	ctx context.Context, client *Client, _ *types.DataSourceConfig,
 	resourceIDs []string, cursor *types.SyncCursor, h datasource.StreamHandler,
 	ops NodeOps[N], forceFull bool,
 ) (*types.SyncCursor, error) {

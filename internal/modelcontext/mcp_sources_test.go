@@ -14,7 +14,10 @@ func TestMCPAnswerCannotBorrowDirectoryOrHistoricalKnowledgeCitations(t *testing
 	r := NewRegistry(true)
 	r.RegisterContextChunk(ChunkReference{ChunkID: "faq-1", DocumentTitle: "什么是 GENYEE？"})
 	r.RegisterContextChunk(ChunkReference{ChunkID: "faq-2", DocumentTitle: "如何创建知识库？"})
-	history := []chat.Message{{Role: "assistant", Content: `项目总结 <kb doc="2026-Q3-Report.docx" chunk_id="weekly-report" />`}}
+	history := []chat.Message{{
+		Role:    "assistant",
+		Content: `项目总结 <kb doc="2026-Q3-Report.docx" chunk_id="weekly-report" />`,
+	}}
 	r.EncodeMessages(history)
 	const article = "https://example.com/articles/show/101"
 	result := &types.ToolResult{Success: true, Output: "标题: AI 玩法\nAI摘要: Computer Use 案例\n链接: " + article}

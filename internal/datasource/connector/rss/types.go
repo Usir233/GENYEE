@@ -87,7 +87,10 @@ func parseConfig(config *types.DataSourceConfig) (*Config, error) {
 		for _, line := range strings.Split(cfg.AuthHeaders, "\n") {
 			line = strings.TrimSuffix(line, "\r")
 			if hasHeaderControlChar(line) {
-				return nil, fmt.Errorf("%w: auth_headers contains invalid control characters", datasource.ErrInvalidCredentials)
+				return nil, fmt.Errorf(
+					"%w: auth_headers contains invalid control characters",
+					datasource.ErrInvalidCredentials,
+				)
 			}
 		}
 	}

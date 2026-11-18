@@ -3,16 +3,16 @@ package vlm
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
-	"time"
 
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 var (
 	vlmUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	vlmQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	vlmQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 func redactVLMText(s string) string {
@@ -32,10 +32,4 @@ func validateVLMBaseURL(baseURL string) error {
 		return fmt.Errorf("base URL SSRF check failed: %w", err)
 	}
 	return nil
-}
-
-func newVLMHTTPClient(timeout time.Duration) *http.Client {
-	cfg := secutils.DefaultSSRFSafeHTTPClientConfig()
-	cfg.Timeout = timeout
-	return secutils.NewSSRFSafeHTTPClient(cfg)
 }

@@ -1,3 +1,4 @@
+// Package asr provides speech-to-text transcription abstractions and providers.
 package asr
 
 import (

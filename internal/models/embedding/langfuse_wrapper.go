@@ -74,7 +74,9 @@ func (l *langfuseEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 	return result, err
 }
 
-func (l *langfuseEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+func (l *langfuseEmbedder) BatchEmbedWithPool(
+	ctx context.Context, _ Embedder, texts []string,
+) ([][]float32, error) {
 	return l.inner.BatchEmbedWithPool(ctx, l, texts)
 }
 
@@ -169,11 +171,4 @@ func truncateRunes(s string, maxRunes int) string {
 		return s
 	}
 	return string(r[:maxRunes]) + "..."
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

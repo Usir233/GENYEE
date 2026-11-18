@@ -23,13 +23,18 @@ func (s stubConnector) Validate(context.Context, *types.DataSourceConfig) error 
 func (s stubConnector) ListResources(context.Context, *types.DataSourceConfig, string) ([]types.Resource, error) {
 	return nil, nil
 }
+
 func (s stubConnector) ResolveResourceAncestors(context.Context, *types.DataSourceConfig, []string) ([]string, error) {
 	return nil, nil
 }
+
 func (s stubConnector) FetchAll(context.Context, *types.DataSourceConfig, []string) ([]types.FetchedItem, error) {
 	return nil, nil
 }
-func (s stubConnector) FetchIncremental(context.Context, *types.DataSourceConfig, *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error) {
+
+func (s stubConnector) FetchIncremental(
+	context.Context, *types.DataSourceConfig, *types.SyncCursor,
+) ([]types.FetchedItem, *types.SyncCursor, error) {
 	return nil, nil, nil
 }
 
@@ -43,7 +48,11 @@ func TestW5DatasourceAudit_ValidateConnectorBaseURLBlocksUserinfoQueryFragmentAn
 		secret string
 	}{
 		{name: "userinfo", rawURL: "https://admin:top-secret-pw@open.feishu.cn", secret: "top-secret-pw"},
-		{name: "malformed_escape_with_userinfo", rawURL: "https://admin:top-secret-pw%zz@open.feishu.cn", secret: "top-secret-pw"},
+		{
+			name:   "malformed_escape_with_userinfo",
+			rawURL: "https://admin:top-secret-pw%zz@open.feishu.cn",
+			secret: "top-secret-pw",
+		},
 		{name: "query_string", rawURL: "https://open.feishu.cn?override=1"},
 		{name: "fragment", rawURL: "https://open.feishu.cn#frag"},
 		{name: "control_char", rawURL: "https://open.feishu.cn/\r\nx-injected:1"},
@@ -94,13 +103,19 @@ func TestW5DatasourceAudit_RegistryConcurrencyAndMetadataImmutability(t *testing
 
 	second := ListAvailableConnectors()
 	if second[0].Capabilities[0] != origCap {
-		t.Fatalf("mutating ListAvailableConnectors result corrupted global registry: got %q, want %q", second[0].Capabilities[0], origCap)
+		t.Fatalf(
+			"mutating ListAvailableConnectors result corrupted global registry: got %q, want %q",
+			second[0].Capabilities[0], origCap,
+		)
 	}
 	for iter := 0; iter < 10; iter++ {
 		next := ListAvailableConnectors()
 		for idx := range second {
 			if next[idx].Type != second[idx].Type {
-				t.Fatalf("non-deterministic ListAvailableConnectors order at index %d: %q vs %q", idx, next[idx].Type, second[idx].Type)
+				t.Fatalf(
+					"non-deterministic ListAvailableConnectors order at index %d: %q vs %q",
+					idx, next[idx].Type, second[idx].Type,
+				)
 			}
 		}
 	}
@@ -171,7 +186,10 @@ func TestW5DatasourceAudit_SchedulerNilGuardErrorFailClosedAndWrappedConflict(t 
 	}
 	for _, log := range syncLogs.logs {
 		if log.Status != types.SyncLogStatusCanceled {
-			t.Fatalf("expected SyncLogStatusCanceled on wrapped ErrTaskIDConflict, got %q (msg=%q)", log.Status, log.ErrorMessage)
+			t.Fatalf(
+				"expected SyncLogStatusCanceled on wrapped ErrTaskIDConflict, got %q (msg=%q)",
+				log.Status, log.ErrorMessage,
+			)
 		}
 	}
 }

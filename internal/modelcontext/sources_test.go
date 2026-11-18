@@ -225,7 +225,8 @@ func TestEncodeMessagesCompactsCanonicalCitationsFromHistory(t *testing.T) {
 	registry.RegisterChunk(ChunkReference{ChunkID: "chunk-real"})
 	registry.RegisterWeb("https://example.com/a?x=1&y=2", "")
 	require.Equal(t,
-		`<kb doc="A &amp; B.pdf" chunk_id="chunk-real" kb_id="kb-real" /> <web url="https://example.com/a?x=1&amp;y=2" title="Example &amp; More" />`,
+		`<kb doc="A &amp; B.pdf" chunk_id="chunk-real" kb_id="kb-real" /> `+
+			`<web url="https://example.com/a?x=1&amp;y=2" title="Example &amp; More" />`,
 		registry.ExpandText(`<ref id="chunk://1"/> <ref id="url://1"/>`),
 	)
 }
@@ -316,7 +317,13 @@ func TestModelOutputGroupsChunksAndReusesAliasAcrossTools(t *testing.T) {
 			"total_chunks":    int64(1),
 			"fetched_chunks":  1,
 			"chunks": []map[string]interface{}{
-				{"chunk_id": "chunk-uuid-1", "knowledge_id": "knowledge-uuid-1", "knowledge_base": "kb-uuid-1", "chunk_index": 3, "content": "deep content"},
+				{
+					"chunk_id":       "chunk-uuid-1",
+					"knowledge_id":   "knowledge-uuid-1",
+					"knowledge_base": "kb-uuid-1",
+					"chunk_index":    3,
+					"content":        "deep content",
+				},
 			},
 		},
 	}

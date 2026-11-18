@@ -128,7 +128,8 @@ func TestFATCycleOversizeReaderArgAndNonOLE2SignatureRejected(t *testing.T) {
 	_, err = readBytes(t, dangling)
 	require.Error(t, err, "unallocated sector in Workbook FAT chain must be rejected")
 
-	// 3. Forged 64 MiB directory stream size + forged 16 GiB caller size arg on a ~5 KiB file must not preallocate 64 MiB.
+	// 3. Forged 64 MiB directory stream size + forged 16 GiB caller size arg
+	// on a ~5 KiB file must not preallocate 64 MiB.
 	sizeOff := 512 + dataSectors*512 + 128 + 120
 	forged := append([]byte(nil), good...)
 	binary.LittleEndian.PutUint32(forged[sizeOff:], 64<<20)

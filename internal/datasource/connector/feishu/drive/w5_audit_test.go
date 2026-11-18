@@ -32,7 +32,10 @@ func TestW5FeishuDriveAudit_ResolveAncestorsBreaksFolderCycleAndValidatesParentI
 				})
 			case "subA":
 				if subACalls.Add(1) > 4 {
-					t.Errorf("infinite folder cycle in ResolveResourceAncestors: subA listed %d times", subACalls.Load())
+					t.Errorf(
+						"infinite folder cycle in ResolveResourceAncestors: subA listed %d times",
+						subACalls.Load(),
+					)
 					http.Error(w, "cycle loop", http.StatusInternalServerError)
 					return
 				}
@@ -46,7 +49,9 @@ func TestW5FeishuDriveAudit_ResolveAncestorsBreaksFolderCycleAndValidatesParentI
 				writeJSON(w, core.DriveFileListResponse{
 					ApiResponse: core.ApiResponse{Code: 0},
 					Data: core.DriveFileListData{
-						Files: []core.DriveFile{{Token: "subA", Name: "SubA-loop", Type: "folder", ParentToken: "subB"}},
+						Files: []core.DriveFile{{
+							Token: "subA", Name: "SubA-loop", Type: "folder", ParentToken: "subB",
+						}},
 					},
 				})
 			default:

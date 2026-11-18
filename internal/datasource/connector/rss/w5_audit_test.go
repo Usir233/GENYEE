@@ -15,8 +15,9 @@ import (
 
 func TestW5RSSAudit_NilIncrementalConfigAndContextCancellation(t *testing.T) {
 	conn := NewConnector()
-	if _, _, err := conn.FetchIncremental(context.Background(), nil, nil); !errors.Is(err, datasource.ErrInvalidConfig) {
-		t.Fatalf("expected ErrInvalidConfig on nil FetchIncremental config, got %v", err)
+	_, _, incErr := conn.FetchIncremental(context.Background(), nil, nil)
+	if !errors.Is(incErr, datasource.ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig on nil FetchIncremental config, got %v", incErr)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -38,7 +39,9 @@ func TestW5RSSAudit_NilIncrementalConfigAndContextCancellation(t *testing.T) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		case "/a2", "/a3":
 			articleCalls.Add(1)
-			_, _ = w.Write([]byte("<html><body><article><p>Should not be fetched after cancel</p></article></body></html>"))
+			_, _ = w.Write([]byte(
+				"<html><body><article><p>Should not be fetched after cancel</p></article></body></html>",
+			))
 		default:
 			http.NotFound(w, r)
 		}
@@ -64,13 +67,14 @@ func TestW5RSSAudit_BlocksUnsafeItemLinksUserinfoAndHeaderSecretLeak(t *testing.
 	}
 
 	hdrSecret := "rss-bearer-secret-w5"
-	if _, err := parseConfig(makeConfig("https://example.com/feed.xml", "Authorization: Bearer "+hdrSecret+"\x00bad")); err == nil {
+	badHeaderCfg := makeConfig("https://example.com/feed.xml", "Authorization: Bearer "+hdrSecret+"\x00bad")
+	if _, err := parseConfig(badHeaderCfg); err == nil {
 		t.Fatal("expected parseConfig to reject control characters in auth_headers")
 	} else if strings.Contains(err.Error(), hdrSecret) {
 		t.Fatalf("parseConfig leaked auth header secret in error: %v", err)
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
 		_, _ = fmt.Fprint(w, `<rss version="2.0"><channel><title>UnsafeLinks</title>
 <item><guid>ssrf</guid><title>Metadata</title><link>http://169.254.169.254/latest/meta-data/</link></item>
@@ -86,7 +90,10 @@ func TestW5RSSAudit_BlocksUnsafeItemLinksUserinfoAndHeaderSecretLeak(t *testing.
 	}
 	for _, it := range items {
 		if it.URL != "" {
-			t.Fatalf("expected unsafe RSS item link to be stripped from FetchedItem.URL, got %q (title=%q)", it.URL, it.Title)
+			t.Fatalf(
+				"expected unsafe RSS item link to be stripped from FetchedItem.URL, got %q (title=%q)",
+				it.URL, it.Title,
+			)
 		}
 	}
 }

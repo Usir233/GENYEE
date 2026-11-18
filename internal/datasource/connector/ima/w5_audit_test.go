@@ -16,8 +16,9 @@ import (
 
 func TestW5IMAAudit_NilIncrementalConfigAndFolderCycleProtection(t *testing.T) {
 	conn := NewConnector()
-	if _, _, err := conn.FetchIncremental(context.Background(), nil, nil); !errors.Is(err, datasource.ErrInvalidConfig) {
-		t.Fatalf("expected ErrInvalidConfig on nil FetchIncremental config, got %v", err)
+	_, _, incErr := conn.FetchIncremental(context.Background(), nil, nil)
+	if !errors.Is(incErr, datasource.ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig on nil FetchIncremental config, got %v", incErr)
 	}
 
 	var folderACalls atomic.Int64

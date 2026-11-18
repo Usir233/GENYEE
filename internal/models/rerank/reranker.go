@@ -56,13 +56,14 @@ func MaxPassageRunes(r Reranker, query string) int {
 	return 0
 }
 
+// RankResult holds one reranked candidate index, document text, and relevance score.
 type RankResult struct {
 	Index          int          `json:"index"`
 	Document       DocumentInfo `json:"document"`
 	RelevanceScore float64      `json:"relevance_score"`
 }
 
-// Handles the RelevanceScore field by checking if RelevanceScore exists first, otherwise falls back to Score field
+// UnmarshalJSON decodes RelevanceScore first and falls back to the Score alias field.
 func (r *RankResult) UnmarshalJSON(data []byte) error {
 	var temp struct {
 		Index          int          `json:"index"`
@@ -87,6 +88,7 @@ func (r *RankResult) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// DocumentInfo wraps the text payload returned inside a reranker result item.
 type DocumentInfo struct {
 	Text string `json:"text"`
 }
@@ -112,6 +114,7 @@ func (d *DocumentInfo) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// RerankerConfig configures a remote or catalog-resolved reranker model.
 type RerankerConfig struct {
 	APIKey      string
 	BaseURL     string

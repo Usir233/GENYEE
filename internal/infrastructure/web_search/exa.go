@@ -94,7 +94,7 @@ func (p *ExaProvider) Search(
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute Exa request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		preview := readErrorPreview(resp.Body)
 		logger.Warnf(ctx, "[WebSearch][Exa] API returned status %d: %s", resp.StatusCode, preview)
@@ -123,7 +123,9 @@ func (p *ExaProvider) Search(
 		if snippet == "" {
 			snippet = truncateExaText(content, 500)
 		}
-		result := &types.WebSearchResult{Title: item.Title, URL: item.URL, Snippet: snippet, Content: content, Source: "exa"}
+		result := &types.WebSearchResult{
+			Title: item.Title, URL: item.URL, Snippet: snippet, Content: content, Source: "exa",
+		}
 		if includeDate && item.PublishedDate != "" {
 			if publishedAt, err := time.Parse(time.RFC3339, item.PublishedDate); err == nil {
 				result.PublishedAt = &publishedAt

@@ -68,9 +68,10 @@ func TestOllamaImageRequestCancellation(t *testing.T) {
 	for _, stream := range []bool{false, true} {
 		for _, bodyStarted := range []bool{false, true} {
 			for _, deadline := range []bool{false, true} {
-				t.Run(fmt.Sprintf("stream=%t/body_started=%t/deadline=%t", stream, bodyStarted, deadline), func(t *testing.T) {
+				name := fmt.Sprintf("stream=%t/body_started=%t/deadline=%t", stream, bodyStarted, deadline)
+				t.Run(name, func(t *testing.T) {
 					var chatCalls, laterImages atomic.Int32
-					c := ollamaImageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+					c := ollamaImageTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
 						chatCalls.Add(1)
 						_, _ = fmt.Fprint(w, `{"message":{"content":"unexpected"},"done":true}`)
 					})
@@ -130,7 +131,8 @@ func TestOllamaImageRequestCancellation(t *testing.T) {
 						t.Error("cancelled chat stayed blocked in the image request")
 						unblock()
 						select {
-						case <-done:
+						case drainErr := <-done:
+							_ = drainErr
 						case <-time.After(3 * time.Second):
 							t.Fatal("chat did not exit after fixture release")
 						}
@@ -160,7 +162,7 @@ func TestOllamaImageRequestPreservesSuccessfulInput(t *testing.T) {
 				requests <- req
 				_, _ = fmt.Fprint(w, `{"message":{"content":"answer"},"done":true}`)
 			})
-			images := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			images := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = fmt.Fprint(w, "remote fixture")
 			}))
 			defer images.Close()
@@ -173,7 +175,8 @@ func TestOllamaImageRequestPreservesSuccessfulInput(t *testing.T) {
 			require.Equal(t, stream, *req.Stream)
 			require.Len(t, req.Messages, 1)
 			require.Equal(t, "look", req.Messages[0].Content)
-			require.Equal(t, []ollamaapi.ImageData{[]byte("remote fixture"), []byte("local fixture")}, req.Messages[0].Images)
+			wantImgs := []ollamaapi.ImageData{[]byte("remote fixture"), []byte("local fixture")}
+			require.Equal(t, wantImgs, req.Messages[0].Images)
 		})
 	}
 }
@@ -224,7 +227,7 @@ func TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages(t *testi
 	})
 
 	t.Run("stream goroutine closes channel when nobody reads after cancel", func(t *testing.T) {
-		c := ollamaImageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		c := ollamaImageTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/x-ndjson")
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprintln(w, `{"message":{"role":"assistant","thinking":"step1"},"done":false}`)
@@ -257,12 +260,13 @@ func TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages(t *testi
 			requests <- req
 			_, _ = fmt.Fprint(w, `{"message":{"content":"ok"},"done":true}`)
 		})
-		notFoundImg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		notFoundImg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "<html>404 Not Found</html>", http.StatusNotFound)
 		}))
 		defer notFoundImg.Close()
 
-		_, err := c.Chat(t.Context(), []Message{{Role: "user", Content: "check", Images: []string{notFoundImg.URL}}}, nil)
+		msg := Message{Role: "user", Content: "check", Images: []string{notFoundImg.URL}}
+		_, err := c.Chat(t.Context(), []Message{msg}, nil)
 		require.NoError(t, err)
 		req := <-requests
 		require.Empty(t, req.Messages[0].Images, "HTTP 404 body must not be forwarded to Ollama as image bytes")
@@ -274,5 +278,35 @@ func TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages(t *testi
 		_, err = NewOllamaChat(nil, nil)
 		require.Error(t, err)
 	})
-}
 
+	t.Run("default LLM timeout bounds stalled Ollama Chat and ChatStream when ctx has no deadline", func(t *testing.T) {
+		prevChat := api.DefaultChatTimeout
+		prevStream := api.DefaultStreamTimeout
+		api.DefaultChatTimeout = 60 * time.Millisecond
+		api.DefaultStreamTimeout = 60 * time.Millisecond
+		t.Cleanup(func() {
+			api.DefaultChatTimeout = prevChat
+			api.DefaultStreamTimeout = prevStream
+		})
+
+		unblock := make(chan struct{})
+		defer close(unblock)
+
+		c := ollamaImageTestClient(t, func(_ http.ResponseWriter, r *http.Request) {
+			select {
+			case <-r.Context().Done():
+			case <-unblock:
+			}
+		})
+
+		start := time.Now()
+		_, err := c.Chat(context.Background(), []Message{{Role: "user", Content: "hi"}}, nil)
+		require.Error(t, err)
+		require.Less(t, time.Since(start), 2*time.Second)
+
+		start = time.Now()
+		err = runOllamaImageChat(context.Background(), c, []Message{{Role: "user", Content: "hi"}}, true)
+		require.Error(t, err)
+		require.Less(t, time.Since(start), 2*time.Second)
+	})
+}

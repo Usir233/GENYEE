@@ -356,7 +356,8 @@ func scoredCopy(r *types.SearchResult, modelScore, faqBoost float64) *types.Sear
 	c.Metadata["model_score"] = strconv.FormatFloat(modelScore, 'f', 4, 64)
 	c.Score = CompositeScore(&c, modelScore, base)
 	c.Metadata[CompositeScoreKey] = strconv.FormatFloat(c.Score, 'f', 4, 64)
-	if !math.IsNaN(faqBoost) && !math.IsInf(faqBoost, 0) && faqBoost > 1.0 && c.ChunkType == string(types.ChunkTypeFAQ) {
+	if !math.IsNaN(faqBoost) && !math.IsInf(faqBoost, 0) &&
+		faqBoost > 1.0 && c.ChunkType == string(types.ChunkTypeFAQ) {
 		c.Metadata["faq_boosted"] = "true"
 		c.Metadata["faq_original_score"] = strconv.FormatFloat(c.Score, 'f', 4, 64)
 		c.Score = math.Min(c.Score*faqBoost, 1.0)

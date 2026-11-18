@@ -100,11 +100,11 @@ func TestW5DingTalkAudit_RejectsDotSegmentIDsAndRedactsSignedDownloadErrors(t *t
 	}
 
 	cli := &client{
-		baseURL:   "https://api.dingtalk.test",
-		operator:  "op-1",
-		appKey:    "ak-1",
-		appSecret: "sk-1",
-		token:     "valid-token",
+		baseURL:     "https://api.dingtalk.test",
+		operator:    "op-1",
+		appKey:      "ak-1",
+		appSecret:   "sk-1",
+		token:       "valid-token",
 		tokenExpiry: time.Now().Add(time.Hour),
 		http: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {

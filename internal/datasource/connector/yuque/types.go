@@ -187,13 +187,14 @@ type v2DocListResponse struct {
 
 // v2Doc is the document summary returned by the list endpoint (no body).
 type v2Doc struct {
-	ID               int64          `json:"id"`
-	Type             string         `json:"type"` // Doc / Sheet / Thread / Board / Table
-	Slug             string         `json:"slug"`
-	Title            string         `json:"title"`
-	BookID           int64          `json:"book_id"`
-	UserID           int64          `json:"user_id"`
-	Status           flexibleStatus `json:"status"`             // "0" draft, "1" published — API may return int or string
+	ID     int64  `json:"id"`
+	Type   string `json:"type"` // Doc / Sheet / Thread / Board / Table
+	Slug   string `json:"slug"`
+	Title  string `json:"title"`
+	BookID int64  `json:"book_id"`
+	UserID int64  `json:"user_id"`
+	// Status: "0" draft, "1" published — API may return int or string.
+	Status           flexibleStatus `json:"status"`
 	ContentUpdatedAt string         `json:"content_updated_at"` // RFC3339 string — use for change detection
 	UpdatedAt        string         `json:"updated_at"`
 	WordCount        int            `json:"word_count"`

@@ -236,7 +236,9 @@ func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]f
 
 var (
 	openAIEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	openAIEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	openAIEmbedQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 type redactedOpenAIEmbedErr struct {

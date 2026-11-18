@@ -74,6 +74,8 @@ type Chat interface {
 }
 
 // ChatConfig is the operator-facing configuration of one chat model.
+//
+//nolint:revive // external callers use chat.ChatConfig
 type ChatConfig struct {
 	Source    types.ModelSource
 	BaseURL   string

@@ -138,7 +138,10 @@ func (p *SearxngProvider) Search(
 	q.Set("language", "all")
 
 	reqURL := p.baseURL + "/search?" + q.Encode()
-	logger.Infof(ctx, "[WebSearch][SearXNG] query=%q maxResults=%d url=%s", query, maxResults, redactURLForDisplay(p.baseURL))
+	logger.Infof(
+		ctx, "[WebSearch][SearXNG] query=%q maxResults=%d url=%s",
+		query, maxResults, redactURLForDisplay(p.baseURL),
+	)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -151,10 +154,13 @@ func (p *SearxngProvider) Search(
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", redactSearchError(err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("searxng returned status %d: %s", resp.StatusCode, redactSecretText(readErrorPreview(resp.Body)))
+		return nil, fmt.Errorf(
+			"searxng returned status %d: %s",
+			resp.StatusCode, redactSecretText(readErrorPreview(resp.Body)),
+		)
 	}
 
 	bodyBytes, err := readCapped(resp.Body, 0)
@@ -165,7 +171,9 @@ func (p *SearxngProvider) Search(
 	var data searxngResponse
 	if err := json.Unmarshal(bodyBytes, &data); err != nil {
 		p.setLastUnresponsive(nil)
-		return nil, fmt.Errorf("failed to decode SearXNG response (ensure JSON format is enabled in settings.yml): %w", err)
+		return nil, fmt.Errorf(
+			"failed to decode SearXNG response (ensure JSON format is enabled in settings.yml): %w", err,
+		)
 	}
 	p.setLastUnresponsive(data.UnresponsiveEngines)
 

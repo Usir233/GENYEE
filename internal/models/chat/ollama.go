@@ -122,7 +122,7 @@ func resolveImageForOllama(ctx context.Context, imageURL string) ollamaapi.Image
 		if err != nil {
 			return nil
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 			return nil
 		}
@@ -136,7 +136,9 @@ func resolveImageForOllama(ctx context.Context, imageURL string) ollamaapi.Image
 }
 
 // buildChatRequest 构建聊天请求参数
-func (c *OllamaChat) buildChatRequest(ctx context.Context, messages []Message, opts *ChatOptions, isStream bool) *ollamaapi.ChatRequest {
+func (c *OllamaChat) buildChatRequest(
+	ctx context.Context, messages []Message, opts *ChatOptions, isStream bool,
+) *ollamaapi.ChatRequest {
 	// 设置流式标志
 	streamFlag := isStream
 
@@ -180,6 +182,12 @@ func (c *OllamaChat) buildChatRequest(ctx context.Context, messages []Message, o
 
 // Chat 进行非流式聊天
 func (c *OllamaChat) Chat(ctx context.Context, messages []Message, opts *ChatOptions) (*types.ChatResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultChatTimeout)
+	defer cancel()
+
 	// 确保模型可用
 	if err := c.ensureModelAvailable(ctx); err != nil {
 		return nil, err
@@ -249,14 +257,22 @@ func (c *OllamaChat) ChatStream(
 	messages []Message,
 	opts *ChatOptions,
 ) (<-chan types.StreamResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	callerCtx := ctx
+	ctx, cancel := api.WithLLMTimeout(callerCtx, api.DefaultStreamTimeout)
+
 	// 确保模型可用
 	if err := c.ensureModelAvailable(ctx); err != nil {
+		cancel()
 		return nil, err
 	}
 
 	// 构建请求参数
 	chatReq := c.buildChatRequest(ctx, messages, opts, true)
 	if err := ctx.Err(); err != nil {
+		cancel()
 		return nil, err
 	}
 
@@ -268,6 +284,7 @@ func (c *OllamaChat) ChatStream(
 
 	// 启动goroutine处理流式响应
 	go func() {
+		defer cancel()
 		defer close(streamChan)
 
 		send := func(item types.StreamResponse) bool {
@@ -345,8 +362,7 @@ func (c *OllamaChat) ChatStream(
 
 				for _, tc := range resp.Message.ToolCalls {
 					argsMap := tc.Function.Arguments.ToMap()
-					switch tc.Function.Name {
-					case "thinking":
+					if tc.Function.Name == "thinking" {
 						if thought, ok := argsMap["thought"].(string); ok && thought != "" {
 							if !send(types.StreamResponse{
 								ResponseType: types.ResponseTypeThinking,
@@ -394,12 +410,18 @@ func (c *OllamaChat) ChatStream(
 		})
 		if err != nil {
 			logger.GetLogger(ctx).Errorf("流式聊天请求失败: %v", err)
-			// 发送错误响应
-			_ = send(types.StreamResponse{
-				ResponseType: types.ResponseTypeError,
-				Content:      err.Error(),
-				Done:         true,
-			})
+			// Deliver the terminal error when the consumer has not cancelled;
+			// if callerCtx is already done, drop without blocking on an unread channel.
+			if callerCtx.Err() == nil {
+				select {
+				case streamChan <- types.StreamResponse{
+					ResponseType: types.ResponseTypeError,
+					Content:      err.Error(),
+					Done:         true,
+				}:
+				case <-callerCtx.Done():
+				}
+			}
 		}
 	}()
 

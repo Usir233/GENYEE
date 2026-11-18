@@ -1,3 +1,4 @@
+// Package web_search implements web search provider clients.
 package web_search
 
 import (
@@ -116,12 +117,14 @@ func (p *BaiduProvider) buildRequest(ctx context.Context, query string, maxResul
 	return req, nil
 }
 
-func (p *BaiduProvider) doSearch(ctx context.Context, req *http.Request, includeDate bool) ([]*types.WebSearchResult, error) {
+func (p *BaiduProvider) doSearch(
+	ctx context.Context, req *http.Request, includeDate bool,
+) ([]*types.WebSearchResult, error) {
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)
@@ -141,7 +144,10 @@ func (p *BaiduProvider) doSearch(ctx context.Context, req *http.Request, include
 
 	// Check for API-level error (returned with 200 status)
 	if respData.Code != 0 {
-		return nil, fmt.Errorf("baidu API error (code %d): %s", respData.Code, errorPreviewString([]byte(respData.Message)))
+		return nil, fmt.Errorf(
+			"baidu API error (code %d): %s",
+			respData.Code, errorPreviewString([]byte(respData.Message)),
+		)
 	}
 
 	results := make([]*types.WebSearchResult, 0, len(respData.References))

@@ -21,9 +21,11 @@ func (s stubTranscriber) Transcribe(_ context.Context, _ api.TranscriptionReques
 }
 
 func TestWithLanguageNilContextAndConfigFromModelMapIsolation(t *testing.T) {
+	//nolint:staticcheck // verifying defensive nil-context handling
 	ctx := WithLanguage(nil, "zh")
 	require.NotNil(t, ctx)
 	assert.Equal(t, "zh", languageFrom(ctx))
+	//nolint:staticcheck // verifying defensive nil-context handling
 	assert.Equal(t, "", languageFrom(nil))
 
 	row := &types.Model{
@@ -55,6 +57,7 @@ func TestValidateASRBaseURLRedactsSecretsAndSanitizesDuration(t *testing.T) {
 		vendor:    "Generic",
 		modelName: "whisper-1",
 	}
+	//nolint:staticcheck // verifying defensive nil-context handling
 	res, err := p.Transcribe(nil, []byte("RIFF"), "sample.wav")
 	require.NoError(t, err)
 	assert.Equal(t, 0.0, res.Duration, "non-finite vendor duration must be sanitized to 0")

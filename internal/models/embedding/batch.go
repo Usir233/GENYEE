@@ -1,3 +1,4 @@
+// Package embedding provides text and multimodal embedding clients and batching wrappers.
 package embedding
 
 import (
@@ -15,6 +16,7 @@ type batchEmbedder struct {
 	submitSlot chan struct{}
 }
 
+// NewBatchEmbedder creates an EmbedderPooler backed by the provided goroutine pool.
 func NewBatchEmbedder(pool *ants.Pool) EmbedderPooler {
 	return &batchEmbedder{pool: pool, submitSlot: make(chan struct{}, 1)}
 }
@@ -118,7 +120,10 @@ func (e *batchEmbedder) batchEmbed(ctx context.Context, model Embedder, texts []
 			if len(embedding) != len(chunk) {
 				mu.Lock()
 				if firstErr == nil {
-					firstErr = fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(chunk))
+					firstErr = fmt.Errorf(
+						"embedding model returned %d embeddings for %d inputs",
+						len(embedding), len(chunk),
+					)
 				}
 				mu.Unlock()
 				return

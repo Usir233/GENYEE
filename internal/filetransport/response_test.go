@@ -97,7 +97,10 @@ func TestServeBlocksWindowsBackslashTraversalAndInlineActiveContentType(t *testi
 	})
 
 	t.Run("caller_active_content_type_without_download_is_forced_safe", func(t *testing.T) {
-		for _, ct := range []string{"text/html; charset=utf-8", "image/svg+xml", "application/xhtml+xml", "text/javascript"} {
+		activeTypes := []string{
+			"text/html; charset=utf-8", "image/svg+xml", "application/xhtml+xml", "text/javascript",
+		}
+		for _, ct := range activeTypes {
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "/file", nil)
 			reader := &seekFile{Reader: bytes.NewReader([]byte("<script>alert(1)</script>"))}

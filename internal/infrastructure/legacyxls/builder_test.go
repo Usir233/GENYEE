@@ -253,7 +253,8 @@ func buildCompoundFile(name string, stream []byte) []byte {
 		binary.LittleEndian.PutUint32(fat[4*(firstFAT+i):], fatSect)
 	}
 
-	out := append(header, padded...)
+	out := append([]byte(nil), header...)
+	out = append(out, padded...)
 	out = append(out, dir...)
 	return append(out, fat...)
 }

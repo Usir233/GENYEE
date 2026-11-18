@@ -187,9 +187,15 @@ func TestW5FeishuCoreAudit_BreaksWikiNodeCyclesAndRepeatedBlockRecordTokens(t *t
 	}
 
 	if _, err := cli.listDocumentBlocks(context.Background(), "doc1"); err == nil || blockCalls.Load() > 2 {
-		t.Fatalf("expected listDocumentBlocks repeated page_token error in <=2 calls, calls=%d err=%v", blockCalls.Load(), err)
+		t.Fatalf(
+			"expected listDocumentBlocks repeated page_token error in <=2 calls, calls=%d err=%v",
+			blockCalls.Load(), err,
+		)
 	}
 	if _, _, err := cli.readBitableRecords(context.Background(), "app1_tbl1"); err == nil || recCalls.Load() > 2 {
-		t.Fatalf("expected readBitableRecords repeated page_token error in <=2 calls, calls=%d err=%v", recCalls.Load(), err)
+		t.Fatalf(
+			"expected readBitableRecords repeated page_token error in <=2 calls, calls=%d err=%v",
+			recCalls.Load(), err,
+		)
 	}
 }

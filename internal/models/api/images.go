@@ -97,7 +97,7 @@ func readLocalStorageBytes(storagePath string) []byte {
 		log.Printf("[image-resolve] failed to open local storage directory: %v", err)
 		return nil
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	data, err := root.ReadFile(filepath.FromSlash(relPath))
 	if err != nil {
 		log.Printf("[image-resolve] failed to read local file %s: %v", relPath, err)

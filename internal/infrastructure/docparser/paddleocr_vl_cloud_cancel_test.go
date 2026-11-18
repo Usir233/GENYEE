@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func paddleCloudFixture(t *testing.T, imageHandler http.HandlerFunc, resultHandler http.HandlerFunc) *PaddleOCRVLCloudReader {
+func paddleCloudFixture(
+	t *testing.T, imageHandler http.HandlerFunc, resultHandler http.HandlerFunc,
+) *PaddleOCRVLCloudReader {
 	t.Helper()
 	var baseURL string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +29,12 @@ func paddleCloudFixture(t *testing.T, imageHandler http.HandlerFunc, resultHandl
 			if resultHandler != nil {
 				resultHandler(w, r)
 			}
-			_, _ = fmt.Fprintf(w, `{"result":{"layoutParsingResults":[{"markdown":{"text":"before ![page](images/page.png) after","images":{"images/page.png":%q}}}]}}`, baseURL+"/image")
+			_, _ = fmt.Fprintf(
+				w,
+				`{"result":{"layoutParsingResults":[{"markdown":{"text":"before ![page](images/page.png) after",`+
+					`"images":{"images/page.png":%q}}}]}}`,
+				baseURL+"/image",
+			)
 		case "/image":
 			if imageHandler != nil {
 				imageHandler(w, r)
@@ -78,7 +85,8 @@ func TestPaddleCloudDownloadsHonorCancellation(t *testing.T) {
 				done, finished := make(chan outcome, 1), make(chan struct{})
 				go func() {
 					defer close(finished)
-					result, err := reader.Read(ctx, &types.ReadRequest{FileName: "fixture.pdf", FileType: "pdf", FileContent: []byte("fixture")})
+					req := &types.ReadRequest{FileName: "fixture.pdf", FileType: "pdf", FileContent: []byte("fixture")}
+					result, err := reader.Read(ctx, req)
 					done <- outcome{result, err}
 				}()
 				defer func() {
@@ -116,7 +124,8 @@ func TestPaddleCloudDownloadsKeepSuccessAndOptionalImageFailure(t *testing.T) {
 				handler = func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }
 			}
 			reader := paddleCloudFixture(t, handler, nil)
-			result, err := reader.Read(context.Background(), &types.ReadRequest{FileName: "fixture.pdf", FileType: "pdf", FileContent: []byte("fixture")})
+			req := &types.ReadRequest{FileName: "fixture.pdf", FileType: "pdf", FileContent: []byte("fixture")}
+			result, err := reader.Read(context.Background(), req)
 			require.NoError(t, err)
 			require.Contains(t, result.MarkdownContent, "before ![page](images/page.png) after")
 			if failImage {

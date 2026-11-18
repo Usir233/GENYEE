@@ -784,7 +784,8 @@ func (r *sourceRegistry) modelWebFetchOutput(rows []map[string]interface{}, fall
 			}
 			if summaryStatus := stringValue(row, "summary_status"); summaryStatus == "failed" {
 				fmt.Fprintf(&b, "    <summary_error code=\"%s\">%s</summary_error>\n",
-					escapeAttr(stringValue(row, "summary_error_code")), escapeText(stringValue(row, "summary_error_message")))
+					escapeAttr(stringValue(row, "summary_error_code")),
+					escapeText(stringValue(row, "summary_error_message")))
 			}
 			if content := stringValue(row, "raw_content"); content != "" {
 				limit := min(modelWebFetchContentMaxRunes, remainingEvidence)
@@ -830,7 +831,8 @@ func (r *sourceRegistry) modelWebFetchOutput(rows []map[string]interface{}, fall
 				"Answer only to the extent supported by available evidence.\n")
 			b.WriteString("- Explicitly state that page content was not verified and treat dynamic facts as uncertain.")
 		} else {
-			b.WriteString("- Use successful page content together with existing search snippets; failed URLs do not invalidate successful evidence.\n")
+			b.WriteString("- Use successful page content together with existing search snippets; " +
+				"failed URLs do not invalidate successful evidence.\n")
 			b.WriteString("- Do not retry non-retryable failures. If evidence is sufficient, answer now.")
 		}
 	}
@@ -924,9 +926,9 @@ func stringValue(values map[string]interface{}, key string) string {
 	switch value := values[key].(type) {
 	case string:
 		return value
-	case fmt.Stringer:
-		return value.String()
 	case json.Number:
+		return value.String()
+	case fmt.Stringer:
 		return value.String()
 	default:
 		return ""

@@ -1,3 +1,4 @@
+// Package docparser implements local and remote document parsing engines.
 package docparser
 
 import (
@@ -46,6 +47,7 @@ type GRPCDocumentReader struct {
 	addr   string
 }
 
+// NewGRPCDocumentReader creates a gRPC document reader connected to addr when non-empty.
 func NewGRPCDocumentReader(addr string) (*GRPCDocumentReader, error) {
 	p := &GRPCDocumentReader{}
 	if addr != "" {
@@ -129,7 +131,7 @@ func dialDocReader(addr string, allowGlobalToken bool) (*grpc.ClientConn, error)
 	}
 
 	start := time.Now()
-	conn, err := grpc.Dial(docReaderDialTarget(addr), opts...)
+	conn, err := grpc.NewClient(docReaderDialTarget(addr), opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to docreader: %w", err)
 	}
@@ -148,6 +150,7 @@ func (p *GRPCDocumentReader) connect(addr string, allowGlobalToken bool) error {
 	return nil
 }
 
+// Reconnect replaces the active gRPC client connection with a new dial to addr.
 func (p *GRPCDocumentReader) Reconnect(addr string) error {
 	conn, err := dialDocReader(addr, isOperatorConfiguredDocReaderAddr(addr))
 	if err != nil {
@@ -167,6 +170,7 @@ func (p *GRPCDocumentReader) Reconnect(addr string) error {
 	return nil
 }
 
+// IsConnected reports whether a gRPC client connection is configured.
 func (p *GRPCDocumentReader) IsConnected() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -189,6 +193,7 @@ func (p *GRPCDocumentReader) GetVersionInfo(ctx context.Context) (string, string
 	return info.GetVersion(), info.GetCommitId(), nil
 }
 
+// Close closes the underlying gRPC connection if open.
 func (p *GRPCDocumentReader) Close() error {
 	p.mu.Lock()
 	conn := p.conn
@@ -204,6 +209,7 @@ func (p *GRPCDocumentReader) Close() error {
 
 var errNotConnected = status.Error(codes.Unavailable, "docreader service not connected")
 
+// Read parses a document via the remote DocReader gRPC service.
 func (p *GRPCDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
 	p.mu.RLock()
 	client := p.client
@@ -255,7 +261,10 @@ func (p *GRPCDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (
 func (p *GRPCDocumentReader) readStream(
 	ctx context.Context, client proto.DocReaderClient, protoReq *proto.ReadRequest,
 ) (*types.ReadResult, error) {
-	stream, err := client.ReadStream(ctx, protoReq)
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := client.ReadStream(streamCtx, protoReq)
 	if err != nil {
 		return nil, fmt.Errorf("gRPC ReadStream failed: %w", err)
 	}
@@ -351,7 +360,10 @@ func (p *GRPCDocumentReader) readUnary(
 	return result, nil
 }
 
-func (p *GRPCDocumentReader) ListEngines(ctx context.Context, overrides map[string]string) ([]types.ParserEngineInfo, error) {
+// ListEngines queries the remote DocReader for its supported parser engines.
+func (p *GRPCDocumentReader) ListEngines(
+	ctx context.Context, overrides map[string]string,
+) ([]types.ParserEngineInfo, error) {
 	p.mu.RLock()
 	client := p.client
 	p.mu.RUnlock()

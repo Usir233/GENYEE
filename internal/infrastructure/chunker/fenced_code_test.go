@@ -51,7 +51,11 @@ func TestHeadingScansRespectFences(t *testing.T) {
 				t.Errorf("unexpected boundaries: %+v", bounds)
 			}
 			if tc.close != "" && len(bounds) == 2 {
-				wantOffset := utf8.RuneCountInString(doc[:strings.Index(doc, "# After")])
+				afterIdx := strings.Index(doc, "# After")
+				if afterIdx < 0 {
+					t.Fatal("expected # After in doc")
+				}
+				wantOffset := utf8.RuneCountInString(doc[:afterIdx])
 				if bounds[1].line != "# After" || bounds[1].runeStart != wantOffset {
 					t.Errorf("unexpected closing boundary: %+v, want offset %d", bounds[1], wantOffset)
 				}

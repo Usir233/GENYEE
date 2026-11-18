@@ -44,7 +44,7 @@ func (c *Connector) Validate(ctx context.Context, config *types.DataSourceConfig
 // ResolveResourceAncestors has nothing to do for Yuque: repositories are a flat
 // list with no nesting, so a selection has no ancestors to reveal.
 func (c *Connector) ResolveResourceAncestors(
-	ctx context.Context, config *types.DataSourceConfig, resourceIDs []string,
+	_ context.Context, _ *types.DataSourceConfig, _ []string,
 ) ([]string, error) {
 	return []string{}, nil
 }
@@ -141,7 +141,9 @@ func (c *Connector) ListResources(
 }
 
 // FetchAll performs a full sync of all books specified in resourceIDs.
-func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error) {
+func (c *Connector) FetchAll(
+	ctx context.Context, config *types.DataSourceConfig, resourceIDs []string,
+) ([]types.FetchedItem, error) {
 	items, _, err := c.walk(ctx, config, resourceIDs, nil, false)
 	return items, err
 }

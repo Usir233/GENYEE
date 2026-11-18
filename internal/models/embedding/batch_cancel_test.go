@@ -213,7 +213,8 @@ func TestBatchEmbedWithPoolCancelledWaitersStayBounded(t *testing.T) {
 	cancel()
 	if !awaitBatchCancellation(t, done, context.Canceled) {
 		release()
-		<-done
+		drainErr := <-done
+		_ = drainErr
 		return
 	}
 	for range 8 {
@@ -263,13 +264,19 @@ func TestBatchEmbedWithPoolReleaseAndReboot(t *testing.T) {
 				cancel()
 				if !awaitBatchCancellation(t, done, context.Canceled) {
 					release()
-					<-done
+					drainErr := <-done
+					_ = drainErr
 					return
 				}
 			}
 			released := make(chan error, 1)
 			go func() { released <- pool.ReleaseTimeout(5 * time.Second) }()
-			require.Eventually(t, func() bool { return pool.IsClosed() && pool.Waiting() == 0 }, 5*time.Second, time.Millisecond)
+			require.Eventually(
+				t,
+				func() bool { return pool.IsClosed() && pool.Waiting() == 0 },
+				5*time.Second,
+				time.Millisecond,
+			)
 			if !cancelled {
 				require.ErrorIs(t, <-done, ants.ErrPoolClosed)
 			}
@@ -308,7 +315,8 @@ func TestBatchEmbedWithPoolCancelledInputCanBeReused(t *testing.T) {
 		cancel()
 		if !returned {
 			release()
-			<-done
+			drainErr := <-done
+			_ = drainErr
 			return
 		}
 		for i := range texts {

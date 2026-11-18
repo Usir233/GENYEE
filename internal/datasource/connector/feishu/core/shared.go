@@ -23,6 +23,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
+// FeishuWikiNodeResourceSeparator separates space_id and node_token in composite resource IDs.
 const FeishuWikiNodeResourceSeparator = ":"
 
 // shared.go holds the helpers used by BOTH the wiki Connector (connector.go)

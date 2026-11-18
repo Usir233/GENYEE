@@ -29,7 +29,8 @@ func TestTencentVectorDBJiebaTokenizerChineseBM25(t *testing.T) {
 	const sentence = "腾讯开源的知识库检索系统支持混合搜索"
 	tokens := jbt.Tokenize(sentence)
 	if len(tokens) <= 1 {
-		t.Fatalf("expected Chinese sentence %q to be segmented into multiple tokens, got %d: %v", sentence, len(tokens), tokens)
+		t.Fatalf("expected Chinese sentence %q to be segmented into multiple tokens, got %d: %v",
+			sentence, len(tokens), tokens)
 	}
 	if len(tokens) == 1 && tokens[0] == sentence {
 		t.Fatalf("tokenizer fell back to whitespace splitting without Chinese word segmentation: %v", tokens)

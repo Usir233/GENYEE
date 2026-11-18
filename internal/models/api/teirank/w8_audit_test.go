@@ -25,11 +25,13 @@ func TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets(t *testing.T) {
 	defer srv.Close()
 
 	c := New(Config{Endpoint: api.Endpoint{BaseURL: srv.URL}})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err := c.Rerank(nil, "q", nil)
 	require.NoError(t, err)
 	assert.Empty(t, got)
 	assert.Zero(t, hits.Load(), "empty documents slice must not send HTTP POST")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err = c.Rerank(nil, "q", []string{"doc"})
 	require.NoError(t, err)
 	require.Len(t, got, 1)
@@ -40,6 +42,7 @@ func TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets(t *testing.T) {
 			Query:   map[string]string{"token": "tei-secret-token-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err = bad.Rerank(nil, "q", []string{"doc"})
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")

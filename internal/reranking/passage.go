@@ -78,16 +78,17 @@ func CleanPassage(text string) string {
 	// first would let later passes delete XML, URLs and operators in code.
 	for line := range strings.SplitAfterSeq(text, "\n") {
 		marker, length, tail := passageFence(line)
-		if fenceLength == 0 {
+		switch {
+		case fenceLength == 0:
 			if length < 3 || (marker == '`' && strings.ContainsRune(tail, '`')) {
 				prose.WriteString(line)
 				continue
 			}
 			flushProse()
 			fenceChar, fenceLength = marker, length
-		} else if marker == fenceChar && length >= fenceLength && strings.Trim(tail, " \t\r\n") == "" {
+		case marker == fenceChar && length >= fenceLength && strings.Trim(tail, " \t\r\n") == "":
 			fenceLength = 0
-		} else {
+		default:
 			out.WriteString(line)
 		}
 	}

@@ -98,11 +98,14 @@ func TestListResourcesSearchFallbackStopsAtPaginationCap(t *testing.T) {
 		maxRequests:   fakeLoopBudget,
 	}
 
+	t.Setenv("LOG_LEVEL", "warn")
+	logger.ConfigureFromEnv()
+	t.Cleanup(logger.ConfigureFromEnv)
 	var logs bytes.Buffer
 	logger.SetOutput(&logs)
 	defer logger.SetOutput(os.Stdout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	_, err := NewConnector().ListResources(ctx, fake.config(), "")

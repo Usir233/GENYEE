@@ -23,7 +23,13 @@ func TestNonStreamIncompleteResponseWithoutDetailsDoesNotReportToolCalls(t *test
 			"status": "incomplete",
 			"incomplete_details": null,
 			"output": [
-				{"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "delete_file", "arguments": "{\"path\":\"/tmp"}
+				{
+					"type": "function_call",
+					"id": "fc_1",
+					"call_id": "call_1",
+					"name": "delete_file",
+					"arguments": "{\"path\":\"/tmp"
+				}
 			]
 		}`))
 	}))
@@ -32,6 +38,7 @@ func TestNonStreamIncompleteResponseWithoutDetailsDoesNotReportToolCalls(t *test
 	c := New(Config{
 		Endpoint: api.Endpoint{BaseURL: srv.URL + "/v1", Model: "gpt-5"},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err := c.Chat(nil, []api.Message{{Role: "user", Content: "go"}}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "length", got.FinishReason, "truncated response must never report finish_reason=tool_calls")
@@ -64,6 +71,7 @@ func TestChatRedactsSecretsInRequestCreationError(t *testing.T) {
 			Query:   map[string]string{"api_key": "sk-secret-openai-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Chat(nil, []api.Message{{Role: "user", Content: "hi"}}, nil)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")

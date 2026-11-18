@@ -23,7 +23,10 @@ func TestW5FeishuWikiAudit_ResolveAncestorsBreaksParentCycleAndRejectsEmptySpace
 			})
 		case "/open-apis/wiki/v2/spaces/get_node":
 			if getNodeCalls.Add(1) > 6 {
-				t.Errorf("infinite parent cycle in ResolveResourceAncestors: get_node called %d times", getNodeCalls.Load())
+				t.Errorf(
+					"infinite parent cycle in ResolveResourceAncestors: get_node called %d times",
+					getNodeCalls.Load(),
+				)
 				http.Error(w, "parent cycle loop", http.StatusInternalServerError)
 				return
 			}

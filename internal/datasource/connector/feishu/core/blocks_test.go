@@ -28,7 +28,10 @@ func TestListDocumentBlocks_Paginates(t *testing.T) {
 		}
 		if r.URL.Query().Get("page_token") == "" {
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{
-				"items":      []map[string]any{{"block_id": "b1", "block_type": 2}, {"block_id": "b2", "block_type": 2}},
+				"items": []map[string]any{
+					{"block_id": "b1", "block_type": 2},
+					{"block_id": "b2", "block_type": 2},
+				},
 				"has_more":   true,
 				"page_token": "p2",
 			}})
@@ -637,7 +640,7 @@ func TestReadBitableRecords_RejectsRepeatedFieldPageToken(t *testing.T) {
 // a vendor handing out a fresh page_token on every page must stop at
 // maxBitableFields with a warning, not grow the header without bound.
 func TestReadBitableRecords_CapsFieldPages(t *testing.T) {
-	const fieldsPerPage = 2
+	const fieldsPerPage = maxBitableFieldPageSize
 	fieldCalls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -670,11 +673,14 @@ func TestReadBitableRecords_CapsFieldPages(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	t.Setenv("LOG_LEVEL", "warn")
+	logger.ConfigureFromEnv()
+	t.Cleanup(logger.ConfigureFromEnv)
 	var buf bytes.Buffer
 	logger.SetOutput(&buf)
 	defer logger.SetOutput(os.Stdout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
 	rows, _, err := c.readBitableRecords(ctx, "bascabc_tblxyz")

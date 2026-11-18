@@ -39,6 +39,10 @@ func TestNewEmbeddingHTTPClient_ReusesTransport(t *testing.T) {
 	if second.Timeout != secondTimeout {
 		t.Fatalf("unexpected second client timeout: got %v, want %v", second.Timeout, secondTimeout)
 	}
+	zero := newEmbeddingHTTPClient(0)
+	if zero.Timeout != defaultEmbeddingRequestTimeout {
+		t.Fatalf("expected zero timeout to fall back to %v, got %v", defaultEmbeddingRequestTimeout, zero.Timeout)
+	}
 }
 
 func TestValidateEmbeddingBaseURL_RejectsLoopback(t *testing.T) {

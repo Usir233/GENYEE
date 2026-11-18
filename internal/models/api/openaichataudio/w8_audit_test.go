@@ -34,6 +34,7 @@ func TestTranscribeNilContextAndRedactsSecretsInRequestError(t *testing.T) {
 			Query:   map[string]string{"api_key": "sk-audio-secret-999"},
 		},
 	})
+	//nolint:staticcheck // verifying defensive nil-context handling
 	_, err := c.Transcribe(nil, api.TranscriptionRequest{Audio: []byte("RIFF"), FileName: "sample.wav"})
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "supersecretpw")

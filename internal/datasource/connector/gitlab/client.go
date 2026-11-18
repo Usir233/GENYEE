@@ -1,3 +1,4 @@
+// Package gitlab implements the GitLab repository data source connector.
 package gitlab
 
 import (
@@ -150,7 +151,7 @@ func (c *client) getCapped(ctx context.Context, endpoint string, out interface{}
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &apiError{endpoint: endpoint, status: resp.StatusCode}
 	}
@@ -171,7 +172,7 @@ func (c *client) getRaw(ctx context.Context, endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, &apiError{endpoint: endpoint, status: resp.StatusCode}
 	}
@@ -323,7 +324,7 @@ func (c *client) getPage(ctx context.Context, endpoint string, query url.Values,
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", &apiError{endpoint: endpoint, status: resp.StatusCode}
 	}

@@ -203,7 +203,13 @@ func (l *redisLimiter) RuntimeStats(ctx context.Context) ([]RuntimeStat, error) 
 			return true
 		}
 		name, _ := tracked.name.Load().(string)
-		stats = append(stats, RuntimeStat{ModelID: modelID, Name: name, Active: active, Waiting: tracked.waiting.Load(), Limit: int(tracked.limit.Load())})
+		stats = append(stats, RuntimeStat{
+			ModelID: modelID,
+			Name:    name,
+			Active:  active,
+			Waiting: tracked.waiting.Load(),
+			Limit:   int(tracked.limit.Load()),
+		})
 		return true
 	})
 	sort.Slice(stats, func(i, j int) bool { return stats[i].ModelID < stats[j].ModelID })
@@ -221,7 +227,7 @@ func (l *redisLimiter) SetModelName(modelID, name string) {
 // hold starts a heartbeat that refreshes the lease and returns an idempotent
 // release that stops the heartbeat and drops the slot.
 func (l *redisLimiter) hold(zkey, token string) func() {
-	stop := make(chan struct{})
+	hbCtx, stopHeartbeat := context.WithCancel(context.Background())
 	ttl := l.effectiveTTL()
 	tickInterval := max(ttl/3, time.Millisecond)
 	ttlMs := max(ttl.Milliseconds(), int64(1))
@@ -230,7 +236,7 @@ func (l *redisLimiter) hold(zkey, token string) func() {
 		defer t.Stop()
 		for {
 			select {
-			case <-stop:
+			case <-hbCtx.Done():
 				return
 			case <-t.C:
 				now := time.Now().UnixMilli()
@@ -245,14 +251,18 @@ func (l *redisLimiter) hold(zkey, token string) func() {
 				// would otherwise let the whole key expire after ttl*2 —
 				// dropping every live lease and admitting over the limit. The
 				// heartbeat pushes the key TTL out in lockstep with the lease.
-				bg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				bg, cancel := context.WithTimeout(hbCtx, 5*time.Second)
 				// A release or expiry may remove the token while this heartbeat
 				// is in flight. Refresh existing leases only; never recreate one.
-				_ = l.rdb.ZAddXX(bg, zkey, redis.Z{
+				if err := l.rdb.ZAddXX(bg, zkey, redis.Z{
 					Score:  float64(now + ttlMs),
 					Member: token,
-				}).Err()
-				_ = l.rdb.PExpire(bg, zkey, ttl*2).Err()
+				}).Err(); err != nil && hbCtx.Err() == nil {
+					logger.Debugf(bg, "[ModelLimiter] lease refresh failed for %s: %v", zkey, err)
+				}
+				if err := l.rdb.PExpire(bg, zkey, ttl*2).Err(); err != nil && hbCtx.Err() == nil {
+					logger.Debugf(bg, "[ModelLimiter] key TTL refresh failed for %s: %v", zkey, err)
+				}
 				cancel()
 			}
 		}
@@ -261,10 +271,12 @@ func (l *redisLimiter) hold(zkey, token string) func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			close(stop)
+			stopHeartbeat()
 			bg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			_ = l.rdb.ZRem(bg, zkey, token).Err()
+			if err := l.rdb.ZRem(bg, zkey, token).Err(); err != nil {
+				logger.Debugf(bg, "[ModelLimiter] lease release failed for %s: %v", zkey, err)
+			}
 		})
 	}
 }

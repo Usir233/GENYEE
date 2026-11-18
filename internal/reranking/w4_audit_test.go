@@ -31,7 +31,10 @@ func (s *stubUntrustedReranker) AcceptsImages() bool { return s.acceptsImg }
 func (s *stubUntrustedReranker) ImageLimits() imageprep.Limits {
 	return imageprep.Limits{}
 }
-func (s *stubUntrustedReranker) RerankImages(_ context.Context, _ string, _ []rerank.Image) ([]rerank.RankResult, error) {
+
+func (s *stubUntrustedReranker) RerankImages(
+	_ context.Context, _ string, _ []rerank.Image,
+) ([]rerank.RankResult, error) {
 	return s.imageResults, nil
 }
 

@@ -134,20 +134,6 @@ func jsonToMarkdownContext(ctx context.Context, data []byte, limit int) (string,
 // RecursiveJsonSplitter core algorithm
 // ---------------------------------------------------------------------------
 
-// recursiveJSONSplit splits a JSON dict into a list of JSON dicts,
-// each fitting within defaultJSONChunkSize. It preserves the full nested
-// path from root to each leaf by using setNestedDict.
-//
-// This is a Go port of LangChain's RecursiveJsonSplitter._json_split.
-func recursiveJSONSplit(
-	data interface{},
-	currentPath []string,
-	chunks []map[string]interface{},
-) []map[string]interface{} {
-	out, _ := recursiveJSONSplitCtx(context.Background(), data, currentPath, chunks)
-	return out
-}
-
 func jsonPathOverhead(path []string) int {
 	if len(path) == 0 {
 		return 0
@@ -160,6 +146,8 @@ func jsonPathOverhead(path []string) int {
 	return 0
 }
 
+// recursiveJSONSplitCtx splits a JSON dict into a list of JSON dicts,
+// each fitting within defaultJSONChunkSize while honoring context cancellation.
 func recursiveJSONSplitCtx(
 	ctx context.Context,
 	data interface{},
@@ -220,7 +208,8 @@ func recursiveJSONSplitCtx(
 
 			// Check if the value itself is a dict/list that can be recursed into
 			normalized := listToDictPreprocess(value)
-			if subDict, isDict := normalized.(map[string]interface{}); isDict && len(newPath) < maxJSONSplitDepth && canSplitDict(subDict) {
+			subDict, isDict := normalized.(map[string]interface{})
+			if isDict && len(newPath) < maxJSONSplitDepth && canSplitDict(subDict) {
 				// Recurse into the sub-object
 				var err error
 				chunks, err = recursiveJSONSplitCtx(ctx, subDict, newPath, chunks)

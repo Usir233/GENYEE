@@ -25,7 +25,7 @@ func (f *idleStreamChat) ChatStream(context.Context, []Message, *ChatOptions) (<
 func (f *fakeChat) GetModelName() string { return f.id }
 func (f *fakeChat) GetModelID() string   { return f.id }
 
-func (f *fakeChat) Chat(ctx context.Context, _ []Message, _ *ChatOptions) (*types.ChatResponse, error) {
+func (f *fakeChat) Chat(_ context.Context, _ []Message, _ *ChatOptions) (*types.ChatResponse, error) {
 	return &types.ChatResponse{}, nil
 }
 

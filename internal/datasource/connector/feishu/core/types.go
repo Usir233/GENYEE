@@ -1,13 +1,13 @@
-// Package feishu implements the Feishu (飞书/Lark) data source connector for GENYEE.
+// Package core implements shared client, block rendering, and sync logic for Feishu/Lark connectors.
 //
 // It syncs documents from Feishu Wiki spaces and cloud documents into GENYEE knowledge bases.
 //
 // Feishu API docs:
-//   - Wiki spaces:      https://open.feishu.cn/document/server-docs/docs/wiki-v2/space/list
-//   - Wiki nodes:       https://open.feishu.cn/document/server-docs/docs/wiki-v2/space-node/list
-//   - Export tasks:     https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/export-user-guide
-//   - File download:    https://open.feishu.cn/document/server-docs/docs/drive-v1/file/download
-//   - Auth:             https://open.feishu.cn/document/server-docs/authentication-management/access-token/tenant_access_token_internal
+//   - Wiki spaces:   https://open.feishu.cn/document/server-docs/docs/wiki-v2/space/list
+//   - Wiki nodes:    https://open.feishu.cn/document/server-docs/docs/wiki-v2/space-node/list
+//   - Export tasks:  https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/export-user-guide
+//   - File download: https://open.feishu.cn/document/server-docs/docs/drive-v1/file/download
+//   - Auth:          https://open.feishu.cn/document/server-docs/authentication-management
 package core
 
 import (
@@ -73,9 +73,6 @@ func resolveLocation(name string) *time.Location {
 // defaultBaseURL is the default Feishu Open Platform API base URL.
 const defaultBaseURL = "https://open.feishu.cn"
 
-// larkBaseURL is the Lark (international) API base URL.
-const larkBaseURL = "https://open.larksuite.com"
-
 // GetBaseURL returns the effective base URL, defaulting to Feishu if not set.
 func (c *Config) GetBaseURL() string {
 	if c == nil {
@@ -126,6 +123,8 @@ var ExportFileExtToSuffix = map[string]string{
 // --- Feishu API response structures ---
 
 // ApiResponse is the common Feishu API response wrapper.
+//
+//nolint:revive // embedded across feishu wiki and drive connectors
 type ApiResponse struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
@@ -187,9 +186,9 @@ type WikiNode struct {
 	Creator        string `json:"creator"`
 	Owner          string `json:"owner"`
 	ObjCreateTime  string `json:"obj_create_time"`  // document creation time (unix timestamp string)
-	ObjEditTime    string `json:"obj_edit_time"`    // document last edit time (unix timestamp string) — tracks content changes
+	ObjEditTime    string `json:"obj_edit_time"`    // document last edit time (unix timestamp; tracks content changes)
 	NodeCreateTime string `json:"node_create_time"` // node creation time (unix timestamp string)
-	NodeEditTime   string `json:"node_edit_time"`   // node edit time (unix timestamp string) — only tracks node attribute changes
+	NodeEditTime   string `json:"node_edit_time"`   // node edit time (unix timestamp; tracks node attribute changes)
 }
 
 // WikiNodeInfoData is the data payload of WikiNodeInfoResponse.
@@ -204,18 +203,6 @@ type WikiNodeInfoResponse struct {
 }
 
 // --- Export task API responses ---
-
-// docRawContentData is the data payload of docRawContentResponse.
-type docRawContentData struct {
-	Content string `json:"content"`
-}
-
-// docRawContentResponse is the response for GET /open-apis/docx/v1/documents/:document_id/raw_content.
-// Deprecated: prefer export API for full-fidelity document export.
-type docRawContentResponse struct {
-	ApiResponse
-	Data docRawContentData `json:"data"`
-}
 
 // ExportTaskCreateData is the data payload of ExportTaskCreateResponse.
 type ExportTaskCreateData struct {
@@ -247,26 +234,6 @@ type ExportTaskStatusData struct {
 type ExportTaskStatusResponse struct {
 	ApiResponse
 	Data ExportTaskStatusData `json:"data"`
-}
-
-// --- File download response ---
-
-// driveFileMeta is one entry of driveFileMetaData.Metas.
-type driveFileMeta struct {
-	DocToken string `json:"doc_token"`
-	DocType  string `json:"doc_type"`
-	Title    string `json:"title"`
-}
-
-// driveFileMetaData is the data payload of driveFileMetaResponse.
-type driveFileMetaData struct {
-	Metas []driveFileMeta `json:"metas"`
-}
-
-// driveFileMetaResponse is the response for GET /drive/v1/metas for file type nodes.
-type driveFileMetaResponse struct {
-	ApiResponse
-	Data driveFileMetaData `json:"data"`
 }
 
 // FeishuCursor stores incremental sync state for Feishu.
@@ -326,10 +293,10 @@ type driveFolderMetaData struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Token     string `json:"token"`
-	CreateUid string `json:"createUid"`
-	EditUid   string `json:"editUid"`
+	CreateUID string `json:"createUid"`
+	EditUID   string `json:"editUid"`
 	ParentID  string `json:"parentId"`
-	OwnUid    string `json:"ownUid"`
+	OwnUID    string `json:"ownUid"`
 }
 
 // driveFolderMetaResponse is the response for GET /open-apis/drive/explorer/v2/folder/:folderToken/meta.

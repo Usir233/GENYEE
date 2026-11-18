@@ -141,4 +141,3 @@ func TestBuildLangfuseMessagesRedactsMultiContentDataURIWithoutMutatingCaller(t 
 		t.Fatalf("caller MultiContent was mutated in-place")
 	}
 }
-

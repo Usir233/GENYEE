@@ -22,7 +22,7 @@ func TestHeartbeatCancellationDoesNotWaitForAnotherRequest(t *testing.T) {
 			var once sync.Once
 			unblock := func() { once.Do(func() { close(release) }) }
 			var calls atomic.Int32
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				if calls.Add(1) == 1 {
 					close(started)
 					<-release
@@ -67,7 +67,7 @@ func TestHeartbeatCancellationDoesNotWaitForAnotherRequest(t *testing.T) {
 
 func TestAvailabilityReadDoesNotWaitForHeartbeatNetworkIO(t *testing.T) {
 	started, release := make(chan struct{}), make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		close(started)
 		<-release
 	}))
@@ -99,7 +99,7 @@ func TestHeartbeatPreservesAvailabilityAndOptionalFailures(t *testing.T) {
 	for _, optional := range []bool{false, true} {
 		t.Run(fmt.Sprintf("optional=%t", optional), func(t *testing.T) {
 			var fail atomic.Bool
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				if fail.Load() {
 					http.Error(w, "offline", http.StatusServiceUnavailable)
 				}

@@ -79,22 +79,18 @@ func (p *DuckDuckGoProvider) searchHTML(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set(
-		"User-Agent",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-	)
+	const ddgUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+		"(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	req.Header.Set("User-Agent", ddgUserAgent)
 
-	curlCommand := fmt.Sprintf(
-		"curl -X GET '%s' -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'",
-		req.URL.String(),
-	)
+	curlCommand := fmt.Sprintf("curl -X GET '%s' -H 'User-Agent: %s'", req.URL.String(), ddgUserAgent)
 	logger.Infof(ctx, "Curl of request: %s", secutils.SanitizeForLog(curlCommand))
 
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return nil, fmt.Errorf("duckduckgo HTML returned status %d: %s", resp.StatusCode, readErrorPreview(resp.Body))
@@ -111,7 +107,7 @@ func (p *DuckDuckGoProvider) searchHTML(
 	}
 
 	results := make([]*types.WebSearchResult, 0, maxResults)
-	doc.Find(".web-result").Each(func(i int, s *goquery.Selection) {
+	doc.Find(".web-result").Each(func(_ int, s *goquery.Selection) {
 		if len(results) >= maxResults {
 			return
 		}
@@ -160,7 +156,7 @@ func (p *DuckDuckGoProvider) searchAPI(
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)
 		return nil, fmt.Errorf("duckduckgo API returned status %d: %s", resp.StatusCode, preview)

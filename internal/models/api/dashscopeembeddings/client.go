@@ -131,7 +131,9 @@ func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]f
 
 var (
 	dashscopeEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	dashscopeEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	dashscopeEmbedQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 type redactedDashScopeEmbedErr struct {

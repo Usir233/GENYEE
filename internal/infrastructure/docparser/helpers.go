@@ -76,7 +76,11 @@ func logResponseStructure(label string, obj interface{}, prefix string) {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		logger.Infof(context.Background(), "[%s] %s = {object with %d keys: %s}", label, prefix, len(v), strings.Join(keys, ", "))
+		logger.Infof(
+			context.Background(),
+			"[%s] %s = {object with %d keys: %s}",
+			label, prefix, len(v), strings.Join(keys, ", "),
+		)
 		for _, key := range keys {
 			val := v[key]
 			path := prefix + "." + key
@@ -93,12 +97,20 @@ func logResponseStructure(label string, obj interface{}, prefix string) {
 						}
 					} else {
 						logResponseStructure(label, inner[0], path+"[0]")
-						logger.Infof(context.Background(), "[%s] ... and %d more items in %s", label, len(inner)-1, path)
+						logger.Infof(
+							context.Background(),
+							"[%s] ... and %d more items in %s",
+							label, len(inner)-1, path,
+						)
 					}
 				}
 			case string:
 				if len(inner) > 200 {
-					logger.Infof(context.Background(), "[%s] %s = string(%d chars): %.200s...", label, path, len(inner), inner)
+					logger.Infof(
+						context.Background(),
+						"[%s] %s = string(%d chars): %.200s...",
+						label, path, len(inner), inner,
+					)
 				} else {
 					logger.Infof(context.Background(), "[%s] %s = %q", label, path, inner)
 				}

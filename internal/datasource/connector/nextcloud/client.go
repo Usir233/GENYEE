@@ -63,6 +63,7 @@ type httpError struct {
 }
 
 func (e *httpError) Error() string { return fmt.Sprintf("Nextcloud %s: HTTP %d", e.method, e.status) }
+
 func (e *httpError) Unwrap() error {
 	if e.status == http.StatusUnauthorized {
 		return datasource.ErrInvalidCredentials
@@ -102,12 +103,13 @@ func (c *client) request(ctx context.Context, method, p string, depth int, versi
 	}
 	req.SetBasicAuth(c.username, c.password)
 	req.Header.Set("User-Agent", "GENYEE-Nextcloud-Connector/1.0")
-	if method == "PROPFIND" {
+	switch {
+	case method == "PROPFIND":
 		req.Header.Set("Depth", strconv.Itoa(depth))
 		req.Header.Set("Content-Type", "application/xml; charset=utf-8")
-	} else if version.ETag != "" && !strings.HasPrefix(version.ETag, "W/") {
+	case version.ETag != "" && !strings.HasPrefix(version.ETag, "W/"):
 		req.Header.Set("If-Match", version.ETag)
-	} else if !version.ModifiedAt.IsZero() {
+	case !version.ModifiedAt.IsZero():
 		req.Header.Set("If-Unmodified-Since", version.ModifiedAt.UTC().Format(http.TimeFormat))
 	}
 	resp, err := c.http.Do(req)

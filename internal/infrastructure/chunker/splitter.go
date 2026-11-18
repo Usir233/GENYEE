@@ -128,10 +128,11 @@ var protectedPatterns = []*regexp.Regexp{
 	// cannot swallow a paragraph (CommonMark forbids blank-line spans).
 	regexp.MustCompile(`!\[[^\]\n]{0,200}\]\([^)\n]{1,500}\)`),
 	regexp.MustCompile(`\[[^\]\n]{1,200}\]\([^)\n]{1,500}\)`),
-	regexp.MustCompile("(?m)[ ]*(?:\\|[^|\\n]*)+\\|[\\r\\n]+\\s*(?:\\|\\s*:?-{3,}:?\\s*)+\\|[\\r\\n]+"), // Table header+separator
-	regexp.MustCompile("(?m)[ ]*(?:\\|[^|\\n]*)+\\|[\\r\\n]+"),                                          // Table rows
-	regexp.MustCompile("(?s)```(?:\\w+)?[\\r\\n].*?```"),                                                // Fenced code blocks
-	regexp.MustCompile("`[^`\\r\\n]+`"),                                                                 // Markdown inline code
+	// Table header+separator, table rows, fenced code blocks, and inline code.
+	regexp.MustCompile(`(?m)[ ]*(?:\|[^|\n]*)+\|[\r\n]+\s*(?:\|\s*:?-{3,}:?\s*)+\|[\r\n]+`),
+	regexp.MustCompile(`(?m)[ ]*(?:\|[^|\n]*)+\|[\r\n]+`),
+	regexp.MustCompile("(?s)```(?:\\w+)?[\\r\\n].*?```"),
+	regexp.MustCompile("`[^`\\r\\n]+`"),
 }
 
 type span struct {
@@ -199,7 +200,7 @@ func protectedSpans(text string) []span {
 	lastEnd := 0
 	for _, m := range all {
 		if m.start >= lastEnd {
-			result = append(result, span{m.start, m.end})
+			result = append(result, span(m))
 			lastEnd = m.end
 		}
 	}
@@ -933,6 +934,7 @@ func mapChildrenToSource(parent Chunk, children []Chunk) []Chunk {
 // like https://example.com/item_(abc)/123 are captured in full.
 var imageRefPattern = regexp.MustCompile(`!\[([^\]]*)\]\(([^()\s]*(?:\([^)]*\)[^()\s]*)*)\)`)
 
+// ExtractImageRefs extracts Markdown image references and their character offsets from text.
 func ExtractImageRefs(text string) []ImageRef {
 	text = docparser.UnwrapLinkedImages(text)
 	matches := imageRefPattern.FindAllStringSubmatchIndex(text, -1)

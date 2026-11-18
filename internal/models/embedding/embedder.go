@@ -85,6 +85,7 @@ func imageLimitsOf(e Embedder) ImageLimits {
 	return ImageLimits{}
 }
 
+// EmbedderPooler executes batched embedding requests over a shared worker pool.
 type EmbedderPooler interface {
 	BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error)
 }

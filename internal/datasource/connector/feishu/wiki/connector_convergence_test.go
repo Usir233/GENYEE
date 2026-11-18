@@ -41,16 +41,20 @@ func newStatefulFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config, *
 	s := &statefulFeishu{failTokens: map[string]bool{}}
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, core.TokenResponse{ApiResponse: core.ApiResponse{Code: 0}, TenantAccessToken: "fake-token", Expire: 7200})
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, core.TokenResponse{
+			ApiResponse:       core.ApiResponse{Code: 0},
+			TenantAccessToken: "fake-token",
+			Expire:            7200,
+		})
 	})
-	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiSpaceListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data:        core.WikiSpaceListData{Items: []core.WikiSpace{{SpaceID: "space1", Name: "Test Space"}}},
 		})
 	})
-	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiNodeListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data:        core.WikiNodeListData{Items: nodes},
@@ -99,7 +103,6 @@ func newStatefulFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config, *
 type convergenceHandler struct {
 	ingested        []string // ExternalIDs of successfully ingested content items
 	failed          []string // ExternalIDs surfaced as failures (Metadata["error"])
-	exportedTokens  map[string]int
 	checkpoints     []core.FeishuCursor
 	calls           int
 	cancelAfterCall int // >0: cancel ctx and abort on the Nth Emit call
@@ -125,7 +128,7 @@ func (h *convergenceHandler) Emit(ctx context.Context, item types.FetchedItem) e
 	return nil
 }
 
-func (h *convergenceHandler) Checkpoint(ctx context.Context, cursor *types.SyncCursor) error {
+func (h *convergenceHandler) Checkpoint(_ context.Context, cursor *types.SyncCursor) error {
 	var fc core.FeishuCursor
 	b, _ := json.Marshal(cursor.ConnectorCursor)
 	_ = json.Unmarshal(b, &fc)

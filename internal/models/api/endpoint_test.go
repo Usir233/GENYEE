@@ -56,7 +56,10 @@ func TestDoKeepsHeadersOnHTTPError(t *testing.T) {
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
 	require.NoError(t, err)
-	_, err = Endpoint{Client: srv.Client()}.Do(req)
+	resp, err := Endpoint{Client: srv.Client()}.Do(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	var httpErr *HTTPError
 	require.True(t, errors.As(err, &httpErr))
@@ -145,13 +148,19 @@ func TestEndpointResolveDeterministicAndRedactsSecretsInLogsAndErrors(t *testing
 	require.NoError(t, err)
 	BearerAuth(hdrKey)(req, nil)
 
-	_, err = Endpoint{
+	resp2, err := Endpoint{
 		Client: &http.Client{
 			Transport: failingRoundTripper{
-				err: errors.New("dial failed for https://admin:" + urlPass + "@llm.example.com/v1?key=" + urlKey + " auth=" + hdrKey),
+				err: errors.New(
+					"dial failed for https://admin:" + urlPass +
+						"@llm.example.com/v1?key=" + urlKey + " auth=" + hdrKey,
+				),
 			},
 		},
 	}.Do(req)
+	if resp2 != nil && resp2.Body != nil {
+		_ = resp2.Body.Close()
+	}
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), urlPass)
 	require.NotContains(t, err.Error(), urlKey)
@@ -167,8 +176,10 @@ func TestEndpointResolveDeterministicAndRedactsSecretsInLogsAndErrors(t *testing
 	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
 	require.NoError(t, err)
 	BearerAuth(hdrKey)(httpReq, nil)
-	_, err = Endpoint{Client: srv.Client()}.Do(httpReq)
+	resp3, err := Endpoint{Client: srv.Client()}.Do(httpReq)
+	if resp3 != nil && resp3.Body != nil {
+		_ = resp3.Body.Close()
+	}
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), hdrKey)
 }
-

@@ -211,6 +211,8 @@ func TestPaginationHopCapStopsWalk(t *testing.T) {
 
 			c := newClient(&Config{APIToken: "tok", BaseURL: server.URL})
 
+			t.Setenv("LOG_LEVEL", "warn")
+			logger.ConfigureFromEnv()
 			var logs bytes.Buffer
 			logger.SetOutput(&logs)
 			t.Cleanup(logger.ConfigureFromEnv)

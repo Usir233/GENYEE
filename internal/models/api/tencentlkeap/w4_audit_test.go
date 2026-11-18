@@ -55,7 +55,7 @@ func TestRerankCapsOversizedResponseAndHandlesNilContextAndEmptyBatch(t *testing
 	assert.ErrorIs(t, streamErr, api.ErrResponseTooLarge)
 	assert.ErrorIs(t, holder.get(), api.ErrResponseTooLarge)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"Response":{"ScoreList":[0.91],"RequestId":"req-ok"}}`))
 	}))

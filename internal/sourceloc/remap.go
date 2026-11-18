@@ -29,6 +29,7 @@ type Remapper struct {
 }
 
 // NewRemapper prepares a best-effort offset mapping.
+//
 // Deprecated: source positions must use RemapBlocks, which verifies full text.
 func NewRemapper(oldText, newText string) *Remapper {
 	oldKeys, oldStarts, oldLen := splitLines(oldText)

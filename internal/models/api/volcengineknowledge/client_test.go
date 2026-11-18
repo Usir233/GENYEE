@@ -72,11 +72,13 @@ func TestRerankNilContextAndEmptyDocumentsShortCircuit(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	empty, err := c.Rerank(nil, "q", nil)
 	require.NoError(t, err)
 	assert.Empty(t, empty)
 	assert.Zero(t, hits.Load(), "empty document slice must not issue network RPC")
 
+	//nolint:staticcheck // verifying defensive nil-context handling
 	got, err := c.Rerank(nil, "q", []string{"doc-1"})
 	require.NoError(t, err)
 	require.Len(t, got, 1)

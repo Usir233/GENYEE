@@ -197,22 +197,29 @@ func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
 func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	_ = s.triggerSyncWithContext(ctx, dataSourceID, tenantID)
+}
+
+func (s *Scheduler) triggerSyncWithContext(ctx context.Context, dataSourceID string, tenantID uint64) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	ds, err := s.dsRepo.FindByID(ctx, dataSourceID)
 	if err != nil || ds == nil || ds.Status != types.DataSourceStatusActive {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (not active or not found)", dataSourceID)
-		return
+		return nil
 	}
 
 	// Layer 1: prevent overlap with a still-running sync (fail closed on DB errors).
 	running, err := s.syncLogRepo.HasRunningSync(ctx, dataSourceID)
 	if err != nil {
 		logger.Errorf(ctx, "[Scheduler] failed to check running sync for ds=%s: %v", dataSourceID, err)
-		return
+		return fmt.Errorf("check running sync for ds=%s: %w", dataSourceID, err)
 	}
 	if running {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (previous sync still running)", dataSourceID)
-		return
+		return nil
 	}
 
 	syncLog := &types.SyncLog{
@@ -223,7 +230,7 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	}
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
 		logger.Errorf(ctx, "[Scheduler] failed to create sync log for ds=%s: %v", dataSourceID, err)
-		return
+		return fmt.Errorf("create sync log for ds=%s: %w", dataSourceID, err)
 	}
 
 	payload := &types.DataSourceSyncPayload{
@@ -234,11 +241,18 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		Trigger:      "schedule",
 	}
 	langfuse.InjectTracing(ctx, payload)
-	payloadJSON, _ := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		logger.Errorf(ctx, "[Scheduler] failed to marshal sync payload for ds=%s: %v", dataSourceID, err)
+		s.finalizeAbortedSyncLog(ctx, syncLog, types.SyncLogStatusFailed,
+			fmt.Sprintf("marshal sync payload: %v", err))
+		return fmt.Errorf("marshal sync payload for ds=%s: %w", dataSourceID, err)
+	}
 	task := asynq.NewTask(types.TypeDataSourceSync, payloadJSON)
 
 	// Layer 2: deterministic TaskID — all instances in the same minute produce the same ID
-	taskID := fmt.Sprintf("dssync:%s:%s", dataSourceID, time.Now().UTC().Truncate(time.Minute).Format("200601021504"))
+	minuteStamp := time.Now().UTC().Truncate(time.Minute).Format("200601021504")
+	taskID := fmt.Sprintf("dssync:%s:%s", dataSourceID, minuteStamp)
 
 	_, err = s.taskEnqueuer.Enqueue(task,
 		asynq.Queue(types.QueueSync),
@@ -249,23 +263,73 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	if err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) {
 			logger.Infof(ctx, "[Scheduler] sync already enqueued by another instance for ds=%s", dataSourceID)
-			syncLog.Status = types.SyncLogStatusCanceled
-			now := time.Now().UTC()
-			syncLog.FinishedAt = &now
-			syncLog.ErrorMessage = "deduplicated: another instance enqueued first"
-			_ = s.syncLogRepo.Update(ctx, syncLog)
-			return
+			s.finalizeAbortedSyncLog(ctx, syncLog, types.SyncLogStatusCanceled,
+				"deduplicated: another instance enqueued first")
+			return nil
 		}
 		logger.Errorf(ctx, "[Scheduler] failed to enqueue sync task for ds=%s: %v", dataSourceID, err)
-		syncLog.Status = types.SyncLogStatusFailed
-		now := time.Now().UTC()
-		syncLog.FinishedAt = &now
-		syncLog.ErrorMessage = fmt.Sprintf("enqueue failed: %v", err)
-		_ = s.syncLogRepo.Update(ctx, syncLog)
-		return
+		s.finalizeAbortedSyncLog(ctx, syncLog, types.SyncLogStatusFailed,
+			fmt.Sprintf("enqueue failed: %v", err))
+		return fmt.Errorf("enqueue sync task for ds=%s: %w", dataSourceID, err)
 	}
 
 	logger.Infof(ctx, "[Scheduler] sync task enqueued for ds=%s syncLog=%s", dataSourceID, syncLog.ID)
+	return nil
+}
+
+const (
+	syncLogFinalizeMaxAttempts = 3
+	syncLogFinalizeRetryDelay  = 25 * time.Millisecond
+)
+
+func (s *Scheduler) finalizeAbortedSyncLog(
+	ctx context.Context, syncLog *types.SyncLog, status, errMsg string,
+) {
+	now := time.Now().UTC()
+	syncLog.Status = status
+	syncLog.FinishedAt = &now
+	syncLog.ErrorMessage = errMsg
+
+	// Use a bounded detached context so an already-expired enqueue deadline
+	// does not leave syncLog permanently stuck in running state.
+	updateCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	var timer *time.Timer
+	defer func() {
+		if timer != nil {
+			timer.Stop()
+		}
+	}()
+
+	var lastErr error
+	for attempt := 1; attempt <= syncLogFinalizeMaxAttempts; attempt++ {
+		if err := s.syncLogRepo.Update(updateCtx, syncLog); err != nil {
+			lastErr = err
+			logger.Warnf(updateCtx,
+				"[Scheduler] failed to update sync log %s to %s (attempt %d/%d): %v",
+				syncLog.ID, status, attempt, syncLogFinalizeMaxAttempts, err)
+			if attempt < syncLogFinalizeMaxAttempts {
+				if timer == nil {
+					timer = time.NewTimer(syncLogFinalizeRetryDelay)
+				} else {
+					timer.Reset(syncLogFinalizeRetryDelay)
+				}
+				select {
+				case <-updateCtx.Done():
+					logger.Errorf(updateCtx,
+						"[Scheduler] aborted sync log %s finalization timed out: %v", syncLog.ID, lastErr)
+					return
+				case <-timer.C:
+				}
+			}
+			continue
+		}
+		return
+	}
+	logger.Errorf(updateCtx,
+		"[Scheduler] exhausted retries updating sync log %s (ds=%s) to %s: %v",
+		syncLog.ID, syncLog.DataSourceID, status, lastErr)
 }
 
 // EntryCount returns the number of active cron entries (for testing/monitoring).

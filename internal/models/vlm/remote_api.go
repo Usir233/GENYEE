@@ -6,9 +6,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
+	_ "image/gif"  // Register GIF decoder for image.DecodeConfig.
+	_ "image/jpeg" // Register JPEG decoder for image.DecodeConfig.
+	_ "image/png"  // Register PNG decoder for image.DecodeConfig.
 	"math"
 	"net/http"
 	"os"
@@ -19,8 +19,8 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/types"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/webp"
+	_ "golang.org/x/image/bmp"  // Register BMP decoder for image.DecodeConfig.
+	_ "golang.org/x/image/webp" // Register WebP decoder for image.DecodeConfig.
 )
 
 const (
@@ -188,8 +188,11 @@ func (v *RemoteAPIVLM) PredictWithOptions(
 	return content, nil
 }
 
+// GetModelName returns the configured VLM model name.
 func (v *RemoteAPIVLM) GetModelName() string { return v.modelName }
-func (v *RemoteAPIVLM) GetModelID() string   { return v.modelID }
+
+// GetModelID returns the configured VLM model ID.
+func (v *RemoteAPIVLM) GetModelID() string { return v.modelID }
 
 // detectImageMIME returns the MIME type for the given image bytes.
 func detectImageMIME(data []byte) string {
@@ -217,8 +220,13 @@ func validateVLMImages(imgBytesList [][]byte) error {
 			if cfg.Width <= 0 || cfg.Height <= 0 {
 				return fmt.Errorf("invalid VLM image dimensions %dx%d", cfg.Width, cfg.Height)
 			}
-			if cfg.Width > maxVLMImageSide || cfg.Height > maxVLMImageSide || int64(cfg.Width)*int64(cfg.Height) > maxVLMPixels {
-				return fmt.Errorf("VLM image dimensions %dx%d exceed maximum %d pixels", cfg.Width, cfg.Height, maxVLMPixels)
+			if cfg.Width > maxVLMImageSide ||
+				cfg.Height > maxVLMImageSide ||
+				int64(cfg.Width)*int64(cfg.Height) > maxVLMPixels {
+				return fmt.Errorf(
+					"VLM image dimensions %dx%d exceed maximum %d pixels",
+					cfg.Width, cfg.Height, maxVLMPixels,
+				)
 			}
 		}
 	}

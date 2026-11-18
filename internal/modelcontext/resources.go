@@ -1,6 +1,7 @@
 // resources.go is the durable-resource half of the model-context registry:
 // it assigns request-local res://NNNN handles to stored resource references
 // and restores them before application code consumes model output.
+
 package modelcontext
 
 import (

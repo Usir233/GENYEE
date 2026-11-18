@@ -71,7 +71,8 @@ func TestW5ConfluenceAudit_RejectsDotSegmentTraversalAndHeaderInjection(t *testi
 }
 
 func TestW5ConfluenceAudit_APIRedirectStaysWithinContextPathAndNilFetchAll(t *testing.T) {
-	if _, err := (&Connector{}).FetchAll(context.Background(), nil, []string{"ENG"}); !errors.Is(err, datasource.ErrInvalidConfig) {
+	_, err := (&Connector{}).FetchAll(context.Background(), nil, []string{"ENG"})
+	if !errors.Is(err, datasource.ErrInvalidConfig) {
 		t.Fatalf("FetchAll(nil) error = %v, want ErrInvalidConfig", err)
 	}
 
@@ -87,7 +88,10 @@ func TestW5ConfluenceAudit_APIRedirectStaysWithinContextPathAndNilFetchAll(t *te
 			Transport: roundTripper(func(req *http.Request) (*http.Response, error) {
 				calls++
 				if !strings.HasPrefix(req.URL.Path, "/wiki/") {
-					t.Fatalf("API request escaped /wiki context path to %s (auth=%q)", req.URL.String(), req.Header.Get("Authorization"))
+					t.Fatalf(
+						"API request escaped /wiki context path to %s (auth=%q)",
+						req.URL.String(), req.Header.Get("Authorization"),
+					)
 				}
 				return &http.Response{
 					StatusCode: http.StatusFound,
@@ -98,7 +102,7 @@ func TestW5ConfluenceAudit_APIRedirectStaysWithinContextPathAndNilFetchAll(t *te
 			}),
 		},
 	}
-	err := c.ping(context.Background())
+	err = c.ping(context.Background())
 	if err == nil {
 		t.Fatal("expected same-host out-of-context-path API redirect to fail closed")
 	}

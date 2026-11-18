@@ -276,9 +276,11 @@ func TestOfficeUnitsBoundCumulativeZipAmplificationAndTraversal(t *testing.T) {
 		spine.WriteString(`<itemref idref="c1"/>`)
 	}
 	epub := zipOf(t, map[string]string{
-		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="/OEBPS/content.opf"/></rootfiles></container>`,
-		"OEBPS/content.opf":      `<package><manifest><item id="c1" href="ch1.xhtml"/></manifest><spine>` + spine.String() + `</spine></package>`,
-		"OEBPS/ch1.xhtml":        chapter,
+		"META-INF/container.xml": `<container><rootfiles>` +
+			`<rootfile full-path="/OEBPS/content.opf"/></rootfiles></container>`,
+		"OEBPS/content.opf": `<package><manifest><item id="c1" href="ch1.xhtml"/></manifest><spine>` +
+			spine.String() + `</spine></package>`,
+		"OEBPS/ch1.xhtml": chapter,
 	})
 	units, err := epubUnits(epub)
 	require.Error(t, err, "cumulative spine decompression exceeding budget must return an error")
@@ -286,8 +288,10 @@ func TestOfficeUnitsBoundCumulativeZipAmplificationAndTraversal(t *testing.T) {
 
 	// 2. Leading slash in container rootfile works within budget, while ../ traversal outside root is rejected.
 	validEpub := zipOf(t, map[string]string{
-		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="/OEBPS/content.opf"/></rootfiles></container>`,
-		"OEBPS/content.opf": `<package><manifest><item id="c1" href="ch1.xhtml"/><item id="esc" href="../../outside.xhtml"/></manifest>` +
+		"META-INF/container.xml": `<container><rootfiles>` +
+			`<rootfile full-path="/OEBPS/content.opf"/></rootfiles></container>`,
+		"OEBPS/content.opf": `<package><manifest><item id="c1" href="ch1.xhtml"/>` +
+			`<item id="esc" href="../../outside.xhtml"/></manifest>` +
 			`<spine><itemref idref="c1"/><itemref idref="esc"/></spine></package>`,
 		"OEBPS/ch1.xhtml": `<html><body><h1>第一章</h1><p>内容正常</p></body></html>`,
 		"outside.xhtml":   `<html><body><p>不应读取</p></body></html>`,

@@ -88,13 +88,14 @@ func Serve(w http.ResponseWriter, r *http.Request, reader io.ReadCloser, options
 	if inline {
 		disposition = "inline"
 	}
-	if options.Disposition != "" {
+	switch {
+	case options.Disposition != "":
 		w.Header().Set("Content-Disposition", options.Disposition)
-	} else if safeBase != "" {
+	case safeBase != "":
 		w.Header().Set("Content-Disposition",
 			mime.FormatMediaType(disposition,
 				map[string]string{"filename": safeBase}))
-	} else {
+	default:
 		w.Header().Set("Content-Disposition", disposition)
 	}
 	if options.CacheControl != "" {

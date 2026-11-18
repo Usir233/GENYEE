@@ -18,16 +18,16 @@ import (
 
 func TestGoogleProvider_AttachesAPIKeyAndBlocksRedirects(t *testing.T) {
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
 	const secretKey = "AIzaSyTestGoogleSecretKey12345"
 
 	var redirectTargetHit atomic.Bool
-	redirectTarget := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	redirectTarget := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		redirectTargetHit.Store(true)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -98,18 +98,20 @@ func TestGoogleProvider_AttachesAPIKeyAndBlocksRedirects(t *testing.T) {
 
 func TestGoogleProvider_RedactsAPIKeyAndBoundsResponses(t *testing.T) {
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
 	const secretKey = "AIzaSyLeakCheck999888777"
 
 	t.Run("redacts api key from upstream error body and transport failure", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
-			_, _ = w.Write([]byte("upstream failed for url https://customsearch.googleapis.com/customsearch/v1?key=" + secretKey + " detail=" + strings.Repeat("x", maxErrorPreviewBytes*4)))
+			errBody := "upstream failed for url https://customsearch.googleapis.com/customsearch/v1?key=" +
+				secretKey + " detail=" + strings.Repeat("x", maxErrorPreviewBytes*4)
+			_, _ = w.Write([]byte(errBody))
 		}))
 
 		searcher, err := NewGoogleProvider(types.WebSearchProviderParameters{

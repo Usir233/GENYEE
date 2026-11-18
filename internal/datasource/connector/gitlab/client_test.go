@@ -167,9 +167,15 @@ func TestFetchIncrementalSyncsMultipleProjects(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v4/projects/1":
-			_, _ = w.Write([]byte(`{"id":1,"name":"project-one","path_with_namespace":"group/project-one","web_url":"https://gitlab.test/group/project-one","default_branch":"master"}`))
+			_, _ = w.Write([]byte(
+				`{"id":1,"name":"project-one","path_with_namespace":"group/project-one",` +
+					`"web_url":"https://gitlab.test/group/project-one","default_branch":"master"}`,
+			))
 		case "/api/v4/projects/2":
-			_, _ = w.Write([]byte(`{"id":2,"name":"project-two","path_with_namespace":"group/project-two","web_url":"https://gitlab.test/group/project-two","default_branch":"master"}`))
+			_, _ = w.Write([]byte(
+				`{"id":2,"name":"project-two","path_with_namespace":"group/project-two",` +
+					`"web_url":"https://gitlab.test/group/project-two","default_branch":"master"}`,
+			))
 		case "/api/v4/projects/1/repository/commits/master":
 			_, _ = w.Write([]byte(`{"id":"commit-1"}`))
 		case "/api/v4/projects/2/repository/commits/master":
@@ -249,7 +255,10 @@ func TestFetchStreamFiltersUnsupportedFilesAndCheckpointsProjects(t *testing.T) 
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v4/projects/1":
-			_, _ = w.Write([]byte(`{"id":1,"name":"docs","path_with_namespace":"group/docs","web_url":"https://gitlab.test/group/docs","default_branch":"main"}`))
+			_, _ = w.Write([]byte(
+				`{"id":1,"name":"docs","path_with_namespace":"group/docs",` +
+					`"web_url":"https://gitlab.test/group/docs","default_branch":"main"}`,
+			))
 		case "/api/v4/projects/1/repository/commits/main":
 			_, _ = w.Write([]byte(`{"id":"commit-1"}`))
 		case "/api/v4/projects/1/repository/tree":

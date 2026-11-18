@@ -90,7 +90,7 @@ func (c *Client) send(
 		req.Header.Set("anthropic-beta", beta)
 	}
 	api.LogRequest(ctx, target, c.cfg.Endpoint.Model, data, stream)
-	resp, err := c.cfg.Endpoint.Do(req)
+	resp, err := c.cfg.Endpoint.Do(req) //nolint:bodyclose // closed by Chat or ChatStream goroutine
 	if err != nil {
 		return nil, redactAnthropicError(err)
 	}
@@ -617,7 +617,9 @@ func valueOrZero(v *int) int {
 
 var (
 	anthropicUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
-	anthropicQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+	anthropicQuerySecretRE = regexp.MustCompile(
+		`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`,
+	)
 )
 
 type redactedAnthropicErr struct {

@@ -46,7 +46,8 @@ func TestResolveThinkingLevelsAndCapabilitiesInputAreIsolatedFromRegistry(t *tes
 
 func TestLoadOverlayIconRejectsXXEEntityAndScriptPayloads(t *testing.T) {
 	// Standard SVG DOCTYPE must remain accepted by looksLikeSVG (per TestLooksLikeSVG).
-	assert.True(t, looksLikeSVG([]byte(`<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "x.dtd"><svg>y</svg>`)))
+	stdSVG := `<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "x.dtd"><svg>y</svg>`
+	assert.True(t, looksLikeSVG([]byte(stdSVG)))
 
 	for name, badSVG := range map[string]string{
 		"xxe entity": `<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><svg>&xxe;</svg>`,

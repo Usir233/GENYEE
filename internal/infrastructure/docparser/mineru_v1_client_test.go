@@ -452,11 +452,11 @@ func TestPingMinerUV1(t *testing.T) {
 
 	ok, msg = PingMinerU(server.URL, "wrong")
 	assert.False(t, ok)
-	assert.Contains(t, msg, "API Key 无效")
+	assert.Contains(t, msg, "invalid MinerU API key")
 
 	ok, msg = PingMinerU(server.URL, "")
 	assert.False(t, ok)
-	assert.Contains(t, msg, "配置 API Key")
+	assert.Contains(t, msg, "please configure API key")
 
 	// Gateway requiring authentication on /v1/health
 	gwFake := &fakeMinerUV1{t: t, apiKey: "server-key", authHealth: true}

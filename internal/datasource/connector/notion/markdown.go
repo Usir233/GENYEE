@@ -47,7 +47,9 @@ func renderBlocks(b *strings.Builder, blocks []notionBlock, depth int, attachmen
 }
 
 // renderBlock renders a single block to Markdown.
-func renderBlock(b *strings.Builder, block notionBlock, depth int, attachments *[]attachment, index int, siblings []notionBlock) {
+func renderBlock(
+	b *strings.Builder, block notionBlock, depth int, attachments *[]attachment, index int, siblings []notionBlock,
+) {
 	indent := strings.Repeat("  ", depth)
 
 	switch block.Type {
@@ -81,7 +83,7 @@ func renderBlock(b *strings.Builder, block notionBlock, depth int, attachments *
 		for j := index - 1; j >= 0 && siblings[j].Type == "numbered_list_item"; j-- {
 			num++
 		}
-		b.WriteString(fmt.Sprintf("%s%d. %s\n", indent, num, renderRichText(rt)))
+		fmt.Fprintf(b, "%s%d. %s\n", indent, num, renderRichText(rt))
 		if len(block.Children) > 0 {
 			renderBlocks(b, block.Children, depth+1, attachments)
 		}
@@ -93,14 +95,14 @@ func renderBlock(b *strings.Builder, block notionBlock, depth int, attachments *
 		if checked {
 			checkbox = "[x]"
 		}
-		b.WriteString(fmt.Sprintf("%s- %s %s\n", indent, checkbox, renderRichText(rt)))
+		fmt.Fprintf(b, "%s- %s %s\n", indent, checkbox, renderRichText(rt))
 		if len(block.Children) > 0 {
 			renderBlocks(b, block.Children, depth+1, attachments)
 		}
 
 	case "toggle":
 		rt := extractRichText(block.RawContent)
-		b.WriteString(fmt.Sprintf("<details><summary>%s</summary>\n\n", renderRichText(rt)))
+		fmt.Fprintf(b, "<details><summary>%s</summary>\n\n", renderRichText(rt))
 		if len(block.Children) > 0 {
 			renderBlocks(b, block.Children, depth, attachments)
 		}
@@ -180,7 +182,7 @@ func renderBlock(b *strings.Builder, block notionBlock, depth int, attachments *
 	case "link_to_page":
 		// Render as a link; the actual page title is not available in block data
 		pageID := extractLinkToPageID(block.RawContent)
-		b.WriteString(fmt.Sprintf("[Page %s](https://notion.so/%s)\n\n", pageID, strings.ReplaceAll(pageID, "-", "")))
+		fmt.Fprintf(b, "[Page %s](https://notion.so/%s)\n\n", pageID, strings.ReplaceAll(pageID, "-", ""))
 
 	case "synced_block":
 		// Render children (the synced content)
@@ -227,14 +229,14 @@ func renderBlock(b *strings.Builder, block notionBlock, depth int, attachments *
 		if title == "" {
 			title = "Untitled"
 		}
-		b.WriteString(fmt.Sprintf("- [%s](https://notion.so/%s)\n", title, strings.ReplaceAll(block.ID, "-", "")))
+		fmt.Fprintf(b, "- [%s](https://notion.so/%s)\n", title, strings.ReplaceAll(block.ID, "-", ""))
 
 	case "child_database":
 		title := extractString(block.RawContent, "title")
 		if title == "" {
 			title = "Database"
 		}
-		b.WriteString(fmt.Sprintf("- [%s](https://notion.so/%s)\n", title, strings.ReplaceAll(block.ID, "-", "")))
+		fmt.Fprintf(b, "- [%s](https://notion.so/%s)\n", title, strings.ReplaceAll(block.ID, "-", ""))
 
 	case "table_of_contents", "breadcrumb", "template", "table_row", "unsupported":
 		// Skip — no meaningful content
@@ -388,11 +390,12 @@ func applyAnnotations(text string, ann notionAnnotations) string {
 		}
 		text = delimiter + text + delimiter
 	}
-	if ann.Bold && ann.Italic {
+	switch {
+	case ann.Bold && ann.Italic:
 		text = "***" + text + "***"
-	} else if ann.Bold {
+	case ann.Bold:
 		text = "**" + text + "**"
-	} else if ann.Italic {
+	case ann.Italic:
 		text = "*" + text + "*"
 	}
 	if ann.Strikethrough {
@@ -413,7 +416,7 @@ func extractRichText(raw json.RawMessage) []notionRichText {
 	var content struct {
 		RichText []notionRichText `json:"rich_text"`
 	}
-	json.Unmarshal(raw, &content)
+	_ = json.Unmarshal(raw, &content)
 	return content.RichText
 }
 
@@ -430,7 +433,7 @@ func extractString(raw json.RawMessage, key string) string {
 		return ""
 	}
 	var s string
-	json.Unmarshal(val, &s)
+	_ = json.Unmarshal(val, &s)
 	return s
 }
 
@@ -447,7 +450,7 @@ func extractBool(raw json.RawMessage, key string) bool {
 		return false
 	}
 	var b bool
-	json.Unmarshal(val, &b)
+	_ = json.Unmarshal(val, &b)
 	return b
 }
 
@@ -461,7 +464,7 @@ func extractIcon(raw json.RawMessage) string {
 			Emoji string `json:"emoji,omitempty"`
 		} `json:"icon"`
 	}
-	json.Unmarshal(raw, &content)
+	_ = json.Unmarshal(raw, &content)
 	if content.Icon != nil && content.Icon.Type == "emoji" {
 		return content.Icon.Emoji
 	}
@@ -471,7 +474,7 @@ func extractIcon(raw json.RawMessage) string {
 func extractFileAndCaption(raw json.RawMessage) (notionFile, string) {
 	var file notionFile
 	if raw != nil {
-		json.Unmarshal(raw, &file)
+		_ = json.Unmarshal(raw, &file)
 	}
 	captionText := ""
 	if len(file.Caption) > 0 {
@@ -487,7 +490,7 @@ func extractCaptionText(raw json.RawMessage) string {
 	var content struct {
 		Caption []notionRichText `json:"caption"`
 	}
-	json.Unmarshal(raw, &content)
+	_ = json.Unmarshal(raw, &content)
 	if len(content.Caption) > 0 {
 		return renderRichText(content.Caption)
 	}
@@ -501,7 +504,7 @@ func extractTableCells(raw json.RawMessage) [][]notionRichText {
 	var content struct {
 		Cells [][]notionRichText `json:"cells"`
 	}
-	json.Unmarshal(raw, &content)
+	_ = json.Unmarshal(raw, &content)
 	return content.Cells
 }
 
@@ -513,7 +516,7 @@ func extractLinkToPageID(raw json.RawMessage) string {
 		Type   string `json:"type"`
 		PageID string `json:"page_id,omitempty"`
 	}
-	json.Unmarshal(raw, &content)
+	_ = json.Unmarshal(raw, &content)
 	return content.PageID
 }
 

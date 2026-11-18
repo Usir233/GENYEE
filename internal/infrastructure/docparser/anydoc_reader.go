@@ -201,7 +201,11 @@ func (r *AnydocReader) readEmbeddedMediaXLSX(ctx context.Context, req *types.Rea
 			"anydoc conversion of %q with embedded images requires a connected docreader",
 			req.FileName)
 	}
-	logger.Infof(ctx, "[anydoc] %q contains embedded media, falling back to builtin docreader for image extraction", req.FileName)
+	logger.Infof(
+		ctx,
+		"[anydoc] %q contains embedded media, falling back to builtin docreader for image extraction",
+		req.FileName,
+	)
 	fallbackReq := *req
 	fallbackReq.ParserEngine = BuiltinEngineName
 	result, err := r.fallback.Read(ctx, &fallbackReq)
@@ -235,7 +239,10 @@ func (r *AnydocReader) readPDFFallback(
 		if convertErr != nil {
 			return nil, fmt.Errorf("anydoc conversion failed for %q: %w", req.FileName, convertErr)
 		}
-		return nil, fmt.Errorf("anydoc conversion failed for %q: PDF has no extractable text; OCR is required", req.FileName)
+		return nil, fmt.Errorf(
+			"anydoc conversion failed for %q: PDF has no extractable text; OCR is required",
+			req.FileName,
+		)
 	}
 
 	logger.Infof(ctx, "[anydoc] falling back to builtin for %q: %s", req.FileName, reason)

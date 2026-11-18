@@ -24,9 +24,9 @@ func TestValidateSearxngBaseURL(t *testing.T) {
 	// here would otherwise be ignored. Reset the singleton on both
 	// entry and exit to keep the env / singleton in sync.
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
@@ -81,9 +81,9 @@ func TestSearxngProvider_Search(t *testing.T) {
 	// singleton so the setenv below is actually observed by the cached
 	// ssrfWhitelistConfig in internal/utils.
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
@@ -133,13 +133,13 @@ func TestSearxngProvider_Search(t *testing.T) {
 
 func TestSearxngProvider_Search_EmptyWithUnresponsiveEngines(t *testing.T) {
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"results":              []any{},
@@ -170,9 +170,9 @@ func TestSearxngProvider_Search_EmptyWithUnresponsiveEngines(t *testing.T) {
 
 func TestSearxngProvider_ConcurrentSearchAndDiagnostics(t *testing.T) {
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
@@ -216,9 +216,9 @@ func TestSearxngProvider_ConcurrentSearchAndDiagnostics(t *testing.T) {
 
 func TestSearxngProvider_RedactsUserinfoInTransportErrors(t *testing.T) {
 	utils.ResetSSRFWhitelistForTest()
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 	defer func() {
-		os.Unsetenv("SSRF_WHITELIST")
+		_ = os.Unsetenv("SSRF_WHITELIST")
 		utils.ResetSSRFWhitelistForTest()
 	}()
 
@@ -226,7 +226,7 @@ func TestSearxngProvider_RedactsUserinfoInTransportErrors(t *testing.T) {
 	logger.SetOutput(&logBuf)
 	defer logger.SetOutput(os.Stdout)
 
-	closedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	closedSrv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	closedURL := strings.Replace(closedSrv.URL, "http://", "http://searxadmin:TopSecretPass123@", 1)
 	closedSrv.Close()
 
@@ -253,4 +253,3 @@ func TestSearxngProvider_RedactsUserinfoInTransportErrors(t *testing.T) {
 		t.Fatalf("proxy parse error leaked password: %v", err)
 	}
 }
-

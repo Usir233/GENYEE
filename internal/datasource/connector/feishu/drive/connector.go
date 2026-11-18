@@ -1,3 +1,4 @@
+// Package drive implements the Feishu/Lark Drive data source connector.
 package drive
 
 import (
@@ -19,6 +20,8 @@ import (
 // and the export/download logic with the wiki Connector; only resource
 // enumeration and Fetch dispatch differ. See 飞书云盘数据源设计.md and
 // ADR-0001..0004.
+//
+//nolint:revive // external callers instantiate drive.DriveConnector
 type DriveConnector struct {
 	region core.Region
 }
@@ -31,8 +34,10 @@ func NewDriveConnector(region core.Region) *DriveConnector {
 
 // Drive supports resumable streaming sync; the service prefers FetchStream over
 // FetchAll/FetchIncremental when a connector implements StreamingConnector.
-var _ datasource.StreamingConnector = (*DriveConnector)(nil)
-var _ datasource.FullStreamingConnector = (*DriveConnector)(nil)
+var (
+	_ datasource.StreamingConnector     = (*DriveConnector)(nil)
+	_ datasource.FullStreamingConnector = (*DriveConnector)(nil)
+)
 
 // Type returns the connector type identifier.
 func (c *DriveConnector) Type() string {
@@ -570,7 +575,7 @@ func driveRootFolderToken(config *types.DataSourceConfig) string {
 // suffix) so it matches the resource_id the user saved in
 // form.config.resource_ids = [folderToken]. A "token:token" encoding would
 // break selection matching on edit.
-func (c *DriveConnector) driveFolderToResource(rootFolderToken, parentToken, folderToken, name string) types.Resource {
+func (c *DriveConnector) driveFolderToResource(rootFolderToken, _, folderToken, name string) types.Resource {
 	if name == "" {
 		name = folderToken
 	}
@@ -626,7 +631,9 @@ func (c *DriveConnector) driveFileToResource(rootFolderToken string, file core.D
 // appendDriveFileListFailureItems converts Drive listing failures into error
 // FetchedItems so the sync log surfaces which sub-folders could not be listed.
 // Mirrors appendWikiNodeListFailureItems.
-func appendDriveFileListFailureItems(items []types.FetchedItem, resourceID, channel string, failures []core.DriveFileListFailure) []types.FetchedItem {
+func appendDriveFileListFailureItems(
+	items []types.FetchedItem, resourceID, channel string, failures []core.DriveFileListFailure,
+) []types.FetchedItem {
 	for _, failure := range failures {
 		items = append(items, types.FetchedItem{
 			ExternalID:       failure.FolderToken,

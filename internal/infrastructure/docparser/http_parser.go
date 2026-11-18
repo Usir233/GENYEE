@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// HTTP docreader endpoint paths.
 const (
 	PathRead        = "/read"
 	PathListEngines = "/list-engines"
@@ -73,7 +74,8 @@ func normalizeHTTPDocReaderBaseURL(raw string) (string, error) {
 	if trimmed == "" {
 		return "", nil
 	}
-	if !strings.HasPrefix(strings.ToLower(trimmed), "http://") && !strings.HasPrefix(strings.ToLower(trimmed), "https://") {
+	lower := strings.ToLower(trimmed)
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
 		trimmed = "http://" + trimmed
 	}
 	u, err := url.Parse(trimmed)
@@ -112,7 +114,8 @@ func newHTTPDocReaderClient(trusted bool) *http.Client {
 				if len(via) >= 5 {
 					return errors.New("stopped after 5 redirects")
 				}
-				if len(via) > 0 && (!strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) || !strings.EqualFold(req.URL.Host, via[0].URL.Host)) {
+				if len(via) > 0 && (!strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) ||
+					!strings.EqualFold(req.URL.Host, via[0].URL.Host)) {
 					return errors.New("cross-origin redirect blocked for internal docreader")
 				}
 				return nil
@@ -124,6 +127,7 @@ func newHTTPDocReaderClient(trusted bool) *http.Client {
 	return secutils.NewSSRFSafeHTTPClient(clientCfg)
 }
 
+// NewHTTPDocumentReader creates a DocumentReader backed by an HTTP docreader endpoint.
 func NewHTTPDocumentReader(baseURL string) (*HTTPDocumentReader, error) {
 	normalized, err := normalizeHTTPDocReaderBaseURL(baseURL)
 	if err != nil {
@@ -152,6 +156,7 @@ func (p *HTTPDocumentReader) endpoint() (string, bool, *http.Client) {
 	return p.baseURL, p.trusted, p.client
 }
 
+// Reconnect updates the HTTP docreader endpoint address.
 func (p *HTTPDocumentReader) Reconnect(addr string) error {
 	normalized, err := normalizeHTTPDocReaderBaseURL(addr)
 	if err != nil {
@@ -172,12 +177,14 @@ func (p *HTTPDocumentReader) Reconnect(addr string) error {
 	return nil
 }
 
+// IsConnected reports whether a non-empty HTTP docreader base URL is configured.
 func (p *HTTPDocumentReader) IsConnected() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.baseURL != ""
 }
 
+// Close satisfies the DocumentReader lifecycle contract.
 func (p *HTTPDocumentReader) Close() error { return nil }
 
 type httpListEnginesRequest struct {
@@ -196,7 +203,10 @@ type httpListEnginesResponse struct {
 	Engines []httpParserEngineInfo `json:"engines"`
 }
 
-func (p *HTTPDocumentReader) ListEngines(ctx context.Context, overrides map[string]string) ([]types.ParserEngineInfo, error) {
+// ListEngines queries the remote HTTP docreader for available parser engines.
+func (p *HTTPDocumentReader) ListEngines(
+	ctx context.Context, overrides map[string]string,
+) ([]types.ParserEngineInfo, error) {
 	base, trusted, client := p.endpoint()
 	if base == "" {
 		return nil, errNotConnected
@@ -223,7 +233,7 @@ func (p *HTTPDocumentReader) ListEngines(ctx context.Context, overrides map[stri
 	if err != nil {
 		return nil, fmt.Errorf("http list-engines failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)
 		return nil, fmt.Errorf("http list-engines status %d: %s", resp.StatusCode, preview)
@@ -271,6 +281,7 @@ func fromHTTPReadResponse(resp *httpReadResponse) *types.ReadResult {
 	return result
 }
 
+// Read parses a document over the remote HTTP docreader endpoint.
 func (p *HTTPDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
 	base, trusted, client := p.endpoint()
 	if base == "" {
@@ -317,7 +328,7 @@ func (p *HTTPDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("http read failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)
 		return nil, fmt.Errorf("http read status %d: %s", resp.StatusCode, preview)

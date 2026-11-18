@@ -35,7 +35,8 @@ type OllamaEmbedResponse struct {
 }
 
 // NewOllamaEmbedder creates a new Ollama embedder
-func NewOllamaEmbedder(baseURL,
+func NewOllamaEmbedder(
+	_,
 	modelName string,
 	truncatePromptTokens int,
 	dimensions int,
@@ -73,13 +74,16 @@ func (e *OllamaEmbedder) ensureModelAvailable(ctx context.Context) error {
 	return e.ollamaService.EnsureModelAvailable(ctx, e.modelName)
 }
 
+// SetSupportsDimensionOverride configures whether the Ollama model honors dimension overrides.
 func (e *OllamaEmbedder) SetSupportsDimensionOverride(supported bool) {
 	e.supportsDimensionOverride = supported
 }
 
 // BatchEmbedWithPool delegates to the configured pooler, falling back to direct
 // BatchEmbed when no pooler was supplied.
-func (e *OllamaEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+func (e *OllamaEmbedder) BatchEmbedWithPool(
+	ctx context.Context, model Embedder, texts []string,
+) ([][]float32, error) {
 	if e != nil && e.EmbedderPooler != nil {
 		return e.EmbedderPooler.BatchEmbedWithPool(ctx, model, texts)
 	}
@@ -105,9 +109,14 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 
 // BatchEmbed converts multiple texts to vectors in batch
 func (e *OllamaEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]float32, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(texts) == 0 {
 		return nil, nil
 	}
+	ctx, cancel := api.WithLLMTimeout(ctx, defaultEmbeddingRequestTimeout)
+	defer cancel()
 	// Ensure model is available
 	if err := e.ensureModelAvailable(ctx); err != nil {
 		return nil, err

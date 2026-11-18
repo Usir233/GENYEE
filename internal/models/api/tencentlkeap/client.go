@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -28,6 +29,8 @@ const (
 	// LKEAPDefaultRerankModel 默认 rerank 模型名
 	LKEAPDefaultRerankModel = "lke-reranker-base"
 )
+
+var defaultLKEAPRequestTimeout = 60 * time.Second
 
 // Config contains resolved connection parameters for the SDK client.
 type Config struct {
@@ -179,9 +182,10 @@ func resolveEndpointAndScheme(config Config) (string, string, error) {
 // 2000 characters for Query plus Docs together) are declared on the vendor
 // and enforced by protocolReranker, like every other vendor's.
 type lkeapClient struct {
-	modelName string
-	secretKey string
-	client    *lkeap.Client
+	modelName      string
+	secretKey      string
+	defaultTimeout time.Duration
+	client         *lkeap.Client
 }
 
 // New creates an authenticated rerank protocol client.
@@ -227,7 +231,16 @@ func New(config Config) (api.Reranker, error) {
 	if modelName == "" {
 		modelName = LKEAPDefaultRerankModel
 	}
-	return &lkeapClient{modelName: modelName, secretKey: secretKey, client: client}, nil
+	var fallbackTimeout time.Duration
+	if httpClient == nil || httpClient.Timeout <= 0 {
+		fallbackTimeout = defaultLKEAPRequestTimeout
+	}
+	return &lkeapClient{
+		modelName:      modelName,
+		secretKey:      secretKey,
+		defaultTimeout: fallbackTimeout,
+		client:         client,
+	}, nil
 }
 
 // Rerank scores one batch. RunRerank answers a bare score list in input
@@ -240,6 +253,11 @@ func (r *lkeapClient) Rerank(
 	}
 	if len(documents) == 0 {
 		return []api.RerankResult{}, nil
+	}
+	if r.defaultTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = api.WithLLMTimeout(ctx, r.defaultTimeout)
+		defer cancel()
 	}
 
 	req := lkeap.NewRunRerankRequest()

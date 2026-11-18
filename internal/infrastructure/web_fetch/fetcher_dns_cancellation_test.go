@@ -20,7 +20,7 @@ func assertFetchDNSCancellation(t *testing.T, want error, run func(context.Conte
 	original := net.DefaultResolver
 	started, release := make(chan struct{}), make(chan struct{})
 	var signal, releaseOnce sync.Once
-	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		signal.Do(func() { close(started) })
 		select {
 		case <-release:
@@ -51,7 +51,8 @@ func assertFetchDNSCancellation(t *testing.T, want error, run func(context.Conte
 		t.Error("canceled call remains blocked in actual whitelist/SSRF DNS validation")
 		releaseOnce.Do(func() { close(release) })
 		select {
-		case <-done:
+		case drainErr := <-done:
+			_ = drainErr
 		case <-time.After(time.Second):
 			t.Error("call did not settle after fixture release")
 		}
@@ -114,18 +115,26 @@ func TestWebFetchBrowserDNSPreservesCancellation(t *testing.T) {
 					if deadline {
 						fetcher.timeout = 30 * time.Millisecond
 					}
-					fetcher.client = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-						return &http.Response{StatusCode: status, Status: http.StatusText(status), Request: req,
-							Header: http.Header{"Content-Type": []string{"text/html"}},
-							Body:   io.NopCloser(strings.NewReader(`<html><body><div id="app">Loading...</div><script>render()</script></body></html>`))}, nil
-					})}
+					fetcher.client = &http.Client{
+						Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+							body := `<html><body><div id="app">Loading...</div><script>render()</script></body></html>`
+							return &http.Response{
+								StatusCode: status,
+								Status:     http.StatusText(status),
+								Request:    req,
+								Header:     http.Header{"Content-Type": []string{"text/html"}},
+								Body:       io.NopCloser(strings.NewReader(body)),
+							}, nil
+						}),
+					}
 					fetcher.renderBrowser = func(context.Context, pinnedTarget) (string, error) {
 						t.Error("renderer should not run after canceled DNS")
 						return "", nil
 					}
 					_, err := fetcher.Fetch(ctx, "https://audit-browser-dns.invalid")
 					code, retry, _ := ErrorDetails(err)
-					if deadline && (code != ErrorTimeout || !retry) || !deadline && (code != ErrorConnection || retry) {
+					if deadline && (code != ErrorTimeout || !retry) ||
+						!deadline && (code != ErrorConnection || retry) {
 						t.Errorf("browser DNS cancellation classification = %s, retry=%t", code, retry)
 					}
 					return err

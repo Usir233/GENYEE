@@ -108,6 +108,7 @@ type Equation struct {
 	TextElementStyle *TextElementStyle `json:"text_element_style"`
 }
 
+// TextElement represents one inline element within a Feishu document text run.
 type TextElement struct {
 	TextRun     *TextRun     `json:"text_run"`
 	MentionUser *MentionUser `json:"mention_user"`

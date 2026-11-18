@@ -89,7 +89,11 @@ func TestConnectorFetchAll(t *testing.T) {
 	defer ts.Close()
 
 	c := NewConnector()
-	items, err := c.FetchAll(context.Background(), makeNotionConfig(cfg, ts.URL, []string{"page-1"}), []string{"page-1"})
+	items, err := c.FetchAll(
+		context.Background(),
+		makeNotionConfig(cfg, ts.URL, []string{"page-1"}),
+		[]string{"page-1"},
+	)
 	if err != nil {
 		t.Fatalf("FetchAll() error: %v", err)
 	}
@@ -169,7 +173,11 @@ func TestConnectorFetchAll_SingleRecord(t *testing.T) {
 	defer ts.Close()
 
 	c := NewConnector()
-	items, err := c.FetchAll(context.Background(), makeNotionConfig(cfg, ts.URL, []string{"record-1"}), []string{"record-1"})
+	items, err := c.FetchAll(
+		context.Background(),
+		makeNotionConfig(cfg, ts.URL, []string{"record-1"}),
+		[]string{"record-1"},
+	)
 	if err != nil {
 		t.Fatalf("FetchAll() error: %v", err)
 	}

@@ -74,7 +74,10 @@ func parseConfig(ds *types.DataSourceConfig) (config, error) {
 		return config{}, fmt.Errorf("%w: credentials are required", datasource.ErrInvalidCredentials)
 	}
 	if hasControlChars(cfg.username) || hasControlChars(cfg.secret) {
-		return config{}, fmt.Errorf("%w: credentials contain invalid control characters", datasource.ErrInvalidCredentials)
+		return config{}, fmt.Errorf(
+			"%w: credentials contain invalid control characters",
+			datasource.ErrInvalidCredentials,
+		)
 	}
 	return cfg, nil
 }

@@ -1,3 +1,4 @@
+// Package datasource defines external data source connector interfaces, registries, and sync scheduling.
 package datasource
 
 import (
@@ -50,7 +51,9 @@ type Connector interface {
 	// FetchIncremental performs an incremental sync based on the provided cursor.
 	// Returns items that have changed since the last sync, a new cursor for the next sync,
 	// and an error if the operation fails.
-	FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error)
+	FetchIncremental(
+		ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor,
+	) ([]types.FetchedItem, *types.SyncCursor, error)
 }
 
 // StreamHandler receives items and progress checkpoints emitted during a
@@ -184,8 +187,8 @@ type ConnectorMetadata struct {
 	Capabilities []string `json:"capabilities"` // "incremental", "webhook", "deletion_sync", etc.
 }
 
-// GetConnectorMetadata returns metadata for all available connectors
-// This is used by the frontend to display connector options
+// ConnectorMetadataRegistry stores metadata for all available connectors
+// displayed by the frontend connector picker.
 var ConnectorMetadataRegistry = map[string]ConnectorMetadata{
 	types.ConnectorTypeFeishu: {
 		Type:         types.ConnectorTypeFeishu,

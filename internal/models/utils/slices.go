@@ -1,3 +1,4 @@
+// Package utils provides generic slice helpers for model packages.
 package utils
 
 // ChunkSlice splits a slice into multiple sub-slices of the specified size

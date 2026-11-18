@@ -147,7 +147,8 @@ func TestLangfuseAndDebugChatStreamExitAndFinishOnContextCancel(t *testing.T) {
 					for _, scope := range resource.ScopeSpans {
 						for _, span := range scope.Spans {
 							for _, attr := range span.Attributes {
-								if attr.Key == "langfuse.observation.type" && attr.Value.GetStringValue() == "generation" {
+								if attr.Key == "langfuse.observation.type" &&
+									attr.Value.GetStringValue() == "generation" {
 									exported <- span
 								}
 							}
@@ -204,4 +205,3 @@ func TestLangfuseAndDebugChatStreamExitAndFinishOnContextCancel(t *testing.T) {
 		t.Fatal("cancelled stream deadlocked on wrapped channel send and never exported generation span")
 	}
 }
-

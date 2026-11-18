@@ -19,9 +19,7 @@ const (
 	defaultTavilySearchURL = "https://api.tavily.com/search"
 )
 
-var (
-	defaultTavilyTimeout = 15 * time.Second
-)
+var defaultTavilyTimeout = 15 * time.Second
 
 // TavilyProvider implements web search using Tavily Search API
 type TavilyProvider struct {
@@ -83,7 +81,7 @@ func (p *TavilyProvider) Search(
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		preview := readErrorPreview(resp.Body)

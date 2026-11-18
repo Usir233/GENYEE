@@ -22,22 +22,34 @@ type savedEntry struct {
 	FileName string
 }
 
-func (m *mockFileService) CheckConnectivity(ctx context.Context) error { return nil }
-func (m *mockFileService) SaveFile(ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string) (string, error) {
+func (m *mockFileService) CheckConnectivity(_ context.Context) error { return nil }
+
+func (m *mockFileService) SaveFile(
+	_ context.Context, _ *multipart.FileHeader, _ uint64, _ string,
+) (string, error) {
 	return "", nil
 }
-func (m *mockFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+
+func (m *mockFileService) SaveBytes(
+	_ context.Context, data []byte, tenantID uint64, fileName string, _ bool,
+) (string, error) {
 	m.saved = append(m.saved, savedEntry{Data: data, TenantID: tenantID, FileName: fileName})
 	return fmt.Sprintf("local://images/%s", fileName), nil
 }
-func (m *mockFileService) GetFile(ctx context.Context, filePath string) (io.ReadCloser, error) {
+
+func (m *mockFileService) GetFile(_ context.Context, _ string) (io.ReadCloser, error) {
 	return nil, nil
 }
-func (m *mockFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+
+func (m *mockFileService) GetFileURL(_ context.Context, filePath string) (string, error) {
 	return filePath, nil
 }
-func (m *mockFileService) DeleteFile(ctx context.Context, filePath string) error { return nil }
-func (m *mockFileService) CopyFile(ctx context.Context, srcPath string, tenantID uint64, knowledgeID string) (string, error) {
+
+func (m *mockFileService) DeleteFile(_ context.Context, _ string) error { return nil }
+
+func (m *mockFileService) CopyFile(
+	_ context.Context, _ string, _ uint64, _ string,
+) (string, error) {
 	return "", nil
 }
 
@@ -47,10 +59,10 @@ func TestResolveRemoteImages_NormalDownload(t *testing.T) {
 
 	// Create a test HTTP server that serves a real PNG image.
 	pngData := createTestPNG(200, 200)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
-		w.Write(pngData)
+		_, _ = w.Write(pngData)
 	}))
 	defer ts.Close()
 
@@ -110,10 +122,10 @@ func TestResolveRemoteImages_NonImageContentType(t *testing.T) {
 	// Whitelist localhost for this test so the test server is reachable
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("<html>not an image</html>"))
+		_, _ = w.Write([]byte("<html>not an image</html>"))
 	}))
 	defer ts.Close()
 
@@ -161,11 +173,11 @@ func TestResolveRemoteImages_MultipleImages(t *testing.T) {
 
 	pngData := createTestPNG(256, 256)
 	callCount := 0
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
-		w.Write(pngData)
+		_, _ = w.Write(pngData)
 	}))
 	defer ts.Close()
 
@@ -214,7 +226,7 @@ func TestResolveRemoteImages_Server404(t *testing.T) {
 	// Whitelist localhost for this test so the test server is reachable
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer ts.Close()

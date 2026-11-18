@@ -22,7 +22,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,open.feishu.cn,open.larksuite.com")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,open.feishu.cn,open.larksuite.com")
 	secutils.ResetSSRFWhitelistForTest()
 	os.Exit(m.Run())
 }
@@ -37,7 +37,7 @@ func fakeFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config) {
 	mux := http.NewServeMux()
 
 	// --- auth ---
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.TokenResponse{
 			ApiResponse:       core.ApiResponse{Code: 0},
 			TenantAccessToken: "fake-token",
@@ -46,7 +46,7 @@ func fakeFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config) {
 	})
 
 	// --- wiki spaces ---
-	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiSpaceListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.WikiSpaceListData{
@@ -58,7 +58,7 @@ func fakeFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config) {
 	})
 
 	// --- wiki nodes (top-level only for simplicity) ---
-	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiNodeListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.WikiNodeListData{
@@ -91,7 +91,7 @@ func fakeFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config) {
 	})
 
 	// --- export task: status polling (pattern match with ticket) ---
-	mux.HandleFunc("/open-apis/drive/v1/export_tasks/ticket-123", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/drive/v1/export_tasks/ticket-123", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.ExportTaskStatusResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.ExportTaskStatusData{
@@ -106,16 +106,19 @@ func fakeFeishu(nodes []core.WikiNode) (*httptest.Server, *core.Config) {
 	})
 
 	// --- export file download ---
-	mux.HandleFunc("/open-apis/drive/v1/export_tasks/file/ft-abc/download", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Write([]byte("fake-docx-content"))
-	})
+	mux.HandleFunc(
+		"/open-apis/drive/v1/export_tasks/file/ft-abc/download",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("fake-docx-content"))
+		},
+	)
 
 	// --- drive file download (for "file" type nodes) ---
 	mux.HandleFunc("/open-apis/drive/v1/files/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/download") {
 			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Write([]byte("fake-pdf-binary"))
+			_, _ = w.Write([]byte("fake-pdf-binary"))
 			return
 		}
 		http.NotFound(w, r)
@@ -134,7 +137,9 @@ func fakeFeishuWithChildFailure(topNodes []core.WikiNode, failingParentToken str
 	return fakeFeishuHierarchy(topNodes, nil, failingParentToken)
 }
 
-func fakeFeishuHierarchy(topNodes []core.WikiNode, childNodes map[string][]core.WikiNode, failingParentToken string) (*httptest.Server, *core.Config) {
+func fakeFeishuHierarchy(
+	topNodes []core.WikiNode, childNodes map[string][]core.WikiNode, failingParentToken string,
+) (*httptest.Server, *core.Config) {
 	mux := http.NewServeMux()
 	nodeByToken := make(map[string]core.WikiNode)
 	for _, node := range topNodes {
@@ -151,7 +156,7 @@ func fakeFeishuHierarchy(topNodes []core.WikiNode, childNodes map[string][]core.
 		}
 	}
 
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.TokenResponse{
 			ApiResponse:       core.ApiResponse{Code: 0},
 			TenantAccessToken: "fake-token",
@@ -159,7 +164,7 @@ func fakeFeishuHierarchy(topNodes []core.WikiNode, childNodes map[string][]core.
 		})
 	})
 
-	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiSpaceListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.WikiSpaceListData{
@@ -232,7 +237,7 @@ func fakeFeishuHierarchy(topNodes []core.WikiNode, childNodes map[string][]core.
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func makeConfig(cfg *core.Config, resourceIDs []string) *types.DataSourceConfig {
@@ -455,7 +460,10 @@ func TestConnectorListResources(t *testing.T) {
 // tree up front (upstream issue #1672).
 func TestConnectorListResources_LazyLoadsOneLevel(t *testing.T) {
 	topNodes := []core.WikiNode{
-		{NodeToken: "nt-root", ObjToken: "obj-root", ObjType: "docx", Title: "Root", HasChild: true, ObjEditTime: "100"},
+		{
+			NodeToken: "nt-root", ObjToken: "obj-root", ObjType: "docx",
+			Title: "Root", HasChild: true, ObjEditTime: "100",
+		},
 		{NodeToken: "nt-peer", ObjToken: "obj-peer", ObjType: "docx", Title: "Peer", ObjEditTime: "200"},
 	}
 	childNodes := map[string][]core.WikiNode{
@@ -808,7 +816,10 @@ func TestFetchAll_LogsSummaryWithSkipBreakdown(t *testing.T) {
 
 func TestFetchAll_ChildNodeListErrorReturnsPartialItems(t *testing.T) {
 	nodes := []core.WikiNode{
-		{NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file", Title: "Parent.pdf", NodeEditTime: "100", HasChild: true},
+		{
+			NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file",
+			Title: "Parent.pdf", NodeEditTime: "100", HasChild: true,
+		},
 		{NodeToken: "nt-peer", ObjToken: "obj-peer", ObjType: "file", Title: "Peer.pdf", NodeEditTime: "200"},
 	}
 	ts, cfg := fakeFeishuWithChildFailure(nodes, "nt-parent")
@@ -858,7 +869,10 @@ func TestFetchAll_ChildNodeListErrorReturnsPartialItems(t *testing.T) {
 
 func TestFetchAll_WikiNodeResourceSyncsSelectedSubtree(t *testing.T) {
 	topNodes := []core.WikiNode{
-		{NodeToken: "nt-root", ObjToken: "obj-root", ObjType: "file", Title: "Root.pdf", NodeEditTime: "100", HasChild: true},
+		{
+			NodeToken: "nt-root", ObjToken: "obj-root", ObjType: "file",
+			Title: "Root.pdf", NodeEditTime: "100", HasChild: true,
+		},
 		{NodeToken: "nt-peer", ObjToken: "obj-peer", ObjType: "file", Title: "Peer.pdf", NodeEditTime: "200"},
 	}
 	childNodes := map[string][]core.WikiNode{
@@ -1027,7 +1041,10 @@ func TestFetchIncremental_NoResourceIDs(t *testing.T) {
 
 func TestFetchIncremental_ChildNodeListErrorReturnsPartialItemsAndCursor(t *testing.T) {
 	nodes := []core.WikiNode{
-		{NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file", Title: "Parent.pdf", NodeEditTime: "100", HasChild: true},
+		{
+			NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file",
+			Title: "Parent.pdf", NodeEditTime: "100", HasChild: true,
+		},
 		{NodeToken: "nt-peer", ObjToken: "obj-peer", ObjType: "file", Title: "Peer.pdf", NodeEditTime: "200"},
 	}
 	ts, cfg := fakeFeishuWithChildFailure(nodes, "nt-parent")
@@ -1062,7 +1079,10 @@ func TestFetchIncremental_ChildNodeListErrorReturnsPartialItemsAndCursor(t *test
 
 func TestFetchIncremental_ChildNodeListErrorDoesNotDeletePreviouslySeenChildren(t *testing.T) {
 	firstNodes := []core.WikiNode{
-		{NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file", Title: "Parent.pdf", NodeEditTime: "100", HasChild: true},
+		{
+			NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file",
+			Title: "Parent.pdf", NodeEditTime: "100", HasChild: true,
+		},
 	}
 	firstChildren := map[string][]core.WikiNode{
 		"nt-parent": {
@@ -1082,7 +1102,10 @@ func TestFetchIncremental_ChildNodeListErrorDoesNotDeletePreviouslySeenChildren(
 	ts.Close()
 
 	secondNodes := []core.WikiNode{
-		{NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file", Title: "Parent.pdf", NodeEditTime: "100", HasChild: true},
+		{
+			NodeToken: "nt-parent", ObjToken: "obj-parent", ObjType: "file",
+			Title: "Parent.pdf", NodeEditTime: "100", HasChild: true,
+		},
 	}
 	ts2, cfg2 := fakeFeishuHierarchy(secondNodes, nil, "nt-parent")
 	defer ts2.Close()
@@ -1125,7 +1148,7 @@ func TestClientPing(t *testing.T) {
 func TestClientTokenCaching(t *testing.T) {
 	callCount := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		writeJSON(w, core.TokenResponse{
 			ApiResponse:       core.ApiResponse{Code: 0},
@@ -1409,23 +1432,25 @@ func TestExportFileExtToSuffix(t *testing.T) {
 //
 // The export endpoint is intentionally absent; any call to it returns 404 so the
 // test verifies the blocks-API path, not the export-fallback path.
-func fakeFeishuWithBlocks(nodes []core.WikiNode, docToken, attToken, attName string, attContent []byte) (*httptest.Server, *core.Config) {
+func fakeFeishuWithBlocks(
+	nodes []core.WikiNode, docToken, attToken, attName string, attContent []byte,
+) (*httptest.Server, *core.Config) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.TokenResponse{
 			ApiResponse:       core.ApiResponse{Code: 0},
 			TenantAccessToken: "fake-token",
 			Expire:            7200,
 		})
 	})
-	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiSpaceListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data:        core.WikiSpaceListData{Items: []core.WikiSpace{{SpaceID: "space1", Name: "Test Space"}}},
 		})
 	})
-	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiNodeListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data:        core.WikiNodeListData{Items: nodes},
@@ -1434,7 +1459,7 @@ func fakeFeishuWithBlocks(nodes []core.WikiNode, docToken, attToken, attName str
 
 	// blocks API for the given docx document
 	blocksPath := "/open-apis/docx/v1/documents/" + docToken + "/blocks"
-	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.DocxBlocksResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.DocxBlocksData{
@@ -1443,7 +1468,10 @@ func fakeFeishuWithBlocks(nodes []core.WikiNode, docToken, attToken, attName str
 					{BlockID: "b2", BlockType: core.BlockTypeText, Text: &core.BlockText{
 						Elements: []core.TextElement{{TextRun: &core.TextRun{Content: "Hello blocks"}}},
 					}},
-					{BlockID: "b3", BlockType: core.BlockTypeFile, File: &core.BlockFileRef{Token: attToken, Name: attName}},
+					{
+						BlockID: "b3", BlockType: core.BlockTypeFile,
+						File: &core.BlockFileRef{Token: attToken, Name: attName},
+					},
 				},
 			},
 		})
@@ -1453,7 +1481,7 @@ func fakeFeishuWithBlocks(nodes []core.WikiNode, docToken, attToken, attName str
 	mux.HandleFunc("/open-apis/drive/v1/medias/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/download") {
 			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Write(attContent)
+			_, _ = w.Write(attContent)
 			return
 		}
 		http.NotFound(w, r)
@@ -1532,23 +1560,25 @@ func TestFetchDocxWithBlocks_MultiItem(t *testing.T) {
 // drive download endpoint returns the given HTTP status code instead of 200. Use
 // downloadStatus = http.StatusInternalServerError to exercise the
 // attachment-download-failure path.
-func fakeFeishuWithBlocksAndDownloadStatus(nodes []core.WikiNode, docToken, attToken, attName string, downloadStatus int) (*httptest.Server, *core.Config) {
+func fakeFeishuWithBlocksAndDownloadStatus(
+	nodes []core.WikiNode, docToken, attToken, attName string, downloadStatus int,
+) (*httptest.Server, *core.Config) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.TokenResponse{
 			ApiResponse:       core.ApiResponse{Code: 0},
 			TenantAccessToken: "fake-token",
 			Expire:            7200,
 		})
 	})
-	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiSpaceListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data:        core.WikiSpaceListData{Items: []core.WikiSpace{{SpaceID: "space1", Name: "Test Space"}}},
 		})
 	})
-	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiNodeListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data:        core.WikiNodeListData{Items: nodes},
@@ -1557,7 +1587,7 @@ func fakeFeishuWithBlocksAndDownloadStatus(nodes []core.WikiNode, docToken, attT
 
 	// blocks API — one text block + one parseable .pdf file block
 	blocksPath := "/open-apis/docx/v1/documents/" + docToken + "/blocks"
-	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.DocxBlocksResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.DocxBlocksData{
@@ -1566,7 +1596,10 @@ func fakeFeishuWithBlocksAndDownloadStatus(nodes []core.WikiNode, docToken, attT
 					{BlockID: "b2", BlockType: core.BlockTypeText, Text: &core.BlockText{
 						Elements: []core.TextElement{{TextRun: &core.TextRun{Content: "Hello"}}},
 					}},
-					{BlockID: "b3", BlockType: core.BlockTypeFile, File: &core.BlockFileRef{Token: attToken, Name: attName}},
+					{
+						BlockID: "b3", BlockType: core.BlockTypeFile,
+						File: &core.BlockFileRef{Token: attToken, Name: attName},
+					},
 				},
 			},
 		})
@@ -1654,7 +1687,10 @@ func TestFetchDocxWithBlocks_AttachmentDownloadFailure(t *testing.T) {
 	// attachment must be listed in SubtreeKeep so the sweep preserves its good
 	// previously-synced copy instead of deleting it with nothing to replace it.
 	if !main.ReplacesSubtree {
-		t.Error("main.ReplacesSubtree must stay true; the failed child is preserved via SubtreeKeep, not by suppressing the whole sweep")
+		t.Error(
+			"main.ReplacesSubtree must stay true; " +
+				"the failed child is preserved via SubtreeKeep, not by suppressing the whole sweep",
+		)
 	}
 	failedChildID := nodeToken + "#file#" + attToken
 	if !slices.Contains(main.SubtreeKeep, failedChildID) {
@@ -1688,11 +1724,15 @@ func TestFetchDocxWithBlocks_EmbeddedImage(t *testing.T) {
 	pngBytes := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte("x"), core.MinAttachmentBytes)...)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, core.TokenResponse{ApiResponse: core.ApiResponse{Code: 0}, TenantAccessToken: "fake-token", Expire: 7200})
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, core.TokenResponse{
+			ApiResponse:       core.ApiResponse{Code: 0},
+			TenantAccessToken: "fake-token",
+			Expire:            7200,
+		})
 	})
 	blocksPath := "/open-apis/docx/v1/documents/" + objToken + "/blocks"
-	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.DocxBlocksResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.DocxBlocksData{
@@ -1719,7 +1759,10 @@ func TestFetchDocxWithBlocks_EmbeddedImage(t *testing.T) {
 	cfg := &core.Config{AppID: "test-app-id", AppSecret: "test-app-secret", BaseURL: ts.URL}
 	ctx := context.Background()
 	client := core.NewClient(cfg)
-	node := core.WikiNode{NodeToken: nodeToken, ObjToken: objToken, ObjType: "docx", Title: "Doc With Image", NodeEditTime: "1711468800"}
+	node := core.WikiNode{
+		NodeToken: nodeToken, ObjToken: objToken, ObjType: "docx",
+		Title: "Doc With Image", NodeEditTime: "1711468800",
+	}
 
 	// Orthodox flow: the image rides inline in the parent markdown as a base64
 	// data URI — no image sub-item, no image_map.
@@ -1761,11 +1804,15 @@ func TestFetchDocxWithBlocks_ImageDownloadFailure(t *testing.T) {
 		imgToken  = "media-img-bad"
 	)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, core.TokenResponse{ApiResponse: core.ApiResponse{Code: 0}, TenantAccessToken: "fake-token", Expire: 7200})
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, core.TokenResponse{
+			ApiResponse:       core.ApiResponse{Code: 0},
+			TenantAccessToken: "fake-token",
+			Expire:            7200,
+		})
 	})
 	blocksPath := "/open-apis/docx/v1/documents/" + objToken + "/blocks"
-	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(blocksPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.DocxBlocksResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.DocxBlocksData{
@@ -1776,7 +1823,7 @@ func TestFetchDocxWithBlocks_ImageDownloadFailure(t *testing.T) {
 			},
 		})
 	})
-	mux.HandleFunc("/open-apis/drive/v1/medias/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/open-apis/drive/v1/medias/", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "denied", http.StatusForbidden)
 	})
 	ts := httptest.NewServer(mux)
@@ -1947,8 +1994,20 @@ func TestSupportedImageExt(t *testing.T) {
 		{"png", []byte("\x89PNG\r\n\x1a\nrest"), ".png", "image/png", true},
 		{"jpeg", []byte("\xFF\xD8\xFF\xE0\x00\x10JFIF"), ".jpg", "image/jpeg", true},
 		{"gif", []byte("GIF89a\x01\x00\x01\x00"), ".gif", "image/gif", true},
-		{"webp_unsupported", append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 8)...), "", "image/webp", false},
-		{"text_unsupported", []byte("just some plain text, not an image at all"), "", "text/plain; charset=utf-8", false},
+		{
+			"webp_unsupported",
+			append([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), make([]byte, 8)...),
+			"",
+			"image/webp",
+			false,
+		},
+		{
+			"text_unsupported",
+			[]byte("just some plain text, not an image at all"),
+			"",
+			"text/plain; charset=utf-8",
+			false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

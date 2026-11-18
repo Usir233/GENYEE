@@ -1,6 +1,7 @@
 // stream.go owns streaming-safe handle decoding: the shared suffix-hold
 // primitive, the per-space decoders built on it, and the composed public
 // StreamDecoder that applies every stage in the only safe order.
+
 package modelcontext
 
 import "strings"
@@ -100,6 +101,7 @@ type HandleStreamDecoder struct {
 	hold  streamHold
 }
 
+// NewHandleStreamDecoder builds a streaming decoder for handles in table.
 func NewHandleStreamDecoder(table *HandleTable) *HandleStreamDecoder {
 	return &HandleStreamDecoder{table: table, hold: streamHold{
 		holdLen: func(combined string) int {
@@ -123,6 +125,7 @@ func NewHandleStreamDecoder(table *HandleTable) *HandleStreamDecoder {
 	}}
 }
 
+// Feed decodes complete handles in chunk while holding back incomplete suffixes.
 func (d *HandleStreamDecoder) Feed(chunk string) string {
 	if d == nil || d.table == nil {
 		return chunk
@@ -130,6 +133,7 @@ func (d *HandleStreamDecoder) Feed(chunk string) string {
 	return d.hold.Feed(chunk)
 }
 
+// Flush decodes and emits any buffered trailing text at end of stream.
 func (d *HandleStreamDecoder) Flush() string {
 	if d == nil || d.table == nil {
 		return ""
@@ -200,7 +204,8 @@ func orphanResourceFlush(pending string) string {
 	// A stream that ends mid-token must not surface the model-context
 	// protocol fragment. Preserve ordinary r/re/res prose, but discard any
 	// suffix that has already crossed into the reserved URL-like syntax.
-	if strings.HasPrefix("res://", pending) && len(pending) >= len("res:") {
+	const resScheme = "res://"
+	if len(pending) >= len("res:") && len(pending) <= len(resScheme) && resScheme[:len(pending)] == pending {
 		return ""
 	}
 	if strings.HasPrefix(pending, "res://") {
@@ -251,6 +256,7 @@ type StreamDecoder struct {
 	orphans    *orphanResourceStreamFilter
 }
 
+// Feed pushes a streamed text chunk through every handle-decoding stage.
 func (d *StreamDecoder) Feed(chunk string) string {
 	if d == nil {
 		return chunk
@@ -279,6 +285,7 @@ func (d *StreamDecoder) Feed(chunk string) string {
 	return chunk
 }
 
+// Flush drains every decoding stage in order at end of stream.
 func (d *StreamDecoder) Flush() string {
 	if d == nil {
 		return ""

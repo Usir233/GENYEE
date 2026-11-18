@@ -1,3 +1,4 @@
+// Package wiki implements the Feishu/Lark Wiki data source connector.
 package wiki
 
 import (
@@ -30,8 +31,10 @@ func NewConnector(region core.Region) *Connector {
 
 // Feishu supports resumable streaming sync; the service prefers FetchStream over
 // FetchAll/FetchIncremental when a connector implements StreamingConnector.
-var _ datasource.StreamingConnector = (*Connector)(nil)
-var _ datasource.FullStreamingConnector = (*Connector)(nil)
+var (
+	_ datasource.StreamingConnector     = (*Connector)(nil)
+	_ datasource.FullStreamingConnector = (*Connector)(nil)
+)
 
 // Type returns the connector type identifier.
 func (c *Connector) Type() string {
@@ -173,7 +176,9 @@ func (c *Connector) ResolveResourceAncestors(
 // FetchAll performs a full sync of all documents from the specified wiki spaces.
 // Defensive fallback path - the service prefers FetchStream when the connector
 // implements StreamingConnector.
-func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error) {
+func (c *Connector) FetchAll(
+	ctx context.Context, config *types.DataSourceConfig, resourceIDs []string,
+) ([]types.FetchedItem, error) {
 	feishuConfig, err := core.ParseFeishuConfig(config, c.region)
 	if err != nil {
 		return nil, err
@@ -188,7 +193,9 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 // prefers FetchStream. Routed through the same engine, so the #2136
 // failure-doesn't-advance-cursor semantics apply here too (previously this path
 // advanced the cursor before fetching, a latent #2136 bug).
-func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error) {
+func (c *Connector) FetchIncremental(
+	ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor,
+) ([]types.FetchedItem, *types.SyncCursor, error) {
 	feishuConfig, err := core.ParseFeishuConfig(config, c.region)
 	if err != nil {
 		return nil, nil, err
@@ -395,7 +402,9 @@ func (o *wikiOps) EncodeCursor(times map[string]map[string]string, lastSync time
 	return &types.SyncCursor{LastSyncTime: lastSync, ConnectorCursor: m}
 }
 
-func appendWikiNodeListFailureItems(items []types.FetchedItem, spaceID string, resourceID string, failures []core.WikiNodeListFailure) []types.FetchedItem {
+func appendWikiNodeListFailureItems(
+	items []types.FetchedItem, spaceID string, resourceID string, failures []core.WikiNodeListFailure,
+) []types.FetchedItem {
 	for _, failure := range failures {
 		node := failure.Node
 		nodeSpaceID := node.SpaceID
@@ -484,7 +493,10 @@ func fetchNodeContent(
 
 // fetchViaExport exports a doc/sheet/bitable node via the async export API and
 // returns a single FetchedItem containing the exported binary.
-func fetchViaExport(ctx context.Context, client *core.Client, node core.WikiNode, resourceID string, editTime time.Time, baseMeta map[string]string, region core.Region) (*types.FetchedItem, error) {
+func fetchViaExport(
+	ctx context.Context, client *core.Client, node core.WikiNode,
+	resourceID string, editTime time.Time, baseMeta map[string]string, region core.Region,
+) (*types.FetchedItem, error) {
 	// Export as a file via the async export API
 	data, fileName, err := client.ExportAndDownload(ctx, node.ObjToken, node.ObjType)
 	if err != nil {
@@ -515,7 +527,10 @@ func fetchViaExport(ctx context.Context, client *core.Client, node core.WikiNode
 
 // fetchDriveFile downloads an original uploaded file from Drive and returns a
 // single FetchedItem containing the raw bytes.
-func fetchDriveFile(ctx context.Context, client *core.Client, node core.WikiNode, resourceID string, editTime time.Time, baseMeta map[string]string, region core.Region) (*types.FetchedItem, error) {
+func fetchDriveFile(
+	ctx context.Context, client *core.Client, node core.WikiNode,
+	resourceID string, editTime time.Time, baseMeta map[string]string, region core.Region,
+) (*types.FetchedItem, error) {
 	// Download the original uploaded file from Drive
 	data, err := client.DownloadDriveFile(ctx, node.ObjToken)
 	if err != nil {

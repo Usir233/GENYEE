@@ -553,7 +553,11 @@ func fetchOneMedia(
 	if ext == "" {
 		if len(info.URLInfo.Headers) == 0 {
 			if err := validateIMARemoteURL(info.URLInfo.URL); err != nil {
-				logger.Warnf(ctx, "[IMA] skip media %s (title=%q): unsafe web URL rejected: %v", f.MediaID, f.Title, err)
+				logger.Warnf(
+					ctx,
+					"[IMA] skip media %s (title=%q): unsafe web URL rejected: %v",
+					f.MediaID, f.Title, err,
+				)
 				return types.FetchedItem{}, fetchSkipped
 			}
 			return types.FetchedItem{

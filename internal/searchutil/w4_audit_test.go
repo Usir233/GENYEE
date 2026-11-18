@@ -111,7 +111,7 @@ func TestMergeTextChunksAndImageInfoNilSafety(t *testing.T) {
 }
 
 func TestExtractSnippetBoundedWindowAndUTF8Safety(t *testing.T) {
-	prefix := strings.Repeat("前缀中文内容", 500) // 3000 runes
+	prefix := strings.Repeat("前缀中文内容", 500)       // 3000 runes
 	match := "目标关键词" + strings.Repeat("匹配扩展", 40) // > 100 runes
 	suffix := strings.Repeat("后缀中文内容", 500)
 	doc := prefix + match + suffix

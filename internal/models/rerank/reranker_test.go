@@ -55,8 +55,9 @@ func TestRankResultUnmarshalJSON(t *testing.T) {
 			expectError:   false,
 		},
 		{
-			name:          "document as object with both score fields - relevance_score takes priority",
-			input:         `{"index": 5, "document": {"text": "This is a document"}, "relevance_score": 0.88, "score": 0.75}`,
+			name: "document as object with both score fields - relevance_score takes priority",
+			input: `{"index": 5, "document": {"text": "This is a document"}, ` +
+				`"relevance_score": 0.88, "score": 0.75}`,
 			expectedText:  "This is a document",
 			expectedIndex: 5,
 			expectedScore: 0.88,

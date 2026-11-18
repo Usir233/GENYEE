@@ -86,7 +86,7 @@ func buildToolsSection(opts *ChatOptions) string {
 		if i > 0 {
 			b.WriteString("\n")
 		}
-		b.WriteString(fmt.Sprintf("- %s: %s", t.Function.Name, t.Function.Description))
+		_, _ = fmt.Fprintf(&b, "- %s: %s", t.Function.Name, t.Function.Description)
 	}
 	return b.String()
 }
@@ -107,13 +107,23 @@ func buildResponseToolCalls(tcs []types.LLMToolCall) []logger.LLMToolCallInfo {
 }
 
 func usageString(u types.TokenUsage) string {
-	return fmt.Sprintf("Prompt: %d, Completion: %d, Total: %d, CacheRead: %d, CacheWrite: %d, CacheMiss: %d, CacheStatus: %s",
+	return fmt.Sprintf(
+		"Prompt: %d, Completion: %d, Total: %d, CacheRead: %d, CacheWrite: %d, CacheMiss: %d, CacheStatus: %s",
 		u.PromptTokens, u.CompletionTokens, u.TotalTokens, u.CacheReadTokens,
-		u.CacheWriteTokens, u.CacheMissTokens, u.CacheStatus)
+		u.CacheWriteTokens, u.CacheMissTokens, u.CacheStatus,
+	)
 }
 
 // logLLMDebugCall logs a complete non-stream LLM chat call.
-func logLLMDebugCall(ctx context.Context, model string, messages []Message, opts *ChatOptions, resp *types.ChatResponse, callErr error, dur time.Duration) {
+func logLLMDebugCall(
+	ctx context.Context,
+	model string,
+	messages []Message,
+	opts *ChatOptions,
+	resp *types.ChatResponse,
+	callErr error,
+	dur time.Duration,
+) {
 	if !logger.LLMDebugEnabled() {
 		return
 	}
@@ -147,9 +157,15 @@ func logLLMDebugCall(ctx context.Context, model string, messages []Message, opts
 			respText.WriteString(logger.FormatToolCalls(tcs))
 		}
 		if respText.Len() > 0 {
-			record.Sections = append(record.Sections, logger.RecordSection{Title: "Response", Content: respText.String()})
+			record.Sections = append(record.Sections, logger.RecordSection{
+				Title:   "Response",
+				Content: respText.String(),
+			})
 		}
-		record.Sections = append(record.Sections, logger.RecordSection{Title: "Usage", Content: usageString(resp.Usage)})
+		record.Sections = append(record.Sections, logger.RecordSection{
+			Title:   "Usage",
+			Content: usageString(resp.Usage),
+		})
 	}
 
 	if callErr != nil {
@@ -159,7 +175,17 @@ func logLLMDebugCall(ctx context.Context, model string, messages []Message, opts
 }
 
 // logLLMDebugStream logs a complete stream LLM chat call after all chunks have been received.
-func logLLMDebugStream(ctx context.Context, model string, messages []Message, opts *ChatOptions, fullContent string, toolCalls []types.LLMToolCall, usage *types.TokenUsage, callErr error, dur time.Duration) {
+func logLLMDebugStream(
+	ctx context.Context,
+	model string,
+	messages []Message,
+	opts *ChatOptions,
+	fullContent string,
+	toolCalls []types.LLMToolCall,
+	usage *types.TokenUsage,
+	callErr error,
+	dur time.Duration,
+) {
 	if !logger.LLMDebugEnabled() {
 		return
 	}
