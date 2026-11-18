@@ -17,22 +17,22 @@ import argparse
 import asyncio
 import os
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 
-def setup_environment():
+def setup_environment() -> None:
     """设置环境和路径"""
-    # 确保当前目录在 Python 路径中
     current_dir = Path(__file__).parent.absolute()
     if str(current_dir) not in sys.path:
         sys.path.insert(0, str(current_dir))
 
 
-def check_dependencies():
+def check_dependencies() -> bool:
     """检查依赖是否已安装"""
     try:
-        import mcp
-        import requests
+        import mcp  # noqa: F401
+        import requests  # noqa: F401
 
         return True
     except ImportError as e:
@@ -41,13 +41,16 @@ def check_dependencies():
         return False
 
 
-def check_environment_variables():
+def check_environment_variables() -> bool:
     """检查环境变量配置"""
     base_url = os.getenv("GENYEE_BASE_URL")
     api_key = os.getenv("GENYEE_API_KEY")
 
     print("=== GENYEE MCP Server 环境检查 ===", file=sys.stderr)
-    print(f"Base URL: {base_url or 'http://localhost:8080/api/v1 (默认)'}", file=sys.stderr)
+    print(
+        f"Base URL: {base_url or 'http://localhost:8080/api/v1 (默认)'}",
+        file=sys.stderr,
+    )
     print(f"API Key: {'已设置' if api_key else '未设置 (警告)'}", file=sys.stderr)
 
     if not base_url:
@@ -60,6 +63,20 @@ def check_environment_variables():
     return True
 
 
+def _normalize_transport(value: str) -> str:
+    cleaned = value.strip().lower()
+    if cleaned == "streamable-http":
+        return "http"
+    return cleaned
+
+
+def _default_mcp_transport(default: str = "stdio") -> str:
+    raw = os.getenv("MCP_TRANSPORT")
+    if raw is None or not raw.strip():
+        return default
+    return _normalize_transport(raw)
+
+
 def _default_mcp_port(default: int = 8000) -> int:
     raw = os.getenv("MCP_PORT")
     if raw is None or not raw.strip():
@@ -70,12 +87,15 @@ def _default_mcp_port(default: int = 8000) -> int:
         print(f"警告: MCP_PORT 无效，已回退到默认端口 {default}", file=sys.stderr)
         return default
     if not (1 <= port <= 65535):
-        print(f"警告: MCP_PORT 超出范围 (1-65535)，已回退到默认端口 {default}", file=sys.stderr)
+        print(
+            f"警告: MCP_PORT 超出范围 (1-65535)，已回退到默认端口 {default}",
+            file=sys.stderr,
+        )
         return default
     return port
 
 
-def parse_arguments():
+def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
         description="GENYEE MCP Server - Model Context Protocol server for GENYEE API",
@@ -85,7 +105,7 @@ def parse_arguments():
   python main.py                    # 使用默认配置启动
   python main.py --check-only       # 仅检查环境，不启动服务器
   python main.py --verbose          # 启用详细日志
-  
+
 环境变量:
   GENYEE_BASE_URL        GENYEE API 基础 URL (默认: http://localhost:8080/api/v1)
   GENYEE_API_KEY         GENYEE API 密钥
@@ -93,20 +113,14 @@ def parse_arguments():
         """,
     )
 
-    parser.add_argument(
-        "--check-only", action="store_true", help="仅检查环境配置，不启动服务器"
-    )
-
+    parser.add_argument("--check-only", action="store_true", help="仅检查环境配置，不启动服务器")
     parser.add_argument("--verbose", "-v", action="store_true", help="启用详细日志输出")
-
-    parser.add_argument(
-        "--version", action="version", version="GENYEE MCP Server 1.1.1"
-    )
-
+    parser.add_argument("--version", action="version", version="GENYEE MCP Server 1.1.1")
     parser.add_argument(
         "--transport",
+        type=_normalize_transport,
         choices=["stdio", "sse", "http"],
-        default=os.getenv("MCP_TRANSPORT", "stdio"),
+        default=_default_mcp_transport("stdio"),
         help="Transport type: stdio (default), sse, or http",
     )
     parser.add_argument(
@@ -121,29 +135,24 @@ def parse_arguments():
         help="Bind port for network transports (default: 8000)",
     )
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-async def main():
+async def main(argv: Sequence[str] | None = None) -> None:
     """主函数"""
-    args = parse_arguments()
+    args = parse_arguments(argv)
 
-    # 设置环境
     setup_environment()
 
-    # 检查依赖
     if not check_dependencies():
         sys.exit(1)
 
-    # 检查环境变量
     check_environment_variables()
 
-    # 如果只是检查环境，则退出
     if args.check_only:
         print("环境检查完成。", file=sys.stderr)
         return
 
-    # 设置日志级别
     if args.verbose:
         import logging
 
@@ -151,26 +160,22 @@ async def main():
         print("已启用详细日志模式", file=sys.stderr)
 
     try:
-        print(f"正在启动 GENYEE MCP Server (transport={args.transport})...", file=sys.stderr)
+        print(
+            f"正在启动 GENYEE MCP Server (transport={args.transport})...",
+            file=sys.stderr,
+        )
 
-        from genyee_mcp_server import run_stdio, run_sse, run_http
+        from genyee_mcp_server import run_http, run_sse, run_stdio
 
-        # Select transport mode based on CLI argument or MCP_TRANSPORT env var
-        # - stdio: Default, used by VS Code Copilot for local integration
-        # - sse: Server-Sent Events over HTTP, suitable for cloud/remote deployments
-        # - http: Streamable HTTP sessions (MCP 2025-03-26 spec), compatible with REST clients
         if args.transport == "stdio":
-            # Stdio mode: communication via stdin/stdout pipes (typical for CLI integrations)
             await run_stdio()
         elif args.transport == "sse":
             if not (1 <= args.port <= 65535):
                 raise ValueError(f"端口超出范围 (1-65535): {args.port}")
-            # SSE mode: HTTP server with Server-Sent Events for bidirectional streaming
             await run_sse(args.host, args.port)
         elif args.transport == "http":
             if not (1 <= args.port <= 65535):
                 raise ValueError(f"端口超出范围 (1-65535): {args.port}")
-            # HTTP mode: HTTP REST server with request/response model
             await run_http(args.host, args.port)
 
     except ImportError as e:
@@ -188,12 +193,12 @@ async def main():
         sys.exit(1)
 
 
-def sync_main():
+def sync_main(argv: Sequence[str] | None = None) -> None:
     """同步版本的主函数，用于 entry_points"""
-    asyncio.run(main())
+    asyncio.run(main(argv))
 
 
-def run():
+def run() -> None:
     """entry_points 入口函数"""
     sync_main()
 

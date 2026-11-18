@@ -6,22 +6,20 @@ GENYEE MCP Server 安装脚本
 from setuptools import setup
 
 
-# 读取 README 文件
-def read_readme():
+def read_readme() -> str:
+    """读取 README 文件"""
     try:
-        with open("README.md", "r", encoding="utf-8") as f:
+        with open("README.md", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return "GENYEE MCP Server - Model Context Protocol server for GENYEE API"
 
 
-# 读取依赖
-def read_requirements():
+def read_requirements() -> list[str]:
+    """读取依赖"""
     try:
-        with open("requirements.txt", "r", encoding="utf-8") as f:
-            return [
-                line.strip() for line in f if line.strip() and not line.startswith("#")
-            ]
+        with open("requirements.txt", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip() and not line.startswith("#")]
     except FileNotFoundError:
         return [
             "mcp>=2.2,<3",
@@ -45,7 +43,7 @@ setup(
     description="GENYEE MCP Server - Model Context Protocol server for GENYEE API",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    py_modules=["genyee_mcp_server", "upload_paths", "main", "run_server", "run", "test_module"],
+    py_modules=["genyee_mcp_server", "upload_paths", "main", "run_server", "run"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -68,7 +66,16 @@ setup(
     },
     include_package_data=True,
     data_files=[
-        ("", ["README.md", "requirements.txt", "LICENSE", "LICENSE.GENYEE", "THIRD_PARTY_NOTICES.md"]),
+        (
+            "",
+            [
+                "README.md",
+                "requirements.txt",
+                "LICENSE",
+                "LICENSE.GENYEE",
+                "THIRD_PARTY_NOTICES.md",
+            ],
+        ),
     ],
     keywords="mcp model-context-protocol genyee knowledge-management api-server",
 )

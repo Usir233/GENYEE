@@ -1,7 +1,11 @@
+import pytest
+
 from genyee_mcp_server import GENYEEClient
 
 
-def test_resolve_agent_id_accepts_non_uuid_agent_id(monkeypatch):
+def test_resolve_agent_id_accepts_non_uuid_agent_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = GENYEEClient("http://example.test/api/v1", "")
     agents = {
         "data": [
@@ -13,13 +17,12 @@ def test_resolve_agent_id_accepts_non_uuid_agent_id(monkeypatch):
     }
     monkeypatch.setattr(client, "_request", lambda *args, **kwargs: agents)
 
-    assert (
-        client.resolve_agent_id("builtin-wiki-researcher")
-        == "builtin-wiki-researcher"
-    )
+    assert client.resolve_agent_id("builtin-wiki-researcher") == "builtin-wiki-researcher"
 
 
-def test_resolve_agent_id_accepts_agent_name_case_insensitively(monkeypatch):
+def test_resolve_agent_id_accepts_agent_name_case_insensitively(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = GENYEEClient("http://example.test/api/v1", "")
     agents = {
         "data": [
@@ -34,7 +37,9 @@ def test_resolve_agent_id_accepts_agent_name_case_insensitively(monkeypatch):
     assert client.resolve_agent_id("wiki questioner") == "builtin-wiki-researcher"
 
 
-def test_resolve_agent_id_prefers_exact_id_over_earlier_name_match(monkeypatch):
+def test_resolve_agent_id_prefers_exact_id_over_earlier_name_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = GENYEEClient("http://example.test/api/v1", "")
     agents = {
         "data": [

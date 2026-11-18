@@ -8,7 +8,7 @@ import genyee_mcp_server as srv
 
 
 class UpdateKnowledgeFromTextTest(unittest.TestCase):
-    def test_client_puts_manual_update_to_expected_endpoint(self):
+    def test_client_puts_manual_update_to_expected_endpoint(self) -> None:
         client = srv.GENYEEClient("http://localhost:8080/api/v1", "k")
         with mock.patch.object(client, "_request") as req:
             req.return_value = {"ok": True}
@@ -27,20 +27,18 @@ class UpdateKnowledgeFromTextTest(unittest.TestCase):
             },
         )
 
-    def test_client_can_save_a_draft_and_keep_the_title(self):
+    def test_client_can_save_a_draft_and_keep_the_title(self) -> None:
         client = srv.GENYEEClient("http://localhost:8080/api/v1", "k")
         with mock.patch.object(client, "_request") as req:
             req.return_value = {"ok": True}
-            client.update_knowledge_from_text(
-                "knowledge-1", "Draft content", status="draft"
-            )
+            client.update_knowledge_from_text("knowledge-1", "Draft content", status="draft")
 
         self.assertEqual(
             req.call_args.kwargs["json"],
             {"title": "", "content": "Draft content", "status": "draft"},
         )
 
-    def test_tool_forwards_all_update_fields(self):
+    def test_tool_forwards_all_update_fields(self) -> None:
         with mock.patch.object(
             srv.client, "update_knowledge_from_text", return_value={"ok": True}
         ) as method:
@@ -49,9 +47,7 @@ class UpdateKnowledgeFromTextTest(unittest.TestCase):
             )
 
         self.assertEqual(result, {"ok": True})
-        method.assert_called_once_with(
-            "knowledge-1", "Body", title="Title", status="draft"
-        )
+        method.assert_called_once_with("knowledge-1", "Body", title="Title", status="draft")
 
 
 if __name__ == "__main__":

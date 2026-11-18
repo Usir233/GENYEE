@@ -3,7 +3,9 @@
 import json
 import threading
 import unittest
+from collections.abc import Iterable, Iterator, Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 from unittest import mock
 
 import requests
@@ -12,15 +14,14 @@ import genyee_mcp_server as srv
 
 
 class ChatSSETest(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.client = srv.GENYEEClient("http://example.test/api/v1", "test-key")
-        self.addCleanup(self.client.session.close)
+        self.addCleanup(self.client.close)
 
-    def consume(self, lines, *, agent=False):
+    def consume(self, lines: Sequence[bytes | str], *, agent: bool = False) -> dict[str, Any]:
         response = mock.MagicMock()
         wire = b"".join(
-            (line.encode("utf-8") if isinstance(line, str) else line) + b"\n"
-            for line in lines
+            (line.encode("utf-8") if isinstance(line, str) else line) + b"\n" for line in lines
         )
         response.iter_content.return_value = iter([wire])
         self.response = response
@@ -29,8 +30,8 @@ class ChatSSETest(unittest.TestCase):
                 return self.client.agent_chat("session-1", "question", "agent-1")
             return self.client.chat("session-1", "question")
 
-    def test_multiline_answers_and_references_in_both_chat_paths(self):
-        lines = [
+    def test_multiline_answers_and_references_in_both_chat_paths(self) -> None:
+        lines: list[bytes] = [
             b'data: {"response_type":"answer",',
             'data: "content":"你好"}'.encode(),
             b"",
@@ -47,7 +48,7 @@ class ChatSSETest(unittest.TestCase):
                 self.assertEqual(result["references"], [{"id": "chunk-1"}])
                 self.assertEqual(result["session_id"], "session-1")
 
-    def test_dispatches_once_per_frame_not_once_per_data_line(self):
+    def test_dispatches_once_per_frame_not_once_per_data_line(self) -> None:
         result = self.consume(
             [
                 b'data: {"response_type":"answer","content":"not a frame"}',
@@ -61,7 +62,7 @@ class ChatSSETest(unittest.TestCase):
         )
         self.assertEqual(result["answer"], "valid frame")
 
-    def test_ignores_metadata_comments_and_empty_frames(self):
+    def test_ignores_metadata_comments_and_empty_frames(self) -> None:
         result = self.consume(
             [
                 "",
@@ -82,7 +83,7 @@ class ChatSSETest(unittest.TestCase):
         )
         self.assertEqual(result["answer"], "hello")
 
-    def test_multiline_error_propagates_and_closes_response(self):
+    def test_multiline_error_propagates_and_closes_response(self) -> None:
         with self.assertRaisesRegex(requests.RequestException, "upstream failed"):
             self.consume(
                 [
@@ -93,7 +94,7 @@ class ChatSSETest(unittest.TestCase):
             )
         self.response.__exit__.assert_called_once()
 
-    def test_multiline_complete_stops_before_later_events(self):
+    def test_multiline_complete_stops_before_later_events(self) -> None:
         result = self.consume(
             [
                 b'data: {"response_type":"answer","content":"done"}',
@@ -108,8 +109,8 @@ class ChatSSETest(unittest.TestCase):
         self.assertEqual(result["answer"], "done")
         self.response.__exit__.assert_called_once()
 
-    def test_stop_returns_partial_answer_in_both_chat_paths(self):
-        lines = [
+    def test_stop_returns_partial_answer_in_both_chat_paths(self) -> None:
+        lines: list[bytes] = [
             b'data: {"response_type":"answer","content":"partial answer"}',
             b"",
             b'data: {"response_type":"stop","done":true}',
@@ -125,8 +126,8 @@ class ChatSSETest(unittest.TestCase):
                 self.assertEqual(result["session_id"], "session-1")
                 self.response.__exit__.assert_called_once()
 
-    def test_eof_before_complete_fails_in_both_chat_paths(self):
-        cases = [
+    def test_eof_before_complete_fails_in_both_chat_paths(self) -> None:
+        cases: list[list[bytes]] = [
             [],
             [b'data: {"response_type":"answer","content":"partial"}', b""],
             [b'data: {"response_type":"answer","content":"unfinished"}'],
@@ -139,75 +140,78 @@ class ChatSSETest(unittest.TestCase):
                         self.consume(lines, agent=agent)
                     self.response.__exit__.assert_called_once()
 
-    def test_crlf_multiline_frame_with_fragmented_utf8(self):
+    def test_crlf_multiline_frame_with_fragmented_utf8(self) -> None:
         wire = (
             'data: {"response_type":"answer",\r\n'
             'data: "content":"你好"}\r\n\r\n'
             'data: {"response_type":"complete"}\r\n\r\n'
         ).encode()
-        # Exercise requests' real line iterator, with a UTF-8 code point split
-        # across transport chunks rather than pre-decoded lines.
         split = wire.index("你".encode()) + 1
         response = requests.Response()
         response.status_code = 200
         response._content_consumed = True
-        with mock.patch.object(
-            response, "iter_content", return_value=iter([wire[:split], wire[split:]])
-        ), mock.patch.object(self.client.session, "post", return_value=response):
+        with (
+            mock.patch.object(
+                response,
+                "iter_content",
+                return_value=iter([wire[:split], wire[split:]]),
+            ),
+            mock.patch.object(self.client.session, "post", return_value=response),
+        ):
             result = self.client.chat("session-1", "question")
         self.assertEqual(result["answer"], "你好")
 
-    def test_rejects_oversized_event_and_closes_response(self):
-        with mock.patch.object(srv, "MAX_SSE_EVENT_BYTES", 64, create=True):
-            with self.assertRaisesRegex(requests.RequestException, "SSE event exceeds"):
-                self.consume([b"data: " + b"x" * 32] * 3)
+    def test_rejects_oversized_event_and_closes_response(self) -> None:
+        with (
+            mock.patch.object(srv, "MAX_SSE_EVENT_BYTES", 64, create=True),
+            self.assertRaisesRegex(requests.RequestException, "SSE event exceeds"),
+        ):
+            self.consume([b"data: " + b"x" * 32] * 3)
         self.response.__exit__.assert_called_once()
 
-    def test_event_size_limit_resets_after_each_frame(self):
+    def test_event_size_limit_resets_after_each_frame(self) -> None:
         payload = json.dumps({"response_type": "answer", "content": "hello"})
-        with mock.patch.object(
-            srv, "MAX_SSE_EVENT_BYTES", len(payload.encode()) + 1, create=True
-        ):
+        with mock.patch.object(srv, "MAX_SSE_EVENT_BYTES", len(payload.encode()) + 1, create=True):
             result = self.consume(
-                ["data: " + payload, ""] * 3
-                + ['data: {"response_type":"complete"}', ""]
+                ["data: " + payload, ""] * 3 + ['data: {"response_type":"complete"}', ""]
             )
         self.assertEqual(result["answer"], "hello" * 3)
 
-    def check_http_error_closes_in_both_chat_paths(self, status):
+    def check_http_error_closes_in_both_chat_paths(self, status: int) -> None:
         for agent in (False, True):
             with self.subTest(status=status, agent=agent):
                 response = requests.Response()
                 response.status_code = status
                 response.url = "http://example.test/chat"
-                response.raw = mock.MagicMock()
-                with mock.patch.object(
-                    self.client.session, "post", return_value=response
-                ), mock.patch.object(
-                    response, "close", wraps=response.close
-                ) as close, mock.patch.object(
-                    response, "iter_content"
-                ) as iter_content:
-                    with self.assertRaises(requests.HTTPError) as raised:
-                        if agent:
-                            self.client.agent_chat("session-1", "question", "agent-1")
-                        else:
-                            self.client.chat("session-1", "question")
+                raw_mock = mock.MagicMock()
+                response.raw = raw_mock
+                with (
+                    mock.patch.object(self.client.session, "post", return_value=response),
+                    mock.patch.object(response, "close", wraps=response.close) as close,
+                    mock.patch.object(response, "iter_content") as iter_content,
+                    self.assertRaises(requests.HTTPError) as raised,
+                ):
+                    if agent:
+                        self.client.agent_chat("session-1", "question", "agent-1")
+                    else:
+                        self.client.chat("session-1", "question")
                 self.assertIs(raised.exception.response, response)
                 close.assert_called_once_with()
-                response.raw.close.assert_called_once_with()
-                response.raw.release_conn.assert_called_once_with()
+                raw_mock.close.assert_called_once_with()
+                raw_mock.release_conn.assert_called_once_with()
                 iter_content.assert_not_called()
 
-    def test_bad_request_closes_streaming_response(self):
+    def test_bad_request_closes_streaming_response(self) -> None:
         self.check_http_error_closes_in_both_chat_paths(400)
 
-    def test_service_unavailable_closes_streaming_response(self):
+    def test_service_unavailable_closes_streaming_response(self) -> None:
         self.check_http_error_closes_in_both_chat_paths(503)
 
-    def test_real_http_error_closes_streaming_response_in_both_chat_paths(self):
+    def test_real_http_error_closes_streaming_response_in_both_chat_paths(
+        self,
+    ) -> None:
         class ErrorHandler(BaseHTTPRequestHandler):
-            def do_POST(self):
+            def do_POST(self) -> None:
                 self.rfile.read(int(self.headers.get("Content-Length", "0")))
                 self.send_response(int(self.path.split("/")[1]))
                 body = b"backend error\n"
@@ -216,8 +220,8 @@ class ChatSSETest(unittest.TestCase):
                 self.end_headers()
                 self.wfile.write(body)
 
-            def log_message(self, format, *args):
-                pass
+            def log_message(self, format: str, *args: Any) -> None:
+                del format, args
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), ErrorHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -230,73 +234,80 @@ class ChatSSETest(unittest.TestCase):
         for status in (400, 503):
             for agent in (False, True):
                 with self.subTest(status=status, agent=agent):
-                    client = srv.GENYEEClient(
-                        f"http://127.0.0.1:{port}/{status}", "test-key"
-                    )
+                    client = srv.GENYEEClient(f"http://127.0.0.1:{port}/{status}", "test-key")
                     client.session.trust_env = False
-                    self.addCleanup(client.session.close)
+                    self.addCleanup(client.close)
                     with self.assertRaises(requests.HTTPError) as raised:
                         if agent:
                             client.agent_chat("session-1", "question", "agent-1")
                         else:
                             client.chat("session-1", "question")
                     response = raised.exception.response
+                    assert response is not None
                     self.addCleanup(response.close)
                     self.assertEqual(response.status_code, status)
                     self.assertTrue(response.raw.closed)
 
-    def test_post_connection_error_is_preserved_in_both_chat_paths(self):
+    def test_post_connection_error_is_preserved_in_both_chat_paths(self) -> None:
         for agent in (False, True):
             with self.subTest(agent=agent):
                 error = requests.ConnectionError("connection failed")
-                with mock.patch.object(self.client.session, "post", side_effect=error):
-                    with self.assertRaises(requests.ConnectionError) as raised:
-                        if agent:
-                            self.client.agent_chat("session-1", "question", "agent-1")
-                        else:
-                            self.client.chat("session-1", "question")
+                with (
+                    mock.patch.object(self.client.session, "post", side_effect=error),
+                    self.assertRaises(requests.ConnectionError) as raised,
+                ):
+                    if agent:
+                        self.client.agent_chat("session-1", "question", "agent-1")
+                    else:
+                        self.client.chat("session-1", "question")
                 self.assertIs(raised.exception, error)
 
-    def test_stream_read_error_closes_response_in_both_chat_paths(self):
+    def test_stream_read_error_closes_response_in_both_chat_paths(self) -> None:
         for agent in (False, True):
             with self.subTest(agent=agent):
                 response = requests.Response()
                 response.status_code = 200
-                response.raw = mock.MagicMock()
+                raw_mock = mock.MagicMock()
+                response.raw = raw_mock
                 error = requests.ConnectionError("stream read failed")
-                with mock.patch.object(
-                    self.client.session, "post", return_value=response
-                ), mock.patch.object(
-                    response, "iter_content", side_effect=error
-                ), mock.patch.object(
-                    response, "close", wraps=response.close
-                ) as close:
-                    with self.assertRaises(requests.ConnectionError) as raised:
-                        if agent:
-                            self.client.agent_chat("session-1", "question", "agent-1")
-                        else:
-                            self.client.chat("session-1", "question")
+                with (
+                    mock.patch.object(self.client.session, "post", return_value=response),
+                    mock.patch.object(response, "iter_content", side_effect=error),
+                    mock.patch.object(response, "close", wraps=response.close) as close,
+                    self.assertRaises(requests.ConnectionError) as raised,
+                ):
+                    if agent:
+                        self.client.agent_chat("session-1", "question", "agent-1")
+                    else:
+                        self.client.chat("session-1", "question")
                 self.assertIs(raised.exception, error)
                 close.assert_called_once_with()
-                response.raw.close.assert_called_once_with()
-                response.raw.release_conn.assert_called_once_with()
+                raw_mock.close.assert_called_once_with()
+                raw_mock.release_conn.assert_called_once_with()
 
-
-    def consume_wire(self, wire, *, agent=False, chunks=None):
+    def consume_wire(
+        self,
+        wire: bytes,
+        *,
+        agent: bool = False,
+        chunks: Iterable[bytes] | None = None,
+    ) -> dict[str, Any]:
         response = requests.Response()
         response.status_code = 200
         response._content_consumed = True
-        with mock.patch.object(
-            response, "iter_content", return_value=iter(chunks or [wire])
-        ), mock.patch.object(
-            self.client.session, "post", return_value=response
-        ), mock.patch.object(response, "close", wraps=response.close) as close:
+        with (
+            mock.patch.object(response, "iter_content", return_value=iter(chunks or [wire])),
+            mock.patch.object(self.client.session, "post", return_value=response),
+            mock.patch.object(response, "close", wraps=response.close) as close,
+        ):
             self.wire_close = close
             if agent:
                 return self.client.agent_chat("session-1", "question", "agent-1")
             return self.client.chat("session-1", "question")
 
-    def test_initial_bom_answer_with_fragmented_transport_in_both_chat_paths(self):
+    def test_initial_bom_answer_with_fragmented_transport_in_both_chat_paths(
+        self,
+    ) -> None:
         wire = (
             '\ufeffdata: {"response_type":"answer","content":"你好"}\r\n\r\n'
             'data: {"response_type":"references",'
@@ -313,7 +324,7 @@ class ChatSSETest(unittest.TestCase):
                 self.assertEqual(result["session_id"], "session-1")
                 self.wire_close.assert_called_once_with()
 
-    def test_initial_bom_references_in_both_chat_paths(self):
+    def test_initial_bom_references_in_both_chat_paths(self) -> None:
         wire = (
             '\ufeffdata: {"response_type":"references",'
             '"knowledge_references":[{"id":"first-reference"}]}\n\n'
@@ -325,7 +336,7 @@ class ChatSSETest(unittest.TestCase):
                 self.assertEqual(result["answer"], "")
                 self.assertEqual(result["references"], [{"id": "first-reference"}])
 
-    def test_initial_bom_error_propagates_and_closes_in_both_chat_paths(self):
+    def test_initial_bom_error_propagates_and_closes_in_both_chat_paths(self) -> None:
         wire = (
             '\ufeffdata: {"response_type":"error","content":"upstream failed"}\n\n'
             'data: {"response_type":"complete"}\n\n'
@@ -336,7 +347,9 @@ class ChatSSETest(unittest.TestCase):
                     self.consume_wire(wire, agent=agent)
                 self.wire_close.assert_called_once_with()
 
-    def test_initial_bom_complete_stops_before_later_events_in_both_chat_paths(self):
+    def test_initial_bom_complete_stops_before_later_events_in_both_chat_paths(
+        self,
+    ) -> None:
         wire = (
             '\ufeffdata: {"response_type":"complete"}\n\n'
             'data: {"response_type":"answer","content":"must not read"}\n\n'
@@ -347,7 +360,7 @@ class ChatSSETest(unittest.TestCase):
                 self.assertEqual(result["answer"], "")
                 self.wire_close.assert_called_once_with()
 
-    def test_only_one_initial_bom_is_ignored(self):
+    def test_only_one_initial_bom_is_ignored(self) -> None:
         wire = (
             '\ufeff\ufeffdata: {"response_type":"answer","content":"unknown field"}\n\n'
             'data: {"response_type":"answer","content":"valid"}\n\n'
@@ -357,9 +370,9 @@ class ChatSSETest(unittest.TestCase):
             with self.subTest(agent=agent):
                 self.assertEqual(self.consume_wire(wire, agent=agent)["answer"], "valid")
 
-    def test_later_bom_field_and_literal_content_keep_their_meaning(self):
+    def test_later_bom_field_and_literal_content_keep_their_meaning(self) -> None:
         wire = (
-            ': heartbeat\n'
+            ": heartbeat\n"
             '\ufeffdata: {"response_type":"answer","content":"unknown field"}\n\n'
             'data: {"response_type":"answer","content":"left\ufeffright"}\n\n'
             'data: {"response_type":"complete"}\n\n'
@@ -369,7 +382,7 @@ class ChatSSETest(unittest.TestCase):
                 result = self.consume_wire(wire, agent=agent)
                 self.assertEqual(result["answer"], "left\ufeffright")
 
-    def test_plain_and_bom_metadata_streams_remain_healthy(self):
+    def test_plain_and_bom_metadata_streams_remain_healthy(self) -> None:
         data = (
             'data: {"response_type":"answer","content":"plain"}\n\n'
             'data: {"response_type":"complete"}\n\n'
@@ -382,18 +395,17 @@ class ChatSSETest(unittest.TestCase):
                     self.assertEqual(result["session_id"], "session-1")
                     self.wire_close.assert_called_once_with()
 
-
-    def test_real_http_initial_bom_stream_in_both_chat_paths(self):
+    def test_real_http_initial_bom_stream_in_both_chat_paths(self) -> None:
         wire = (
             '\ufeffdata: {"response_type":"answer","content":"你好"}\n\n'
             'data: {"response_type":"references",'
             '"knowledge_references":[{"id":"wire-reference"}]}\n\n'
             'data: {"response_type":"complete"}\n\n'
         ).encode()
-        paths = []
+        paths: list[str] = []
 
         class SSEHandler(BaseHTTPRequestHandler):
-            def do_POST(self):
+            def do_POST(self) -> None:
                 self.rfile.read(int(self.headers.get("Content-Length", "0")))
                 paths.append(self.path)
                 self.send_response(200)
@@ -402,8 +414,8 @@ class ChatSSETest(unittest.TestCase):
                 self.end_headers()
                 self.wfile.write(wire)
 
-            def log_message(self, format, *args):
-                pass
+            def log_message(self, format: str, *args: Any) -> None:
+                del format, args
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), SSEHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -414,7 +426,7 @@ class ChatSSETest(unittest.TestCase):
         port = server.server_address[1]
         client = srv.GENYEEClient(f"http://127.0.0.1:{port}/api/v1", "test-key")
         client.session.trust_env = False
-        self.addCleanup(client.session.close)
+        self.addCleanup(client.close)
         for agent in (False, True):
             with self.subTest(agent=agent):
                 if agent:
@@ -429,26 +441,26 @@ class ChatSSETest(unittest.TestCase):
             ["/api/v1/knowledge-chat/session-1", "/api/v1/agent-chat/session-1"],
         )
 
-    def test_bare_cr_complete_does_not_read_another_chunk(self):
-        def chunks():
+    def test_bare_cr_complete_does_not_read_another_chunk(self) -> None:
+        def chunks() -> Iterator[bytes]:
             yield b'data: {"response_type":"complete"}\r\r'
             self.fail("completion waited for another chunk")
 
         self.assertEqual(self.consume_wire(b"", chunks=chunks())["answer"], "")
         self.wire_close.assert_called_once_with()
 
-    def test_real_http_split_crlf_keeps_multiline_answer(self):
+    def test_real_http_split_crlf_keeps_multiline_answer(self) -> None:
         chunks = (
             b'data: {"response_type":"answer",\r',
             '\ndata: "content":"你好"}\r\n\r'.encode(),
             b'\ndata: {"response_type":"complete"}\r',
-            b'\n\r\n',
+            b"\n\r\n",
         )
 
         class SSEHandler(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
 
-            def do_POST(self):
+            def do_POST(self) -> None:
                 self.rfile.read(int(self.headers["Content-Length"]))
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
@@ -459,8 +471,8 @@ class ChatSSETest(unittest.TestCase):
                     self.wfile.write(f"{len(chunk):X}\r\n".encode() + chunk + b"\r\n")
                 self.wfile.write(b"0\r\n\r\n")
 
-            def log_message(self, format, *args):
-                pass
+            def log_message(self, format: str, *args: Any) -> None:
+                del format, args
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), SSEHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -470,10 +482,14 @@ class ChatSSETest(unittest.TestCase):
         self.addCleanup(server.shutdown)
         client = srv.GENYEEClient(f"http://127.0.0.1:{server.server_port}/api/v1", "test-key")
         client.session.trust_env = False
-        self.addCleanup(client.session.close)
-        for chat, args in ((client.chat, ()), (client.agent_chat, ("agent-1",))):
-            with self.subTest(path=chat.__name__):
-                self.assertEqual(chat("session-1", "question", *args)["answer"], "你好")
+        self.addCleanup(client.close)
+        with self.subTest(path="chat"):
+            self.assertEqual(client.chat("session-1", "question")["answer"], "你好")
+        with self.subTest(path="agent_chat"):
+            self.assertEqual(
+                client.agent_chat("session-1", "question", "agent-1")["answer"],
+                "你好",
+            )
 
 
 if __name__ == "__main__":

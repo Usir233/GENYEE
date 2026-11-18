@@ -385,18 +385,16 @@ python main.py --verbose
 }
 ```
 
-### 自定义会话策略（旧版服务端）
+### 会话元数据配置
 
-如果使用支持会话级检索策略的旧版服务端，仍可显式传入 `kb_id` 和策略参数。
+创建会话时仅设置会话标题与描述，检索目标通过 `chat` 或 `agent_chat` 的 `knowledge_base_ids` 传入。
 
 ```json
 {
   "tool": "create_session",
   "arguments": {
-    "kb_id": "kb_123456",
-    "max_rounds": 20,
-    "enable_rewrite": true,
-    "fallback_response": "根据现有知识，我无法准确回答您的问题。请尝试重新表述或联系技术支持。"
+    "title": "技术支持会话",
+    "description": "面向产品文档库的问答会话"
   }
 }
 ```

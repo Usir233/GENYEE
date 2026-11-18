@@ -1,11 +1,10 @@
-"""Regression tests for Wave 7 docker, odl-hybrid, root-runtime, scripts, cloud-image, and mcp-demo fixes."""
+"""Regression tests for docker, odl-hybrid, root-runtime, scripts, cloud-image, and mcp-demo."""
 
 from __future__ import annotations
 
 import asyncio
 import importlib.util
 import os
-from pathlib import Path
 import re
 import stat
 import subprocess
@@ -14,15 +13,19 @@ import tarfile
 import tempfile
 import types
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _load_module_with_stubs(module_name: str, file_path: Path, stubs: dict[str, types.ModuleType]):
+def _load_module_with_stubs(
+    module_name: str,
+    file_path: Path,
+    stubs: dict[str, types.ModuleType],
+):
     saved = {k: sys.modules.get(k) for k in stubs}
     saved_self = sys.modules.get(module_name)
     try:
@@ -68,9 +71,9 @@ def _mcp_stubs() -> dict[str, types.ModuleType]:
         def prompt(self, *args, **kwargs):
             return lambda fn: fn
 
-    server_mod.MCPServer = _FastMCP
-    fastmcp_mod.FastMCP = _FastMCP
-    ts_mod.TransportSecuritySettings = _TransportSecuritySettings
+    server_mod.__dict__["MCPServer"] = _FastMCP
+    fastmcp_mod.__dict__["FastMCP"] = _FastMCP
+    ts_mod.__dict__["TransportSecuritySettings"] = _TransportSecuritySettings
     return {
         "mcp": mcp_mod,
         "mcp.server": server_mod,
@@ -83,7 +86,9 @@ class DockerAndOdlHybridSecurityTests(unittest.TestCase):
     def _load_compose(self, name: str) -> dict:
         return yaml.safe_load((REPO_ROOT / name).read_text(encoding="utf-8"))
 
-    def test_minio_enforces_non_empty_credentials_and_searxng_avoids_static_public_secret(self):
+    def test_minio_enforces_non_empty_credentials_and_searxng_avoids_static_public_secret(
+        self,
+    ):
         for compose_name in ("docker-compose.yml", "docker-compose.dev.yml"):
             raw = (REPO_ROOT / compose_name).read_text(encoding="utf-8")
             self.assertNotIn(
@@ -95,9 +100,9 @@ class DockerAndOdlHybridSecurityTests(unittest.TestCase):
             services = doc["services"]
 
             minio = services["minio"]
-            minio_cmd = " ".join(
-                minio["command"] if isinstance(minio["command"], list) else [str(minio["command"])]
-            )
+            cmd_val = minio["command"]
+            minio_parts = cmd_val if isinstance(cmd_val, list) else [str(cmd_val)]
+            minio_cmd = " ".join(minio_parts)
             self.assertEqual(minio.get("entrypoint"), "sh")
             self.assertIn("MINIO_ROOT_USER", minio_cmd)
             self.assertIn("MINIO_ROOT_PASSWORD", minio_cmd)
@@ -106,12 +111,14 @@ class DockerAndOdlHybridSecurityTests(unittest.TestCase):
             init_cmd = " ".join(
                 searxng_init["command"]
                 if isinstance(searxng_init["command"], list)
-                else [str(searxng_init["command"])]
+                else [str(searxng_init["command"])],
             )
             self.assertIn(".autogen_secret", init_cmd)
             self.assertIn("/dev/urandom", init_cmd)
 
-    def test_langfuse_db_init_and_postgres_healthcheck_avoid_host_shell_sql_interpolation(self):
+    def test_langfuse_db_init_and_postgres_healthcheck_avoid_host_shell_sql_interpolation(
+        self,
+    ):
         for compose_name in ("docker-compose.yml", "docker-compose.dev.yml"):
             doc = self._load_compose(compose_name)
             services = doc["services"]
@@ -131,20 +138,24 @@ class DockerAndOdlHybridSecurityTests(unittest.TestCase):
             lf_cmd = " ".join(
                 lf_init["command"]
                 if isinstance(lf_init["command"], list)
-                else [str(lf_init["command"])]
+                else [str(lf_init["command"])],
             )
             self.assertNotIn("${DB_USER", lf_cmd)
             self.assertNotIn("${LANGFUSE_DB_NAME", lf_cmd)
             self.assertIn("[!A-Za-z0-9_-]", lf_cmd)
 
     def test_dockerfile_duckdb_chown_odl_shlex_cmd_and_compose_env_passthrough(self):
-        dockerfile_app = (REPO_ROOT / "docker/Dockerfile.app").read_text(encoding="utf-8")
+        dockerfile_app = (REPO_ROOT / "docker/Dockerfile.app").read_text(
+            encoding="utf-8",
+        )
         self.assertIn(
             "COPY --from=builder --chown=appuser:appuser /root/.duckdb /home/appuser/.duckdb",
             dockerfile_app,
         )
 
-        dockerfile_odl = (REPO_ROOT / "docker/Dockerfile.odl-hybrid").read_text(encoding="utf-8")
+        dockerfile_odl = (REPO_ROOT / "docker/Dockerfile.odl-hybrid").read_text(
+            encoding="utf-8",
+        )
         self.assertNotIn("${ODL_HYBRID_EXTRA_ARGS}", dockerfile_odl)
         self.assertIn("shlex.split", dockerfile_odl)
 
@@ -162,7 +173,9 @@ class DockerAndOdlHybridSecurityTests(unittest.TestCase):
         dev_compose = (REPO_ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8")
         self.assertIn("ODL_HYBRID_MAX_FILE_SIZE_MB", dev_compose)
 
-    def test_odl_hybrid_empty_port_env_fallback_and_negative_content_length_rejected(self):
+    def test_odl_hybrid_empty_port_env_fallback_and_negative_content_length_rejected(
+        self,
+    ) -> None:
         mod = _load_module_with_stubs(
             "odl_hybrid_under_test",
             REPO_ROOT / "docker/odl-hybrid/opendataloader_pdf/hybrid_server.py",
@@ -246,13 +259,16 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
             )
             self.assertNotIn("unknown", res.stdout.splitlines()[0])
             eval_res = subprocess.run(
-                ["bash", "-c", f'eval "$1"\nprintf "%s" "$EDITION"', "_", res.stdout],
+                ["bash", "-c", 'eval "$1"\nprintf "%s" "$EDITION"', "_", res.stdout],
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            self.assertFalse(pwn_file.exists(), "eval of get_version.sh env must never execute commands")
+            self.assertFalse(
+                pwn_file.exists(),
+                "eval of get_version.sh env must never execute commands",
+            )
             self.assertRegex(eval_res.stdout, r"^[A-Za-z0-9._+-]+$")
 
             json_res = subprocess.run(
@@ -267,24 +283,42 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
             self.assertIsInstance(parsed["version"], str)
             self.assertNotEqual(parsed["version"], "unknown")
 
-    def test_start_all_and_dev_populate_precopied_crlf_env_secrets_with_0600_mode(self):
+    def test_start_all_and_dev_populate_precopied_crlf_env_secrets_with_0600_mode(
+        self,
+    ) -> None:
         start_all = (REPO_ROOT / "scripts/start_all.sh").read_text(encoding="utf-8")
-        # Extract gen_rand + ensure_env_secrets helper or verify start_all populates pre-copied .env with 0600.
+        # Verify start_all populates pre-copied .env with 0600 permissions.
         self.assertIn("chmod 600", start_all.replace("0600", "600"))
         self.assertIn("grep -Fxq --", start_all)
 
         # Execute dev.sh ensure_dev_secrets on a pre-existing 0644 .env file and verify 0600 mode.
         with tempfile.TemporaryDirectory() as tmpdir:
             env_file = Path(tmpdir) / ".env"
-            env_file.write_text("DB_PASSWORD=\nJWT_SECRET=\nSYSTEM_AES_KEY=\n", encoding="utf-8")
+            env_file.write_text(
+                "DB_PASSWORD=\nJWT_SECRET=\nSYSTEM_AES_KEY=\n",
+                encoding="utf-8",
+            )
             os.chmod(env_file, 0o644)
             dev_script = (REPO_ROOT / "scripts/dev.sh").read_text(encoding="utf-8")
-            m_keys = re.search(r"(DEV_AUTO_SECRET_KEYS=\(.*?\n\))", dev_script, re.S)
-            m_rand = re.search(r"(_gen_dev_secret\(\)\s*\(.*?\n\))", dev_script, re.S)
-            m_ensure = re.search(r"(ensure_dev_secrets\(\)\s*\{.*?\n\})", dev_script, re.S)
+            m_keys = re.search(
+                r"(DEV_AUTO_SECRET_KEYS=\(.*?\n\))",
+                dev_script,
+                re.DOTALL,
+            )
+            m_rand = re.search(
+                r"(_gen_dev_secret\(\)\s*\(.*?\n\))",
+                dev_script,
+                re.DOTALL,
+            )
+            m_ensure = re.search(
+                r"(ensure_dev_secrets\(\)\s*\{.*?\n\})",
+                dev_script,
+                re.DOTALL,
+            )
             self.assertIsNotNone(m_keys)
             self.assertIsNotNone(m_rand)
             self.assertIsNotNone(m_ensure)
+            assert m_keys is not None and m_rand is not None and m_ensure is not None
             snippet = (
                 "set -euo pipefail\n"
                 "log_info() { :; }\n"
@@ -300,17 +334,26 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
             # Also verify start_all.sh check_env_file populates pre-copied CRLF .env with 0600 mode
             proj = Path(tmpdir) / "proj"
             proj.mkdir()
-            crlf_env = b"DB_DRIVER=postgres\r\nSTORAGE_TYPE=local\r\nDB_PASSWORD=\r\nJWT_SECRET=\r\nSYSTEM_AES_KEY=\r\n"
+            crlf_env = (
+                b"DB_DRIVER=postgres\r\nSTORAGE_TYPE=local\r\n"
+                b"DB_PASSWORD=\r\nJWT_SECRET=\r\nSYSTEM_AES_KEY=\r\n"
+            )
             (proj / ".env.example").write_bytes(crlf_env)
             (proj / ".env").write_bytes(crlf_env)
             os.chmod(proj / ".env", 0o644)
-            m_src = re.search(r"(_source_env_file\(\)\s*\{.*?\n\})", start_all, re.S)
-            m_chk = re.search(r"(check_env_file\(\)\s*\{.*?\n\})", start_all, re.S)
+            m_src = re.search(
+                r"(_source_env_file\(\)\s*\{.*?\n\})",
+                start_all,
+                re.DOTALL,
+            )
+            m_chk = re.search(r"(check_env_file\(\)\s*\{.*?\n\})", start_all, re.DOTALL)
             self.assertIsNotNone(m_src)
             self.assertIsNotNone(m_chk)
+            assert m_src is not None and m_chk is not None
             start_snippet = (
                 "set -euo pipefail\n"
-                "log_info() { :; }\nlog_warning() { :; }\nlog_success() { :; }\nlog_error() { :; }\n"
+                "log_info() { :; }\nlog_warning() { :; }\n"
+                "log_success() { :; }\nlog_error() { :; }\n"
                 f'PROJECT_ROOT="{proj}"\n'
                 f"{m_src.group(1)}\n"
                 f"{m_chk.group(1)}\n"
@@ -322,7 +365,9 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
             self.assertRegex(populated, r"(?m)^DB_PASSWORD=[A-Za-z0-9]{32}\r?$")
             self.assertRegex(populated, r"(?m)^SYSTEM_AES_KEY=[A-Za-z0-9]{32}\r?$")
 
-    def test_migrate_respects_caller_env_urlencodes_user_and_db_and_redacts_query_password(self):
+    def test_migrate_respects_caller_env_urlencodes_user_and_db_and_redacts_query_password(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             bin_dir = tmp / "bin"
@@ -346,7 +391,7 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
             )
             migrate_copy.chmod(0o755)
             (tmp / ".env").write_bytes(
-                b"DB_HOST=from-dotenv.internal\r\nDB_USER=dotenvuser\r\nDB_PASSWORD=p@ss:1/2\r\nDB_NAME=db/name\r\n"
+                b"DB_HOST=from-dotenv.internal\r\nDB_USER=dotenvuser\r\nDB_PASSWORD=p@ss:1/2\r\nDB_NAME=db/name\r\n",
             )
 
             res = subprocess.run(
@@ -360,12 +405,16 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
                 },
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
             recorded = log_file.read_text(encoding="utf-8").splitlines()
             db_arg = recorded[recorded.index("-database") + 1]
             self.assertIn("caller-host.example", db_arg)
-            self.assertIn("user%3Aname%40corp:p%40ss%3A1%2F2@caller-host.example", db_arg)
+            self.assertIn(
+                "user%3Aname%40corp:p%40ss%3A1%2F2@caller-host.example",
+                db_arg,
+            )
             self.assertIn("/db%2Fname?", db_arg)
 
             # Query-string password redaction + force integer validation
@@ -375,10 +424,14 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
                 env={
                     **os.environ,
                     "PATH": f"{bin_dir}:{os.environ['PATH']}",
-                    "DB_URL": "postgres://db.example:5432/genyee?sslmode=disable&password=super-secret-query-pw",
+                    "DB_URL": (
+                        "postgres://db.example:5432/genyee"
+                        "?sslmode=disable&password=super-secret-query-pw"
+                    ),
                 },
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(res_q.returncode, 0)
             self.assertNotIn("super-secret-query-pw", res_q.stdout + res_q.stderr)
@@ -389,26 +442,41 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
                 env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"},
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertNotEqual(bad_force.returncode, 0)
 
-    def test_offline_load_rejects_symlinks_bundle_sets_searxng_secret_and_export_source_blocks_option_refs(self):
+    def test_offline_load_symlinks_bundle_searxng_secret_and_export_source_refs(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             bundle = Path(tmpdir) / "bundle"
             (bundle / "images").mkdir(parents=True)
-            (bundle / "manifest.env").write_text("BUNDLE_VERSION=1.0.0\n", encoding="utf-8")
+            (bundle / "manifest.env").write_text(
+                "BUNDLE_VERSION=1.0.0\n",
+                encoding="utf-8",
+            )
             (bundle / "SHA256SUMS").write_text("", encoding="utf-8")
             os.symlink("/etc/passwd", bundle / "images" / "escaped.tar")
 
             res = subprocess.run(
-                ["bash", str(REPO_ROOT / "scripts/offline-load.sh"), "--bundle-dir", str(bundle), "--dry-run"],
+                [
+                    "bash",
+                    str(REPO_ROOT / "scripts/offline-load.sh"),
+                    "--bundle-dir",
+                    str(bundle),
+                    "--dry-run",
+                ],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertNotEqual(res.returncode, 0)
             self.assertIn("symlink", (res.stderr + res.stdout).lower())
 
-        bundle_script = (REPO_ROOT / "scripts/offline-bundle.sh").read_text(encoding="utf-8")
+        bundle_script = (REPO_ROOT / "scripts/offline-bundle.sh").read_text(
+            encoding="utf-8",
+        )
         self.assertIn("SEARXNG_SECRET", bundle_script)
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -422,6 +490,7 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertNotEqual(bad_ref.returncode, 0)
 
@@ -435,15 +504,22 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(rel_out.returncode, 0, rel_out.stderr + rel_out.stdout)
             self.assertTrue((Path(tmpdir) / "rel-dir" / "source.tar.gz").is_file())
 
-    def test_cloud_image_prepare_copies_bind_configs_substitutes_genyee_dir_and_cleanup_avoids_tmp_sink(self):
-        cleanup_text = (REPO_ROOT / "scripts/cloud-image/cleanup.sh").read_text(encoding="utf-8")
+    def test_cloud_image_prepare_bind_configs_genyee_dir_and_cleanup_no_tmp_sink(
+        self,
+    ) -> None:
+        cleanup_text = (REPO_ROOT / "scripts/cloud-image/cleanup.sh").read_text(
+            encoding="utf-8",
+        )
         self.assertNotIn("/tmp/cleanup-secrets-found.txt", cleanup_text)
 
-        prepare_text = (REPO_ROOT / "scripts/cloud-image/prepare.sh").read_text(encoding="utf-8")
+        prepare_text = (REPO_ROOT / "scripts/cloud-image/prepare.sh").read_text(
+            encoding="utf-8",
+        )
         self.assertIn("--no-same-owner", prepare_text)
         self.assertIn("docker/searxng/settings.yml", prepare_text)
         self.assertIn("misc/dex-config.yaml", prepare_text)
@@ -491,12 +567,15 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
                 },
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(res.returncode, 0, res.stderr + res.stdout)
             self.assertTrue((target_dir / "docker/searxng/settings.yml").is_file())
             self.assertTrue((target_dir / "misc/dex-config.yaml").is_file())
             app_unit = (systemd_dir / "genyee.service").read_text(encoding="utf-8")
-            firstboot_unit = (systemd_dir / "genyee-firstboot.service").read_text(encoding="utf-8")
+            firstboot_unit = (systemd_dir / "genyee-firstboot.service").read_text(
+                encoding="utf-8",
+            )
             self.assertIn(f"WorkingDirectory={target_dir}", app_unit)
             self.assertNotIn("/opt/GENYEE", app_unit)
             self.assertIn(f"GENYEE_DIR={target_dir}", firstboot_unit)
@@ -504,7 +583,9 @@ class ScriptsAndCloudImageSecurityTests(unittest.TestCase):
 
 
 class McpDemoSecurityTests(unittest.TestCase):
-    def test_mcp_auth_middleware_blocks_unauthenticated_websocket_and_start_sh_mints_32char_token_without_echoing_secret(self):
+    def test_mcp_auth_middleware_websocket_and_start_sh_32char_token_redaction(
+        self,
+    ) -> None:
         mod = _load_module_with_stubs(
             "mcp_demo_server_under_test",
             REPO_ROOT / "examples/mcp-demo/server.py",
@@ -512,18 +593,20 @@ class McpDemoSecurityTests(unittest.TestCase):
         )
         inner_called: list[str] = []
 
-        async def inner_app(scope, receive, send):
+        async def inner_app(scope: object, receive: object, send: object) -> None:
+            del receive, send
+            assert isinstance(scope, dict)
             inner_called.append(scope["type"])
 
         mw = mod.MCPAuthMiddleware(inner_app, token="t" * 40)
 
-        async def exercise():
+        async def exercise() -> list[dict[str, object]]:
             # Lifespan passes through
             await mw({"type": "lifespan"}, None, lambda msg: asyncio.sleep(0))
             # WebSocket without auth must NOT reach inner_app and must close with 4401
-            ws_sent: list[dict] = []
+            ws_sent: list[dict[str, object]] = []
 
-            async def ws_send(msg):
+            async def ws_send(msg: dict[str, object]) -> None:
                 ws_sent.append(msg)
 
             await mw({"type": "websocket", "headers": []}, None, ws_send)
@@ -531,10 +614,11 @@ class McpDemoSecurityTests(unittest.TestCase):
 
         ws_events = asyncio.run(exercise())
         self.assertEqual(inner_called, ["lifespan"])
-        self.assertTrue(
-            any(e.get("type") == "websocket.close" and e.get("code") == 4401 for e in ws_events),
-            f"expected websocket.close 4401, got {ws_events}",
+        ws_closed = any(
+            e.get("type") == "websocket.close" and e.get("code") == 4401
+            for e in ws_events  # check auth close code
         )
+        self.assertTrue(ws_closed, f"expected websocket.close 4401, got {ws_events}")
 
         # Verify start.sh mints >= 32-char .mcp-demo-token (0600) and never prints caller secret
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -545,7 +629,7 @@ class McpDemoSecurityTests(unittest.TestCase):
                 encoding="utf-8",
             )
             start_copy.chmod(0o755)
-            # Stub .venv/bin/{activate,python} + server.py so start.sh runs offline without pip/uvicorn
+            # Stub .venv/bin/{activate,python} + server.py so start.sh runs offline.
             (tmp / "server.py").write_text(
                 "import os\nassert len(os.environ['MCP_SERVER_AUTH_TOKEN']) >= 32\n",
                 encoding="utf-8",
@@ -563,9 +647,15 @@ class McpDemoSecurityTests(unittest.TestCase):
             )
             py_stub.chmod(0o755)
 
-            env_no_tok = {k: v for k, v in os.environ.items() if k != "MCP_SERVER_AUTH_TOKEN"}
+            env_no_tok = dict(os.environ)
+            env_no_tok.pop("MCP_SERVER_AUTH_TOKEN", None)
             res1 = subprocess.run(
-                ["bash", str(start_copy)], cwd=tmp, env=env_no_tok, capture_output=True, text=True
+                ["bash", str(start_copy)],
+                cwd=tmp,
+                env=env_no_tok,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertEqual(res1.returncode, 0, res1.stderr + res1.stdout)
             token_file = tmp / ".mcp-demo-token"
@@ -582,9 +672,65 @@ class McpDemoSecurityTests(unittest.TestCase):
                 env={**env_no_tok, "MCP_SERVER_AUTH_TOKEN": caller_secret},
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(res2.returncode, 0, res2.stderr + res2.stdout)
             self.assertNotIn(caller_secret, res2.stdout)
+
+
+class WemmAndModelCatalogScriptRegressions(unittest.TestCase):
+    def test_wemm_smoke_dot_and_catalog_diff_bounds(
+        self,
+    ) -> None:
+        httpx_stub = types.ModuleType("httpx")
+        pil_stub = types.ModuleType("PIL")
+        pil_stub.__dict__["Image"] = types.SimpleNamespace()
+        pil_stub.__dict__["ImageDraw"] = types.SimpleNamespace()
+
+        smoke_mod = _load_module_with_stubs(
+            "wemm_smoke_test_under_test",
+            REPO_ROOT / "scripts/wemm-transformers/smoke_test.py",
+            {"httpx": httpx_stub, "PIL": pil_stub},
+        )
+        self.assertAlmostEqual(smoke_mod.dot([1.0, 2.0], [3.0, 4.0]), 11.0)
+        with self.assertRaises(ValueError):
+            smoke_mod.dot([1.0, 2.0], [1.0])
+
+        diff_mod = _load_module_with_stubs(
+            "model_catalog_diff_under_test",
+            REPO_ROOT / "scripts/model_catalog_diff.py",
+            {},
+        )
+        import io as _io
+
+        class _OversizedHTTPResponse(_io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        with (
+            mock.patch.object(diff_mod, "MAX_MODELS_DEV_BYTES", 64, create=True),
+            mock.patch.object(
+                diff_mod.urllib.request,
+                "urlopen",
+                return_value=_OversizedHTTPResponse(b'{"a":"' + b"x" * 128 + b'"}'),
+            ),
+            self.assertRaises(SystemExit),
+        ):
+            diff_mod.load_api(None)
+
+        gen_mod = _load_module_with_stubs(
+            "model_catalog_generate_under_test",
+            REPO_ROOT / "scripts/model-catalog/generate.py",
+            {},
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dup_json = Path(tmpdir) / "dup.json"
+            dup_json.write_text('{"a": 1, "a": 2}\n', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
+                gen_mod.load(dup_json)
 
 
 if __name__ == "__main__":

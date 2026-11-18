@@ -3,17 +3,21 @@ import os
 import tempfile
 import unittest
 
-from upload_paths import clear_active_transport, resolve_upload_file_path, set_active_transport
+from upload_paths import (
+    clear_active_transport,
+    resolve_upload_file_path,
+    set_active_transport,
+)
 
 
 class ResolveUploadFilePathTest(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self._old_cwd = os.getcwd()
         self._old_transport = os.environ.get("MCP_TRANSPORT")
         self._old_roots = os.environ.get("MCP_ALLOWED_UPLOAD_DIRS")
         os.environ.pop("MCP_TRANSPORT", None)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         clear_active_transport()
         os.chdir(self._old_cwd)
         if self._old_transport is None:
@@ -25,7 +29,7 @@ class ResolveUploadFilePathTest(unittest.TestCase):
         else:
             os.environ["MCP_ALLOWED_UPLOAD_DIRS"] = self._old_roots
 
-    def test_network_transport_blocks_path_outside_cwd(self):
+    def test_network_transport_blocks_path_outside_cwd(self) -> None:
         os.environ["MCP_TRANSPORT"] = "http"
         os.environ.pop("MCP_ALLOWED_UPLOAD_DIRS", None)
         with tempfile.TemporaryDirectory() as tmp:
@@ -45,7 +49,7 @@ class ResolveUploadFilePathTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 resolve_upload_file_path("/etc/passwd")
 
-    def test_active_transport_without_env_blocks_path_outside_cwd(self):
+    def test_active_transport_without_env_blocks_path_outside_cwd(self) -> None:
         """CLI --transport http sets active transport without MCP_TRANSPORT env."""
         set_active_transport("http")
         os.environ.pop("MCP_ALLOWED_UPLOAD_DIRS", None)
@@ -65,20 +69,23 @@ class ResolveUploadFilePathTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 resolve_upload_file_path("/etc/passwd")
 
-    def test_stdio_rejects_outside_files_and_symlinks(self):
+    def test_stdio_rejects_outside_files_and_symlinks(self) -> None:
         set_active_transport("stdio")
         os.environ.pop("MCP_ALLOWED_UPLOAD_DIRS", None)
-        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
+        with (
+            tempfile.TemporaryDirectory() as root,
+            tempfile.TemporaryDirectory() as outside,
+        ):
             os.chdir(root)
             secret = os.path.join(outside, "secret.txt")
-            with open(secret, "w") as handle:
+            with open(secret, "w", encoding="utf-8") as handle:
                 handle.write("synthetic")
             os.symlink(secret, "escape.txt")
             for path in [secret, "escape.txt"]:
                 with self.assertRaises(ValueError):
                     resolve_upload_file_path(path)
 
-    def test_explicit_allowed_roots(self):
+    def test_explicit_allowed_roots(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             os.environ["MCP_ALLOWED_UPLOAD_DIRS"] = tmp
             allowed = os.path.join(tmp, "doc.md")
@@ -88,14 +95,14 @@ class ResolveUploadFilePathTest(unittest.TestCase):
             resolved = resolve_upload_file_path(os.path.join(tmp, "doc.md"))
             self.assertEqual(resolved, os.path.realpath(allowed))
 
-            outside = tempfile.NamedTemporaryFile(delete=False)
-            try:
+            with tempfile.NamedTemporaryFile(delete=False) as outside:
+                outside_name = outside.name
                 outside.write(b"secret")
-                outside.close()
+            try:
                 with self.assertRaises(ValueError):
-                    resolve_upload_file_path(outside.name)
+                    resolve_upload_file_path(outside_name)
             finally:
-                os.unlink(outside.name)
+                os.unlink(outside_name)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Serve WeMM text/image embeddings with the official Transformers model code."""
+
 import argparse
 import base64
 import binascii
@@ -76,12 +77,20 @@ class Settings:
     allow_unauthenticated: bool = False
 
     def __post_init__(self):
-        if min(self.max_tokens, self.max_pixels, self.max_batch_size, self.cpu_threads) <= 0:
+        limits = (
+            self.max_tokens,
+            self.max_pixels,
+            self.max_batch_size,
+            self.cpu_threads,
+        )
+        if min(limits) <= 0:
             raise ValueError("Resource limits and cpu_threads must be positive.")
         if self.max_batch_size > 256:
             raise ValueError("max_batch_size must not exceed 256.")
         if self.max_pixels < 65536:
-            raise ValueError("max_pixels must be at least 65536 (the model processor's minimum).")
+            raise ValueError(
+                "max_pixels must be at least 65536 (the model processor's minimum).",
+            )
 
     @property
     def name(self):
@@ -137,10 +146,18 @@ def parse_inputs(request, settings, dimensions, default_dimension):
         texts = [request.input] if isinstance(request.input, str) else request.input
         if not texts or len(texts) > settings.max_batch_size:
             bad(f"Supply between 1 and {settings.max_batch_size} independent inputs.")
-        conversations = [[Message(role="user", content=[TextPart(type="text", text=text)])] for text in texts]
+        conversations = [
+            [
+                Message(
+                    role="user",
+                    content=[TextPart(type="text", text=text)],
+                ),
+            ]
+            for text in texts
+        ]
     else:
-        messages = request.messages
-        conversations = [messages] if messages and isinstance(messages[0], Message) else messages
+        msgs = request.messages
+        conversations = [msgs] if msgs and isinstance(msgs[0], Message) else msgs
     if not conversations or len(conversations) > settings.max_batch_size:
         bad(f"Supply between 1 and {settings.max_batch_size} independent inputs.")
     for conversation in conversations:
@@ -157,8 +174,14 @@ def parse_inputs(request, settings, dimensions, default_dimension):
                     chars += len(part.text)
                 else:
                     images += 1
-                    if not part.image_url.url.startswith("data:image/") or ";base64," not in part.image_url.url:
-                        bad("Images must be base64 data:image/... URLs; network URLs and file paths are unsupported.")
+                    if (
+                        not part.image_url.url.startswith("data:image/")
+                        or ";base64," not in part.image_url.url
+                    ):
+                        bad(
+                            "Images must be base64 data:image/... URLs; "
+                            "network URLs and file paths are unsupported.",
+                        )
         if images > 5:
             bad("At most 5 images per conversation.")
         if chars > settings.max_tokens * 16:
@@ -175,7 +198,13 @@ def decode_image(url):
             # Preserve alpha until qwen-vl-utils composites RGBA onto white,
             # matching the official inference path instead of exposing hidden RGB.
             return image.copy()
-    except (ValueError, binascii.Error, UnidentifiedImageError, OSError, Image.DecompressionBombError):
+    except (
+        ValueError,
+        binascii.Error,
+        UnidentifiedImageError,
+        OSError,
+        Image.DecompressionBombError,
+    ):
         bad("Invalid image data.")
 
 
@@ -190,7 +219,13 @@ def prepare_messages(conversation, max_pixels):
             if isinstance(part, TextPart):
                 content.append({"type": "text", "text": part.text})
             else:
-                content.append({"type": "image", "image": decode_image(part.image_url.url), "max_pixels": max_pixels})
+                content.append(
+                    {
+                        "type": "image",
+                        "image": decode_image(part.image_url.url),
+                        "max_pixels": max_pixels,
+                    },
+                )
         messages.append({"role": message.role, "content": content})
     return messages
 
@@ -198,13 +233,22 @@ def prepare_messages(conversation, max_pixels):
 def resolve_device_dtype(torch, settings):
     name = settings.device
     if name == "auto":
-        name = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        name = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
     device = torch.device(name)
     if device.type not in ("cuda", "mps", "cpu"):
         raise ValueError("device must be auto, cpu, mps, cuda or cuda:N.")
     if device.type == "cuda":
         if not torch.cuda.is_available():
-            raise ValueError("CUDA is unavailable; install a CUDA-enabled PyTorch build or select another device.")
+            raise ValueError(
+                "CUDA is unavailable; install a CUDA-enabled PyTorch build "
+                "or select another device.",
+            )
         if device.index is not None and device.index >= torch.cuda.device_count():
             raise ValueError("The requested CUDA device does not exist.")
         with torch.cuda.device(device):
@@ -219,13 +263,17 @@ def resolve_device_dtype(torch, settings):
     if dtype == "auto":
         dtype = "float32" if device.type == "cpu" else "bfloat16" if bf16 else "float16"
     if device.type == "cuda" and dtype == "bfloat16" and not bf16:
-        raise ValueError("This CUDA device does not support bfloat16; use --dtype float16.")
+        raise ValueError(
+            "This CUDA device does not support bfloat16; use --dtype float16.",
+        )
     return device, getattr(torch, dtype)
 
 
 def _resolve_model_load_options(settings):
     is_local_dir = Path(settings.model).is_dir()
-    has_pinned_sha = bool(settings.revision and _COMMIT_SHA_RE.fullmatch(settings.revision))
+    has_pinned_sha = bool(
+        settings.revision and _COMMIT_SHA_RE.fullmatch(settings.revision),
+    )
     if (
         settings.trust_remote_code
         and not settings.local_files_only
@@ -234,7 +282,8 @@ def _resolve_model_load_options(settings):
     ):
         raise ValueError(
             "trust_remote_code=True for a remote Hugging Face repository requires "
-            "pinning --revision to a 40-character lowercase commit SHA or enabling --local-files-only."
+            "pinning --revision to a 40-character lowercase commit SHA "
+            "or enabling --local-files-only.",
         )
     effective_local_files_only = settings.local_files_only or (
         settings.trust_remote_code and is_local_dir
@@ -255,6 +304,7 @@ class Engine:
         # checks never require heavy ML imports and --mps-fallback takes effect.
         import torch
         from transformers import AutoConfig, AutoModel, AutoProcessor
+
         self.settings, self.torch = settings, torch
         self.device, self.dtype = resolve_device_dtype(torch, settings)
         self.lock = threading.Lock()
@@ -263,20 +313,27 @@ class Engine:
         self.dimensions = tuple(getattr(config, "matryoshka_dimensions", ()))
         self.default_dimension = config.text_config.hidden_size
         if not self.dimensions or self.default_dimension not in self.dimensions:
-            raise ValueError("The model must provide WeMM matryoshka_dimensions including its hidden size.")
+            raise ValueError(
+                "The model must provide WeMM matryoshka_dimensions including its hidden size.",
+            )
         self.processor = AutoProcessor.from_pretrained(settings.model, **options)
-        self.model = AutoModel.from_pretrained(
-            settings.model,
-            dtype=self.dtype,
-            attn_implementation="sdpa",
-            use_safetensors=settings.use_safetensors,
-            **options,
-        ).to(self.device).eval()
+        self.model = (
+            AutoModel.from_pretrained(
+                settings.model,
+                dtype=self.dtype,
+                attn_implementation="sdpa",
+                use_safetensors=settings.use_safetensors,
+                **options,
+            )
+            .to(self.device)
+            .eval()
+        )
         if not callable(getattr(self.model, "embedding", None)):
-            raise ValueError("The model must expose WeMM's embedding() method.")
+            raise ValueError("The model must expose WeMM's embedding() method.")  # noqa: TRY004
 
     def encode(self, conversations, dimension):
         from qwen_vl_utils import process_vision_info
+
         torch = self.torch
         vectors, total_tokens = [], 0
         # WeMM's model stores rope_deltas. Keep independent conversations serialized,
@@ -284,22 +341,40 @@ class Engine:
         with self.lock, torch.inference_mode():
             for conversation in conversations:
                 messages = prepare_messages(conversation, self.settings.max_pixels)
-                text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+                text = self.processor.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=False,
+                )
                 images, _ = process_vision_info(messages, image_patch_size=16)
                 inputs = self.processor(text=text, images=images, return_tensors="pt")
                 count = inputs["input_ids"].shape[-1]
                 if count > self.settings.max_tokens:
-                    bad(f"Input has {count} tokens; limit is {self.settings.max_tokens}. Input was not truncated.")
-                last = self.processor.tokenizer.convert_ids_to_tokens(inputs["input_ids"][0, -1].item())
+                    bad(
+                        f"Input has {count} tokens; limit is "
+                        f"{self.settings.max_tokens}. Input was not truncated.",
+                    )
+                last = self.processor.tokenizer.convert_ids_to_tokens(
+                    inputs["input_ids"][0, -1].item(),
+                )
                 if last != "<embedding>":
-                    raise RuntimeError("Processor did not append the official <embedding> token.")
+                    raise RuntimeError(
+                        "Processor did not append the official <embedding> token.",
+                    )
                 inputs = inputs.to(self.device)
                 # Reset explicitly as well, so older official code revisions are safe
                 # when a text request follows a multimodal request.
                 self.model.model.rope_deltas = None
                 vector = self.model.embedding(**inputs, use_cache=False).float()
-                vector = torch.nn.functional.normalize(vector[:, :dimension], dim=-1).cpu()[0]
-                if vector.numel() != dimension or not torch.isfinite(vector).all() or vector.norm() < 0.99:
+                vector = torch.nn.functional.normalize(
+                    vector[:, :dimension],
+                    dim=-1,
+                ).cpu()[0]
+                if (
+                    vector.numel() != dimension
+                    or not torch.isfinite(vector).all()
+                    or vector.norm() < 0.99
+                ):
                     raise RuntimeError("Invalid embedding output.")
                 vectors.append(vector)
                 total_tokens += count
@@ -309,6 +384,7 @@ class Engine:
 
 class BodyLimit:
     """Bound JSON bodies, including chunked requests, before parsing/base64 decoding."""
+
     def __init__(self, app, limit=32 * 1024 * 1024):
         self.app, self.limit = app, limit
 
@@ -323,7 +399,10 @@ class BodyLimit:
             chunk = message.get("body", b"")
             size += len(chunk)
             if size > self.limit:
-                response = JSONResponse({"error": {"message": "Request body exceeds 32 MiB."}}, status_code=413)
+                response = JSONResponse(
+                    {"error": {"message": "Request body exceeds 32 MiB."}},
+                    status_code=413,
+                )
                 return await response(scope, receive, send)
             chunks.append(chunk)
             if not message.get("more_body", False):
@@ -345,8 +424,13 @@ def create_app(settings, engine_factory=Engine):
     async def lifespan(app):
         started = time.monotonic()
         app.state.engine = engine_factory(settings)
-        log.info("Loaded %s on %s/%s in %.1fs", settings.name, app.state.engine.device,
-                 app.state.engine.dtype, time.monotonic() - started)
+        log.info(
+            "Loaded %s on %s/%s in %.1fs",
+            settings.name,
+            app.state.engine.device,
+            app.state.engine.dtype,
+            time.monotonic() - started,
+        )
         yield
         del app.state.engine
 
@@ -364,18 +448,31 @@ def create_app(settings, engine_factory=Engine):
             )
         expected = "Bearer " + settings.api_key
         if not hmac.compare_digest((authorization or "").encode(), expected.encode()):
-            raise HTTPException(401, "Invalid API key.", headers={"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                401,
+                "Invalid API key.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     @app.exception_handler(HTTPException)
     async def api_error(_request, exc):
-        return JSONResponse(status_code=exc.status_code, headers=exc.headers,
-                            content={"error": {"message": exc.detail, "code": exc.status_code}})
+        return JSONResponse(
+            status_code=exc.status_code,
+            headers=exc.headers,
+            content={"error": {"message": exc.detail, "code": exc.status_code}},
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_request, exc):
-        return JSONResponse(status_code=400, content={"error": {
-            "message": "Invalid request: " + exc.errors()[0]["msg"], "code": 400,
-        }})
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "message": "Invalid request: " + exc.errors()[0]["msg"],
+                    "code": 400,
+                },
+            },
+        )
 
     @app.get("/health")
     def health():
@@ -383,19 +480,42 @@ def create_app(settings, engine_factory=Engine):
         safe_revision = None
         if settings.revision and not _is_local_filesystem_path(settings.revision):
             safe_revision = settings.revision
-        return {"status": "ok", "model": settings.name, "backend": "transformers",
-                "device": str(engine.device), "dtype": str(engine.dtype), "revision": safe_revision,
-                "dimensions": engine.dimensions, "default_dimension": engine.default_dimension,
-                "max_tokens": settings.max_tokens, "max_image_pixels": settings.max_pixels}
+        return {
+            "status": "ok",
+            "model": settings.name,
+            "backend": "transformers",
+            "device": str(engine.device),
+            "dtype": str(engine.dtype),
+            "revision": safe_revision,
+            "dimensions": engine.dimensions,
+            "default_dimension": engine.default_dimension,
+            "max_tokens": settings.max_tokens,
+            "max_image_pixels": settings.max_pixels,
+        }
 
     @app.get("/v1/models", dependencies=[Depends(authorize)])
     def models():
-        return {"object": "list", "data": [{"id": settings.name, "object": "model", "created": 0, "owned_by": "tencent"}]}
+        return {
+            "object": "list",
+            "data": [
+                {
+                    "id": settings.name,
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "tencent",
+                },
+            ],
+        }
 
     @app.post("/v1/embeddings", dependencies=[Depends(authorize)])
     def embeddings(request: EmbedRequest):
         engine = app.state.engine
-        conversations, dimension = parse_inputs(request, settings, engine.dimensions, engine.default_dimension)
+        conversations, dimension = parse_inputs(
+            request,
+            settings,
+            engine.dimensions,
+            engine.default_dimension,
+        )
         started = time.monotonic()
         try:
             vectors, tokens = engine.encode(conversations, dimension)
@@ -403,32 +523,74 @@ def create_app(settings, engine_factory=Engine):
             raise
         except Exception:
             log.exception("WeMM inference failed")
-            raise HTTPException(500, "WeMM inference failed; inspect the server log.") from None
+            raise HTTPException(
+                500,
+                "WeMM inference failed; inspect the server log.",
+            ) from None
         data = []
         for index, vector in enumerate(vectors):
-            value = (base64.b64encode(vector.numpy().astype("<f4").tobytes()).decode()
-                     if request.encoding_format == "base64" else vector.tolist())
+            value = (
+                base64.b64encode(vector.numpy().astype("<f4").tobytes()).decode()
+                if request.encoding_format == "base64"
+                else vector.tolist()
+            )
             data.append({"object": "embedding", "index": index, "embedding": value})
-        log.info("Embedded %d inputs, %d tokens, %d dimensions in %.2fs", len(data), tokens,
-                 dimension, time.monotonic() - started)
-        return {"object": "list", "data": data, "model": settings.name,
-                "usage": {"prompt_tokens": tokens, "total_tokens": tokens}}
+        log.info(
+            "Embedded %d inputs, %d tokens, %d dimensions in %.2fs",
+            len(data),
+            tokens,
+            dimension,
+            time.monotonic() - started,
+        )
+        return {
+            "object": "list",
+            "data": data,
+            "model": settings.name,
+            "usage": {"prompt_tokens": tokens, "total_tokens": tokens},
+        }
 
     return app
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default=os.environ.get("WEMM_MODEL", Settings.model), help="WeMM Hugging Face ID or model directory")
-    parser.add_argument("--served-model-name", default=os.environ.get("WEMM_SERVED_MODEL_NAME"), help="API model ID; defaults to the repo ID or directory basename")
-    parser.add_argument("--revision", default=os.environ.get("WEMM_MODEL_REVISION"), help="Hugging Face revision (commit SHA required when --trust-remote-code is used with a remote repo)")
-    parser.add_argument("--device", default="auto", help="auto, cuda, cuda:N, mps or cpu")
-    parser.add_argument("--dtype", choices=("auto", "bfloat16", "float16", "float32"), default="auto")
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("WEMM_MODEL", Settings.model),
+        help="WeMM Hugging Face ID or model directory",
+    )
+    parser.add_argument(
+        "--served-model-name",
+        default=os.environ.get("WEMM_SERVED_MODEL_NAME"),
+        help="API model ID; defaults to the repo ID or directory basename",
+    )
+    parser.add_argument(
+        "--revision",
+        default=os.environ.get("WEMM_MODEL_REVISION"),
+        help=(
+            "Hugging Face revision (commit SHA required when "
+            "--trust-remote-code is used with a remote repo)"
+        ),
+    )
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto, cuda, cuda:N, mps or cpu",
+    )
+    parser.add_argument(
+        "--dtype",
+        choices=("auto", "bfloat16", "float16", "float32"),
+        default="auto",
+    )
     parser.add_argument("--max-tokens", type=int, default=8192)
     parser.add_argument("--max-pixels", type=int, default=1048576)
     parser.add_argument("--max-batch-size", type=int, default=32)
     parser.add_argument("--cpu-threads", type=int, default=8)
-    parser.add_argument("--local-files-only", action="store_true", default=_env_truthy("WEMM_LOCAL_FILES_ONLY", False))
+    parser.add_argument(
+        "--local-files-only",
+        action="store_true",
+        default=_env_truthy("WEMM_LOCAL_FILES_ONLY", False),
+    )
     parser.add_argument(
         "--trust-remote-code",
         action="store_true",
@@ -441,9 +603,17 @@ def main():
         default=_env_truthy("WEMM_ALLOW_UNAUTHENTICATED", False),
         help="Allow unauthenticated requests (isolated local development only)",
     )
-    parser.add_argument("--mps-fallback", action="store_true", help="Allow PyTorch CPU fallback for unsupported MPS ops")
+    parser.add_argument(
+        "--mps-fallback",
+        action="store_true",
+        help="Allow PyTorch CPU fallback for unsupported MPS ops",
+    )
     parser.add_argument("--host", default=os.environ.get("WEMM_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.environ.get("WEMM_PORT", "18080")))
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("WEMM_PORT", "18080")),
+    )
     args = vars(parser.parse_args())
     host, port = args.pop("host"), args.pop("port")
     if args.pop("mps_fallback"):
@@ -452,10 +622,11 @@ def main():
     if not api_key and not args["allow_unauthenticated"]:
         raise SystemExit(
             "Refusing to start WeMM embedding server without WEMM_API_KEY "
-            "(set WEMM_ALLOW_UNAUTHENTICATED=true only for isolated local development)."
+            "(set WEMM_ALLOW_UNAUTHENTICATED=true only for isolated local development).",
         )
     settings = Settings(**args, api_key=api_key)
     import uvicorn
+
     # A single process owns the model; do not add workers without separate GPUs.
     uvicorn.run(create_app(settings), host=host, port=port, workers=1)
 

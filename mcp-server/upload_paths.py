@@ -6,10 +6,10 @@ import builtins
 import io
 import os
 import stat
-from typing import BinaryIO, Dict, List, Optional, Tuple
+from typing import BinaryIO, cast
 
-_active_transport: Optional[str] = None
-_validated_root_stats: Dict[str, Tuple[str, Tuple[int, int]]] = {}
+_active_transport: str | None = None
+_validated_root_stats: dict[str, tuple[str, tuple[int, int]]] = {}
 
 _NETWORK_TRANSPORTS = frozenset({"http", "sse", "streamable-http"})
 
@@ -67,7 +67,7 @@ def _is_sensitive_segment(segment: str) -> bool:
     return lowered in _SENSITIVE_PATH_SEGMENTS or lowered.startswith(".env.")
 
 
-def _has_sensitive_segments(raw_path: str, resolved_path: str, matched_roots: List[str]) -> bool:
+def _has_sensitive_segments(raw_path: str, resolved_path: str, matched_roots: list[str]) -> bool:
     for part in raw_path.replace("\\", "/").split("/"):
         if _is_sensitive_segment(part):
             return True
@@ -82,7 +82,7 @@ def _has_sensitive_segments(raw_path: str, resolved_path: str, matched_roots: Li
     return False
 
 
-def _allowed_upload_roots() -> List[str]:
+def _allowed_upload_roots() -> list[str]:
     """Return directories local files may be read from for upload tools.
 
     GENYEE-HIGH-19: Network transports (http / sse / streamable-http) fail closed
@@ -91,16 +91,14 @@ def _allowed_upload_roots() -> List[str]:
     """
     raw = os.getenv("MCP_ALLOWED_UPLOAD_DIRS", "").strip()
     if raw:
-        roots: List[str] = []
+        roots: list[str] = []
         for part in raw.split(","):
             stripped = part.strip()
             if not stripped:
                 continue
             real_root = os.path.realpath(stripped)
             if os.path.dirname(real_root) == real_root:
-                raise ValueError(
-                    "filesystem root '/' is not permitted in MCP_ALLOWED_UPLOAD_DIRS"
-                )
+                raise ValueError("filesystem root '/' is not permitted in MCP_ALLOWED_UPLOAD_DIRS")
             roots.append(real_root)
         if not roots:
             raise ValueError("allowed upload directories must not be empty")
@@ -182,7 +180,7 @@ def resolve_upload_file_path(file_path: str) -> str:
 def _open_nofollow_from_root(
     anchor_root: str,
     target_path: str,
-    expected_root_id: Optional[Tuple[int, int]] = None,
+    expected_root_id: tuple[int, int] | None = None,
 ) -> int:
     """Walk each relative component from ``anchor_root`` with ``O_NOFOLLOW`` so an
     intermediate directory swapped to a symlink after validation cannot escape."""
@@ -199,10 +197,10 @@ def _open_nofollow_from_root(
         opened_root_st = os.fstat(cur_fd)
         if not stat.S_ISDIR(opened_root_st.st_mode):
             raise ValueError("upload root is not a directory")
-        if expected_root_id is not None and (
-            opened_root_st.st_dev,
-            opened_root_st.st_ino,
-        ) != expected_root_id:
+        if (
+            expected_root_id is not None
+            and (opened_root_st.st_dev, opened_root_st.st_ino) != expected_root_id
+        ):
             raise ValueError("upload root directory changed during open")
 
         for comp in parts[:-1]:
@@ -218,11 +216,11 @@ def open_upload_file_nofollow(resolved_path: str) -> BinaryIO:
     """Open an already-validated upload path using component-wise ``O_NOFOLLOW`` + ``fstat``."""
     # Support unit tests that mock builtins.open on synthetic non-existent paths.
     if builtins.open is not io.open and hasattr(builtins.open, "_mock_name"):
-        return builtins.open(resolved_path, "rb")
+        return cast(BinaryIO, builtins.open(resolved_path, "rb"))  # noqa: SIM115
 
     abs_target = os.path.abspath(resolved_path)
     roots = _allowed_upload_roots()
-    anchor_root: Optional[str] = None
+    anchor_root: str | None = None
     for root in roots:
         try:
             common = os.path.commonpath([root, abs_target])
@@ -271,7 +269,7 @@ def open_upload_file_nofollow(resolved_path: str) -> BinaryIO:
     return os.fdopen(fd, "rb")
 
 
-def open_upload_file(file_path: str) -> Tuple[str, BinaryIO]:
+def open_upload_file(file_path: str) -> tuple[str, BinaryIO]:
     """Validate ``file_path`` and open it atomically with ``O_NOFOLLOW``."""
     resolved = resolve_upload_file_path(file_path)
     return resolved, open_upload_file_nofollow(resolved)

@@ -123,7 +123,7 @@ python main.py --check-only
 ### 项目结构
 ```
 GENYEE/mcp-server/
-├── __init__.py              # 包初始化文件
+├── upload_paths.py          # 本地文件上传安全校验
 ├── main.py                  # 主入口点
 ├── run_server.py           # 原始启动脚本
 ├── genyee_mcp_server.py   # MCP 服务器实现

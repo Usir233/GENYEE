@@ -3,6 +3,7 @@
 
 Requires Docker. Run: python3 scripts/test_embed_nginx.py [nginx-or-ui-image]
 """
+
 import json
 import subprocess
 import sys
@@ -29,13 +30,18 @@ def check():
         (work / "web/50x.html").write_text("backend unavailable")
         config = (ROOT / "frontend/nginx.conf").read_text()
         for key, value in {
-            "APP_SCHEME": "http", "APP_HOST": "127.0.0.1", "APP_PORT": "18081",
-            "MAX_FILE_SIZE": "50m", "MAX_SKILL_BUNDLE_SIZE": "100m",
+            "APP_SCHEME": "http",
+            "APP_HOST": "127.0.0.1",
+            "APP_PORT": "18081",
+            "MAX_FILE_SIZE": "50m",
+            "MAX_SKILL_BUNDLE_SIZE": "100m",
         }.items():
             config = config.replace("${" + key + "}", value)
         config = config.replace("/usr/share/nginx/html", "/check/web")
         config = config.replace("/etc/nginx/api-proxy.conf", "/check/api-proxy.conf")
-        (work / "api-proxy.conf").write_text((ROOT / "frontend/nginx-api-proxy.conf").read_text())
+        (work / "api-proxy.conf").write_text(
+            (ROOT / "frontend/nginx-api-proxy.conf").read_text(),
+        )
         # The real policy handler and token middleware are covered by Go tests.
         # Here vary its responses to verify subrequests, fallback and fail-closed serving.
         fixture = """
@@ -56,7 +62,13 @@ def check():
                 default_type application/json;
                 if ($http_authorization != "Bearer test-token") { return 401; }
                 add_header Mcp-Session-Id "test-session";
-                return 200 '{"method":"$request_method","path":"$request_uri","host":"$http_host","session":"$http_mcp_session_id","protocol":"$http_mcp_protocol_version"}';
+                return 200 '{
+                    "method":"$request_method",
+                    "path":"$request_uri",
+                    "host":"$http_host",
+                    "session":"$http_mcp_session_id",
+                    "protocol":"$http_mcp_protocol_version"
+                }';
             }
             location = /mcp/stream {
                 default_type text/event-stream;
@@ -65,12 +77,26 @@ def check():
         }
         """
         (work / "nginx.conf").write_text(
-            "events {}\nhttp {\n" + (ROOT / "frontend/nginx-http.conf").read_text() + config + fixture + "\n}"
+            "events {}\nhttp {\n"
+            + (ROOT / "frontend/nginx-http.conf").read_text()
+            + config
+            + fixture
+            + "\n}",
         )
         # The Nginx worker runs as an unprivileged user in the container.
         work.chmod(0o755)
-        cid = docker("create", "-p", "127.0.0.1::80",
-                     "--entrypoint", "nginx", IMAGE, "-c", "/check/nginx.conf", "-g", "daemon off;")
+        cid = docker(
+            "create",
+            "-p",
+            "127.0.0.1::80",
+            "--entrypoint",
+            "nginx",
+            IMAGE,
+            "-c",
+            "/check/nginx.conf",
+            "-g",
+            "daemon off;",
+        )
         try:
             docker("cp", str(work), cid + ":/check")
             docker("start", cid)
@@ -79,7 +105,11 @@ def check():
             base = f"http://127.0.0.1:{port}"
 
             def request(path, method="GET", headers=None):
-                req = urllib.request.Request(base + path, method=method, headers=headers or {})
+                req = urllib.request.Request(
+                    base + path,
+                    method=method,
+                    headers=headers or {},
+                )
                 try:
                     return urllib.request.urlopen(req, timeout=3)
                 except urllib.error.HTTPError as error:
@@ -98,29 +128,44 @@ def check():
                 for path in ("/embed/active", "/embed/active?token=ignored"):
                     with request(path, method) as response:
                         assert response.status == 200, (path, response.status)
-                        assert response.headers["Content-Security-Policy"] == "frame-ancestors 'self' https://a.example"
+                        assert (
+                            response.headers["Content-Security-Policy"]
+                            == "frame-ancestors 'self' https://a.example"
+                        )
                         assert response.headers["Cache-Control"] == "no-store"
                         assert "X-Frame-Options" not in response.headers
-                        assert response.read() == (b"embed entry" if method == "GET" else b"")
-            for path, status in (("/embed/disabled", 403), ("/embed/empty", 403),
-                                 ("/embed/unavailable", 500), ("/_embed-frame-policy", 404),
-                                 ("/embed.html", 404)):
+                        expected_body = b"embed entry" if method == "GET" else b""
+                        assert response.read() == expected_body
+            for path, status in (
+                ("/embed/disabled", 403),
+                ("/embed/empty", 403),
+                ("/embed/unavailable", 500),
+                ("/_embed-frame-policy", 404),
+                ("/embed.html", 404),
+            ):
                 with request(path) as response:
                     assert response.status == status, (path, response.status)
                     assert b"embed entry" not in response.read()
             with request("/api/probe") as response:
-                assert response.read().decode() == f"127.0.0.1:{port}", "proxy lost public port"
+                got_host = response.read().decode()
+                assert got_host == f"127.0.0.1:{port}", "proxy lost public port"
             for method in ("POST", "GET", "DELETE"):
-                with request("/mcp/test-endpoint?probe=1", method, {
-                    "Authorization": "Bearer test-token",
-                    "Mcp-Session-Id": "test-session",
-                    "MCP-Protocol-Version": "2025-03-26",
-                }) as response:
+                with request(
+                    "/mcp/test-endpoint?probe=1",
+                    method,
+                    {
+                        "Authorization": "Bearer test-token",
+                        "Mcp-Session-Id": "test-session",
+                        "MCP-Protocol-Version": "2025-03-26",
+                    },
+                ) as response:
                     assert response.status == 200, (method, response.status)
                     assert response.headers["Mcp-Session-Id"] == "test-session"
                     assert json.load(response) == {
-                        "method": method, "path": "/mcp/test-endpoint?probe=1",
-                        "host": f"127.0.0.1:{port}", "session": "test-session",
+                        "method": method,
+                        "path": "/mcp/test-endpoint?probe=1",
+                        "host": f"127.0.0.1:{port}",
+                        "session": "test-session",
                         "protocol": "2025-03-26",
                     }
             with request("/mcp/test-endpoint") as response:

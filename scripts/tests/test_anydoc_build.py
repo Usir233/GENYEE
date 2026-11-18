@@ -1,12 +1,12 @@
 """Exercise build script artifact selection without compiling Rust or downloading."""
+
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = "aarch64-apple-darwin"
@@ -36,7 +36,8 @@ class AnydocBuildTests(unittest.TestCase):
         binary.mkdir()
         # The real collector parses metadata. This stand-in exposes the same
         # resolved target directory so the script can be tested independently.
-        (binary / "go").write_text('''#!/usr/bin/env python3
+        (binary / "go").write_text(
+            """#!/usr/bin/env python3
 import os, sys
 from pathlib import Path
 if sys.argv[1:] == ['env', 'GOHOSTOS']:
@@ -50,8 +51,10 @@ elif sys.argv[1:3] == ['run', '-mod=readonly']:
         print('Rust notices: fixture')
 else:
     raise SystemExit('Unexpected go arguments: ' + repr(sys.argv))
-''')
-        (binary / "cargo").write_text('''#!/usr/bin/env python3
+""",
+        )
+        (binary / "cargo").write_text(
+            """#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
 Path(os.environ['FIXTURE_CALLS']).write_text(json.dumps(sys.argv[1:]))
@@ -64,18 +67,29 @@ target = sys.argv[sys.argv.index('--target') + 1]
 artifact = Path(os.environ['FIXTURE_TARGET_DIR']) / target / 'release/libanydoc_go.a'
 artifact.parent.mkdir(parents=True, exist_ok=True)
 artifact.write_bytes(b'new native archive')
-''')
+""",
+        )
         for path in binary.iterdir():
             path.chmod(0o755)
         self.calls = self.root / "cargo-calls.json"
-        self.env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ["PATH"],
-                        TARGET=TARGET, FIXTURE_CALLS=str(self.calls))
+        self.env = dict(
+            os.environ,
+            PATH=str(binary) + os.pathsep + os.environ["PATH"],
+            TARGET=TARGET,
+            FIXTURE_CALLS=str(self.calls),
+        )
         self.env.pop("CARGO_TARGET_DIR", None)
 
     def build(self, output, *args, success=True):
         self.env["FIXTURE_TARGET_DIR"] = str(output)
-        result = subprocess.run(["bash", str(self.root / "scripts/build-anydoc-lib.sh"), *args],
-                                cwd=self.root, env=self.env, text=True, capture_output=True)
+        result = subprocess.run(
+            ["bash", str(self.root / "scripts/build-anydoc-lib.sh"), *args],
+            cwd=self.root,
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
         if success:
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         else:
@@ -84,9 +98,10 @@ artifact.write_bytes(b'new native archive')
 
     def test_custom_target_dirs_select_fresh_artifact(self):
         for mode, directory in (
-                ("env", self.root / 'external output "quoted"'),
-                ("relative-env", Path("relative output")),
-                ("cargo-config", self.root / "config output")):
+            ("env", self.root / 'external output "quoted"'),
+            ("relative-env", Path("relative output")),
+            ("cargo-config", self.root / "config output"),
+        ):
             with self.subTest(mode=mode):
                 if mode.endswith("env"):
                     self.env["CARGO_TARGET_DIR"] = str(directory)
@@ -94,19 +109,24 @@ artifact.write_bytes(b'new native archive')
                     self.env.pop("CARGO_TARGET_DIR", None)
                 stale = self.crate / "target" / TARGET / "release/libanydoc_go.a"
                 stale.parent.mkdir(parents=True, exist_ok=True)
-                stale.write_bytes(b'stale archive must never ship')
+                stale.write_bytes(b"stale archive must never ship")
                 self.build(directory)
-                self.assertEqual((self.crate / "lib/darwin_arm64/libanydoc_go.a").read_bytes(),
-                                 b'new native archive')
-                self.assertEqual(json.loads(self.calls.read_text())[-2:], ["--target", TARGET])
+                self.assertEqual(
+                    (self.crate / "lib/darwin_arm64/libanydoc_go.a").read_bytes(),
+                    b"new native archive",
+                )
+                self.assertEqual(
+                    json.loads(self.calls.read_text())[-2:],
+                    ["--target", TARGET],
+                )
 
     def test_failed_build_does_not_publish_old_artifact(self):
         destination = self.crate / "lib/darwin_arm64/libanydoc_go.a"
         destination.parent.mkdir(parents=True)
-        destination.write_bytes(b'previous successful build')
+        destination.write_bytes(b"previous successful build")
         self.env["FIXTURE_BUILD_FAIL"] = "1"
         self.build(self.root / "custom target", success=False)
-        self.assertEqual(destination.read_bytes(), b'previous successful build')
+        self.assertEqual(destination.read_bytes(), b"previous successful build")
 
     def test_prepare_only_does_not_compile(self):
         self.build(self.root / "unused target", "--prepare-only")

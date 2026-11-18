@@ -83,7 +83,10 @@ class CloudImageSelectionTest(unittest.TestCase):
             scripts_dir = workdir / "scripts"
             scripts_dir.mkdir()
             shutil.copy2(REPO_ROOT / "scripts" / "dev.sh", scripts_dir / "dev.sh")
-            shutil.copy2(REPO_ROOT / "scripts" / "check-env.sh", scripts_dir / "check-env.sh")
+            shutil.copy2(
+                REPO_ROOT / "scripts" / "check-env.sh",
+                scripts_dir / "check-env.sh",
+            )
 
             bin_dir = workdir / "bin"
             bin_dir.mkdir()
@@ -100,7 +103,10 @@ class CloudImageSelectionTest(unittest.TestCase):
                 ("curl", "ok"),
             ):
                 stub = bin_dir / tool
-                stub.write_text(f"#!/usr/bin/env bash\necho '{out}'\n", encoding="utf-8")
+                stub.write_text(
+                    f"#!/usr/bin/env bash\necho '{out}'\n",
+                    encoding="utf-8",
+                )
                 stub.chmod(0o755)
             # Replace sleep so restart runs instantaneously in tests.
             sleep_stub = bin_dir / "sleep"
@@ -145,7 +151,11 @@ class CloudImageSelectionTest(unittest.TestCase):
                 text=True,
                 check=False,
             )
-            self.assertEqual(sqlite_ok.returncode, 0, sqlite_ok.stdout + sqlite_ok.stderr)
+            self.assertEqual(
+                sqlite_ok.returncode,
+                0,
+                sqlite_ok.stdout + sqlite_ok.stderr,
+            )
             self.assertNotIn("INIT_LLM_MODEL_NAME", sqlite_ok.stdout)
 
             # Wrong-length SYSTEM_AES_KEY must fail check-env.sh

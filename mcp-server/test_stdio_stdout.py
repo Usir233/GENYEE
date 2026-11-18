@@ -10,7 +10,7 @@ MCP_SERVER_DIR = Path(__file__).resolve().parent
 
 
 class StdioStdoutPurityTest(unittest.TestCase):
-    def test_main_check_only_keeps_stdout_empty(self):
+    def test_main_check_only_keeps_stdout_empty(self) -> None:
         result = subprocess.run(
             [sys.executable, "main.py", "--check-only"],
             capture_output=True,
@@ -28,7 +28,7 @@ class StdioStdoutPurityTest(unittest.TestCase):
             "environment check output should appear on stderr",
         )
 
-    def test_run_server_startup_keeps_stdout_empty(self):
+    def test_run_server_startup_keeps_stdout_empty(self) -> None:
         proc = subprocess.Popen(
             [sys.executable, "run_server.py"],
             stdout=subprocess.PIPE,

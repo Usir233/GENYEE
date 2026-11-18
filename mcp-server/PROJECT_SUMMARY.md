@@ -9,7 +9,7 @@
 ```
 GENYEE/mcp-server/
 ├── 📦 核心文件
-│   ├── __init__.py              # 包初始化文件
+│   ├── upload_paths.py         # 本地文件上传安全校验
 │   ├── genyee_mcp_server.py   # MCP 服务器核心实现
 │   └── requirements.txt        # 项目依赖
 │

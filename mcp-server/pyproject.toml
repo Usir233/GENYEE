@@ -62,7 +62,7 @@ genyee-mcp-server = "main:run"
 genyee-server = "run_server:main"
 
 [tool.setuptools]
-py-modules = ["genyee_mcp_server", "upload_paths", "main", "run_server", "run", "test_module"]
+py-modules = ["genyee_mcp_server", "upload_paths", "main", "run_server", "run"]
 include-package-data = true
 
 [tool.setuptools.package-data]
@@ -85,6 +85,9 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["genyee_mcp_server", "main", "run", "run_server", "upload_paths"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -103,6 +106,10 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["setuptools"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "7.0"

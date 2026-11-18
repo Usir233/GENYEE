@@ -1,3 +1,7 @@
+from typing import Any
+
+import pytest
+
 from genyee_mcp_server import GENYEEClient, _normalize_kb_entries
 
 # Shapes mirror GET /knowledge-bases and GET /shared-knowledge-bases wire JSON.
@@ -5,7 +9,7 @@ from genyee_mcp_server import GENYEEClient, _normalize_kb_entries
 # internal/handler/organization.go (sharedKBRow / ListSharedKnowledgeBases).
 
 
-def test_normalize_kb_entries_flattens_shared_rows():
+def test_normalize_kb_entries_flattens_shared_rows() -> None:
     resp = {
         "success": True,
         "data": [
@@ -18,12 +22,10 @@ def test_normalize_kb_entries_flattens_shared_rows():
         ],
         "total": 1,
     }
-    assert _normalize_kb_entries(resp) == [
-        {"id": "kb-shared-1", "name": "Shared Docs"}
-    ]
+    assert _normalize_kb_entries(resp) == [{"id": "kb-shared-1", "name": "Shared Docs"}]
 
 
-def test_normalize_kb_entries_passes_through_owned_rows():
+def test_normalize_kb_entries_passes_through_owned_rows() -> None:
     resp = {
         "success": True,
         "data": [{"id": "kb-owned-1", "name": "My Docs"}],
@@ -31,10 +33,13 @@ def test_normalize_kb_entries_passes_through_owned_rows():
     assert _normalize_kb_entries(resp) == [{"id": "kb-owned-1", "name": "My Docs"}]
 
 
-def test_resolve_kb_id_accepts_shared_kb_name(monkeypatch):
+def test_resolve_kb_id_accepts_shared_kb_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = GENYEEClient("http://example.test/api/v1", "")
 
-    def fake_request(method, path, **kwargs):
+    def fake_request(method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
         if path == "/knowledge-bases":
             return {"success": True, "data": []}
         if path == "/shared-knowledge-bases":
@@ -57,10 +62,13 @@ def test_resolve_kb_id_accepts_shared_kb_name(monkeypatch):
     assert client.resolve_kb_id("技术文档库") == "kb-shared-1"
 
 
-def test_resolve_kb_id_prefers_owned_over_shared_name(monkeypatch):
+def test_resolve_kb_id_prefers_owned_over_shared_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = GENYEEClient("http://example.test/api/v1", "")
 
-    def fake_request(method, path, **kwargs):
+    def fake_request(method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
         if path == "/knowledge-bases":
             return {
                 "success": True,

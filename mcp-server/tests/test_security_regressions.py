@@ -5,13 +5,21 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import os
+import subprocess
+import sys
+import threading
+from collections.abc import Callable, Iterator, MutableMapping
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
-import tempfile
+from typing import Any, BinaryIO, cast
 from unittest import mock
 
 import pytest
+import uvicorn
 from starlette.testclient import TestClient
 
+import genyee_mcp_server as srv
+import run_server
 from upload_paths import (
     clear_active_transport,
     open_upload_file,
@@ -19,11 +27,10 @@ from upload_paths import (
     resolve_upload_file_path,
     set_active_transport,
 )
-import genyee_mcp_server as srv
 
 
 @pytest.fixture(autouse=True)
-def _clean_mcp_env(monkeypatch):
+def _clean_mcp_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     clear_active_transport()
     for key in (
         "MCP_TRANSPORT",
@@ -66,12 +73,14 @@ def _clean_mcp_env(monkeypatch):
         "a" * 257,
     ],
 )
-def test_safe_path_segment_rejects_traversal_and_special_chars(bad_segment):
+def test_safe_path_segment_rejects_traversal_and_special_chars(
+    bad_segment: str,
+) -> None:
     with pytest.raises(ValueError):
         srv._safe_path_segment(bad_segment, "resource_id")
 
 
-def test_safe_path_segment_allows_safe_identifiers():
+def test_safe_path_segment_allows_safe_identifiers() -> None:
     assert srv._safe_path_segment("kb-00000001", "kb_id") == "kb-00000001"
     assert (
         srv._safe_path_segment("550e8400-e29b-41d4-a716-446655440000", "kb_id")
@@ -80,11 +89,14 @@ def test_safe_path_segment_allows_safe_identifiers():
     assert srv._safe_path_segment("wiki_page.v1", "slug") == "wiki_page.v1"
 
 
-def test_wiki_read_page_allows_hierarchical_slugs_and_blocks_cspt(monkeypatch):
+def test_wiki_read_page_allows_hierarchical_slugs_and_blocks_cspt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = srv.GENYEEClient("http://example.invalid/api/v1", "placeholder-key")
     called_endpoints: list[str] = []
 
-    def fake_request(method, endpoint, **kwargs):
+    def fake_request(method: str, endpoint: str, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
         called_endpoints.append(f"{method} {endpoint}")
         return {"data": {"slug": endpoint}}
 
@@ -144,27 +156,31 @@ def test_wiki_read_page_allows_hierarchical_slugs_and_blocks_cspt(monkeypatch):
     ],
 )
 def test_all_genyee_client_path_methods_block_cspt_before_network_io(
-    monkeypatch, call_fn
-):
+    monkeypatch: pytest.MonkeyPatch,
+    call_fn: Callable[[srv.GENYEEClient, str], object],
+) -> None:
     client = srv.GENYEEClient("http://example.invalid/api/v1", "placeholder-key")
-    monkeypatch.setattr(
-        client,
-        "_request",
-        lambda *a, **kw: pytest.fail("HTTP request must not be sent on CSPT input"),
-    )
-    monkeypatch.setattr(
-        client,
-        "_consume_sse_stream",
-        lambda *a, **kw: pytest.fail("SSE request must not be sent on CSPT input"),
-    )
-    monkeypatch.setattr(
-        srv.requests,
-        "post",
-        lambda *a, **kw: pytest.fail("Multipart POST must not be sent on CSPT input"),
-    )
+    try:
+        monkeypatch.setattr(
+            client,
+            "_request",
+            lambda *a, **kw: pytest.fail("HTTP request must not be sent on CSPT input"),
+        )
+        monkeypatch.setattr(
+            client,
+            "_consume_sse_stream",
+            lambda *a, **kw: pytest.fail("SSE request must not be sent on CSPT input"),
+        )
+        monkeypatch.setattr(
+            client.session,
+            "request",
+            lambda *a, **kw: pytest.fail("Session request must not be sent on CSPT input"),
+        )
 
-    with pytest.raises(ValueError):
-        call_fn(client, "../tenants/1/api-keys")
+        with pytest.raises(ValueError):
+            call_fn(client, "../tenants/1/api-keys")
+    finally:
+        client.close()
 
 
 # ---------------------------------------------------------------------------
@@ -174,8 +190,8 @@ def test_all_genyee_client_path_methods_block_cspt_before_network_io(
 
 @pytest.mark.parametrize("transport", ["http", "sse", "streamable-http"])
 def test_remote_transports_fail_closed_without_explicit_upload_dirs(
-    monkeypatch, tmp_path, transport
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, transport: str
+) -> None:
     doc = tmp_path / "doc.txt"
     doc.write_text("allowed only when configured", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
@@ -186,8 +202,8 @@ def test_remote_transports_fail_closed_without_explicit_upload_dirs(
 
 
 def test_resolve_upload_file_path_eliminates_outside_existence_oracle(
-    monkeypatch, tmp_path
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     allowed_dir = tmp_path / "uploads"
     allowed_dir.mkdir()
     outside_dir = tmp_path / "outside"
@@ -204,7 +220,6 @@ def test_resolve_upload_file_path_eliminates_outside_existence_oracle(
     with pytest.raises(ValueError) as exc_missing:
         resolve_upload_file_path(str(missing_outside))
 
-    # Identical error message: caller cannot distinguish existing vs missing files
     assert str(exc_existing.value) == str(exc_missing.value)
     assert "outside allowed upload directories" in str(exc_existing.value)
 
@@ -221,8 +236,8 @@ def test_resolve_upload_file_path_eliminates_outside_existence_oracle(
     ],
 )
 def test_resolve_upload_file_path_blocks_sensitive_hidden_segments(
-    monkeypatch, tmp_path, rel_sensitive
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, rel_sensitive: str
+) -> None:
     monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(tmp_path))
     target = tmp_path / rel_sensitive
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -231,13 +246,14 @@ def test_resolve_upload_file_path_blocks_sensitive_hidden_segments(
     with pytest.raises(ValueError, match="restricted hidden"):
         resolve_upload_file_path(str(target))
 
-    # Non-existent sensitive path also yields the exact same error (no oracle)
     missing_sensitive = tmp_path / "missing_dir" / rel_sensitive
     with pytest.raises(ValueError, match="restricted hidden"):
         resolve_upload_file_path(str(missing_sensitive))
 
 
-def test_open_upload_file_nofollow_blocks_symlink_swap(monkeypatch, tmp_path):
+def test_open_upload_file_nofollow_blocks_symlink_swap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(tmp_path))
     real_file = tmp_path / "doc.txt"
     real_file.write_text("safe content", encoding="utf-8")
@@ -248,13 +264,11 @@ def test_open_upload_file_nofollow_blocks_symlink_swap(monkeypatch, tmp_path):
     with handle:
         assert handle.read() == b"safe content"
 
-    # Simulate TOCTOU replacement of validated path with a symlink prior to open
     real_file.unlink()
     real_file.symlink_to(other_file)
     with pytest.raises(ValueError):
         open_upload_file_nofollow(resolved)
 
-    # Simulate TOCTOU replacement of an intermediate directory with a symlink
     sub_dir = tmp_path / "nested"
     sub_dir.mkdir()
     nested_file = sub_dir / "report.txt"
@@ -279,8 +293,8 @@ def test_open_upload_file_nofollow_blocks_symlink_swap(monkeypatch, tmp_path):
 
 
 def test_open_upload_file_nofollow_fails_closed_outside_roots_and_on_root_swap(
-    monkeypatch, tmp_path
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     allowed_dir = tmp_path / "allowed"
     allowed_dir.mkdir()
     outside_dir = tmp_path / "outside"
@@ -290,21 +304,22 @@ def test_open_upload_file_nofollow_fails_closed_outside_roots_and_on_root_swap(
 
     monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(allowed_dir))
 
-    # Direct call outside allowed roots must fail closed before touching os.open
-    with mock.patch("upload_paths.os.open", side_effect=AssertionError("os.open called")):
-        with pytest.raises(ValueError, match="outside allowed upload directories"):
-            open_upload_file_nofollow(str(outside_secret))
+    with (
+        mock.patch("upload_paths.os.open", side_effect=AssertionError("os.open called")),
+        pytest.raises(ValueError, match="outside allowed upload directories"),
+    ):
+        open_upload_file_nofollow(str(outside_secret))
 
-    # Network transport with unconfigured MCP_ALLOWED_UPLOAD_DIRS must also fail closed
     monkeypatch.delenv("MCP_ALLOWED_UPLOAD_DIRS", raising=False)
     set_active_transport("http")
     safe_file = allowed_dir / "doc.txt"
     safe_file.write_text("content", encoding="utf-8")
-    with mock.patch("upload_paths.os.open", side_effect=AssertionError("os.open called")):
-        with pytest.raises(ValueError, match="disabled"):
-            open_upload_file_nofollow(str(safe_file))
+    with (
+        mock.patch("upload_paths.os.open", side_effect=AssertionError("os.open called")),
+        pytest.raises(ValueError, match="disabled"),
+    ):
+        open_upload_file_nofollow(str(safe_file))
 
-    # Root directory swapped to symlink pointing outside between validate and open
     clear_active_transport()
     monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(allowed_dir))
     resolved = resolve_upload_file_path(str(safe_file))
@@ -318,7 +333,6 @@ def test_open_upload_file_nofollow_fails_closed_outside_roots_and_on_root_swap(
         if allowed_dir.is_symlink():
             allowed_dir.unlink()
 
-    # Root directory replaced by a distinct directory (different inode) between validate and open
     allowed_dir.mkdir()
     fresh_doc = allowed_dir / "doc.txt"
     fresh_doc.write_text("original root content", encoding="utf-8")
@@ -334,8 +348,8 @@ def test_open_upload_file_nofollow_fails_closed_outside_roots_and_on_root_swap(
 
 
 def test_open_upload_file_nofollow_closes_root_fd_on_fstat_mismatch(
-    monkeypatch, tmp_path
-):
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     allowed_dir = tmp_path / "allowed_fstat"
     allowed_dir.mkdir()
     doc = allowed_dir / "doc.txt"
@@ -350,16 +364,16 @@ def test_open_upload_file_nofollow_closes_root_fd_on_fstat_mismatch(
     opened_fds: list[int] = []
     closed_fds: list[int] = []
 
-    def tracking_open(path, flags, *args, **kwargs):
+    def tracking_open(path: str, flags: int, *args: Any, **kwargs: Any) -> int:
         fd = real_os_open(path, flags, *args, **kwargs)
         opened_fds.append(fd)
         return fd
 
-    def tracking_close(fd):
+    def tracking_close(fd: int) -> None:
         closed_fds.append(fd)
-        return real_os_close(fd)
+        real_os_close(fd)
 
-    def mismatched_fstat(fd):
+    def mismatched_fstat(fd: int) -> os.stat_result:
         st = real_os_fstat(fd)
         return os.stat_result(
             (
@@ -370,9 +384,9 @@ def test_open_upload_file_nofollow_closes_root_fd_on_fstat_mismatch(
                 st.st_uid,
                 st.st_gid,
                 st.st_size,
-                st.st_atime,
-                st.st_mtime,
-                st.st_ctime,
+                int(st.st_atime),
+                int(st.st_mtime),
+                int(st.st_ctime),
             )
         )
 
@@ -387,24 +401,27 @@ def test_open_upload_file_nofollow_closes_root_fd_on_fstat_mismatch(
     assert closed_fds == opened_fds
 
 
-def test_run_server_bootstraps_sys_path_outside_mcp_dir(monkeypatch, tmp_path):
+def test_run_server_bootstraps_sys_path_outside_mcp_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     run_server_path = Path(__file__).resolve().parents[1] / "run_server.py"
     mcp_dir = str(run_server_path.parent)
     monkeypatch.chdir(tmp_path)
-    cleaned_path = [p for p in os.sys.path if os.path.abspath(p or ".") != mcp_dir]
-    monkeypatch.setattr(os.sys, "path", cleaned_path)
+    cleaned_path = [p for p in sys.path if os.path.abspath(p or ".") != mcp_dir]
+    monkeypatch.setattr(sys, "path", cleaned_path)
+    monkeypatch.setattr(sys, "argv", ["run_server.py"])
 
     spec = importlib.util.spec_from_file_location("run_server_isolated", run_server_path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    async def _noop_run():
+    async def _noop_run() -> None:
         return None
 
-    assert mcp_dir in os.sys.path
+    assert mcp_dir in sys.path
     with mock.patch("genyee_mcp_server.run", side_effect=_noop_run):
-        mod.main()
+        mod.main([])
 
 
 # ---------------------------------------------------------------------------
@@ -414,8 +431,8 @@ def test_run_server_bootstraps_sys_path_outside_mcp_dir(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("transport", ["http", "sse"])
 def test_require_network_transport_auth_enforces_min_32_char_token(
-    monkeypatch, transport
-):
+    monkeypatch: pytest.MonkeyPatch, transport: str
+) -> None:
     monkeypatch.setenv("MCP_SERVER_AUTH_TOKEN", "short-token-12345")
     with pytest.raises(SystemExit) as exc:
         srv.require_network_transport_auth(transport)
@@ -427,8 +444,8 @@ def test_require_network_transport_auth_enforces_min_32_char_token(
 
 
 def test_wildcard_bind_still_enforces_dns_rebinding_host_and_origin_allowlist(
-    monkeypatch,
-):
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     strong_token = "t" * 32
     monkeypatch.setenv("MCP_ALLOWED_HOSTS", "mcp.internal.test")
     monkeypatch.setenv("MCP_ALLOWED_ORIGINS", "https://portal.internal.test")
@@ -463,7 +480,6 @@ def test_wildcard_bind_still_enforces_dns_rebinding_host_and_origin_allowlist(
     }
 
     with TestClient(app) as client:
-        # Untrusted Host header (DNS rebinding) -> 421 Misdirected Request
         bad_host_resp = client.post(
             "/mcp",
             json=init_payload,
@@ -471,7 +487,6 @@ def test_wildcard_bind_still_enforces_dns_rebinding_host_and_origin_allowlist(
         )
         assert bad_host_resp.status_code == 421
 
-        # Untrusted Origin header -> 403 Forbidden
         bad_origin_resp = client.post(
             "/mcp",
             json=init_payload,
@@ -483,7 +498,6 @@ def test_wildcard_bind_still_enforces_dns_rebinding_host_and_origin_allowlist(
         )
         assert bad_origin_resp.status_code == 403
 
-        # Allowed configured Host + Origin -> 200 OK
         good_resp = client.post(
             "/mcp",
             json=init_payload,
@@ -496,7 +510,9 @@ def test_wildcard_bind_still_enforces_dns_rebinding_host_and_origin_allowlist(
         assert good_resp.status_code == 200
 
 
-def test_admin_tools_disabled_by_default_and_opt_in_via_env(monkeypatch):
+def test_admin_tools_disabled_by_default_and_opt_in_via_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     with pytest.raises(PermissionError, match="MCP_ENABLE_ADMIN_TOOLS"):
         srv.create_tenant("t1", "desc", "biz")
     with pytest.raises(PermissionError, match="MCP_ENABLE_ADMIN_TOOLS"):
@@ -510,11 +526,9 @@ def test_admin_tools_disabled_by_default_and_opt_in_via_env(monkeypatch):
 
 
 def test_mcp_demo_server_enforces_token_length_and_dns_rebinding_protection(
-    monkeypatch,
-):
-    demo_path = (
-        Path(__file__).resolve().parents[2] / "examples" / "mcp-demo" / "server.py"
-    )
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    demo_path = Path(__file__).resolve().parents[2] / "examples" / "mcp-demo" / "server.py"
     spec = importlib.util.spec_from_file_location("mcp_demo_server_test", demo_path)
     assert spec and spec.loader
     demo = importlib.util.module_from_spec(spec)
@@ -534,22 +548,21 @@ def test_mcp_demo_server_enforces_token_length_and_dns_rebinding_protection(
 # ---------------------------------------------------------------------------
 
 
-def test_genyee_client_blocks_cross_origin_redirect_api_key_leak(tmp_path, monkeypatch):
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-    import threading
-
+def test_genyee_client_blocks_cross_origin_redirect_api_key_leak(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     captured_headers: list[dict[str, str]] = []
 
     class AttackerHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self) -> None:
             captured_headers.append({k.lower(): v for k, v in self.headers.items()})
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"data": []}')
 
-        def log_message(self, *_args):
-            pass
+        def log_message(self, format: str, *args: Any) -> None:
+            del format, args
 
     attacker_srv = HTTPServer(("127.0.0.1", 0), AttackerHandler)
     attacker_port = attacker_srv.server_address[1]
@@ -557,7 +570,7 @@ def test_genyee_client_blocks_cross_origin_redirect_api_key_leak(tmp_path, monke
     attacker_thread.start()
 
     class OriginHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self) -> None:
             if self.path == "/api/v1/same-origin-hop":
                 self.send_response(307)
                 self.send_header("Location", "/api/v1/same-origin-final")
@@ -573,52 +586,54 @@ def test_genyee_client_blocks_cross_origin_redirect_api_key_leak(tmp_path, monke
             self.send_header("Location", f"http://127.0.0.1:{attacker_port}/steal")
             self.end_headers()
 
-        def log_message(self, *_args):
-            pass
+        def log_message(self, format: str, *args: Any) -> None:
+            del format, args
 
     origin_srv = HTTPServer(("127.0.0.1", 0), OriginHandler)
     origin_port = origin_srv.server_address[1]
     origin_thread = threading.Thread(target=origin_srv.serve_forever, daemon=True)
     origin_thread.start()
 
+    client = srv.GENYEEClient(f"http://127.0.0.1:{origin_port}/api/v1", "secret-x-api-key")
     try:
-        client = srv.GENYEEClient(
-            f"http://127.0.0.1:{origin_port}/api/v1", "secret-x-api-key"
-        )
-        # Same-origin redirect remains allowed
         assert client._request("GET", "/same-origin-hop") == {"ok": True}
 
-        # Cross-origin redirect must fail before forwarding X-API-Key
         with pytest.raises(srv.RequestException):
             client.list_tenants()
         assert captured_headers == [], "X-API-Key must never reach redirected cross-origin host"
     finally:
+        client.close()
         origin_srv.shutdown()
         attacker_srv.shutdown()
         origin_srv.server_close()
         attacker_srv.server_close()
 
-    # Multipart upload must also disable cross-origin redirect following
     monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(tmp_path))
     upload_doc = tmp_path / "note.txt"
     upload_doc.write_text("hello", encoding="utf-8")
-    with mock.patch.object(srv.requests, "post") as post_mock:
-        post_mock.return_value = mock.Mock(
-            raise_for_status=lambda: None, json=lambda: {"data": {"id": "k-1"}}
-        )
-        upload_client = srv.GENYEEClient("http://example.invalid/api/v1", "secret-key")
-        upload_client.create_knowledge_from_file("kb-1", str(upload_doc))
-        assert post_mock.call_args.kwargs.get("allow_redirects") is False
+    upload_client = srv.GENYEEClient("http://example.invalid/api/v1", "secret-key")
+    try:
+        with mock.patch.object(upload_client.session, "request") as req_mock:
+            req_mock.return_value = mock.Mock(
+                status_code=200,
+                raise_for_status=lambda: None,
+                json=lambda: {"data": {"id": "k-1"}},
+            )
+            upload_client.create_knowledge_from_file("kb-1", str(upload_doc))
+            assert req_mock.call_args.kwargs.get("allow_redirects") is False
+            assert req_mock.call_args.kwargs.get("stream") is True
+    finally:
+        upload_client.close()
 
 
-def test_iter_sse_lines_and_request_bound_oversized_responses(monkeypatch):
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-    import threading
-
+def test_iter_sse_lines_and_request_bound_oversized_responses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(srv, "MAX_SSE_EVENT_BYTES", 2048)
 
     class FakeStreamingResponse:
-        def iter_content(self, chunk_size=512):
+        def iter_content(self, chunk_size: int = 512) -> Iterator[bytes]:
+            del chunk_size
             for _ in range(10):
                 yield b"A" * 512
 
@@ -628,56 +643,59 @@ def test_iter_sse_lines_and_request_bound_oversized_responses(monkeypatch):
     monkeypatch.setattr(srv, "MAX_API_RESPONSE_BYTES", 2048)
 
     class OversizedJSONHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            body = ('{"pad":"' + ("B" * 8192) + '"}').encode("utf-8")
+        def do_GET(self) -> None:
+            body = ('{"pad":"' + ("B" * 8192) + '"}').encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, *_args):
-            pass
+        def log_message(self, format: str, *args: Any) -> None:
+            del format, args
 
     json_srv = HTTPServer(("127.0.0.1", 0), OversizedJSONHandler)
     port = json_srv.server_address[1]
     thread = threading.Thread(target=json_srv.serve_forever, daemon=True)
     thread.start()
+    client = srv.GENYEEClient(f"http://127.0.0.1:{port}/api/v1", "key")
     try:
-        client = srv.GENYEEClient(f"http://127.0.0.1:{port}/api/v1", "key")
         with pytest.raises(srv.RequestException, match="exceeds"):
             client.list_tenants()
     finally:
+        client.close()
         json_srv.shutdown()
         json_srv.server_close()
 
 
-def test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan():
-    async def run():
+def test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan() -> None:
+    async def run() -> None:
         called: list[str] = []
-        sent: list[dict] = []
+        sent: list[MutableMapping[str, Any]] = []
 
-        async def app(scope, receive, send):
-            called.append(scope["type"])
+        async def app(
+            scope: srv.ASGIScope,
+            receive: srv.ASGIReceive,
+            send: srv.ASGISend,
+        ) -> None:
+            del receive, send
+            called.append(str(scope["type"]))
 
-        async def send(msg):
+        async def send(msg: MutableMapping[str, Any]) -> None:
             sent.append(msg)
 
-        async def receive():
+        async def receive() -> MutableMapping[str, Any]:
             return {"type": "websocket.connect"}
 
         mw = srv.MCPAuthMiddleware(app, "secret-token")
 
-        # Lifespan passes through without auth headers
         await mw({"type": "lifespan"}, receive, send)
         assert called == ["lifespan"]
 
-        # Unauthenticated websocket must be rejected and never reach app
         sent.clear()
         await mw({"type": "websocket", "headers": []}, receive, send)
         assert called == ["lifespan"]
         assert any(m.get("type") == "websocket.close" and m.get("code") == 1008 for m in sent)
 
-        # Authenticated websocket passes through
         await mw(
             {
                 "type": "websocket",
@@ -691,10 +709,7 @@ def test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan():
     asyncio.run(run())
 
 
-def test_non_positive_timeouts_and_invalid_mcp_port_env_handling():
-    import subprocess
-    import sys
-
+def test_non_positive_timeouts_and_invalid_mcp_port_env_handling() -> None:
     mcp_dir = Path(__file__).resolve().parents[1]
 
     for var_name in ("GENYEE_API_TIMEOUT", "GENYEE_CHAT_TIMEOUT"):
@@ -703,7 +718,11 @@ def test_non_positive_timeouts_and_invalid_mcp_port_env_handling():
             env["PYTHONDONTWRITEBYTECODE"] = "1"
             env[var_name] = bad_val
             res = subprocess.run(
-                [sys.executable, "-c", f"import genyee_mcp_server as s; print(s.{var_name})"],
+                [
+                    sys.executable,
+                    "-c",
+                    f"import genyee_mcp_server as s; print(s.{var_name})",
+                ],
                 cwd=mcp_dir,
                 env=env,
                 capture_output=True,
@@ -726,3 +745,363 @@ def test_non_positive_timeouts_and_invalid_mcp_port_env_handling():
             timeout=20,
         )
         assert res.returncode == 0, res.stderr
+
+
+# ---------------------------------------------------------------------------
+# Wave 5 Shard D Regressions: Streaming Upload, Session Lifecycle, SSE Cap &
+# UTF-8 Safety, 204/Error Handling, KB Resolution, Bounds & Entrypoint Parity
+# ---------------------------------------------------------------------------
+
+
+def test_create_knowledge_from_file_streams_chunks_via_session_without_header_mutation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    received_requests: list[tuple[dict[str, str], bytes]] = []
+
+    class UploadHandler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length)
+            received_requests.append(({k.lower(): v for k, v in self.headers.items()}, body))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            resp = b'{"data":{"id":"k-streamed"}}'
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            del format, args
+
+    upload_srv = ThreadingHTTPServer(("127.0.0.1", 0), UploadHandler)
+    upload_thread = threading.Thread(target=upload_srv.serve_forever, daemon=True)
+    upload_thread.start()
+
+    monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(tmp_path))
+    doc = tmp_path / "large.bin"
+    payload = b"0123456789abcdef" * 8192  # 128 KiB (> 64 KiB chunk size)
+    doc.write_bytes(payload)
+
+    real_open_nofollow = srv.open_upload_file_nofollow
+    read_sizes: list[int] = []
+
+    def tracking_open(path: str) -> BinaryIO:
+        raw_handle = real_open_nofollow(path)
+
+        class TrackingReader:
+            def __init__(self, wrapped: BinaryIO) -> None:
+                self._wrapped = wrapped
+
+            def fileno(self) -> int:
+                return self._wrapped.fileno()
+
+            def tell(self) -> int:
+                return self._wrapped.tell()
+
+            def read(self, size: int = -1) -> bytes:
+                read_sizes.append(size)
+                return self._wrapped.read(size)
+
+            def close(self) -> None:
+                self._wrapped.close()
+
+            def __enter__(self) -> TrackingReader:
+                return self
+
+            def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+                self.close()
+
+        return cast(BinaryIO, TrackingReader(raw_handle))
+
+    monkeypatch.setattr(srv, "open_upload_file_nofollow", tracking_open)
+
+    try:
+        client = srv.GENYEEClient(
+            f"http://127.0.0.1:{upload_srv.server_address[1]}/api/v1",
+            "upload-api-key",
+        )
+        client.session.trust_env = False
+        try:
+            with mock.patch.object(
+                client.session, "request", wraps=client.session.request
+            ) as session_req:
+                res = client.create_knowledge_from_file(
+                    "kb-1",
+                    str(doc),
+                    enable_multimodel=False,
+                    file_name="docs/large.bin",
+                )
+            assert res == {"data": {"id": "k-streamed"}}
+            assert session_req.called
+            assert session_req.call_args.kwargs.get("stream") is True
+            assert session_req.call_args.kwargs.get("allow_redirects") is False
+            assert client.session.headers.get("Content-Type") == "application/json"
+            assert read_sizes and all(0 < s <= 65536 for s in read_sizes)
+            assert len(received_requests) == 1
+            headers, wire_body = received_requests[0]
+            assert headers.get("x-api-key") == "upload-api-key"
+            assert "multipart/form-data; boundary=" in headers.get("content-type", "")
+            assert b'name="enable_multimodel"\r\n\r\nfalse' in wire_body
+            assert b'name="fileName"\r\n\r\ndocs/large.bin' in wire_body
+            assert payload in wire_body
+        finally:
+            client.close()
+    finally:
+        upload_srv.shutdown()
+        upload_srv.server_close()
+
+
+def test_genyee_client_closes_dead_worker_thread_sessions_and_on_close() -> None:
+    client = srv.GENYEEClient("http://example.invalid/api/v1", "key")
+    closed_flags: list[bool] = []
+
+    def spawn_and_finish() -> None:
+        sess = client.session
+        orig_close = sess.close
+
+        def mark_closed() -> None:
+            closed_flags.append(True)
+            orig_close()
+
+        sess.__dict__["close"] = mark_closed
+
+    t1 = threading.Thread(target=spawn_and_finish)
+    t1.start()
+    t1.join()
+
+    t2 = threading.Thread(target=spawn_and_finish)
+    t2.start()
+    t2.join()
+    assert len(closed_flags) >= 1
+
+    client.close()
+    assert len(closed_flags) == 2
+
+
+def test_sse_stream_enforces_cumulative_cap_utf8_safety_and_omits_debug_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = srv.GENYEEClient("http://example.invalid/api/v1", "key")
+    try:
+        valid_wire = (
+            'data: {"response_type":"answer","content":"你好🚀"}\n\n'
+            'data: {"response_type":"complete"}\n\n'
+        ).encode()
+        byte_chunks = [bytes([b]) for b in valid_wire]
+        resp_ok = srv.requests.Response()
+        resp_ok.status_code = 200
+        resp_ok._content_consumed = True
+        with (
+            mock.patch.object(resp_ok, "iter_content", return_value=iter(byte_chunks)),
+            mock.patch.object(client.session, "post", return_value=resp_ok),
+        ):
+            out = client.chat("sess-1", "hi")
+        assert out["answer"] == "你好🚀"
+        assert "_debug_events" not in out
+
+        bad_utf8_wire = (
+            b'data: {"response_type":"answer","content":"prefix-\xff-suffix"}\n\n'
+            b'data: {"response_type":"complete"}\n\n'
+        )
+        resp_bad = srv.requests.Response()
+        resp_bad.status_code = 200
+        resp_bad._content_consumed = True
+        with (
+            mock.patch.object(resp_bad, "iter_content", return_value=iter([bad_utf8_wire])),
+            mock.patch.object(client.session, "post", return_value=resp_bad),
+        ):
+            out_bad = client.chat("sess-1", "hi")
+        assert "\ufffd" in out_bad["answer"]
+
+        monkeypatch.setattr(srv, "MAX_SSE_STREAM_BYTES", 120)
+        many_frames = (
+            b'data: {"response_type":"answer","content":"0123456789abcdef"}\n\n' * 5
+            + b'data: {"response_type":"complete"}\n\n'
+        )
+        resp_cap = srv.requests.Response()
+        resp_cap.status_code = 200
+        resp_cap._content_consumed = True
+        with (
+            mock.patch.object(resp_cap, "iter_content", return_value=iter([many_frames])),
+            mock.patch.object(client.session, "post", return_value=resp_cap),
+            mock.patch.object(resp_cap, "close", wraps=resp_cap.close) as close_spy,
+        ):
+            with pytest.raises(srv.RequestException, match="SSE stream exceeds"):
+                client.chat("sess-1", "hi")
+            assert close_spy.called
+    finally:
+        client.close()
+
+
+def test_read_bounded_json_handles_204_structured_errors_and_non_json() -> None:
+    resp_204 = srv.requests.Response()
+    resp_204.status_code = 204
+    resp_204.headers["Content-Length"] = "0"
+    with mock.patch.object(resp_204, "iter_content", return_value=iter([])):
+        assert srv._read_bounded_json_response(resp_204) == {}
+
+    resp_400 = srv.requests.Response()
+    resp_400.status_code = 400
+    resp_400.url = "http://example.invalid/api/v1/knowledge-bases"
+    err_bytes = b'{"success":false,"error":{"code":1000,"message":"Invalid chunk overlap"}}'
+    with mock.patch.object(resp_400, "iter_content", return_value=iter([err_bytes])):
+        with pytest.raises(srv.requests.HTTPError, match="Invalid chunk overlap") as exc_info:
+            srv._read_bounded_json_response(resp_400)
+        assert exc_info.value.response is resp_400
+
+    resp_502 = srv.requests.Response()
+    resp_502.status_code = 502
+    resp_502.url = "http://example.invalid/api/v1/models"
+    with mock.patch.object(
+        resp_502, "iter_content", return_value=iter([b"<html>Bad Gateway</html>"])
+    ):
+        with pytest.raises(srv.requests.HTTPError, match="502") as exc_502:
+            srv._read_bounded_json_response(resp_502)
+        assert exc_502.value.response is resp_502
+
+    resp_html = srv.requests.Response()
+    resp_html.status_code = 200
+    resp_html.url = "http://example.invalid/api/v1/models"
+    with (
+        mock.patch.object(resp_html, "iter_content", return_value=iter([b"<html>login</html>"])),
+        pytest.raises(srv.RequestException, match="non-JSON"),
+    ):
+        srv._read_bounded_json_response(resp_html)
+
+
+def test_resolve_kb_id_hardening_tool_resolution_and_parameter_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = srv.GENYEEClient("http://example.invalid/api/v1", "key")
+    try:
+        monkeypatch.setattr(
+            client,
+            "_request",
+            lambda *a, **kw: pytest.fail("must not send HTTP request on blank kb_id"),
+        )
+        for bad_kb in ("", "   "):
+            with pytest.raises(ValueError):
+                client.resolve_kb_id(bad_kb)
+
+        def fake_kb_list(method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+            del method, kwargs
+            if path == "/knowledge-bases":
+                return {
+                    "data": [
+                        {"id": "kb-null-name", "name": None},
+                        {"id": "kb-custom-id", "name": "Engineering KB"},
+                    ]
+                }
+            return {"data": []}
+
+        monkeypatch.setattr(client, "_request", fake_kb_list)
+        assert client.resolve_kb_id("kb-custom-id") == "kb-custom-id"
+        assert client.resolve_kb_id("engineering kb") == "kb-custom-id"
+
+        monkeypatch.setattr(
+            client,
+            "_request",
+            lambda *a, **kw: pytest.fail("must not send HTTP request on invalid bounds"),
+        )
+        with pytest.raises(ValueError):
+            client.list_knowledge("kb-1", page=0)
+        with pytest.raises(ValueError):
+            client.list_knowledge("kb-1", page_size=101)
+        with pytest.raises(ValueError):
+            client.list_sessions(page=True)
+        with pytest.raises(ValueError):
+            client.list_chunks("know-1", page_size=0)
+        with pytest.raises(ValueError):
+            client.wiki_search("kb-1", "q", limit=0)
+        with pytest.raises(ValueError):
+            client.wiki_index_view("kb-1", limit=101)
+        with pytest.raises(ValueError):
+            client.hybrid_search("kb-1", "q", {"vector_threshold": 1.5})
+        with pytest.raises(ValueError):
+            client.hybrid_search("kb-1", "q", {"keyword_threshold": -0.1})
+        with pytest.raises(ValueError):
+            client.hybrid_search("kb-1", "q", {"match_count": 0})
+        with pytest.raises(ValueError):
+            client.create_knowledge_from_url("kb-1", "file:///etc/passwd")
+        with pytest.raises(ValueError):
+            client.create_knowledge_from_text("kb-1", "t", "c", status="invalid")
+        with pytest.raises(ValueError):
+            client.update_knowledge_from_text("know-1", "c", status="archived")
+    finally:
+        client.close()
+
+    with (
+        mock.patch.object(srv.client, "resolve_kb_id", return_value="uuid-kb") as rkb,
+        mock.patch.object(srv.client, "wiki_search", return_value={"data": []}) as ws,
+    ):
+        srv.wiki_search("Engineering KB", "auth", limit=5)
+    rkb.assert_called_once_with("Engineering KB")
+    ws.assert_called_once_with("uuid-kb", "auth", 5)
+
+
+def test_agent_chat_sets_agent_enabled_and_list_agents_drops_dead_pagination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = srv.GENYEEClient("http://example.invalid/api/v1", "key")
+    try:
+        captured: dict[str, Any] = {}
+
+        def fake_sse(url: str, body: dict[str, Any]) -> dict[str, Any]:
+            captured["url"] = url
+            captured["body"] = body
+            return {"answer": "ok", "references": []}
+
+        monkeypatch.setattr(client, "_consume_sse_stream", fake_sse)
+        client.agent_chat("sess-1", "hello", "agent-1")
+        assert captured["body"]["agent_enabled"] is True
+
+        req_calls: list[tuple[str, str, dict[str, Any]]] = []
+
+        def fake_req(method: str, path: str, **kw: Any) -> dict[str, Any]:
+            req_calls.append((method, path, kw))
+            return {"data": []}
+
+        monkeypatch.setattr(client, "_request", fake_req)
+        assert client.list_agents() == {"data": []}
+        assert req_calls == [("GET", "/agents", {})]
+    finally:
+        client.close()
+
+
+def test_run_server_transport_parity_and_uvicorn_graceful_shutdown_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MCP_TRANSPORT", " HTTP ")
+    monkeypatch.setenv("MCP_HOST", "0.0.0.0")
+    monkeypatch.setenv("MCP_PORT", "9123")
+    args = run_server.parse_arguments([])
+    assert args.transport == "http"
+    assert args.host == "0.0.0.0"
+    assert args.port == 9123
+
+    dispatched: list[tuple[str, str, int]] = []
+
+    async def fake_run_http(host: str, port: int) -> None:
+        dispatched.append(("http", host, port))
+
+    with mock.patch("genyee_mcp_server.run_http", side_effect=fake_run_http):
+        run_server.main(["--transport", "http", "--host", "127.0.0.1", "--port", "8765"])
+    assert dispatched == [("http", "127.0.0.1", 8765)]
+
+    monkeypatch.setenv("MCP_SERVER_AUTH_TOKEN", "x" * 32)
+    captured_configs: list[uvicorn.Config] = []
+
+    class DummyServer:
+        def __init__(self, cfg: uvicorn.Config) -> None:
+            captured_configs.append(cfg)
+
+        async def serve(self) -> None:
+            return None
+
+    with mock.patch.object(uvicorn, "Server", DummyServer):
+        asyncio.run(srv.run_http("127.0.0.1", 8765))
+        asyncio.run(srv.run_sse("127.0.0.1", 8766))
+
+    assert len(captured_configs) == 2
+    for cfg in captured_configs:
+        assert cfg.timeout_graceful_shutdown == srv.MCP_GRACEFUL_SHUTDOWN_TIMEOUT

@@ -5,6 +5,8 @@
 用法: python check_imports.py
 """
 
+import mcp
+
 try:
     import mcp.server.stdio  # noqa: F401
 
@@ -14,7 +16,7 @@ except ImportError as e:
 
 try:
     # mcp 2.x high-level server API (MCPServer, formerly FastMCP).
-    from mcp.server import MCPServer
+    from mcp.server import MCPServer  # noqa: F401
 
     print("✓ MCPServer 从 mcp.server 导入成功")
 except ImportError as e:
@@ -33,9 +35,6 @@ try:
     print("✓ mcp_types 导入成功")
 except ImportError as e:
     print(f"✗ mcp_types 导入失败: {e}")
-
-# 检查 MCP 包结构
-import mcp
 
 print(f"\nMCP 包版本: {getattr(mcp, '__version__', '未知')}")
 print(f"MCP 包路径: {mcp.__file__}")

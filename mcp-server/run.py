@@ -15,14 +15,12 @@ import sys
 from pathlib import Path
 
 
-def main():
+def main() -> None:
     """简单的启动函数"""
-    # 添加当前目录到 Python 路径
     current_dir = Path(__file__).parent.absolute()
     if str(current_dir) not in sys.path:
         sys.path.insert(0, str(current_dir))
 
-    # 检查环境变量
     base_url = os.getenv("GENYEE_BASE_URL") or "http://localhost:8080/api/v1"
     api_key = os.getenv("GENYEE_API_KEY") or ""
 
@@ -32,7 +30,6 @@ def main():
     print("-" * 40, file=sys.stderr)
 
     try:
-        # 导入并运行
         from main import sync_main
 
         sync_main()

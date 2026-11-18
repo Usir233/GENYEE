@@ -1,13 +1,12 @@
-"""Unit tests for scripts/dev.sh initial secret generation, CRLF .env support, and scripts/migrate.sh defaults."""
+"""Unit tests for dev.sh secret generation, CRLF .env support, and migrate.sh defaults."""
 
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import tempfile
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -49,15 +48,20 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
 
         before = self._parse_env_lines(env_path.read_text(encoding="utf-8"))
         for key in EXPECTED_SECRET_KEYS:
-            self.assertEqual(before.get(key), "", f"Expected {key} to start empty in .env.example")
+            self.assertEqual(
+                before.get(key),
+                "",
+                f"Expected {key} to start empty in .env.example",
+            )
 
         cmd = (
             'source "./scripts/dev.sh" && '
             'ensure_dev_secrets ".env" && '
-            'load_env_files && '
-            'for k in DB_PASSWORD REDIS_PASSWORD JWT_SECRET SYSTEM_AES_KEY SYSTEM_SIGNING_KEY GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do '
+            "load_env_files && "
+            "for k in DB_PASSWORD REDIS_PASSWORD JWT_SECRET SYSTEM_AES_KEY "
+            "SYSTEM_SIGNING_KEY GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do "
             '  printf "%s=%s\\n" "$k" "${!k}"; '
-            'done'
+            "done"
         )
         res = subprocess.run(
             ["bash", "-c", cmd],
@@ -76,7 +80,11 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
         generated_values = set()
         for key in EXPECTED_SECRET_KEYS:
             val = after.get(key, "")
-            self.assertRegex(val, r"^[A-Za-z0-9]{32}$", f"Invalid generated secret for {key}")
+            self.assertRegex(
+                val,
+                r"^[A-Za-z0-9]{32}$",
+                f"Invalid generated secret for {key}",
+            )
             self.assertEqual(loaded.get(key), val)
             generated_values.add(val)
 
@@ -87,12 +95,24 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
         # Verify scripts/check-env.sh succeeds on the populated .env when Go & npm are mocked.
         mock_bin = self.workdir / "bin"
         mock_bin.mkdir()
-        for tool, out in (("go", "go version go1.24.0 linux/amd64"), ("npm", "10.0.0"), ("docker", "Docker 27.0")):
+        for tool, out in (
+            ("go", "go version go1.24.0 linux/amd64"),
+            ("npm", "10.0.0"),
+            ("docker", "Docker 27.0"),
+        ):
             p = mock_bin / tool
-            p.write_text(f"#!/usr/bin/env bash\nif [[ \"${{1:-}}\" == \"info\" ]]; then exit 0; fi\necho '{out}'\n", encoding="utf-8")
+            p.write_text(
+                "#!/usr/bin/env bash\n"
+                'if [[ "${1:-}" == "info" ]]; then exit 0; fi\n'
+                f"echo '{out}'\n",
+                encoding="utf-8",
+            )
             p.chmod(0o755)
 
-        env = dict(os.environ, PATH=f"{mock_bin}{os.pathsep}{os.environ.get('PATH', '')}")
+        env = dict(
+            os.environ,
+            PATH=f"{mock_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+        )
         check_res = subprocess.run(
             ["bash", str(self.workdir / "scripts" / "check-env.sh")],
             cwd=self.workdir,
@@ -105,9 +125,19 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
 
     def test_ensure_dev_secrets_supports_crlf_and_preserves_non_empty_values(self):
         example_lf = (ROOT / ".env.example").read_text(encoding="utf-8")
-        # Pre-set two keys (including one ending in 'r' to catch BSD sed \r regressions) and convert to CRLF.
-        preset = re.sub(r"^DB_PASSWORD=.*$", "DB_PASSWORD=CustomDbPassEndingIn_r", example_lf, flags=re.M)
-        preset = re.sub(r"^JWT_SECRET=.*$", "JWT_SECRET=CustomJwtSecretValue1234567890!!", preset, flags=re.M)
+        # Pre-set two keys (including one ending in 'r' for BSD sed \r) and convert to CRLF.
+        preset = re.sub(
+            r"^DB_PASSWORD=.*$",
+            "DB_PASSWORD=CustomDbPassEndingIn_r",
+            example_lf,
+            flags=re.MULTILINE,
+        )
+        preset = re.sub(
+            r"^JWT_SECRET=.*$",
+            "JWT_SECRET=CustomJwtSecretValue1234567890!!",
+            preset,
+            flags=re.MULTILINE,
+        )
         crlf_bytes = preset.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8")
 
         env_path = self.workdir / ".env"
@@ -117,8 +147,7 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
         mock_bin.mkdir()
         docker_stub = mock_bin / "docker"
         docker_stub.write_text(
-            "#!/usr/bin/env bash\n"
-            "exit 0\n",
+            "#!/usr/bin/env bash\nexit 0\n",
             encoding="utf-8",
         )
         docker_stub.chmod(0o755)
@@ -128,7 +157,7 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
             PATH=f"{mock_bin}{os.pathsep}{os.environ.get('PATH', '')}",
             DEV_REMOTE_HOST="127.0.0.1",
         )
-        # Run `./scripts/dev.sh start` end-to-end (DEV_REMOTE_HOST short-circuits compose up after secret gen & load).
+        # Run `./scripts/dev.sh start` end-to-end (DEV_REMOTE_HOST skips compose up).
         res = subprocess.run(
             ["bash", str(self.workdir / "scripts" / "dev.sh"), "start"],
             cwd=self.workdir,
@@ -147,12 +176,16 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
         for key in EXPECTED_SECRET_KEYS:
             if key in ("DB_PASSWORD", "JWT_SECRET"):
                 continue
-            self.assertRegex(after.get(key, ""), r"^[A-Za-z0-9]{32}$", f"CRLF empty {key} was not populated")
+            self.assertRegex(
+                after.get(key, ""),
+                r"^[A-Za-z0-9]{32}$",
+                f"CRLF empty {key} was not populated",
+            )
 
         # Verify load_env_files strips CR cleanly and preserves trailing 'r' characters.
         verify_cmd = (
             'source "./scripts/dev.sh" && '
-            'load_env_files && '
+            "load_env_files && "
             'printf "DB=%s|GRPC=%s" "$DB_PASSWORD" "$GRPC_AUTH_TOKEN"'
         )
         load_res = subprocess.run(
@@ -175,9 +208,7 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
         recorded = self.workdir / "migrate_args.txt"
         migrate_stub = mock_bin / "migrate"
         migrate_stub.write_text(
-            "#!/usr/bin/env bash\n"
-            f'printf "%s\\n" "$@" > "{recorded}"\n'
-            "exit 0\n",
+            f'#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "{recorded}"\nexit 0\n',
             encoding="utf-8",
         )
         migrate_stub.chmod(0o755)
@@ -196,7 +227,10 @@ class DevEnvSecretsAndMigrateTests(unittest.TestCase):
         )
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
         args = recorded.read_text(encoding="utf-8").splitlines()
-        self.assertIn("postgres://postgres:@localhost:5432/genyee?sslmode=disable", args)
+        self.assertIn(
+            "postgres://postgres:@localhost:5432/genyee?sslmode=disable",
+            args,
+        )
         self.assertIn("DB_NAME: genyee", res.stdout)
 
 

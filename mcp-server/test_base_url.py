@@ -7,6 +7,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from unittest import mock
 from urllib.parse import urlsplit
 
@@ -14,26 +15,30 @@ import genyee_mcp_server as srv
 
 
 class BaseURLTest(unittest.TestCase):
-    def test_requests_keep_the_api_prefix_with_or_without_a_trailing_slash(self):
+    def test_requests_keep_the_api_prefix_with_or_without_a_trailing_slash(
+        self,
+    ) -> None:
         listing = {"data": [{"id": "agent-1", "name": "Research"}]}
         uploaded = {"data": {"id": "knowledge-1"}}
         stream = (
-            'data: {"response_type":"answer","content":"hello"}\n\n'
-            'data: {"response_type":"complete"}\n\n'
-        ).encode()
-        routes = {}
+            b'data: {"response_type":"answer","content":"hello"}\n\n'
+            b'data: {"response_type":"complete"}\n\n'
+        )
+        routes: dict[tuple[str, str], tuple[str, bytes]] = {}
         for prefix in ("/api/v1", "/genyee/api/v1"):
             routes[("GET", prefix + "/agents")] = (
-                "application/json", json.dumps(listing).encode()
+                "application/json",
+                json.dumps(listing).encode(),
             )
             for endpoint in ("/knowledge-chat/session-1", "/agent-chat/session-1"):
                 routes[("POST", prefix + endpoint)] = ("text/event-stream", stream)
             routes[("POST", prefix + "/knowledge-bases/kb-1/knowledge/file")] = (
-                "application/json", json.dumps(uploaded).encode()
+                "application/json",
+                json.dumps(uploaded).encode(),
             )
 
         class Handler(BaseHTTPRequestHandler):
-            def handle_request(self):
+            def handle_request(self) -> None:
                 self.rfile.read(int(self.headers.get("Content-Length", "0")))
                 route = routes.get((self.command, urlsplit(self.path).path))
                 if route is None:
@@ -49,8 +54,8 @@ class BaseURLTest(unittest.TestCase):
             do_GET = handle_request
             do_POST = handle_request
 
-            def log_message(self, *args):
-                pass
+            def log_message(self, format: str, *args: Any) -> None:
+                del format, args
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -76,11 +81,14 @@ class BaseURLTest(unittest.TestCase):
                                     self.assertEqual(client.list_agents(), listing)
                                 with self.subTest(prefix=prefix, suffix=suffix, api="chat"):
                                     self.assertEqual(
-                                        client.chat("session-1", "question")["answer"], "hello"
+                                        client.chat("session-1", "question")["answer"],
+                                        "hello",
                                     )
                                 with self.subTest(prefix=prefix, suffix=suffix, api="agent"):
                                     self.assertEqual(
-                                        client.agent_chat("session-1", "question", "agent-1")["answer"],
+                                        client.agent_chat("session-1", "question", "agent-1")[
+                                            "answer"
+                                        ],
                                         "hello",
                                     )
                                 with self.subTest(prefix=prefix, suffix=suffix, api="upload"):
@@ -89,7 +97,7 @@ class BaseURLTest(unittest.TestCase):
                                         uploaded,
                                     )
                             finally:
-                                client.session.close()
+                                client.close()
         finally:
             server.shutdown()
             thread.join()

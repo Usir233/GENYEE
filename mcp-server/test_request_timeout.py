@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for timeouts on the non-chat GENYEE API requests.
-
-``GENYEEClient._request`` and the file-upload ``requests.post`` used to
-pass no ``timeout`` at all, so a hung backend blocked the calling MCP
-tool indefinitely (``requests`` waits forever by default). The chat SSE
-path already passes ``timeout=(10, GENYEE_CHAT_TIMEOUT)``; these tests
-pin the equivalent discipline for the plain JSON requests.
-
-unittest discover 会收集本文件中的 TestCase；也可直接运行:
-python test_request_timeout.py
-"""
+"""Tests for timeouts on the non-chat GENYEE API requests."""
 
 import os
 import subprocess
@@ -24,37 +14,49 @@ MCP_SERVER_DIR = Path(__file__).resolve().parent
 
 
 class RequestTimeoutTest(unittest.TestCase):
-    def test_request_passes_default_timeout(self):
+    def test_request_passes_default_timeout(self) -> None:
         client = srv.GENYEEClient("http://example.test/api/v1", "k")
-        with mock.patch.object(client.session, "request") as req:
-            req.return_value.json.return_value = {"ok": True}
-            client._request("GET", "/tenants")
-        self.assertEqual(req.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
+        try:
+            with mock.patch.object(client.session, "request") as req:
+                req.return_value.status_code = 200
+                req.return_value.json.return_value = {"ok": True}
+                client._request("GET", "/tenants")
+            self.assertEqual(req.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
+        finally:
+            client.close()
 
-    def test_request_respects_caller_supplied_timeout(self):
+    def test_request_respects_caller_supplied_timeout(self) -> None:
         client = srv.GENYEEClient("http://example.test/api/v1", "k")
-        with mock.patch.object(client.session, "request") as req:
-            req.return_value.json.return_value = {"ok": True}
-            client._request("GET", "/tenants", timeout=7)
-        self.assertEqual(req.call_args.kwargs.get("timeout"), 7)
+        try:
+            with mock.patch.object(client.session, "request") as req:
+                req.return_value.status_code = 200
+                req.return_value.json.return_value = {"ok": True}
+                client._request("GET", "/tenants", timeout=7)
+            self.assertEqual(req.call_args.kwargs.get("timeout"), 7)
+        finally:
+            client.close()
 
-    def test_upload_post_passes_timeout(self):
+    def test_upload_post_passes_timeout(self) -> None:
         client = srv.GENYEEClient("http://example.test/api/v1", "k")
-        with mock.patch.object(
-            srv, "resolve_upload_file_path", return_value="/tmp/x.pdf"
-        ), mock.patch(
-            "builtins.open", mock.mock_open(read_data=b"x")
-        ), mock.patch.object(
-            srv.requests, "post"
-        ) as post:
-            post.return_value = mock.Mock(
-                raise_for_status=lambda: None, json=lambda: {"id": "k1"}
-            )
-            client.create_knowledge_from_file("kb-1", "x.pdf")
-        self.assertEqual(post.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
+        try:
+            with (
+                mock.patch.object(srv, "resolve_upload_file_path", return_value="/tmp/x.pdf"),
+                mock.patch("builtins.open", mock.mock_open(read_data=b"x")),
+                mock.patch.object(client.session, "request") as req,
+            ):
+                req.return_value = mock.Mock(
+                    status_code=200,
+                    raise_for_status=lambda: None,
+                    json=lambda: {"id": "k1"},
+                )
+                client.create_knowledge_from_file("kb-1", "x.pdf")
+            self.assertEqual(req.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
+            self.assertIs(req.call_args.kwargs.get("stream"), True)
+        finally:
+            client.close()
 
 
-def _import_api_timeout(env_value):
+def _import_api_timeout(env_value: str | None) -> int:
     """Import the server module in a subprocess with GENYEE_API_TIMEOUT set."""
     env = dict(os.environ)
     if env_value is None:
@@ -78,13 +80,13 @@ def _import_api_timeout(env_value):
 
 
 class ApiTimeoutEnvParsingTest(unittest.TestCase):
-    def test_defaults_to_300_when_unset(self):
+    def test_defaults_to_300_when_unset(self) -> None:
         self.assertEqual(_import_api_timeout(None), 300)
 
-    def test_uses_env_value_when_valid(self):
+    def test_uses_env_value_when_valid(self) -> None:
         self.assertEqual(_import_api_timeout("45"), 45)
 
-    def test_falls_back_to_300_when_invalid(self):
+    def test_falls_back_to_300_when_invalid(self) -> None:
         self.assertEqual(_import_api_timeout("abc"), 300)
 
 
