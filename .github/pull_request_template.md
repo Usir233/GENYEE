@@ -31,7 +31,7 @@ exact command and failure here.
 - [ ] `git diff --check origin/main...HEAD` passes
 - [ ] Changed source files are formatted
 - [ ] Targeted tests for the changed packages/components pass
-- [ ] Diff-scoped lint passes where applicable (for Go: `golangci-lint run --new-from-rev=origin/main ./...`)
+- [ ] Full-stack lint passes with zero warnings (for Go: `golangci-lint run ./...`)
 - [ ] Full-repository checks were run, or any unrelated/environment-dependent failures are documented above
 - [ ] Self-reviewed the code
 - [ ] Added/updated tests covering the change

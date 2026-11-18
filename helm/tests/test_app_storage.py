@@ -19,7 +19,9 @@ CHART = Path(os.environ.get("HELM_CHART_DIR", Path(__file__).resolve().parents[1
 def render(values=None):
     with tempfile.TemporaryDirectory() as directory:
         arguments = []
-        for index, layer in enumerate(values if isinstance(values, list) else [values or {}]):
+        for index, layer in enumerate(
+            values if isinstance(values, list) else [values or {}]
+        ):
             path = Path(directory) / f"values-{index}.yaml"
             path.write_text(yaml.safe_dump(layer))
             arguments.extend(["-f", str(path)])
@@ -51,7 +53,8 @@ class AppStorageTests(unittest.TestCase):
         return next(
             doc
             for doc in documents
-            if doc["kind"] == "Deployment" and doc["metadata"]["name"] == "audit-genyee-app"
+            if doc["kind"] == "Deployment"
+            and doc["metadata"]["name"] == "audit-genyee-app"
         )
 
     def assert_data_claim(self, app, name):
@@ -60,7 +63,9 @@ class AppStorageTests(unittest.TestCase):
         self.assertEqual(volume["persistentVolumeClaim"]["claimName"], name)
 
     def readme_values(self, filename):
-        blocks = re.findall(r"```yaml\n(.*?)\n```", (CHART / "README.md").read_text(), re.DOTALL)
+        blocks = re.findall(
+            r"```yaml\n(.*?)\n```", (CHART / "README.md").read_text(), re.DOTALL
+        )
         return yaml.safe_load(
             next(block for block in blocks if block.startswith(f"# {filename}\n"))
         )
@@ -75,7 +80,9 @@ class AppStorageTests(unittest.TestCase):
         )
 
     def test_nonpersistent_storage_defaults_to_rolling_update(self):
-        app = self.app(self.documents({"dataFiles": {"persistence": {"enabled": False}}}))
+        app = self.app(
+            self.documents({"dataFiles": {"persistence": {"enabled": False}}})
+        )
         self.assertEqual(
             app["spec"]["strategy"],
             {
@@ -150,7 +157,9 @@ class AppStorageTests(unittest.TestCase):
     def test_invalid_strategy_is_rejected(self):
         result = render({"app": {"strategy": {"type": "Invalid"}}})
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("app.strategy.type must be RollingUpdate or Recreate", result.stderr)
+        self.assertIn(
+            "app.strategy.type must be RollingUpdate or Recreate", result.stderr
+        )
 
     def test_production_example_uses_single_replica_rwo_and_recreate(self):
         documents = self.documents(self.readme_values("values-production.yaml"))
@@ -198,7 +207,9 @@ class AppStorageTests(unittest.TestCase):
                 }
             }
         )
-        self.assertEqual(self.data_files_claim(documents)["spec"]["accessModes"], ["ReadWriteMany"])
+        self.assertEqual(
+            self.data_files_claim(documents)["spec"]["accessModes"], ["ReadWriteMany"]
+        )
         app = self.app(documents)
         self.assertEqual(app["spec"]["strategy"]["type"], "RollingUpdate")
 

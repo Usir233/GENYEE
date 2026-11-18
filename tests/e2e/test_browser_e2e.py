@@ -73,7 +73,6 @@ def dismiss_guides_if_present(page: Page) -> None:
 
 
 class E2ETestRunner:
-
     def __init__(self, base_url: str = BASE_URL) -> None:
         self.base_url = base_url.rstrip("/")
         self.results: list[dict[str, Any]] = []
@@ -102,9 +101,7 @@ class E2ETestRunner:
         }
         self.results.append(result)
         status_str = "PASS" if passed else "FAIL"
-        print(
-            f"[{status_str}] Stage {stage_id}: {name} ({result['duration_ms']}ms)"
-        )
+        print(f"[{status_str}] Stage {stage_id}: {name} ({result['duration_ms']}ms)")
         if error:
             print(f"       Error: {error}")
 
@@ -130,9 +127,7 @@ class E2ETestRunner:
 
             title = page.title()
             details["page_title"] = title
-            assert (
-                "GENYEE" in title
-            ), f"Expected 'GENYEE' in page title, got: '{title}'"
+            assert "GENYEE" in title, f"Expected 'GENYEE' in page title, got: '{title}'"
 
             # Brand logo assertion
             logo_img = page.wait_for_selector(
@@ -143,9 +138,9 @@ class E2ETestRunner:
             logo_src = logo_img.get_attribute("src")
             details["logo_alt"] = logo_alt
             details["logo_src"] = logo_src
-            assert (
-                logo_alt == "GENYEE"
-            ), f"Expected logo alt to be 'GENYEE', got: '{logo_alt}'"
+            assert logo_alt == "GENYEE", (
+                f"Expected logo alt to be 'GENYEE', got: '{logo_alt}'"
+            )
 
             # Form fields presence assertion
             email_input = page.wait_for_selector(
@@ -154,12 +149,10 @@ class E2ETestRunner:
             password_input = page.wait_for_selector(
                 'input[type="password"]', timeout=5000
             )
-            submit_button = page.wait_for_selector(
-                "button.submit-button", timeout=5000
+            submit_button = page.wait_for_selector("button.submit-button", timeout=5000)
+            assert email_input and password_input and submit_button, (
+                "Login form elements missing"
             )
-            assert (
-                email_input and password_input and submit_button
-            ), "Login form elements missing"
             details["form_fields_present"] = True
 
             # Capture stage screenshot
@@ -209,32 +202,30 @@ class E2ETestRunner:
 
             login_resp = resp_info.value
             details["login_http_status"] = login_resp.status
-            assert (
-                login_resp.status == 200
-            ), f"Login API failed with status {login_resp.status}"
+            assert login_resp.status == 200, (
+                f"Login API failed with status {login_resp.status}"
+            )
 
             login_body = login_resp.json()
             details["user_id"] = login_body.get("user", {}).get("id")
             details["username"] = login_body.get("user", {}).get("username")
             details["tenant_id"] = login_body.get("user", {}).get("tenant_id")
-            assert (
-                login_body.get("success") is True
-            ), f"Login response indicated failure: {login_body}"
+            assert login_body.get("success") is True, (
+                f"Login response indicated failure: {login_body}"
+            )
 
             # Wait for SPA redirection to knowledge-bases
             page.wait_for_url("**/platform/knowledge-bases**", timeout=15000)
             details["current_url"] = page.url
-            assert (
-                "/platform/knowledge-bases" in page.url
-            ), f"Expected redirection to /platform/knowledge-bases, got: {page.url}"
+            assert "/platform/knowledge-bases" in page.url, (
+                f"Expected redirection to /platform/knowledge-bases, got: {page.url}"
+            )
 
             # Assert localStorage token and user email
             token = page.evaluate("localStorage.getItem('genyee_token')")
             user_json = page.evaluate("localStorage.getItem('genyee_user')")
             details["token_length"] = len(token) if token else 0
-            details["user_json_preview"] = (
-                user_json[:60] + "..." if user_json else None
-            )
+            details["user_json_preview"] = user_json[:60] + "..." if user_json else None
 
             assert token is not None and len(token) > 50, (
                 "genyee_token missing or invalid in localStorage"
@@ -290,21 +281,21 @@ class E2ETestRunner:
 
             # 1. Assert header logo GENYEE
             logo_box = page.locator(".logo_box img.logo")
-            assert (
-                logo_box.count() > 0
-            ), "Header sidebar logo image not found in .logo_box"
+            assert logo_box.count() > 0, (
+                "Header sidebar logo image not found in .logo_box"
+            )
             details["header_logo_visible"] = logo_box.first.is_visible()
 
             # 2. Assert user identity
             user_menu_text = page.locator(".menu_bottom").inner_text()
             details["user_menu_text"] = user_menu_text.replace("\n", " ").strip()
             expected_user_prefix = TEST_EMAIL.split("@")[0]
-            assert (
-                expected_user_prefix in user_menu_text
-            ), f"Expected '{expected_user_prefix}' in user menu, got: {user_menu_text}"
-            assert (
-                TEST_EMAIL in user_menu_text
-            ), f"Expected '{TEST_EMAIL}' in user menu, got: {user_menu_text}"
+            assert expected_user_prefix in user_menu_text, (
+                f"Expected '{expected_user_prefix}' in user menu, got: {user_menu_text}"
+            )
+            assert TEST_EMAIL in user_menu_text, (
+                f"Expected '{TEST_EMAIL}' in user menu, got: {user_menu_text}"
+            )
 
             # 3. Assert left navigation items
             nav_titles = page.locator(".menu_title").all_inner_texts()
@@ -319,9 +310,9 @@ class E2ETestRunner:
                 "共享空间",
             ]
             for nav in expected_navs:
-                assert (
-                    nav in nav_titles
-                ), f"Expected navigation item '{nav}' not found in: {nav_titles}"
+                assert nav in nav_titles, (
+                    f"Expected navigation item '{nav}' not found in: {nav_titles}"
+                )
 
             # 4. Assert knowledge bases cards
             primary_kb_name = os.environ.get("TEST_PRIMARY_KB_NAME", "企业资料归档")
@@ -333,16 +324,16 @@ class E2ETestRunner:
             details["has_55_docs"] = "55 个文档" in outlet_text
             details["has_15_docs"] = "15 个文档" in outlet_text
 
-            assert (
-                primary_kb_name in outlet_text
-            ), f"Knowledge base '{primary_kb_name}' not found on dashboard"
-            assert (
-                secondary_kb_name in outlet_text
-            ), f"Knowledge base '{secondary_kb_name}' not found on dashboard"
+            assert primary_kb_name in outlet_text, (
+                f"Knowledge base '{primary_kb_name}' not found on dashboard"
+            )
+            assert secondary_kb_name in outlet_text, (
+                f"Knowledge base '{secondary_kb_name}' not found on dashboard"
+            )
             assert "FAQ" in outlet_text, "Knowledge base 'FAQ' not found on dashboard"
-            assert (
-                "55 个文档" in outlet_text
-            ), f"Expected '55 个文档' for {primary_kb_name} card"
+            assert "55 个文档" in outlet_text, (
+                f"Expected '55 个文档' for {primary_kb_name} card"
+            )
 
             # Capture stage screenshot
             page.screenshot(path=screenshot_path, full_page=True)
@@ -397,9 +388,7 @@ class E2ETestRunner:
             assert "设置" in title, f"Expected '设置' in title, got: {title}"
 
             # Assert settings navigation sections
-            nav_labels = page.locator(
-                ".settings-sidebar .nav-label"
-            ).all_inner_texts()
+            nav_labels = page.locator(".settings-sidebar .nav-label").all_inner_texts()
             details["total_sections_count"] = len(nav_labels)
             details["sample_nav_sections"] = nav_labels[:10]
             required_sections = [
@@ -411,16 +400,14 @@ class E2ETestRunner:
                 "系统设置",
             ]
             for sec in required_sections:
-                assert (
-                    sec in nav_labels
-                ), f"Required section '{sec}' missing from settings menu"
+                assert sec in nav_labels, (
+                    f"Required section '{sec}' missing from settings menu"
+                )
 
             # Verify global settings content
             content_text = page.locator(".settings-content").inner_text()
             details["has_system_settings_header"] = "系统设置" in content_text
-            assert (
-                "系统设置" in content_text
-            ), "Expected '系统设置' in content area"
+            assert "系统设置" in content_text, "Expected '系统设置' in content area"
 
             # Switch to General Settings tab
             page.locator(".nav-item:has-text('常规设置')").click()
@@ -429,9 +416,7 @@ class E2ETestRunner:
             details["has_language_setting"] = "语言" in general_text
             details["has_theme_setting"] = "主题模式" in general_text
             assert "语言" in general_text, "Expected '语言' setting in General view"
-            assert (
-                "主题模式" in general_text
-            ), "Expected '主题模式' in General view"
+            assert "主题模式" in general_text, "Expected '主题模式' in General view"
 
             # Capture stage screenshot
             page.screenshot(path=screenshot_path, full_page=True)
@@ -494,9 +479,7 @@ class E2ETestRunner:
             cards_locator.first.wait_for(state="visible", timeout=10000)
             cards_count = cards_locator.count()
             details["suggested_questions_count"] = cards_count
-            assert (
-                cards_count > 0
-            ), "No suggested questions loaded from /api/v1/agents"
+            assert cards_count > 0, "No suggested questions loaded from /api/v1/agents"
 
             selected_question = (
                 cards_locator.first.locator(".suggested-question-text")
@@ -530,9 +513,7 @@ class E2ETestRunner:
             details["chat_url"] = page.url
 
             # Wait for message row elements
-            page.wait_for_selector(
-                ".msg-item-wrapper, .message-row", timeout=12000
-            )
+            page.wait_for_selector(".msg-item-wrapper, .message-row", timeout=12000)
             page.wait_for_timeout(3500)  # Allow initial stream turn to render
 
             messages = page.locator(".message-row").all_inner_texts()
@@ -540,9 +521,9 @@ class E2ETestRunner:
             details["sample_messages"] = [
                 m[:80].replace("\n", " ").strip() for m in messages[:3]
             ]
-            assert (
-                len(messages) >= 1
-            ), "No conversation message rows rendered in session thread"
+            assert len(messages) >= 1, (
+                "No conversation message rows rendered in session thread"
+            )
 
             # Capture stage screenshot
             page.screenshot(path=screenshot_path, full_page=True)
@@ -591,14 +572,12 @@ class E2ETestRunner:
 
             # 1. Assert breadcrumb and title
             primary_kb_name = os.environ.get("TEST_PRIMARY_KB_NAME", "企业资料归档")
-            breadcrumb_el = page.wait_for_selector(
-                ".document-breadcrumb", timeout=8000
-            )
+            breadcrumb_el = page.wait_for_selector(".document-breadcrumb", timeout=8000)
             breadcrumb_text = breadcrumb_el.inner_text().replace("\n", " ")
             details["breadcrumb_text"] = breadcrumb_text
-            assert (
-                primary_kb_name in breadcrumb_text
-            ), f"Expected '{primary_kb_name}' in breadcrumb, got: {breadcrumb_text}"
+            assert primary_kb_name in breadcrumb_text, (
+                f"Expected '{primary_kb_name}' in breadcrumb, got: {breadcrumb_text}"
+            )
 
             # 2. Assert tabs
             page.wait_for_selector(".kb-view-tabs", timeout=8000)
@@ -607,9 +586,9 @@ class E2ETestRunner:
             details["tabs"] = clean_tabs
             expected_tabs = ["文档", "Wiki", "图谱", "画廊"]
             for et in expected_tabs:
-                assert (
-                    et in clean_tabs
-                ), f"Expected view tab '{et}' missing from KB tabs: {clean_tabs}"
+                assert et in clean_tabs, (
+                    f"Expected view tab '{et}' missing from KB tabs: {clean_tabs}"
+                )
 
             # 3. Assert total document count
             page.wait_for_selector(".doc-folder-path__count", timeout=8000)
@@ -626,15 +605,15 @@ class E2ETestRunner:
             rows = page.locator(".doc-list-row")
             rows_count = rows.count()
             details["visible_rows_count"] = rows_count
-            assert (
-                rows_count > 0
-            ), "No document rows rendered in knowledge base list view"
+            assert rows_count > 0, (
+                "No document rows rendered in knowledge base list view"
+            )
 
             doc_area_text = page.locator(".doc-card-area").inner_text()
             details["has_completed_status"] = "已完成" in doc_area_text
-            assert (
-                "已完成" in doc_area_text
-            ), "Expected indexing status '已完成' on document rows"
+            assert "已完成" in doc_area_text, (
+                "Expected indexing status '已完成' on document rows"
+            )
 
             # Sample verified document titles
             sample_docs = []
@@ -841,9 +820,7 @@ class E2ETestRunner:
 
         print("=" * 60)
         if success:
-            print(
-                "ALL 6 E2E BROWSER STAGES PASSED SUCCESSFULLY. Exit code 0."
-            )
+            print("ALL 6 E2E BROWSER STAGES PASSED SUCCESSFULLY. Exit code 0.")
             return 0
         else:
             print("SOME E2E BROWSER STAGES FAILED. Exit code 1.")

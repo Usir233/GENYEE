@@ -54,9 +54,13 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
     def test_ocr_simulated_memory_error_graceful_degradation(self):
         """When RapidOCR raises MemoryError (e.g. GPU/system OOM), parser must degrade to plain image tags."""
         mock_engine = MagicMock()
-        mock_engine.side_effect = MemoryError("Out of memory during ONNX tensor allocation")
+        mock_engine.side_effect = MemoryError(
+            "Out of memory during ONNX tensor allocation"
+        )
 
-        with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
+        with patch(
+            "docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine
+        ):
             parser = ExcelParser(xlsx_ocr_enabled=True, xlsx_first_row_as_header=False)
             doc = parser.parse_into_text(self.sample_bytes)
 
@@ -77,7 +81,9 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
         mock_engine = MagicMock()
         mock_engine.side_effect = TimeoutError("OCR inference timed out after 5.0s")
 
-        with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
+        with patch(
+            "docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine
+        ):
             parser = ExcelParser(xlsx_ocr_enabled=True, xlsx_first_row_as_header=False)
             doc = parser.parse_into_text(self.sample_bytes)
 
@@ -89,9 +95,13 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
     def test_ocr_simulated_concurrent_timeout_graceful_degradation(self):
         """When RapidOCR raises concurrent.futures.TimeoutError, parser degrades cleanly."""
         mock_engine = MagicMock()
-        mock_engine.side_effect = concurrent.futures.TimeoutError("Executor future timed out")
+        mock_engine.side_effect = concurrent.futures.TimeoutError(
+            "Executor future timed out"
+        )
 
-        with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
+        with patch(
+            "docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine
+        ):
             parser = ExcelParser(xlsx_ocr_enabled=True, xlsx_first_row_as_header=False)
             doc = parser.parse_into_text(self.sample_bytes)
 
@@ -111,8 +121,13 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
             with self.subTest(error_type=type(err).__name__):
                 mock_engine = MagicMock()
                 mock_engine.side_effect = err
-                with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
-                    parser = ExcelParser(xlsx_ocr_enabled=True, xlsx_first_row_as_header=False)
+                with patch(
+                    "docreader.parser.excel_parser._get_ocr_engine",
+                    return_value=mock_engine,
+                ):
+                    parser = ExcelParser(
+                        xlsx_ocr_enabled=True, xlsx_first_row_as_header=False
+                    )
                     doc = parser.parse_into_text(self.sample_bytes)
                     self.assertEqual(len(doc.images), 36)
                     self.assertEqual(len(doc.chunks), 1281)
@@ -121,7 +136,9 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
 
     def test_ocr_engine_initialization_memory_error(self):
         """When RapidOCR() constructor raises MemoryError, _get_ocr_engine returns None safely."""
-        with patch("rapidocr.RapidOCR", side_effect=MemoryError("Failed to load onnx models")):
+        with patch(
+            "rapidocr.RapidOCR", side_effect=MemoryError("Failed to load onnx models")
+        ):
             parser = ExcelParser(xlsx_ocr_enabled=True)
             doc = parser.parse_into_text(self.sample_bytes)
             self.assertEqual(len(doc.images), 36)
@@ -130,6 +147,7 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
 
     def test_ocr_engine_returns_malformed_structures(self):
         """Test engine returning non-standard, malformed, or hostile structures."""
+
         # Class with exploding properties
         class HostileOutput:
             @property
@@ -149,8 +167,13 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
             with self.subTest(case=type(case).__name__):
                 mock_engine = MagicMock()
                 mock_engine.return_value = case
-                with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
-                    parser = ExcelParser(xlsx_ocr_enabled=True, xlsx_first_row_as_header=False)
+                with patch(
+                    "docreader.parser.excel_parser._get_ocr_engine",
+                    return_value=mock_engine,
+                ):
+                    parser = ExcelParser(
+                        xlsx_ocr_enabled=True, xlsx_first_row_as_header=False
+                    )
                     doc = parser.parse_into_text(self.sample_bytes)
                     self.assertEqual(len(doc.images), 36)
                     self.assertNotIn("识别结果", doc.content)
@@ -171,7 +194,9 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
                 return out
 
         mock_engine = MagicMock(side_effect=dynamic_ocr)
-        with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
+        with patch(
+            "docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine
+        ):
             parser = ExcelParser(xlsx_ocr_enabled=True, xlsx_first_row_as_header=False)
             doc = parser.parse_into_text(self.sample_bytes)
 
@@ -190,7 +215,9 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
     def test_ocr_disabled_flag_skips_ocr_entirely(self):
         """When xlsx_ocr_enabled=False, RapidOCR engine must never be acquired or invoked."""
         mock_engine = MagicMock()
-        with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine):
+        with patch(
+            "docreader.parser.excel_parser._get_ocr_engine", return_value=mock_engine
+        ):
             parser = ExcelParser(xlsx_ocr_enabled=False, xlsx_first_row_as_header=False)
             doc = parser.parse_into_text(self.sample_bytes)
 
@@ -228,8 +255,8 @@ class TestRealWorldSampleVerificationChallenger(unittest.TestCase):
         )
 
         # Check deduplication integrity: all 2560 cells point to the 36 images
-        for sheet_name, cells in cell_images.items():
-            for coord, (ref_path, alt_text) in cells.items():
+        for cells in cell_images.values():
+            for coord, (ref_path, _alt_text) in cells.items():
                 self.assertIn(
                     ref_path,
                     doc_images,
@@ -259,15 +286,15 @@ class TestRealWorldSampleVerificationChallenger(unittest.TestCase):
 
             # Verify with PIL Image parser
             bio = io.BytesIO(raw_bytes)
-            img = Image.open(bio)
-            img.verify()
+            with Image.open(bio) as img:
+                img.verify()
 
             # Re-open for geometry check
             bio.seek(0)
-            img = Image.open(bio)
-            self.assertEqual(img.format, "JPEG")
-            self.assertEqual(img.size, (400, 400))
-            self.assertEqual(img.mode, "RGB")
+            with Image.open(bio) as img:
+                self.assertEqual(img.format, "JPEG")
+                self.assertEqual(img.size, (400, 400))
+                self.assertEqual(img.mode, "RGB")
 
             # Check uniqueness of binary hash
             content_hash = hashlib.sha256(raw_bytes).hexdigest()

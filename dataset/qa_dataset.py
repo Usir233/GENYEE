@@ -27,15 +27,15 @@ python dataset/qa_dataset.py show \
   -n 1
 """
 
-import os
-from pathlib import Path
 import argparse
 import numbers
+import os
 import uuid
+from pathlib import Path
+from typing import Any
 
-import pandas as pd
 import openai
-
+import pandas as pd
 
 DEFAULT_QA_MODEL = "gpt-5.6-sol"
 
@@ -135,7 +135,7 @@ class QAAnsweringSystem:
         self.qrels = qrels
         # Sampling, showing results and a completed resume are fully offline.
         # Credentials are only required when an answer actually needs generating.
-        self.client = None
+        self.client: Any = None
 
         # Create lookup dictionaries
         self.qid_to_text = dict(zip(queries["id"], queries["text"]))
@@ -276,7 +276,9 @@ def generate_answers(
         except FileNotFoundError:
             return pd.DataFrame(columns=columns)
         if not set(columns).issubset(frame.columns):
-            raise ValueError(f"Invalid checkpoint columns in {path}: expected {columns}")
+            raise ValueError(
+                f"Invalid checkpoint columns in {path}: expected {columns}"
+            )
         return frame[columns]
 
     existing_answers = load_checkpoint(answers_path, ["id", "text"])
@@ -288,7 +290,9 @@ def generate_answers(
     valid_answers = existing_answers["text"].map(
         lambda text: isinstance(text, str) and bool(text.strip())
     )
-    existing_qas = existing_qas[existing_qas["aid"].isin(existing_answers.loc[valid_answers, "id"])]
+    existing_qas = existing_qas[
+        existing_qas["aid"].isin(existing_answers.loc[valid_answers, "id"])
+    ]
     processed_qids = set(existing_qas["qid"])
     print(f"\nFound {len(processed_qids)} previously processed queries")
 
@@ -298,9 +302,11 @@ def generate_answers(
     qa_pairs = existing_qas.to_dict("records")
     answer_ids = existing_answers["id"].tolist()
     string_ids = bool(answer_ids) and all(isinstance(aid, str) for aid in answer_ids)
-    if not string_ids and not all(isinstance(aid, numbers.Integral) for aid in answer_ids):
+    if not string_ids and not all(
+        isinstance(aid, numbers.Integral) for aid in answer_ids
+    ):
         raise ValueError("Answer IDs must consistently be integers or strings")
-    answer_id_counter = max(answer_ids, default=0) + 1 if not string_ids else None
+    answer_id_counter = max(answer_ids, default=0) + 1 if not string_ids else 0
 
     for qid in queries["id"]:
         if qid in processed_qids:
@@ -326,11 +332,15 @@ def generate_answers(
                 retry_count += 1
                 if retry_count > max_retries:
                     print(
-                        f"\nFailed to process qid {qid} after {max_retries} attempts: {str(e)}"
+                        f"\nFailed to process qid {qid} after {max_retries} attempts: {e!s}"
                     )
                     # Save failed state
-                    save_to_parquet(pd.DataFrame(answers, columns=["id", "text"]), answers_path)
-                    save_to_parquet(pd.DataFrame(qa_pairs, columns=["qid", "aid"]), qa_pairs_path)
+                    save_to_parquet(
+                        pd.DataFrame(answers, columns=["id", "text"]), answers_path
+                    )
+                    save_to_parquet(
+                        pd.DataFrame(qa_pairs, columns=["qid", "aid"]), qa_pairs_path
+                    )
                 else:
                     print(f"\nRetry {retry_count} for qid {qid}...")
 

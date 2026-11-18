@@ -20,7 +20,7 @@ GENYEE 的 Web 前端是一个基于 **Vue 3 + TypeScript + Vite** 的单页应�
 | 路由 | Vue Router | ^4.5.0 | `createWebHistory`，见 `frontend/src/router/index.ts` |
 | 多语言 | vue-i18n | ^11.4.14 | zh-CN / zh-TW / en-US / ru-RU / ko-KR / ja-JP |
 | HTTP | axios | ^1.20.0 | 统一实例封装于 `frontend/src/utils/request.ts` |
-| SSE 流式 | @microsoft/fetch-event-source | ^2.0.1 | 聊天流式回复，见 `frontend/src/api/chat/streame.ts` |
+| SSE 流式 | @microsoft/fetch-event-source | ^2.0.1 | 聊天流式回复，见 `frontend/src/api/chat/stream.ts` |
 | Markdown 渲染 | marked / marked-katex-extension / katex / highlight.js / mermaid | — | 聊天答案富文本渲染（公式、代码高亮、图表） |
 | 安全 | dompurify | ^3.4.17 | v-html 内容统一消毒（`frontend/src/utils/markdownDomPurify.ts`） |
 | 文档预览 | docx-preview / @vue-office/pptx / xlsx / papaparse | — | 站内预览 Word / PPT / Excel / CSV |
@@ -57,7 +57,7 @@ flowchart TB
 
     subgraph io["数据访问层"]
         API["API 封装 (src/api)<br/>axios 实例 + SSE 流式"]
-        I18N["多语言 (src/i18n)<br/>zh-CN / en-US / ru-RU / ko-KR / ja-JP"]
+        I18N["多语言 (src/i18n)<br/>zh-CN / zh-TW / en-US / ru-RU / ko-KR / ja-JP"]
         WAILS["桌面绑定 (src/wailsjs)<br/>Wails 自动生成"]
     end
 
@@ -244,7 +244,7 @@ flowchart TB
 - **请求拦截器**：自动附加 `Authorization: Bearer <genyee_token>`（Embed 渠道的 `Embed ` token 不被覆盖）、`Accept-Language`（当前 i18n 语言）、`X-Request-ID`（随机串）、`X-Tenant-ID`（跨空间访问，始终携带激活空间 id 以避免切空间后 header 丢失）。
 - **响应拦截器**：2xx 解包返回 `data`；401 触发单飞（single-flight）refresh token 刷新，失败队列重放；公开端点（`/auth/login`、`/auth/register`、`/auth/oidc/`、`/auth/auto-setup`、`/auth/invitations/lookup`、`/api/v1/embed/`，即 `PUBLIC_AUTH_PATHS`）的 401 直接抛给页面而不跳登录；Embed 页面永不重定向到 `/login`。
 - **HTTP 状态码（`$httpStatus`）**：`get` / `post` / `put` / `patch` / `del` / `postUpload` 的返回类型为 `WithStatus<T>`，JSON 对象或数组响应上挂有不可枚举的 `$httpStatus` 属性，可用来区分成功形状相同的结果（例如系统管理员创建用户：201 表示新建，200 表示幂等重试）。它不出现在对象展开、`JSON.stringify` 与 `Object.keys` 中；Blob、字符串与 SSE 响应不带该属性。
-- **SSE 流式**：`frontend/src/api/chat/streame.ts` 基于 `@microsoft/fetch-event-source` 封装 `useStream()`，支持流式输出、加载态、错误态与请求调试元数据；上层由 `frontend/src/composables/useChatStreamHandler.ts` 组织为聊天消息流。聊天流握手返回 401 时，会与 axios 共用 `utils/authRefresh.ts` 的单飞刷新，拿到新 token 后原样重放一次请求，因此 access token 过期不会打断正在发起的对话。
+- **SSE 流式**：`frontend/src/api/chat/stream.ts` 基于 `@microsoft/fetch-event-source` 封装 `useStream()`，支持流式输出、加载态、错误态与请求调试元数据；上层由 `frontend/src/composables/useChatStreamHandler.ts` 组织为聊天消息流。聊天流握手返回 401 时，会与 axios 共用 `utils/authRefresh.ts` 的单飞刷新，拿到新 token 后原样重放一次请求，因此 access token 过期不会打断正在发起的对话。
 
 ### 模块清单
 
@@ -254,7 +254,7 @@ flowchart TB
 | `api/tenant/`（`index` / `members` / `invitations` / `audit-log`） | 租户（工作空间）信息、成员管理、邀请、审计日志 |
 | `api/organization/` | 组织 CRUD、成员、共享知识库/Agent、加入申请 |
 | `api/knowledge-base/` | 知识库 CRUD 与文件/知识条目管理 |
-| `api/chat/`（`index` / `streame` / `steer` / `temporary-attachments`) | 会话 CRUD、标题生成、SSE 流式问答、向运行中的智能体轮次追加消息（`steer`）、临时附件 |
+| `api/chat/`（`index` / `stream` / `steer` / `temporary-attachments`） | 会话 CRUD、标题生成、SSE 流式问答、向运行中的智能体轮次追加消息（`steer`）、临时附件 |
 | `api/artifacts.ts` | 产物库列表与删除（`/api/v1/artifacts`） |
 | `api/memory.ts` / `api/env-vars.ts` | 空间 / 个人记忆，个人变量 |
 | `api/mcp-endpoint.ts` | 内置 MCP Server 端点管理（发布集成 → MCP Server） |
@@ -268,7 +268,7 @@ flowchart TB
 | `api/initialization/` | 系统初始化流程 |
 | `api/system/` | 系统信息、存储引擎状态、Prompt 模板、解析引擎等系统级接口 |
 | `api/mcp-service.ts` / `api/skill/` | MCP 服务与 Skill 管理 |
-| `api/web-search.ts` / `api/web-search-provider.ts` | Web 搜索及 provider 配置 |
+| `api/web-search-provider.ts` | Web 搜索 provider 配置 |
 | `api/wiki/` | 知识库 Wiki 生成相关接口 |
 | `api/message-suggestion.ts` | 推荐问题 |
 | `api/user-favorites.ts` | 用户收藏（知识库/Agent 收藏列表） |
@@ -287,6 +287,7 @@ RAG 流水线的可视化进度（`views/chat/components/RagPipelineProgress.vue
 
 - **支持语言**（`frontend/src/i18n/locales/`）：
   - `zh-CN`（简体中文，默认与 fallback）
+  - `zh-TW`（繁体中文）
   - `en-US`（英语）
   - `ru-RU`（俄语）
   - `ko-KR`（韩语）

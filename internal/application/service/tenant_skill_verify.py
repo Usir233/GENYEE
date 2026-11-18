@@ -62,8 +62,8 @@ all_scripts = entry_scripts + optional_scripts
 optional_set = set(optional_scripts)
 
 # problems refuse the install; notes are reported and the image is kept.
-problems = []
-notes = []
+problems: list[str] = []
+notes: list[str] = []
 
 # Whether any problem is something installing a package cannot fix. It decides
 # the exit code, which is how the caller knows if another installer round could
@@ -90,7 +90,7 @@ def note_instead_of_problem(message, repairable=False):
     repairable is accepted and ignored so this can stand in for add_problem;
     a note never influences the exit code.
     """
-    add_note("%s (auxiliary file; this does not fail the install)" % message)
+    add_note(f"{message} (auxiliary file; this does not fail the install)")
 
 
 def distribution_name(raw):
@@ -129,12 +129,12 @@ def marker_applies(marker):
         # Gated on an extra, which pip does not install unless it is requested.
         return False
     try:
-        from packaging.markers import Marker
-    except Exception:
+        from packaging.markers import InvalidMarker, Marker
+    except ImportError:
         return None
     try:
         return bool(Marker(marker).evaluate())
-    except Exception:
+    except (InvalidMarker, ValueError, TypeError):
         return None
 
 
@@ -146,7 +146,7 @@ def load_pyproject(path):
     try:
         with open(path, "rb") as handle:
             return tomllib.load(handle)
-    except Exception:
+    except (OSError, tomllib.TOMLDecodeError, ValueError):
         return None
 
 
@@ -202,13 +202,9 @@ def check_declared_requirements():
         try:
             metadata.distribution(name)
             continue
-        except Exception:
+        except (metadata.PackageNotFoundError, ValueError):
             pass
-        missing = "%s declares %s but it is not installed in %s" % (
-            source,
-            name,
-            sys.prefix,
-        )
+        missing = f"{source} declares {name} but it is not installed in {sys.prefix}"
         marker = marker_of(raw)
         if not marker:
             add_problem(missing, repairable=True)
@@ -218,8 +214,8 @@ def check_declared_requirements():
             add_problem(missing, repairable=True)
         elif applies is None:
             add_note(
-                "%s, and its environment marker '%s' cannot be evaluated here, "
-                "so it is not enforced" % (missing, marker)
+                f"{missing}, and its environment marker '{marker}' cannot be evaluated here, "
+                "so it is not enforced"
             )
 
 
@@ -230,23 +226,22 @@ for relative in all_scripts:
         with open(script, "rb") as source:
             code = source.read()
     except OSError as exc:
-        report("%s cannot be read by the skill execution user (%s)" % (relative, exc))
+        report(f"{relative} cannot be read by the skill execution user ({exc})")
         continue
     try:
         ast.parse(code, filename=relative)
     except SyntaxError as exc:
-        report("%s has a syntax error on line %s: %s" % (relative, exc.lineno, exc.msg))
+        report(f"{relative} has a syntax error on line {exc.lineno}: {exc.msg}")
 
 check_declared_requirements()
 
 for note in notes:
-    sys.stdout.write("note: %s\n" % note)
+    sys.stdout.write(f"note: {note}\n")
 
 if problems:
     sys.stderr.write("\n".join(problems) + "\n")
     sys.exit(EXIT_UNREPAIRABLE if unrepairable else EXIT_MISSING_DEPENDENCY)
 
 print(
-    "verified %d python file(s) against %s"
-    % (len(all_scripts), sys.executable or "python3")
+    f"verified {len(all_scripts)} python file(s) against {sys.executable or 'python3'}"
 )

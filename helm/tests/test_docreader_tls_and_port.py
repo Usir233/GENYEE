@@ -34,7 +34,9 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
         services = self.by_component(docs, "Service")
         netpols = self.by_component(docs, "NetworkPolicy")
 
-        docreader_container = deployments["docreader"]["spec"]["template"]["spec"]["containers"][0]
+        docreader_container = deployments["docreader"]["spec"]["template"]["spec"][
+            "containers"
+        ][0]
         docreader_env = self.env_map(deployments["docreader"])
         app_env = self.env_map(deployments["app"])
 
@@ -53,12 +55,16 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
             )
 
         self.assertEqual(services["docreader"]["spec"]["ports"][0]["port"], 50051)
-        self.assertEqual(netpols["docreader"]["spec"]["ingress"][0]["ports"][0]["port"], 50051)
+        self.assertEqual(
+            netpols["docreader"]["spec"]["ingress"][0]["ports"][0]["port"], 50051
+        )
 
     def test_tls_enabled_without_secret_name_fails_validation(self):
         for bad_secret in ("", "   "):
             with self.subTest(secretName=bad_secret):
-                result = render({"docreader": {"tls": {"enabled": True, "secretName": bad_secret}}})
+                result = render(
+                    {"docreader": {"tls": {"enabled": True, "secretName": bad_secret}}}
+                )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(
                     "docreader.tls.secretName is required when docreader.tls.enabled is true",
@@ -103,12 +109,20 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
 
         # Server has cert + key mounted, no GRPC_TLS_CA env (prevents accidental mTLS).
         self.assertEqual(docreader_env["GRPC_TLS_ENABLED"]["value"], "true")
-        self.assertEqual(docreader_env["GRPC_TLS_CERT"]["value"], "/etc/docreader-tls/tls.crt")
-        self.assertEqual(docreader_env["GRPC_TLS_KEY"]["value"], "/etc/docreader-tls/tls.key")
+        self.assertEqual(
+            docreader_env["GRPC_TLS_CERT"]["value"], "/etc/docreader-tls/tls.crt"
+        )
+        self.assertEqual(
+            docreader_env["GRPC_TLS_KEY"]["value"], "/etc/docreader-tls/tls.key"
+        )
         self.assertNotIn("GRPC_TLS_CA", docreader_env)
 
-        docreader_mounts = {m["name"]: m for m in docreader_container.get("volumeMounts", [])}
-        self.assertEqual(docreader_mounts["docreader-tls"]["mountPath"], "/etc/docreader-tls")
+        docreader_mounts = {
+            m["name"]: m for m in docreader_container.get("volumeMounts", [])
+        }
+        self.assertEqual(
+            docreader_mounts["docreader-tls"]["mountPath"], "/etc/docreader-tls"
+        )
         self.assertTrue(docreader_mounts["docreader-tls"]["readOnly"])
         docreader_volumes = {v["name"]: v for v in docreader_spec.get("volumes", [])}
         self.assertEqual(
@@ -123,11 +137,15 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
             "-tls-server-name=docreader.genyee.example",
         ]
         for probe in ("livenessProbe", "readinessProbe"):
-            self.assertEqual(docreader_container[probe]["exec"]["command"], expected_probe_cmd)
+            self.assertEqual(
+                docreader_container[probe]["exec"]["command"], expected_probe_cmd
+            )
 
         # App client uses system CA roots without requiring ca.crt or mounting server private key.
         self.assertEqual(app_env["GRPC_TLS_ENABLED"]["value"], "true")
-        self.assertEqual(app_env["GRPC_TLS_SERVER_NAME"]["value"], "docreader.genyee.example")
+        self.assertEqual(
+            app_env["GRPC_TLS_SERVER_NAME"]["value"], "docreader.genyee.example"
+        )
         self.assertNotIn("GRPC_TLS_CA", app_env)
         app_mount_names = {m["name"] for m in app_container.get("volumeMounts", [])}
         app_volume_names = {v["name"] for v in app_spec.get("volumes", [])}
@@ -150,9 +168,9 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
 
                 docs = self.documents({"docreader": {"tls": tls_cfg}})
                 deployments = self.by_component(docs, "Deployment")
-                docreader_container = deployments["docreader"]["spec"]["template"]["spec"][
-                    "containers"
-                ][0]
+                docreader_container = deployments["docreader"]["spec"]["template"][
+                    "spec"
+                ]["containers"][0]
                 app_spec = deployments["app"]["spec"]["template"]["spec"]
                 app_container = app_spec["containers"][0]
                 app_env = self.env_map(deployments["app"])
@@ -161,8 +179,12 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
                 self.assertEqual(app_env["GRPC_TLS_ENABLED"]["value"], "true")
                 self.assertEqual(app_env["GRPC_TLS_CA"]["value"], expected_ca_path)
 
-                app_mounts = {m["name"]: m for m in app_container.get("volumeMounts", [])}
-                self.assertEqual(app_mounts["docreader-tls"]["mountPath"], "/etc/docreader-tls")
+                app_mounts = {
+                    m["name"]: m for m in app_container.get("volumeMounts", [])
+                }
+                self.assertEqual(
+                    app_mounts["docreader-tls"]["mountPath"], "/etc/docreader-tls"
+                )
                 self.assertTrue(app_mounts["docreader-tls"]["readOnly"])
                 app_volumes = {v["name"]: v for v in app_spec.get("volumes", [])}
                 self.assertEqual(
@@ -199,7 +221,9 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
             }
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("docreader.tls.caKey must be a valid Secret key name", result.stderr)
+        self.assertIn(
+            "docreader.tls.caKey must be a valid Secret key name", result.stderr
+        )
 
     def test_custom_docreader_service_port_propagates_everywhere(self):
         docs = self.documents(
@@ -221,7 +245,9 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
         services = self.by_component(docs, "Service")
         netpols = self.by_component(docs, "NetworkPolicy")
 
-        docreader_container = deployments["docreader"]["spec"]["template"]["spec"]["containers"][0]
+        docreader_container = deployments["docreader"]["spec"]["template"]["spec"][
+            "containers"
+        ][0]
         docreader_env = self.env_map(deployments["docreader"])
         app_env = self.env_map(deployments["app"])
 
@@ -229,7 +255,9 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
         self.assertEqual(docreader_env["DOCREADER_GRPC_PORT"]["value"], "50061")
         self.assertEqual(app_env["DOCREADER_ADDR"]["value"], "genyee-docreader:50061")
         self.assertEqual(services["docreader"]["spec"]["ports"][0]["port"], 50061)
-        self.assertEqual(netpols["docreader"]["spec"]["ingress"][0]["ports"][0]["port"], 50061)
+        self.assertEqual(
+            netpols["docreader"]["spec"]["ingress"][0]["ports"][0]["port"], 50061
+        )
 
         expected_probe_cmd = [
             "grpc_health_probe",
@@ -238,7 +266,9 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
             "-tls-ca-cert=/etc/docreader-tls/ca.crt",
         ]
         for probe in ("livenessProbe", "readinessProbe"):
-            self.assertEqual(docreader_container[probe]["exec"]["command"], expected_probe_cmd)
+            self.assertEqual(
+                docreader_container[probe]["exec"]["command"], expected_probe_cmd
+            )
 
     def test_docreader_env_loop_extra_env_and_tmp_emptydir(self):
         default_docs = self.documents()
@@ -251,7 +281,10 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
                 "volumeMounts", []
             )
         }
-        volumes = {v["name"]: v for v in default_dep["spec"]["template"]["spec"].get("volumes", [])}
+        volumes = {
+            v["name"]: v
+            for v in default_dep["spec"]["template"]["spec"].get("volumes", [])
+        }
         self.assertIn("tmp", mounts)
         self.assertEqual(mounts["tmp"]["mountPath"], "/tmp")
         self.assertIn("emptyDir", volumes["tmp"])
@@ -266,13 +299,17 @@ class DocreaderTlsAndPortTests(unittest.TestCase):
                     "extraEnv": [
                         {
                             "name": "ODL_HYBRID_AUTH_TOKEN",
-                            "valueFrom": {"secretKeyRef": {"name": "odl-secret", "key": "token"}},
+                            "valueFrom": {
+                                "secretKeyRef": {"name": "odl-secret", "key": "token"}
+                            },
                         }
                     ],
                 }
             }
         )
-        custom_env = self.env_map(self.by_component(custom_docs, "Deployment")["docreader"])
+        custom_env = self.env_map(
+            self.by_component(custom_docs, "Deployment")["docreader"]
+        )
         self.assertEqual(custom_env["DOCREADER_GRPC_MAX_WORKERS"]["value"], "8")
         self.assertEqual(custom_env["LOG_LEVEL"]["value"], "info")
         self.assertEqual(

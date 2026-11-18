@@ -1,13 +1,12 @@
 """Regression test for the QA dataset model default."""
 
 import importlib.util
+import unittest
 from pathlib import Path
 from types import SimpleNamespace
-import unittest
 from unittest.mock import Mock, patch
 
 import pandas as pd
-
 
 SOURCE = Path(__file__).resolve().parents[1] / "qa_dataset.py"
 
@@ -15,6 +14,7 @@ SOURCE = Path(__file__).resolve().parents[1] / "qa_dataset.py"
 class QADatasetDefaultModelTests(unittest.TestCase):
     def test_default_model_reaches_openai_client(self):
         spec = importlib.util.spec_from_file_location("qa_dataset_under_test", SOURCE)
+        assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 

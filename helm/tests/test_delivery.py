@@ -42,14 +42,20 @@ class DeliveryTests(unittest.TestCase):
             "database": "paradedb/paradedb:v0.25.11-pg17",
             "cache": "redis:7.2-alpine",
         }.items():
-            actual = deployments[component]["spec"]["template"]["spec"]["containers"][0]["image"]
+            actual = deployments[component]["spec"]["template"]["spec"]["containers"][
+                0
+            ]["image"]
             self.assertEqual(actual, "harbor.example/customer/" + repository)
 
     def test_frontend_documentation_link(self):
-        deployments = self.deployments({"frontend": {"env": {"DOCS_BASE_URL": "/customer-docs/"}}})
+        deployments = self.deployments(
+            {"frontend": {"env": {"DOCS_BASE_URL": "/customer-docs/"}}}
+        )
         env = {
             e["name"]: e.get("value")
-            for e in deployments["frontend"]["spec"]["template"]["spec"]["containers"][0]["env"]
+            for e in deployments["frontend"]["spec"]["template"]["spec"]["containers"][
+                0
+            ]["env"]
         }
         self.assertEqual(env["DOCS_BASE_URL"], "/customer-docs/")
 
@@ -79,17 +85,23 @@ class DeliveryTests(unittest.TestCase):
 
         expected_minio = "minio/minio:RELEASE.2025-09-07T16-13-09Z"
         self.assertEqual(values["minio"]["image"]["repository"], "minio/minio")
-        self.assertEqual(values["minio"]["image"]["tag"], "RELEASE.2025-09-07T16-13-09Z")
+        self.assertEqual(
+            values["minio"]["image"]["tag"], "RELEASE.2025-09-07T16-13-09Z"
+        )
         self.assertEqual(compose["services"]["minio"]["image"], expected_minio)
         self.assertEqual(compose["services"]["langfuse-minio"]["image"], expected_minio)
         self.assertEqual(compose_dev["services"]["minio"]["image"], expected_minio)
-        self.assertEqual(compose_dev["services"]["langfuse-minio"]["image"], expected_minio)
+        self.assertEqual(
+            compose_dev["services"]["langfuse-minio"]["image"], expected_minio
+        )
         self.assertIn(expected_minio, bundle_script)
         self.assertNotIn("pgsty/minio", values_content)
         self.assertNotIn("pgsty/minio", bundle_script)
 
         # 2. Database & Vector DB alignment
-        self.assertEqual(values["postgresql"]["image"]["repository"], "paradedb/paradedb")
+        self.assertEqual(
+            values["postgresql"]["image"]["repository"], "paradedb/paradedb"
+        )
         self.assertEqual(values["postgresql"]["image"]["tag"], "v0.25.11-pg17")
         self.assertEqual(
             compose["services"]["postgres"]["image"], "paradedb/paradedb:v0.25.11-pg17"
@@ -97,7 +109,9 @@ class DeliveryTests(unittest.TestCase):
 
         self.assertEqual(values["qdrant"]["image"]["repository"], "qdrant/qdrant")
         self.assertEqual(values["qdrant"]["image"]["tag"], "v1.16.2")
-        self.assertEqual(compose["services"]["qdrant"]["image"], "qdrant/qdrant:v1.16.2")
+        self.assertEqual(
+            compose["services"]["qdrant"]["image"], "qdrant/qdrant:v1.16.2"
+        )
 
         self.assertEqual(values["neo4j"]["image"]["repository"], "neo4j")
         self.assertEqual(values["neo4j"]["image"]["tag"], "2025.10.1")
@@ -151,20 +165,28 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn("OIDC_USER_INFO_MAPPING_USERNAME", prod_app_env)
         self.assertNotIn("OIDC_USER_INFO_MAPPING_USER_NAME=", prod_app_env)
         self.assertNotIn("APK_MIRROR_ARG=", prod_app_env)
-        self.assertNotIn("GO_VERSION_ARG", str(compose["services"]["app"]["build"].get("args", "")))
+        self.assertNotIn(
+            "GO_VERSION_ARG", str(compose["services"]["app"]["build"].get("args", ""))
+        )
 
-        mcp_dockerfile = (repo_root / "mcp-server" / "Dockerfile").read_text(encoding="utf-8")
+        mcp_dockerfile = (repo_root / "mcp-server" / "Dockerfile").read_text(
+            encoding="utf-8"
+        )
         self.assertIn('org.opencontainers.image.title="genyee-mcp"', mcp_dockerfile)
         self.assertIn("MCP_TRANSPORT=http", mcp_dockerfile)
         self.assertIn('CMD ["genyee-mcp-server"]', mcp_dockerfile)
         self.assertIn("HEALTHCHECK", mcp_dockerfile)
         self.assertNotIn("COPY . .", mcp_dockerfile)
 
-        app_dockerfile = (repo_root / "docker" / "Dockerfile.app").read_text(encoding="utf-8")
+        app_dockerfile = (repo_root / "docker" / "Dockerfile.app").read_text(
+            encoding="utf-8"
+        )
         self.assertNotIn("default-mysql-client", app_dockerfile)
         self.assertNotIn("COPY --from=builder /app/scripts ./scripts", app_dockerfile)
 
-        dr_dockerfile = (repo_root / "docker" / "Dockerfile.docreader").read_text(encoding="utf-8")
+        dr_dockerfile = (repo_root / "docker" / "Dockerfile.docreader").read_text(
+            encoding="utf-8"
+        )
         self.assertNotIn("COPY testdata/", dr_dockerfile)
 
         # 4. Comments verifying absence of built-in StatefulSets for MinIO/Qdrant
@@ -181,7 +203,9 @@ class DeliveryTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parent.parent.parent
         formula_path = repo_root / "Formula" / "genyee-lite.rb"
         if not formula_path.exists():
-            self.skipTest("Formula/genyee-lite.rb is omitted in exported source archives")
+            self.skipTest(
+                "Formula/genyee-lite.rb is omitted in exported source archives"
+            )
         content = formula_path.read_text(encoding="utf-8")
 
         self.assertNotIn("sed -i ''", content)
@@ -193,7 +217,9 @@ class DeliveryTests(unittest.TestCase):
         start_idx = content.index(start_marker) + len(start_marker)
         end_idx = content.index(end_marker, start_idx)
         raw_lines = content[start_idx:end_idx].splitlines()
-        min_indent = min(len(line) - len(line.lstrip()) for line in raw_lines if line.strip())
+        min_indent = min(
+            len(line) - len(line.lstrip()) for line in raw_lines if line.strip()
+        )
         dedented = "\n".join(
             line[min_indent:] if len(line) >= min_indent else line for line in raw_lines
         )
@@ -206,7 +232,9 @@ class DeliveryTests(unittest.TestCase):
             )
             (pkgshare / "migrations" / "sqlite").mkdir(parents=True)
             (pkgshare / "web").mkdir(parents=True)
-            (pkgshare / "web" / "index.html").write_text("<html></html>\n", encoding="utf-8")
+            (pkgshare / "web" / "index.html").write_text(
+                "<html></html>\n", encoding="utf-8"
+            )
             (pkgshare / ".env.lite.example").write_text(
                 "DB_DRIVER=sqlite\nDB_PATH=./data/genyee.db\nLOCAL_STORAGE_BASE_DIR=./data/files\n",
                 encoding="utf-8",
@@ -245,7 +273,9 @@ class DeliveryTests(unittest.TestCase):
                 text=True,
                 check=False,
             )
-            self.assertEqual(res.returncode, 0, f"stderr={res.stderr}\nstdout={res.stdout}")
+            self.assertEqual(
+                res.returncode, 0, f"stderr={res.stderr}\nstdout={res.stdout}"
+            )
             self.assertEqual(res.stderr, "", f"unexpected stderr: {res.stderr}")
             self.assertIn(
                 f"DB_PATH={data_dir}/genyee.db\nLOCAL_STORAGE_BASE_DIR={data_dir}/files",
@@ -310,11 +340,15 @@ class DeliveryTests(unittest.TestCase):
 
         app_env = {
             e["name"]: e
-            for e in deployments["app"]["spec"]["template"]["spec"]["containers"][0]["env"]
+            for e in deployments["app"]["spec"]["template"]["spec"]["containers"][0][
+                "env"
+            ]
         }
         docreader_env = {
             e["name"]: e
-            for e in deployments["docreader"]["spec"]["template"]["spec"]["containers"][0]["env"]
+            for e in deployments["docreader"]["spec"]["template"]["spec"]["containers"][
+                0
+            ]["env"]
         }
         self.assertEqual(
             app_env["GRPC_AUTH_TOKEN"]["valueFrom"]["secretKeyRef"]["key"],
@@ -334,7 +368,9 @@ class DeliveryTests(unittest.TestCase):
         )
 
         # Redis probes must use REDISCLI_AUTH + direct argv instead of sh -c "$REDIS_PASSWORD"
-        redis_container = deployments["cache"]["spec"]["template"]["spec"]["containers"][0]
+        redis_container = deployments["cache"]["spec"]["template"]["spec"][
+            "containers"
+        ][0]
         redis_env_names = {e["name"] for e in redis_container["env"]}
         self.assertIn("REDISCLI_AUTH", redis_env_names)
         for probe_name in ("livenessProbe", "readinessProbe"):

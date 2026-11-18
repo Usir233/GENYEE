@@ -461,7 +461,7 @@ curl -X POST $BASE/api/v1/agent/mcp-oauth-resolutions/p-1/cancel -H "Authorizati
 
 ### POST /api/v1/agent/prompts/:prompt_id 与安全表单 / 授权管理
 
-持久化人工审批、安全凭据表单与会话/自动化授权接口（`internal/handler/agent_prompts.go`，均要求登录 JWT `Viewer+` 且校验发起者身份，API Key 默认拒绝）：
+持久化人工审批、安全凭据表单与会话/自动化授权接口（`internal/handler/mcp_service.go`、`internal/handler/agent_grant.go`，均要求登录 JWT `Viewer+` 且校验发起者身份，API Key 默认拒绝）：
 
 | 方法+路径 | 用途 |
 | --- | --- |

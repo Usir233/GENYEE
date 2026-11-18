@@ -4,18 +4,17 @@ Uses real pandas/Parquet input and output, but never a real OpenAI client.
 """
 
 import argparse
-from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
 import io
-from pathlib import Path
 import sys
 import tempfile
-from types import SimpleNamespace
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pandas as pd
-
 
 SOURCE = Path(__file__).resolve().parents[1] / "qa_dataset.py"
 DEFAULT_MODEL = "gpt-5.6-sol"
@@ -30,6 +29,7 @@ class QADatasetModelTests(unittest.TestCase):
 
     def setUp(self):
         spec = importlib.util.spec_from_file_location("qa_dataset_under_test", SOURCE)
+        assert spec is not None and spec.loader is not None
         self.module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.module)
         self.directory = tempfile.TemporaryDirectory()
@@ -37,38 +37,66 @@ class QADatasetModelTests(unittest.TestCase):
         self.input_dir = Path(self.directory.name) / "input"
         self.output_dir = Path(self.directory.name) / "output"
         self.input_dir.mkdir()
-        self.queries = pd.DataFrame([
-            {"id": "q1", "text": "What color is the synthetic box?"},
-            {"id": "q2", "text": "What shape is the synthetic tile?"},
-        ])
-        self.corpus = pd.DataFrame([
-            {"id": "p1", "text": "The synthetic box is blue."},
-            {"id": "p2", "text": "The synthetic tile is square."},
-        ])
-        self.qrels = pd.DataFrame([
-            {"qid": "q1", "pid": "p1"},
-            {"qid": "q2", "pid": "p2"},
-        ])
-        for name, frame in (("queries", self.queries), ("corpus", self.corpus),
-                            ("qrels", self.qrels)):
+        self.queries = pd.DataFrame(
+            [
+                {"id": "q1", "text": "What color is the synthetic box?"},
+                {"id": "q2", "text": "What shape is the synthetic tile?"},
+            ]
+        )
+        self.corpus = pd.DataFrame(
+            [
+                {"id": "p1", "text": "The synthetic box is blue."},
+                {"id": "p2", "text": "The synthetic tile is square."},
+            ]
+        )
+        self.qrels = pd.DataFrame(
+            [
+                {"qid": "q1", "pid": "p1"},
+                {"qid": "q2", "pid": "p2"},
+            ]
+        )
+        for name, frame in (
+            ("queries", self.queries),
+            ("corpus", self.corpus),
+            ("qrels", self.qrels),
+        ):
             frame.to_parquet(self.input_dir / f"{name}.parquet")
         self.client = Mock()
         self.client.chat.completions.create.return_value = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="synthetic answer"))]
+            choices=[
+                SimpleNamespace(message=SimpleNamespace(content="synthetic answer"))
+            ]
         )
         self.client_factory = self.enter_context(
             patch.object(self.module.openai, "Client", return_value=self.client)
         )
-        self.enter_context(patch.dict("os.environ", {
-            "OPENAI_API_KEY": "local-test-placeholder",
-            "OPENAI_BASE_URL": "https://example.invalid/v1",
-        }))
-        self.enter_context(patch("socket.create_connection", side_effect=AssertionError("network forbidden")))
-        self.enter_context(patch("socket.socket.connect", side_effect=AssertionError("network forbidden")))
+        self.enter_context(
+            patch.dict(
+                "os.environ",
+                {
+                    "OPENAI_API_KEY": "local-test-placeholder",
+                    "OPENAI_BASE_URL": "https://example.invalid/v1",
+                },
+            )
+        )
+        self.enter_context(
+            patch(
+                "socket.create_connection",
+                side_effect=AssertionError("network forbidden"),
+            )
+        )
+        self.enter_context(
+            patch(
+                "socket.socket.connect", side_effect=AssertionError("network forbidden")
+            )
+        )
         self.enter_context(redirect_stdout(io.StringIO()))
 
     def generated_models(self):
-        return [call.kwargs["model"] for call in self.client.chat.completions.create.call_args_list]
+        return [
+            call.kwargs["model"]
+            for call in self.client.chat.completions.create.call_args_list
+        ]
 
     def assert_real_output(self, count=2):
         answers = pd.read_parquet(self.output_dir / "answers.parquet")
@@ -78,8 +106,15 @@ class QADatasetModelTests(unittest.TestCase):
         self.assertEqual(answers["text"].tolist(), ["synthetic answer"] * count)
 
     def run_cli(self, *extra):
-        argv = [str(SOURCE), "generate", "--input_dir", str(self.input_dir),
-                "--output_dir", str(self.output_dir), *extra]
+        argv = [
+            str(SOURCE),
+            "generate",
+            "--input_dir",
+            str(self.input_dir),
+            "--output_dir",
+            str(self.output_dir),
+            *extra,
+        ]
         with patch.object(sys, "argv", argv):
             self.module.main()
 
@@ -99,12 +134,16 @@ class QADatasetModelTests(unittest.TestCase):
         self.assert_real_output()
 
     def test_generate_explicit_model_reaches_actual_client(self):
-        self.module.generate_answers(str(self.input_dir), str(self.output_dir), model=EXPLICIT_MODEL)
+        self.module.generate_answers(
+            str(self.input_dir), str(self.output_dir), model=EXPLICIT_MODEL
+        )
         self.assertEqual(self.generated_models(), [EXPLICIT_MODEL, EXPLICIT_MODEL])
         self.assert_real_output()
         sent = self.client.chat.completions.create.call_args_list[0].kwargs
         self.assertIn("The synthetic box is blue.", sent["messages"][0]["content"])
-        self.assertIn("What color is the synthetic box?", sent["messages"][0]["content"])
+        self.assertIn(
+            "What color is the synthetic box?", sent["messages"][0]["content"]
+        )
         self.assertEqual(sent["temperature"], 0.3)
 
     def test_cli_without_model_retains_default(self):
@@ -122,9 +161,12 @@ class QADatasetModelTests(unittest.TestCase):
 
     def test_cli_help_exposes_model_option_without_calling_client(self):
         captured = io.StringIO()
-        with patch.object(sys, "argv", [str(SOURCE), "generate", "--help"]), redirect_stdout(captured):
-            with self.assertRaises(SystemExit) as stopped:
-                self.module.main()
+        with (
+            patch.object(sys, "argv", [str(SOURCE), "generate", "--help"]),
+            redirect_stdout(captured),
+            self.assertRaises(SystemExit) as stopped,
+        ):
+            self.module.main()
         self.assertEqual(stopped.exception.code, 0)
         self.assertIn("--model", captured.getvalue())
         help_text = " ".join(captured.getvalue().split())
@@ -134,9 +176,12 @@ class QADatasetModelTests(unittest.TestCase):
 
     def assert_invalid_cli_model(self, value):
         errors = io.StringIO()
-        with patch.object(self.module, "read_parquet") as read_input:
-            with redirect_stderr(errors), self.assertRaises(SystemExit) as stopped:
-                self.run_cli("--model", value)
+        with (
+            patch.object(self.module, "read_parquet") as read_input,
+            redirect_stderr(errors),
+            self.assertRaises(SystemExit) as stopped,
+        ):
+            self.run_cli("--model", value)
         self.assertEqual(stopped.exception.code, 2)
         self.assertIn("model must not be empty or whitespace-only", errors.getvalue())
         read_input.assert_not_called()
@@ -159,12 +204,18 @@ class QADatasetModelTests(unittest.TestCase):
 
     def test_explicit_model_does_not_change_resume_behavior(self):
         self.output_dir.mkdir()
-        pd.DataFrame([{"id": 1, "text": "existing answer"}]).to_parquet(self.output_dir / "answers.parquet")
-        pd.DataFrame([{"qid": "q1", "aid": 1}]).to_parquet(self.output_dir / "qas.parquet")
+        pd.DataFrame([{"id": 1, "text": "existing answer"}]).to_parquet(
+            self.output_dir / "answers.parquet"
+        )
+        pd.DataFrame([{"qid": "q1", "aid": 1}]).to_parquet(
+            self.output_dir / "qas.parquet"
+        )
         self.run_cli("--model", EXPLICIT_MODEL)
         self.assertEqual(self.generated_models(), [EXPLICIT_MODEL])
         saved = pd.read_parquet(self.output_dir / "answers.parquet")
-        self.assertEqual(saved["text"].tolist(), ["existing answer", "synthetic answer"])
+        self.assertEqual(
+            saved["text"].tolist(), ["existing answer", "synthetic answer"]
+        )
 
 
 if __name__ == "__main__":

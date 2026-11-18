@@ -102,9 +102,13 @@ class HelmSecurityHardeningTests(unittest.TestCase):
         ok = render_chart({"app": {"image": {"tag": "1.2.3"}}})
         self.assertEqual(ok.returncode, 0, ok.stderr)
         image_lines = [
-            line.strip() for line in ok.stdout.splitlines() if line.strip().startswith("image:")
+            line.strip()
+            for line in ok.stdout.splitlines()
+            if line.strip().startswith("image:")
         ]
-        self.assertTrue(any(line == "image: genyee/genyee-app:1.2.3" for line in image_lines))
+        self.assertTrue(
+            any(line == "image: genyee/genyee-app:1.2.3" for line in image_lines)
+        )
 
     def test_system_aes_key_enforces_exact_32_byte_length(self):
         base_secrets = {
@@ -150,17 +154,28 @@ class HelmSecurityHardeningTests(unittest.TestCase):
         pg_container = pg_dep["spec"]["template"]["spec"]["containers"][0]
         env_by_name = {e["name"]: e for e in pg_container["env"]}
         self.assertIn("PGUSER", env_by_name)
-        self.assertEqual(env_by_name["PGUSER"]["valueFrom"]["secretKeyRef"]["key"], "DB_USER")
+        self.assertEqual(
+            env_by_name["PGUSER"]["valueFrom"]["secretKeyRef"]["key"], "DB_USER"
+        )
         self.assertIn("PGDATABASE", env_by_name)
-        self.assertEqual(env_by_name["PGDATABASE"]["valueFrom"]["secretKeyRef"]["key"], "DB_NAME")
-        self.assertEqual(pg_container["livenessProbe"]["exec"]["command"], ["pg_isready"])
-        self.assertEqual(pg_container["readinessProbe"]["exec"]["command"], ["pg_isready"])
+        self.assertEqual(
+            env_by_name["PGDATABASE"]["valueFrom"]["secretKeyRef"]["key"], "DB_NAME"
+        )
+        self.assertEqual(
+            pg_container["livenessProbe"]["exec"]["command"], ["pg_isready"]
+        )
+        self.assertEqual(
+            pg_container["readinessProbe"]["exec"]["command"], ["pg_isready"]
+        )
 
         app_netpol = next(
             d
             for d in docs
             if d["kind"] == "NetworkPolicy"
-            and d["spec"]["podSelector"]["matchLabels"].get("app.kubernetes.io/component") == "app"
+            and d["spec"]["podSelector"]["matchLabels"].get(
+                "app.kubernetes.io/component"
+            )
+            == "app"
         )
         allowed_components = set()
         for rule in app_netpol["spec"]["ingress"]:
@@ -218,32 +233,38 @@ class HelmSecurityHardeningTests(unittest.TestCase):
             if d["kind"] == "Deployment"
         }
         self.assertEqual(
-            deployments["docreader"]["spec"]["template"]["spec"]["containers"][0]["resources"][
-                "limits"
-            ]["memory"],
+            deployments["docreader"]["spec"]["template"]["spec"]["containers"][0][
+                "resources"
+            ]["limits"]["memory"],
             "4Gi",
         )
         self.assertEqual(
-            deployments["database"]["spec"]["template"]["spec"]["containers"][0]["resources"][
-                "limits"
-            ]["memory"],
+            deployments["database"]["spec"]["template"]["spec"]["containers"][0][
+                "resources"
+            ]["limits"]["memory"],
             "2Gi",
         )
 
         fe_env = {
             e["name"]: e.get("value")
-            for e in deployments["frontend"]["spec"]["template"]["spec"]["containers"][0]["env"]
+            for e in deployments["frontend"]["spec"]["template"]["spec"]["containers"][
+                0
+            ]["env"]
         }
         app_env = {
             e["name"]: e.get("value")
-            for e in deployments["app"]["spec"]["template"]["spec"]["containers"][0]["env"]
+            for e in deployments["app"]["spec"]["template"]["spec"]["containers"][0][
+                "env"
+            ]
         }
         self.assertEqual(fe_env.get("MAX_SKILL_BUNDLE_SIZE_MB"), "256")
         self.assertEqual(app_env.get("MAX_SKILL_BUNDLE_SIZE_MB"), "256")
 
         ingress = next(d for d in docs if d["kind"] == "Ingress")
         self.assertEqual(
-            ingress["metadata"]["annotations"]["nginx.ingress.kubernetes.io/proxy-body-size"],
+            ingress["metadata"]["annotations"][
+                "nginx.ingress.kubernetes.io/proxy-body-size"
+            ],
             "256m",
         )
 

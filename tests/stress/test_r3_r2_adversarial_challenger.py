@@ -19,6 +19,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -51,7 +52,8 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
     def _extract_ruby_heredoc(cls, pkgshare_path: str = "/mock/pkgshare") -> str:
         """Extract and evaluate the Ruby heredoc to get the exact generated shell script."""
         ruby_cmd = [
-            "ruby", "-e",
+            "ruby",
+            "-e",
             """
             code = File.read(ARGV[0])
             lines = code.lines
@@ -78,10 +80,14 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             flags=re.DOTALL,
         )
         if not m:
-            raise AssertionError("Failed to locate .env.lite initialization block in Formula/genyee-lite.rb")
+            raise AssertionError(
+                "Failed to locate .env.lite initialization block in Formula/genyee-lite.rb"
+            )
         return "set -e\n" + m.group(1) + "\n"
 
-    def _run_isolated_sed_replacement(self, data_dir: str) -> tuple[int, str, str, Path]:
+    def _run_isolated_sed_replacement(
+        self, data_dir: str
+    ) -> tuple[int, str, str, Path]:
         """Execute Formula/genyee-lite.rb's actual POSIX sed initialization block."""
         tmp_dir = Path(tempfile.mkdtemp(prefix="sed_stress_"))
         config_dir = tmp_dir / "config"
@@ -95,12 +101,23 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
         env["CONFIG_DIR"] = str(config_dir)
         env["DATA_DIR"] = str(data_dir)
 
-        proc = subprocess.run(["bash", "-c", bash_script], env=env, capture_output=True, text=True)
+        proc = subprocess.run(
+            ["bash", "-c", bash_script],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         return proc.returncode, proc.stdout, proc.stderr, tmp_dir
 
     def test_ruby_syntax_check(self):
         """Verify Formula/genyee-lite.rb passes ruby -c."""
-        proc = subprocess.run(["ruby", "-c", str(FORMULA_PATH)], capture_output=True, text=True)
+        proc = subprocess.run(
+            ["ruby", "-c", str(FORMULA_PATH)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         self.assertEqual(proc.returncode, 0, f"ruby -c failed: {proc.stderr}")
         self.assertIn("Syntax OK", proc.stdout)
 
@@ -120,19 +137,16 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             ("space_multiple", "/tmp/path  with   multiple    spaces/genyee"),
             ("space_padded", "/tmp/   leading and trailing spaces   /genyee"),
             ("space_tabs", "/tmp/path\twith\ttabs/genyee"),
-
             # 2. Delimiter: Pipes |
             ("pipe_single", "/tmp/pipe|in|path/genyee"),
             ("pipe_multiple", "/tmp/pipe|path|with|many|pipes/genyee"),
             ("pipe_consecutive", "/tmp/pipe|||consecutive||pipes/genyee"),
             ("pipe_delimiter_lookalike", "/tmp/s|DB_PATH=|replaced|g/genyee"),
-
             # 3. Delimiter / Match token: Ampersands &
             ("ampersand_simple", "/tmp/rock & roll/genyee"),
             ("ampersand_multiple", "/tmp/a & b & c & d & e/genyee"),
             ("ampersand_consecutive", "/tmp/&&&triple&&ampersands/genyee"),
             ("ampersand_numbered", "/tmp/foo&1&2&3/genyee"),
-
             # 4. Escape characters: Backslashes \
             ("backslash_simple", r"/tmp/win\style\path/genyee"),
             ("backslash_multiple", r"/tmp/win\\style\\\\deep\\path/genyee"),
@@ -140,7 +154,6 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             ("backslash_c_escapes", r"/tmp/path\n\t\r\v\f\a\b/genyee"),
             ("backslash_pipe", r"/tmp/win\|pipe/genyee"),
             ("backslash_amp", r"/tmp/win\&amp/genyee"),
-
             # 5. Quotes and metacharacters
             ("quotes_single", "/tmp/it's a path's test/genyee"),
             ("quotes_double", '/tmp/path "with" double quotes/genyee'),
@@ -154,7 +167,6 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             ("wildcards", "/tmp/path*with?glob[chars]/genyee"),
             ("parentheses_braces", "/tmp/path(paren)[bracket]{brace}/genyee"),
             ("special_ascii_punct", "/tmp/spec!@#%^~-=_+:,./genyee"),
-
             # 6. Unicode and Multi-byte Characters
             ("unicode_zh_cn", "/tmp/数据中心/企业知识库_向量检索/genyee"),
             ("unicode_zh_tw", "/tmp/繁體資料/知識庫系統/genyee"),
@@ -167,31 +179,48 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             ("unicode_cyrillic", "/tmp/хранилище_данных/база_знаний/genyee"),
             ("unicode_greek", "/tmp/ελληνικά_δεδομένα/βάση_γνώσεων/genyee"),
             ("unicode_math", "/tmp/∑_∏_∆_≈_≠_≤_≥_∞_√/genyee"),
-
             # 7. Extreme Combinations
-            ("ultra_combo_1", r"""/tmp/path with 'spaces' & "quotes" | pipes \ backslashes $dollars `ticks` !@#%^*()_+-=[]{};:,.<>?/genyee"""),
-            ("ultra_combo_2", r"""/tmp/🚀 中文 & 繁體 | 日本語 \1 \2 \\ || && $HOME `id` "quote" 'single' ñoñó/genyee"""),
+            (
+                "ultra_combo_1",
+                r"""/tmp/path with 'spaces' & "quotes" | pipes \ backslashes $dollars `ticks` !@#%^*()_+-=[]{};:,.<>?/genyee""",
+            ),
+            (
+                "ultra_combo_2",
+                r"""/tmp/🚀 中文 & 繁體 | 日本語 \1 \2 \\ || && $HOME `id` "quote" 'single' ñoñó/genyee""",
+            ),
             ("pipe_start_end", "|pipe_start_and_end|"),
             ("amp_start_end", "&amp_start_and_end&"),
             ("backslash_start_end", "\\backslash_start_and_end\\"),
             ("consecutive_mixed_escapes", r"\\\\||||&&&&\\\\||"),
-
             # 8. Boundary conditions
-            ("deep_nesting", "/tmp/" + "/".join([f"level_{i}" for i in range(25)]) + "/genyee"),
+            (
+                "deep_nesting",
+                "/tmp/" + "/".join([f"level_{i}" for i in range(25)]) + "/genyee",
+            ),
             ("long_path", "/tmp/" + "a" * 512 + "/genyee"),
         ]
 
         for case_name, path_val in adversarial_cases:
             with self.subTest(case=case_name, path=path_val):
-                retcode, stdout, stderr, tmp_dir = self._run_isolated_sed_replacement(path_val)
+                retcode, _stdout, stderr, tmp_dir = self._run_isolated_sed_replacement(
+                    path_val
+                )
                 try:
-                    self.assertEqual(retcode, 0, f"Sed script failed on case '{case_name}': {stderr}")
+                    self.assertEqual(
+                        retcode, 0, f"Sed script failed on case '{case_name}': {stderr}"
+                    )
                     env_file = tmp_dir / "config" / ".env.lite"
-                    self.assertTrue(env_file.exists(), f".env.lite missing for '{case_name}'")
+                    self.assertTrue(
+                        env_file.exists(), f".env.lite missing for '{case_name}'"
+                    )
 
                     # Check temp file leaks
                     tmp_files = list((tmp_dir / "config").glob(".env.lite*"))
-                    self.assertEqual(len(tmp_files), 1, f"Temporary file leaked in '{case_name}': {tmp_files}")
+                    self.assertEqual(
+                        len(tmp_files),
+                        1,
+                        f"Temporary file leaked in '{case_name}': {tmp_files}",
+                    )
                     self.assertEqual(tmp_files[0].name, ".env.lite")
 
                     content = env_file.read_text(encoding="utf-8")
@@ -199,8 +228,16 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
                     expected_storage_dir = f"LOCAL_STORAGE_BASE_DIR={path_val}/files"
 
                     # Verify exact literal string presence
-                    self.assertIn(expected_db_path, content, f"Mismatch in DB_PATH for '{case_name}'")
-                    self.assertIn(expected_storage_dir, content, f"Mismatch in LOCAL_STORAGE_BASE_DIR for '{case_name}'")
+                    self.assertIn(
+                        expected_db_path,
+                        content,
+                        f"Mismatch in DB_PATH for '{case_name}'",
+                    )
+                    self.assertIn(
+                        expected_storage_dir,
+                        content,
+                        f"Mismatch in LOCAL_STORAGE_BASE_DIR for '{case_name}'",
+                    )
 
                     # Verify other baseline env vars remain uncorrupted
                     self.assertIn("GIN_MODE=debug", content)
@@ -223,17 +260,29 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             env_file = config_dir / ".env.lite"
             stale_tmp_file = config_dir / ".env.lite.tmp"
             shutil.copy(ENV_EXAMPLE_PATH, pkgshare_dir / ".env.lite.example")
-            stale_tmp_file.write_text("CORRUPTED_STALE_TEMP_CONTENT_FROM_PREVIOUS_CRASH\n", encoding="utf-8")
+            stale_tmp_file.write_text(
+                "CORRUPTED_STALE_TEMP_CONTENT_FROM_PREVIOUS_CRASH\n", encoding="utf-8"
+            )
 
             data_dir = "/tmp/normal_data"
             bash_script = self._extract_env_init_block(str(pkgshare_dir))
             env = os.environ.copy()
             env["CONFIG_DIR"] = str(config_dir)
             env["DATA_DIR"] = data_dir
-            proc = subprocess.run(["bash", "-c", bash_script], env=env, capture_output=True, text=True)
+            proc = subprocess.run(
+                ["bash", "-c", bash_script],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-            self.assertEqual(proc.returncode, 0, f"Failed with stale temp file: {proc.stderr}")
-            self.assertFalse(stale_tmp_file.exists(), "Stale temp file still exists after mv!")
+            self.assertEqual(
+                proc.returncode, 0, f"Failed with stale temp file: {proc.stderr}"
+            )
+            self.assertFalse(
+                stale_tmp_file.exists(), "Stale temp file still exists after mv!"
+            )
             content = env_file.read_text(encoding="utf-8")
             self.assertIn("DB_PATH=/tmp/normal_data/genyee.db", content)
             self.assertNotIn("CORRUPTED_STALE_TEMP_CONTENT", content)
@@ -252,14 +301,22 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
 
             raw_example = ENV_EXAMPLE_PATH.read_text(encoding="utf-8")
             crlf_example = raw_example.replace("\n", "\r\n")
-            (pkgshare_dir / ".env.lite.example").write_text(crlf_example, encoding="utf-8")
+            (pkgshare_dir / ".env.lite.example").write_text(
+                crlf_example, encoding="utf-8"
+            )
 
             data_dir = "/tmp/crlf_data"
             bash_script = self._extract_env_init_block(str(pkgshare_dir))
             env = os.environ.copy()
             env["CONFIG_DIR"] = str(config_dir)
             env["DATA_DIR"] = data_dir
-            proc = subprocess.run(["bash", "-c", bash_script], env=env, capture_output=True, text=True)
+            proc = subprocess.run(
+                ["bash", "-c", bash_script],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
             self.assertEqual(proc.returncode, 0)
             content = env_file.read_text(encoding="utf-8")
@@ -288,7 +345,13 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             env = os.environ.copy()
             env["CONFIG_DIR"] = str(config_dir)
             env["DATA_DIR"] = data_dir
-            proc = subprocess.run(["bash", "-c", bash_script], env=env, capture_output=True, text=True)
+            proc = subprocess.run(
+                ["bash", "-c", bash_script],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             self.assertEqual(proc.returncode, 0)
             self.assertEqual(env_file.read_text(encoding="utf-8"), custom_content)
         finally:
@@ -306,7 +369,9 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             bin_dir.mkdir(parents=True)
 
             (pkgshare / "config").mkdir()
-            (pkgshare / "config" / "config.yaml").write_text("server:\n  port: 8080\n", encoding="utf-8")
+            (pkgshare / "config" / "config.yaml").write_text(
+                "server:\n  port: 8080\n", encoding="utf-8"
+            )
             (pkgshare / "migrations").mkdir()
             shutil.copy(ENV_EXAMPLE_PATH, pkgshare / ".env.lite.example")
 
@@ -314,7 +379,7 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             mock_bin = libexec / "GENYEE-lite"
             mock_bin.write_text(
                 "#!/bin/bash\n"
-                "echo \"LITE_MOCK_SUCCESS: DB=$DB_PATH STORAGE=$LOCAL_STORAGE_BASE_DIR\"\n"
+                'echo "LITE_MOCK_SUCCESS: DB=$DB_PATH STORAGE=$LOCAL_STORAGE_BASE_DIR"\n'
                 "exit 0\n",
                 encoding="utf-8",
             )
@@ -322,7 +387,8 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
 
             # Generate wrapper script using Ruby eval
             ruby_gen_cmd = [
-                "ruby", "-e",
+                "ruby",
+                "-e",
                 f"""
                 code = File.read('{FORMULA_PATH}')
                 lines = code.lines
@@ -333,7 +399,7 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
                 libexec = '{libexec}'
                 script = eval("<<~SH\\n#{{heredoc_body}}SH\\n")
                 File.write('{bin_dir / "genyee-lite"}', script)
-                """
+                """,
             ]
             subprocess.run(ruby_gen_cmd, check=True)
             wrapper_script = bin_dir / "genyee-lite"
@@ -355,9 +421,21 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
                     env["GENYEE_CONFIG_DIR"] = str(conf_dir)
                     env["GENYEE_DATA_DIR"] = str(test_data_dir)
 
-                    proc = subprocess.run([str(wrapper_script)], env=env, capture_output=True, text=True)
-                    self.assertEqual(proc.returncode, 0, f"Wrapper execution failed on {name}: {proc.stderr}")
-                    self.assertEqual(proc.stderr, "", f"Unexpected stderr on {name}: {proc.stderr}")
+                    proc = subprocess.run(
+                        [str(wrapper_script)],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        proc.returncode,
+                        0,
+                        f"Wrapper execution failed on {name}: {proc.stderr}",
+                    )
+                    self.assertEqual(
+                        proc.stderr, "", f"Unexpected stderr on {name}: {proc.stderr}"
+                    )
 
                     env_file = conf_dir / ".env.lite"
                     self.assertTrue(env_file.exists())
@@ -368,7 +446,9 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
 
                     content = env_file.read_text(encoding="utf-8")
                     self.assertIn(f"DB_PATH={test_data_dir}/genyee.db", content)
-                    self.assertIn(f"LOCAL_STORAGE_BASE_DIR={test_data_dir}/files", content)
+                    self.assertIn(
+                        f"LOCAL_STORAGE_BASE_DIR={test_data_dir}/files", content
+                    )
                     self.assertIn(
                         f"LITE_MOCK_SUCCESS: DB={test_data_dir}/genyee.db STORAGE={test_data_dir}/files",
                         proc.stdout,
@@ -403,7 +483,16 @@ class TestHelmValuesAndDeliveryAdversarial(unittest.TestCase):
     def test_helm_values_yaml_syntax_and_root_structure(self):
         """Verify helm/values.yaml parses cleanly as a valid YAML mapping."""
         self.assertIsInstance(self.values, dict)
-        required_keys = ["minio", "postgresql", "qdrant", "neo4j", "redis", "app", "frontend", "docreader"]
+        required_keys = [
+            "minio",
+            "postgresql",
+            "qdrant",
+            "neo4j",
+            "redis",
+            "app",
+            "frontend",
+            "docreader",
+        ]
         for key in required_keys:
             self.assertIn(key, self.values, f"Missing required root key: {key}")
 
@@ -418,10 +507,14 @@ class TestHelmValuesAndDeliveryAdversarial(unittest.TestCase):
         self.assertEqual(self.values["minio"]["image"]["tag"], expected_tag)
 
         # 2. docker-compose.yml
-        self.assertEqual(self.compose["services"]["minio"]["image"], expected_full_image)
+        self.assertEqual(
+            self.compose["services"]["minio"]["image"], expected_full_image
+        )
 
         # 3. docker-compose.dev.yml
-        self.assertEqual(self.compose_dev["services"]["minio"]["image"], expected_full_image)
+        self.assertEqual(
+            self.compose_dev["services"]["minio"]["image"], expected_full_image
+        )
 
         # 4. scripts/offline-bundle.sh
         self.assertIn(expected_full_image, self.bundle_script)
@@ -444,8 +537,12 @@ class TestHelmValuesAndDeliveryAdversarial(unittest.TestCase):
 
     def test_helm_statefulset_limitation_comments(self):
         """R2: Verify helm/values.yaml contains explicit StatefulSet limitation comments."""
-        minio_comment = "helm/templates currently does not bundle a built-in MinIO StatefulSet"
-        qdrant_comment = "helm/templates currently does not bundle a built-in Qdrant StatefulSet"
+        minio_comment = (
+            "helm/templates currently does not bundle a built-in MinIO StatefulSet"
+        )
+        qdrant_comment = (
+            "helm/templates currently does not bundle a built-in Qdrant StatefulSet"
+        )
 
         self.assertIn(minio_comment, self.values_raw)
         self.assertIn(qdrant_comment, self.values_raw)
@@ -453,14 +550,21 @@ class TestHelmValuesAndDeliveryAdversarial(unittest.TestCase):
     def test_base_component_images_pinned(self):
         """Verify baseline component images match between helm/values.yaml and docker-compose.yml."""
         # PostgreSQL / ParadeDB
-        self.assertEqual(self.values["postgresql"]["image"]["repository"], "paradedb/paradedb")
+        self.assertEqual(
+            self.values["postgresql"]["image"]["repository"], "paradedb/paradedb"
+        )
         self.assertEqual(self.values["postgresql"]["image"]["tag"], "v0.25.11-pg17")
-        self.assertEqual(self.compose["services"]["postgres"]["image"], "paradedb/paradedb:v0.25.11-pg17")
+        self.assertEqual(
+            self.compose["services"]["postgres"]["image"],
+            "paradedb/paradedb:v0.25.11-pg17",
+        )
 
         # Qdrant
         self.assertEqual(self.values["qdrant"]["image"]["repository"], "qdrant/qdrant")
         self.assertEqual(self.values["qdrant"]["image"]["tag"], "v1.16.2")
-        self.assertEqual(self.compose["services"]["qdrant"]["image"], "qdrant/qdrant:v1.16.2")
+        self.assertEqual(
+            self.compose["services"]["qdrant"]["image"], "qdrant/qdrant:v1.16.2"
+        )
 
         # Neo4j
         self.assertEqual(self.values["neo4j"]["image"]["repository"], "neo4j")
