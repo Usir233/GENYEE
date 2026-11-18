@@ -405,3 +405,99 @@ test('W7-DSH-04: cordis.patch.yml trims whitespace around comma-separated GENYEE
     ['kb-1', 'kb-2'],
   )
 })
+
+test('W8-DSH-04: cancelling one concurrent scope resolution does not abort sibling calls, and an initially empty KB list is not cached forever', async () => {
+  const config = resolveConfig({ baseUrl: 'https://unused.test' })
+  const client = new GenyeeClient(config)
+  let listCalls = 0
+  let visibleBases = []
+  client.listKnowledgeBases = async signal => {
+    listCalls += 1
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 40)
+      signal.addEventListener('abort', () => {
+        clearTimeout(timer)
+        reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+      }, { once: true })
+    })
+    return visibleBases
+  }
+  client.search = async () => [{
+    id: 'c1',
+    content: 'retrieved content',
+    knowledge_id: 'doc-1',
+    knowledge_title: 'Doc 1',
+    chunk_index: 1.7,
+    score: 0.9,
+  }]
+  client.findDocuments = async () => []
+
+  const search = createTools(client, config).find(tool => tool.name === 'genyee_search')
+
+  // 1. Empty KB list fails the call, and must NOT poison subsequent calls once KBs exist.
+  await assert.rejects(search.execute({ query: 'test' }, exec), /can see no knowledge base/)
+  assert.equal(listCalls, 1)
+
+  visibleBases = [{ id: 'kb-product', name: 'Product', description: '' }]
+
+  // 2. Two concurrent calls share the in-flight listKnowledgeBases call; cancelling the
+  //    first caller rejects only that caller while the second caller still succeeds.
+  const firstController = new AbortController()
+  const secondController = new AbortController()
+  const firstPromise = search.execute({ query: 'first' }, { signal: firstController.signal })
+  const secondPromise = search.execute({ query: 'second', max_results: 0.5 }, { signal: secondController.signal })
+  setTimeout(() => firstController.abort('first caller cancelled'), 10)
+
+  await assert.rejects(firstPromise, /cancelled/)
+  const secondValue = await secondPromise
+  assert.equal(listCalls, 2)
+  assert.equal(secondValue.count, 1, 'fractional max_results < 1 must fall back rather than slicing to 0')
+  assert.equal(secondValue.results[0].chunk_index, -1, 'non-integer chunk_index must normalize to integer schema')
+  assertLosslessJson(secondValue, search.name)
+  assert.deepEqual(validate(search.output.schema, secondValue), [])
+
+  // 3. When ALL concurrent callers cancel, the underlying listKnowledgeBases signal is aborted.
+  let underlyingAborted = false
+  const freshClient = new GenyeeClient(config)
+  freshClient.listKnowledgeBases = async signal => {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 200)
+      signal.addEventListener('abort', () => {
+        underlyingAborted = true
+        clearTimeout(timer)
+        reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+      }, { once: true })
+    })
+    return visibleBases
+  }
+  const freshSearch = createTools(freshClient, config).find(tool => tool.name === 'genyee_search')
+  const ctrlA = new AbortController()
+  const ctrlB = new AbortController()
+  const pA = freshSearch.execute({ query: 'a' }, { signal: ctrlA.signal })
+  const pB = freshSearch.execute({ query: 'b' }, { signal: ctrlB.signal })
+  ctrlA.abort()
+  assert.equal(underlyingAborted, false, 'one remaining waiter keeps the shared request alive')
+  ctrlB.abort()
+  await assert.rejects(pA, /cancelled/)
+  await assert.rejects(pB, /cancelled/)
+  assert.equal(underlyingAborted, true, 'last waiter cancelling must abort the shared request')
+})
+
+test('W8-DSH-05: apply rolls back partial tool registrations in reverse order when register throws', () => {
+  const rolledBack = []
+  let calls = 0
+  const ctx = {
+    tools: {
+      register(definition) {
+        calls += 1
+        if (calls === 3) {
+          throw new Error(`collision on ${definition.name}`)
+        }
+        return () => rolledBack.push(definition.name)
+      },
+    },
+  }
+  assert.throws(() => apply(ctx, { baseUrl: 'https://kb.example.com' }), /collision on/)
+  assert.equal(rolledBack.length, 2, 'earlier registered tools must be disposed on partial load failure')
+  assert.deepEqual(rolledBack, ['genyee_search', 'genyee_list_knowledge_bases'])
+})

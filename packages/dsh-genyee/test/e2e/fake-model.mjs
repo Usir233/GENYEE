@@ -135,6 +135,7 @@ export async function startFakeModel(options = {}) {
     url: `http://127.0.0.1:${port}/v1`,
     requests,
     async close() {
+      server.closeAllConnections?.()
       await new Promise(resolve => server.close(resolve))
     },
   }

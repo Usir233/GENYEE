@@ -266,6 +266,153 @@ test('W7-DSH-03: GenyeeApiError redacts configured API keys and bearer/gy_ token
       return true
     })
   } finally {
+    server.closeAllConnections?.()
+    server.close()
+  }
+})
+
+test('W8-DSH-01: mid-body JSON and SSE stream timeouts surface GenyeeApiError with TimeoutError cause, and custom abort reasons cancel cleanly', async () => {
+  const http = await import('node:http')
+  const server = http.createServer((req, res) => {
+    if (req.url?.startsWith('/api/v1/knowledge-bases')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.write('{"success":true,"data":[')
+      // Intentionally stall past requestTimeoutMs after headers flush
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/stall')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.write('data: {"response_type":"answer","content":"partial","session_id":"stall"}\n\n')
+      // Intentionally stall past chatTimeoutMs mid-stream
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/cancel-custom')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.write('data: {"response_type":"answer","content":"started","session_id":"cancel-custom"}\n\n')
+      return
+    }
+    res.writeHead(404)
+    res.end()
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const port = server.address().port
+  try {
+    const client = new GenyeeClient(resolveConfig({
+      baseUrl: `http://127.0.0.1:${port}/api/v1`,
+      requestTimeoutMs: 60,
+      chatTimeoutMs: 60,
+    }))
+    await assert.rejects(client.listKnowledgeBases(never), error => {
+      assert.ok(error instanceof GenyeeApiError, `expected GenyeeApiError, got ${error?.constructor?.name}`)
+      assert.match(error.message, /the request timed out/)
+      assert.equal(error.cause?.name, 'TimeoutError')
+      return true
+    })
+    await assert.rejects(
+      client.ask({ sessionId: 'stall', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false }, never),
+      error => {
+        assert.ok(error instanceof GenyeeApiError)
+        assert.match(error.message, /the request timed out/)
+        assert.equal(error.cause?.name, 'TimeoutError')
+        return true
+      },
+    )
+
+    const slowClient = new GenyeeClient(resolveConfig({
+      baseUrl: `http://127.0.0.1:${port}/api/v1`,
+      chatTimeoutMs: 10_000,
+    }))
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort('user pressed stop'), 40)
+    try {
+      await assert.rejects(
+        slowClient.ask(
+          { sessionId: 'cancel-custom', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false },
+          controller.signal,
+        ),
+        error => {
+          assert.ok(error instanceof GenyeeApiError)
+          assert.match(error.message, /the call was cancelled/)
+          return true
+        },
+      )
+    } finally {
+      clearTimeout(timer)
+    }
+  } finally {
+    server.closeAllConnections?.()
+    server.close()
+  }
+})
+
+test('W8-DSH-02: guards non-object JSON envelopes, null/empty SSE frames, multibyte SSE line limits, and lone-surrogate path segments', async () => {
+  const http = await import('node:http')
+  const server = http.createServer((req, res) => {
+    if (req.url?.startsWith('/api/v1/knowledge-bases')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end('null')
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/null-frame')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.write('data: null\n\n')
+      res.write('data: 42\n\n')
+      res.write('data: {"response_type":"answer","content":"ok","session_id":"null-frame"}\n\n')
+      res.write('data: {"response_type":"complete","done":true,"session_id":"null-frame"}\n\n')
+      res.end()
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/empty-error')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.write('data: {"response_type":"error","content":"","done":true}\n\n')
+      res.end()
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/multibyte-overflow')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      // 1.5M 3-byte CJK chars = 4.5 MiB UTF-8 (> 4 MiB MAX_SSE_EVENT_BYTES), but only 1.5M UTF-16 code units (< 4M)
+      res.write(`data: ${'中'.repeat(1_500_000)}`)
+      res.end()
+      return
+    }
+    res.writeHead(404)
+    res.end()
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const port = server.address().port
+  try {
+    const client = new GenyeeClient(resolveConfig({ baseUrl: `http://127.0.0.1:${port}/api/v1` }))
+
+    await assert.rejects(client.listKnowledgeBases(never), error => {
+      assert.ok(error instanceof GenyeeApiError, `expected GenyeeApiError on JSON null, got ${error?.constructor?.name}`)
+      return true
+    })
+
+    const recovered = await client.ask(
+      { sessionId: 'null-frame', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false },
+      never,
+    )
+    assert.equal(recovered.answer, 'ok')
+
+    await assert.rejects(
+      client.ask({ sessionId: 'empty-error', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false }, never),
+      /streamed an error: unknown error/,
+    )
+
+    await assert.rejects(
+      client.ask(
+        { sessionId: 'multibyte-overflow', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false },
+        never,
+      ),
+      /SSE event exceeded/,
+    )
+
+    await assert.rejects(client.getDocument('doc-\uD800', never), error => {
+      assert.ok(error instanceof GenyeeApiError, `expected GenyeeApiError on lone surrogate, got ${error?.constructor?.name}`)
+      return true
+    })
+  } finally {
+    server.closeAllConnections?.()
     server.close()
   }
 })

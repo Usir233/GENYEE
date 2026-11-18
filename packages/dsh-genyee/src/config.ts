@@ -66,13 +66,22 @@ const DEFAULTS = {
   toolPrefix: 'genyee',
 } as const
 
+/** Signed 32-bit timer ceiling so `AbortSignal.timeout` never overflows to 1ms. */
+const MAX_TIMEOUT_MS = 2_147_483_647
+
 const SECRET_PATTERNS: [RegExp, string][] = [
   [/([a-z][a-z0-9+.-]*:\/\/)[^/\s@"']+@/gi, '$1[REDACTED]@'],
   [/\bBearer\s+\S+/gi, 'Bearer [REDACTED]'],
   [/\bgy_[A-Za-z0-9_-]+/g, '[REDACTED]'],
 ]
 
-const CONTROL_CHARS = /[\x00-\x1f\x7f]/
+function hasControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) return true
+  }
+  return false
+}
 
 /** Redact credentials and bearer/API tokens before formatting error messages. */
 export function redactSecrets(text: string, extraSecret?: string): string {
@@ -96,6 +105,51 @@ export class ConfigError extends Error {
 
 const API_ROOT = /\/api\/v\d+$/
 const TOOL_PREFIX = /^[a-z][a-z0-9_]*$/
+const IPV4_LOOPBACK = /^127(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$/
+
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  return normalized === 'localhost'
+    || normalized === '[::1]'
+    || normalized === '::1'
+    || IPV4_LOOPBACK.test(normalized)
+}
+
+function validateBaseUrl(raw: string): { baseUrl: string, violations: string[] } {
+  if (hasControlChars(raw)) {
+    return { baseUrl: DEFAULTS.baseUrl, violations: ['baseUrl must not contain control characters'] }
+  }
+  const trimmed = raw.trim()
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    return {
+      baseUrl: DEFAULTS.baseUrl,
+      violations: [`baseUrl must be an absolute URL, received ${JSON.stringify(redactSecrets(raw))}`],
+    }
+  }
+
+  const violations: string[] = []
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    violations.push(`baseUrl must use http or https, received ${parsed.protocol}`)
+  } else if (parsed.protocol === 'http:' && !isLoopbackHostname(parsed.hostname)) {
+    violations.push(`baseUrl must use https for non-loopback hosts, received ${parsed.origin}`)
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    violations.push('baseUrl must not include credentials')
+  }
+  if (parsed.search !== '' || parsed.hash !== '' || /[?#]/.test(trimmed)) {
+    violations.push(`baseUrl must not include query or fragment, received ${JSON.stringify(redactSecrets(raw))}`)
+  }
+  if (violations.length > 0) {
+    return { baseUrl: DEFAULTS.baseUrl, violations }
+  }
+
+  const pathname = parsed.pathname.replace(/\/+$/, '')
+  parsed.pathname = API_ROOT.test(pathname) ? pathname : `${pathname}/api/v1`
+  return { baseUrl: parsed.toString().replace(/\/+$/, ''), violations: [] }
+}
 
 /**
  * Normalize a GENYEE base URL to an API root. Both `https://kb.example.com`
@@ -103,27 +157,22 @@ const TOOL_PREFIX = /^[a-z][a-z0-9_]*$/
  * documented address is usually the bare origin.
  */
 export function normalizeBaseUrl(raw: string): string {
-  const trimmed = raw.trim()
-  if (/[?#]/.test(trimmed)) {
-    throw new ConfigError([`baseUrl must not include query or fragment, received ${JSON.stringify(redactSecrets(raw))}`])
+  const { baseUrl, violations } = validateBaseUrl(raw)
+  if (violations.length > 0) {
+    throw new ConfigError(violations)
   }
-  let parsed: URL
-  try {
-    parsed = new URL(trimmed)
-  } catch {
-    throw new ConfigError([`baseUrl must be an absolute URL, received ${JSON.stringify(redactSecrets(raw))}`])
-  }
-  if (parsed.username !== '' || parsed.password !== '') {
-    throw new ConfigError(['baseUrl must not include credentials'])
-  }
-  const stripped = trimmed.replace(/\/+$/, '')
-  return API_ROOT.test(stripped) ? stripped : `${stripped}/api/v1`
+  return baseUrl
 }
 
-function positiveInt(value: unknown, field: string, violations: string[]): number | undefined {
+function positiveInt(
+  value: unknown,
+  field: string,
+  violations: string[],
+  max: number = Number.MAX_SAFE_INTEGER,
+): number | undefined {
   if (value === undefined) return undefined
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    violations.push(`${field} must be a positive number, received ${JSON.stringify(value)}`)
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 1 || value > max) {
+    violations.push(`${field} must be a positive number between 1 and ${max}, received ${JSON.stringify(value)}`)
     return undefined
   }
   return Math.floor(value)
@@ -135,7 +184,12 @@ function stringList(value: unknown, field: string, violations: string[]): string
     violations.push(`${field} must be an array of non-empty strings`)
     return undefined
   }
-  return (value as string[]).map(entry => entry.trim())
+  const entries = value as string[]
+  if (entries.some(entry => hasControlChars(entry))) {
+    violations.push(`${field} must not contain control characters`)
+    return undefined
+  }
+  return entries.map(entry => entry.trim())
 }
 
 function optionalString(value: unknown, field: string, violations: string[]): string | undefined {
@@ -157,93 +211,71 @@ function toggle(value: unknown, field: string, fallback: boolean, violations: st
   return value
 }
 
-function isLoopbackHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase()
-  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '[::1]' || normalized === '::1'
-}
-
 /**
  * Apply defaults and reject an unusable row while the plugin loads, so a typo
  * surfaces at boot rather than inside the first tool call the model makes.
  * @param raw - the `config` value from the Cordis row.
  * @returns configuration every consumer can read without re-checking.
  */
-export function resolveConfig(raw: Config | undefined): ResolvedConfig {
+export function resolveConfig(raw?: Config): ResolvedConfig
+export function resolveConfig(raw: unknown): ResolvedConfig
+export function resolveConfig(raw?: unknown): ResolvedConfig {
   const violations: string[] = []
-  const config = raw ?? {}
-  if (typeof config !== 'object' || Array.isArray(config)) {
+  if (raw !== undefined && (typeof raw !== 'object' || raw === null || Array.isArray(raw))) {
     throw new ConfigError(['config must be an object'])
   }
+  const config = (raw ?? {}) as Record<string, unknown>
 
-  const baseUrlInput = optionalString(config.baseUrl, 'baseUrl', violations) ?? DEFAULTS.baseUrl
-  let baseUrl: string = DEFAULTS.baseUrl
-  let rawParsedUrl: URL | undefined
-  try {
-    rawParsedUrl = new URL(baseUrlInput)
-  } catch {
-    violations.push(`baseUrl must be an absolute URL, received ${JSON.stringify(baseUrlInput)}`)
-  }
-  if (rawParsedUrl) {
-    let urlValid = true
-    if (rawParsedUrl.protocol !== 'http:' && rawParsedUrl.protocol !== 'https:') {
-      violations.push(`baseUrl must use http or https, received ${rawParsedUrl.protocol}`)
-      urlValid = false
-    } else if (rawParsedUrl.protocol === 'http:' && !isLoopbackHostname(rawParsedUrl.hostname)) {
-      violations.push(`baseUrl must use https for non-loopback hosts, received ${rawParsedUrl.origin}`)
-      urlValid = false
-    }
-    if (rawParsedUrl.username !== '' || rawParsedUrl.password !== '') {
-      violations.push('baseUrl must not include credentials')
-      urlValid = false
-    }
-    if (rawParsedUrl.search || rawParsedUrl.hash || /[?#]/.test(baseUrlInput)) {
-      violations.push(`baseUrl must not include query or fragment, received ${JSON.stringify(baseUrlInput)}`)
-      urlValid = false
-    }
-    if (urlValid) {
-      baseUrl = new URL(normalizeBaseUrl(baseUrlInput)).toString().replace(/\/+$/, '')
-    }
-  }
+  const baseUrlInput = optionalString(config['baseUrl'], 'baseUrl', violations) ?? DEFAULTS.baseUrl
+  const { baseUrl, violations: urlViolations } = validateBaseUrl(baseUrlInput)
+  violations.push(...urlViolations)
 
-  if (typeof config.apiKey === 'string' && CONTROL_CHARS.test(config.apiKey)) {
+  if (typeof config['apiKey'] === 'string' && hasControlChars(config['apiKey'])) {
     violations.push('apiKey must not contain control characters')
   }
-  if (typeof config.tenantId === 'string' && CONTROL_CHARS.test(config.tenantId)) {
+  if (typeof config['tenantId'] === 'string' && hasControlChars(config['tenantId'])) {
     violations.push('tenantId must not contain control characters')
   }
+  if (typeof config['agentId'] === 'string' && hasControlChars(config['agentId'])) {
+    violations.push('agentId must not contain control characters')
+  }
 
-  const resourceUrls = config.resourceUrls ?? DEFAULTS.resourceUrls
+  const resourceUrls = config['resourceUrls'] ?? DEFAULTS.resourceUrls
   if (resourceUrls !== 'handle' && resourceUrls !== 'public') {
     violations.push(`resourceUrls must be "handle" or "public", received ${JSON.stringify(resourceUrls)}`)
   }
 
-  const toolPrefix = optionalString(config.toolPrefix, 'toolPrefix', violations) ?? DEFAULTS.toolPrefix
+  const toolPrefix = optionalString(config['toolPrefix'], 'toolPrefix', violations) ?? DEFAULTS.toolPrefix
   if (!TOOL_PREFIX.test(toolPrefix)) {
     violations.push(`toolPrefix must match ${String(TOOL_PREFIX)}, received ${JSON.stringify(toolPrefix)}`)
   }
 
-  const toolToggles = config.tools ?? {}
-  if (typeof toolToggles !== 'object' || Array.isArray(toolToggles)) {
+  const rawToggles = config['tools'] ?? {}
+  const togglesValid = typeof rawToggles === 'object' && rawToggles !== null && !Array.isArray(rawToggles)
+  if (!togglesValid) {
     violations.push('tools must be an object of booleans')
   }
+  const toolToggles = togglesValid ? rawToggles as Record<string, unknown> : {}
 
   const resolved: ResolvedConfig = {
     baseUrl,
-    apiKey: optionalString(config.apiKey, 'apiKey', violations),
-    tenantId: optionalString(config.tenantId, 'tenantId', violations),
-    knowledgeBaseIds: stringList(config.knowledgeBaseIds, 'knowledgeBaseIds', violations) ?? [],
-    agentId: optionalString(config.agentId, 'agentId', violations),
-    maxResults: positiveInt(config.maxResults, 'maxResults', violations) ?? DEFAULTS.maxResults,
-    maxChunkChars: positiveInt(config.maxChunkChars, 'maxChunkChars', violations) ?? DEFAULTS.maxChunkChars,
-    requestTimeoutMs: positiveInt(config.requestTimeoutMs, 'requestTimeoutMs', violations) ?? DEFAULTS.requestTimeoutMs,
-    chatTimeoutMs: positiveInt(config.chatTimeoutMs, 'chatTimeoutMs', violations) ?? DEFAULTS.chatTimeoutMs,
+    apiKey: optionalString(config['apiKey'], 'apiKey', violations),
+    tenantId: optionalString(config['tenantId'], 'tenantId', violations),
+    knowledgeBaseIds: stringList(config['knowledgeBaseIds'], 'knowledgeBaseIds', violations) ?? [],
+    agentId: optionalString(config['agentId'], 'agentId', violations),
+    maxResults: positiveInt(config['maxResults'], 'maxResults', violations) ?? DEFAULTS.maxResults,
+    maxChunkChars: positiveInt(config['maxChunkChars'], 'maxChunkChars', violations) ?? DEFAULTS.maxChunkChars,
+    requestTimeoutMs: positiveInt(config['requestTimeoutMs'], 'requestTimeoutMs', violations, MAX_TIMEOUT_MS)
+      ?? DEFAULTS.requestTimeoutMs,
+    chatTimeoutMs: positiveInt(config['chatTimeoutMs'], 'chatTimeoutMs', violations, MAX_TIMEOUT_MS)
+      ?? DEFAULTS.chatTimeoutMs,
     resourceUrls: resourceUrls === 'public' ? 'public' : 'handle',
     toolPrefix,
     tools: {
-      listKnowledgeBases: toggle(toolToggles.listKnowledgeBases, 'tools.listKnowledgeBases', true, violations),
-      search: toggle(toolToggles.search, 'tools.search', true, violations),
-      readDocument: toggle(toolToggles.readDocument, 'tools.readDocument', true, violations),
-      ask: toggle(toolToggles.ask, 'tools.ask', true, violations),
+      listKnowledgeBases: toggle(toolToggles['listKnowledgeBases'], 'tools.listKnowledgeBases', true, violations),
+      search: toggle(toolToggles['search'], 'tools.search', true, violations),
+      readDocument: toggle(toolToggles['readDocument'], 'tools.readDocument', true, violations),
+      ask: toggle(toolToggles['ask'], 'tools.ask', true, violations),
     },
   }
 

@@ -1,6 +1,7 @@
 /** The model-facing tools this plugin contributes to `ctx.tools`. */
 
-import type { ChunkRecord, DocumentRecord, SearchResult, GenyeeClient } from './client.ts'
+import { GenyeeApiError } from './client.ts'
+import type { ChunkRecord, DocumentRecord, GenyeeClient, SearchResult } from './client.ts'
 import type { ResolvedConfig } from './config.ts'
 import type { JsonSchemaNode, TextContentBlock, ToolDefinition } from './harness.ts'
 import { clip, describeScope, formatScore } from './render.ts'
@@ -89,8 +90,14 @@ function stringArrayArg(args: unknown, field: string): string[] {
 
 function boundedIntArg(args: unknown, field: string, fallback: number, max: number): number {
   const value = argRecord(args)[field]
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback
-  return Math.min(Math.floor(value), max)
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  const floored = Math.floor(value)
+  if (floored < 1) return fallback
+  return Math.min(floored, max)
+}
+
+function normalizeChunkIndex(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) ? value : -1
 }
 
 /** Prefer a human title, then the source filename, then the opaque id. */
@@ -109,7 +116,7 @@ function projectHit(result: SearchResult, rank: number, maxChunkChars: number): 
     chunk_id: typeof result.id === 'string' ? result.id : '',
     knowledge_id: typeof result.knowledge_id === 'string' ? result.knowledge_id : '',
     document: documentLabel(result),
-    chunk_index: typeof result.chunk_index === 'number' ? result.chunk_index : -1,
+    chunk_index: normalizeChunkIndex(result.chunk_index),
     // 0 rather than NaN: the canonical value must stay lossless JSON.
     score: typeof result.score === 'number' && Number.isFinite(result.score) ? result.score : 0,
     content: clipped.text,
@@ -165,17 +172,89 @@ export function createTools(client: GenyeeClient, config: ResolvedConfig): ToolD
   // model pick a scope first is worse: knowledge bases are often named too
   // poorly to choose between, and fanning out across them is cheap while they
   // share a vector store.
-  let everyId: Promise<string[]> | undefined
-  const allKnowledgeBaseIds = async (signal: AbortSignal): Promise<string[]> => {
-    everyId ??= client.listKnowledgeBases(signal).then(
-      bases => bases.map(kb => typeof kb.id === 'string' ? kb.id : '').filter(id => id !== ''),
+  let cachedIds: Promise<string[]> | undefined
+  let inflightController: AbortController | undefined
+  let activeWaiters = 0
+
+  const fetchVisibleIds = (): Promise<string[]> => {
+    if (cachedIds !== undefined) return cachedIds
+    const controller = new AbortController()
+    inflightController = controller
+    const pending = client.listKnowledgeBases(controller.signal).then(
+      bases => {
+        const ids = bases
+          .map(kb => typeof kb.id === 'string' ? kb.id.trim() : '')
+          .filter(id => id !== '')
+        if (inflightController === controller) {
+          inflightController = undefined
+        }
+        // Do not permanently cache an empty list: a newly created or granted
+        // knowledge base must become discoverable without restarting the host.
+        if (ids.length === 0 && cachedIds === pending) {
+          cachedIds = undefined
+        }
+        return ids
+      },
       (error: unknown) => {
-        everyId = undefined
+        if (inflightController === controller) {
+          inflightController = undefined
+        }
+        if (cachedIds === pending) {
+          cachedIds = undefined
+        }
         throw error
       },
     )
-    return await everyId
+    cachedIds = pending
+    return pending
   }
+
+  const allKnowledgeBaseIds = async (callerSignal: AbortSignal): Promise<string[]> => {
+    const cancelError = (): GenyeeApiError => {
+      const timedOut = typeof callerSignal.reason === 'object'
+        && callerSignal.reason !== null
+        && 'name' in callerSignal.reason
+        && (callerSignal.reason as { name: unknown }).name === 'TimeoutError'
+      const detail = timedOut ? 'the request timed out' : 'the call was cancelled'
+      return new GenyeeApiError(`GET /knowledge-bases failed: ${detail}`, undefined, config.apiKey, {
+        cause: callerSignal.reason,
+      })
+    }
+    if (callerSignal.aborted) {
+      throw cancelError()
+    }
+    if (cachedIds !== undefined && inflightController === undefined) {
+      return await cachedIds
+    }
+    activeWaiters += 1
+    const sharedPromise = fetchVisibleIds()
+    const currentController = inflightController
+    let onCallerAbort: (() => void) | undefined
+    let callerAborted = false
+    const abortPromise = new Promise<never>((_, reject) => {
+      onCallerAbort = (): void => {
+        callerAborted = true
+        activeWaiters = Math.max(0, activeWaiters - 1)
+        if (activeWaiters === 0 && currentController !== undefined && !currentController.signal.aborted) {
+          void sharedPromise.catch(() => undefined)
+          currentController.abort(callerSignal.reason)
+        }
+        reject(cancelError())
+      }
+      callerSignal.addEventListener('abort', onCallerAbort, { once: true })
+    })
+    try {
+      return await Promise.race([sharedPromise, abortPromise])
+    } finally {
+      if (onCallerAbort !== undefined) {
+        callerSignal.removeEventListener('abort', onCallerAbort)
+      }
+      if (!callerAborted) {
+        activeWaiters = Math.max(0, activeWaiters - 1)
+      }
+    }
+  }
+
   const resolveScope = async (requested: string[], knowledgeIds: string[], signal: AbortSignal): Promise<string[]> => {
     if (requested.length > 0) return requested
     if (config.knowledgeBaseIds.length > 0) return config.knowledgeBaseIds
@@ -427,7 +506,7 @@ export function createTools(client: GenyeeClient, config: ResolvedConfig): ToolD
             ? client.getDocument(knowledgeId, exec.signal).catch(() => ({}) as DocumentRecord)
             : Promise.resolve({} as DocumentRecord),
         ])
-        const ordered = [...result.chunks].sort(orderByChunkIndex)
+        const ordered = result.chunks.toSorted(orderByChunkIndex)
         const joined = ordered.map(chunk => typeof chunk.content === 'string' ? chunk.content : '').join('\n\n')
         const clipped = clip(joined, config.maxChunkChars * Math.max(1, Math.min(ordered.length, 10)))
         const title = typeof metadata.title === 'string' && metadata.title.trim() !== ''
@@ -541,7 +620,7 @@ export function createTools(client: GenyeeClient, config: ResolvedConfig): ToolD
           references: streamed.references.slice(0, config.maxResults).map(reference => ({
             knowledge_id: typeof reference.knowledge_id === 'string' ? reference.knowledge_id : '',
             document: documentLabel(reference),
-            chunk_index: typeof reference.chunk_index === 'number' ? reference.chunk_index : -1,
+            chunk_index: normalizeChunkIndex(reference.chunk_index),
             content: clip(typeof reference.content === 'string' ? reference.content : '', config.maxChunkChars).text,
           })),
         }
@@ -554,7 +633,7 @@ export function createTools(client: GenyeeClient, config: ResolvedConfig): ToolD
 
 /** Storage order, so a reassembled document reads top to bottom. */
 function orderByChunkIndex(left: ChunkRecord, right: ChunkRecord): number {
-  const a = typeof left.chunk_index === 'number' ? left.chunk_index : 0
-  const b = typeof right.chunk_index === 'number' ? right.chunk_index : 0
+  const a = typeof left.chunk_index === 'number' && Number.isFinite(left.chunk_index) ? left.chunk_index : 0
+  const b = typeof right.chunk_index === 'number' && Number.isFinite(right.chunk_index) ? right.chunk_index : 0
   return a - b
 }

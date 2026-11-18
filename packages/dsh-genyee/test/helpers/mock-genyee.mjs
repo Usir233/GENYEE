@@ -360,6 +360,7 @@ export async function startMockGenyee(options = {}) {
       failures.set(path, status)
     },
     async close() {
+      server.closeAllConnections?.()
       await new Promise(resolve => server.close(resolve))
     },
   }

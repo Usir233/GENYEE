@@ -118,3 +118,41 @@ test('W7-DSH-03: rejects baseUrl credentials without leaking them and rejects co
     },
   )
 })
+
+test('W8-DSH-03: rejects fractional <1 integers, 32-bit timeout overflows, control chars in agentId/knowledgeBaseIds, and unsafe normalizeBaseUrl schemes', () => {
+  assert.throws(
+    () => resolveConfig({
+      maxResults: 0.5,
+      maxChunkChars: 0.9,
+      requestTimeoutMs: 0.25,
+      chatTimeoutMs: 3_000_000_000,
+    }),
+    error => {
+      assert.ok(error instanceof ConfigError)
+      assert.match(error.message, /maxResults/)
+      assert.match(error.message, /maxChunkChars/)
+      assert.match(error.message, /requestTimeoutMs/)
+      assert.match(error.message, /chatTimeoutMs/)
+      return true
+    },
+  )
+
+  for (const badUrl of [
+    'ftp://kb.example.com',
+    'javascript:alert(1)',
+    'http://kb.example.com',
+    'https://kb.example.com/path\nwith-newline',
+  ]) {
+    assert.throws(() => normalizeBaseUrl(badUrl), ConfigError, `normalizeBaseUrl must reject ${JSON.stringify(badUrl)}`)
+  }
+
+  assert.throws(
+    () => resolveConfig({ agentId: 'agent\x00id', knowledgeBaseIds: ['kb-1\r\ninjected'] }),
+    error => {
+      assert.ok(error instanceof ConfigError)
+      assert.match(error.message, /agentId/)
+      assert.match(error.message, /knowledgeBaseIds/)
+      return true
+    },
+  )
+})

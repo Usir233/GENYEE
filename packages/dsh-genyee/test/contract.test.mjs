@@ -117,7 +117,6 @@ test('the plugin only reads response fields the fixture declares', async () => {
   const projected = search.output.render({ query: '混合检索' }, {
     query: '混合检索',
     knowledge_base_ids: [],
-    documents: [],
     count: trimmed.length,
     results: trimmed.map((result, index) => ({
       rank: index + 1,

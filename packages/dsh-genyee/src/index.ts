@@ -26,12 +26,24 @@ export { createTools } from './tools.ts'
  * @param config - the plugin's `config` row; validated here so a typo fails the load.
  */
 export function apply(ctx: HarnessContext, config: unknown): void {
-  const resolved = resolveConfig(config as never)
+  const resolved = resolveConfig(config)
   const client = new GenyeeClient(resolved)
   const registered: string[] = []
-  for (const definition of createTools(client, resolved)) {
-    ctx.tools.register(definition)
-    registered.push(definition.name)
+  const disposers: (() => void)[] = []
+  try {
+    for (const definition of createTools(client, resolved)) {
+      disposers.push(ctx.tools.register(definition))
+      registered.push(definition.name)
+    }
+  } catch (error) {
+    for (const dispose of disposers.toReversed()) {
+      try {
+        dispose()
+      } catch {
+        // Best-effort rollback of partial tool registrations.
+      }
+    }
+    throw error
   }
   ctx.logger?.info(`dsh-genyee: registered ${registered.join(', ')} against ${resolved.baseUrl}`)
 }
