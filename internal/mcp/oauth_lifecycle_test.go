@@ -322,3 +322,40 @@ func TestOAuthRuntimeDoesNotExpireNonRefreshableTokenEarly(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, row)
 }
+
+type failingDeleteOAuthRepo struct {
+	*lockedOAuthRepo
+	deleteErr error
+}
+
+func (r *failingDeleteOAuthRepo) DeleteTokenForPrincipal(
+	ctx context.Context, tenantID uint64, principal types.Principal, serviceID string,
+) error {
+	if r.deleteErr != nil {
+		return r.deleteErr
+	}
+	return r.lockedOAuthRepo.DeleteTokenForPrincipal(ctx, tenantID, principal, serviceID)
+}
+
+func TestOAuthRuntimePropagatesDeleteErrorWhenNonRefreshableTokenExpired(t *testing.T) {
+	baseRepo := newLockedOAuthRepo()
+	principal := types.Principal{Type: types.PrincipalWebUser, ID: "user-1"}
+	baseRepo.tokens[fakeOAuthKey(7, principal, "svc-1")] = &types.MCPOAuthToken{
+		TenantID:      7,
+		PrincipalType: principal.Type,
+		PrincipalID:   principal.ID,
+		ServiceID:     "svc-1",
+		AccessToken:   "expired-access",
+		RefreshToken:  "",
+		ExpiresAt:     time.Now().Add(-time.Minute),
+	}
+	repo := &failingDeleteOAuthRepo{
+		lockedOAuthRepo: baseRepo,
+		deleteErr:       context.DeadlineExceeded,
+	}
+	runtime := &oauthRuntime{repo: repo, tenantID: 7, principal: principal, serviceID: "svc-1"}
+
+	err := runtime.ensureFresh(context.Background(), false, nil)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "delete invalid MCP OAuth token")
+}

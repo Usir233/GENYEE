@@ -1,3 +1,4 @@
+// Package telegram implements the Telegram Bot API IM adapter for GENYEE.
 package telegram
 
 import (
@@ -52,14 +53,17 @@ func NewAdapter(client *LongConnClient, botToken string) *Adapter {
 	}
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformTelegram
 }
 
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
+// HandleURLVerification reports that Telegram does not require URL verification challenges.
+func (a *Adapter) HandleURLVerification(_ *gin.Context) bool {
 	return false // Telegram does not require URL verification challenges.
 }
 
+// VerifyCallback validates the X-Telegram-Bot-Api-Secret-Token header on webhook callbacks.
 func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	if a.secretToken == "" {
 		return fmt.Errorf("webhook verification secret is required")
@@ -113,6 +117,7 @@ type telegramPhoto struct {
 	Height   int    `json:"height"`
 }
 
+// ParseCallback parses a Telegram Bot API webhook update into a unified IncomingMessage.
 func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -215,6 +220,7 @@ func resolveChatID(incoming *im.IncomingMessage) string {
 
 // ── Send reply ──
 
+// SendReply sends a Markdown text reply to the originating Telegram chat or thread.
 func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	chatID := resolveChatID(incoming)
 	text := im.FormatIMDisplayContent(reply.Content, im.StreamDisplayFinal)
@@ -229,19 +235,6 @@ func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, r
 			body["message_thread_id"] = tid
 		}
 	}
-	return a.callAPI(ctx, "sendMessage", body)
-}
-
-func (a *Adapter) sendMessage(ctx context.Context, chatID, text, replyToMessageID string) error {
-	body := map[string]interface{}{
-		"chat_id":    chatID,
-		"text":       text,
-		"parse_mode": "Markdown",
-	}
-	if replyToMessageID != "" {
-		body["reply_to_message_id"] = replyToMessageID
-	}
-
 	return a.callAPI(ctx, "sendMessage", body)
 }
 
@@ -321,7 +314,7 @@ func (a *Adapter) callAPIWithResult(ctx context.Context, method string, body int
 	if err != nil {
 		return fmt.Errorf("do request: %w", redactTelegramErr(err, a.botToken))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var apiResp struct {
 		OK     bool            `json:"ok"`
@@ -348,12 +341,13 @@ func (a *Adapter) callAPIWithResult(ctx context.Context, method string, body int
 const minEditInterval = 500 * time.Millisecond
 
 type streamState struct {
-	mu        sync.Mutex
-	content   strings.Builder
-	msgID     string // Telegram message ID of the "thinking" message
-	chatID    string
-	lastEdit  time.Time // last successful editMessageText timestamp
-	createdAt time.Time // for orphan stream detection
+	mu             sync.Mutex
+	content        strings.Builder
+	msgID          string // Telegram message ID of the "thinking" message
+	chatID         string
+	lastEdit       time.Time // last successful editMessageText timestamp
+	lastActivityAt time.Time
+	ownerDone      <-chan struct{}
 }
 
 const (
@@ -362,39 +356,96 @@ const (
 )
 
 var (
-	streamsMu       sync.Mutex
-	streams         = map[string]*streamState{}
-	startReaperOnce sync.Once
-	reaperStopCh    = make(chan struct{})
+	streamsMu     sync.Mutex
+	streams       = map[string]*streamState{}
+	reaperMu      sync.Mutex
+	reaperRunning bool
+	reaperStopCh  chan struct{}
+	reaperDoneCh  chan struct{}
 )
 
-// startStreamReaper starts a background goroutine (once) that periodically
-// removes orphaned stream entries. This prevents memory leaks when EndStream
-// is never called due to panics or pipeline errors.
+// startStreamReaper starts a background goroutine that periodically removes
+// orphaned stream entries and restarts cleanly after StopStreamReaper.
 func startStreamReaper() {
-	startReaperOnce.Do(func() {
-		go func() {
-			ticker := time.NewTicker(streamReaperInterval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					cutoff := time.Now().Add(-streamOrphanTTL)
-					streamsMu.Lock()
-					for id, state := range streams {
-						if state.createdAt.Before(cutoff) {
-							delete(streams, id)
-						}
-					}
-					streamsMu.Unlock()
-				case <-reaperStopCh:
-					return
-				}
+	reaperMu.Lock()
+	if reaperRunning {
+		reaperMu.Unlock()
+		return
+	}
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	reaperStopCh = stopCh
+	reaperDoneCh = doneCh
+	reaperRunning = true
+	reaperMu.Unlock()
+
+	go func() {
+		defer close(doneCh)
+		ticker := time.NewTicker(streamReaperInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case now := <-ticker.C:
+				reapOrphanStreams(now)
+			case <-stopCh:
+				return
 			}
-		}()
-	})
+		}
+	}()
 }
 
+func reapOrphanStreams(now time.Time) {
+	streamsMu.Lock()
+	defer streamsMu.Unlock()
+	for id, state := range streams {
+		if state.ownerDone != nil {
+			select {
+			case <-state.ownerDone:
+			default:
+				state.lastActivityAt = now
+				continue
+			}
+		}
+		if state.lastActivityAt.Before(now.Add(-streamOrphanTTL)) {
+			delete(streams, id)
+		}
+	}
+}
+
+func lookupStream(streamID string) (*streamState, bool) {
+	streamsMu.Lock()
+	defer streamsMu.Unlock()
+	state, ok := streams[streamID]
+	if ok {
+		state.lastActivityAt = time.Now()
+	}
+	return state, ok
+}
+
+// StopStreamReaper stops the background stream reaper goroutine and waits for it to exit.
+func StopStreamReaper() {
+	reaperMu.Lock()
+	stopCh := reaperStopCh
+	doneCh := reaperDoneCh
+	if reaperRunning {
+		reaperRunning = false
+		reaperStopCh = nil
+		close(stopCh)
+	}
+	reaperMu.Unlock()
+
+	if doneCh != nil {
+		<-doneCh
+	}
+}
+
+func isStreamReaperRunning() bool {
+	reaperMu.Lock()
+	defer reaperMu.Unlock()
+	return reaperRunning
+}
+
+// StartStream posts a placeholder message and returns the stream identifier.
 func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage) (string, error) {
 	chatID := resolveChatID(incoming)
 
@@ -420,9 +471,10 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 
 	streamsMu.Lock()
 	streams[streamID] = &streamState{
-		msgID:     msgID,
-		chatID:    chatID,
-		createdAt: time.Now(),
+		msgID:          msgID,
+		chatID:         chatID,
+		lastActivityAt: time.Now(),
+		ownerDone:      ctx.Done(),
 	}
 	streamsMu.Unlock()
 
@@ -430,14 +482,15 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 	return streamID, nil
 }
 
-func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+// UpdateStreamContent edits the in-flight message with the latest accumulated text.
+func (a *Adapter) UpdateStreamContent(
+	ctx context.Context, _ *im.IncomingMessage, streamID string, fullContent string,
+) error {
 	if fullContent == "" {
 		return nil
 	}
 
-	streamsMu.Lock()
-	state, ok := streams[streamID]
-	streamsMu.Unlock()
+	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
@@ -462,10 +515,11 @@ func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.Incoming
 	return nil
 }
 
-func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
-	streamsMu.Lock()
-	state, ok := streams[streamID]
-	streamsMu.Unlock()
+// FinalizeStream edits the stream message with the final Markdown answer.
+func (a *Adapter) FinalizeStream(
+	ctx context.Context, _ *im.IncomingMessage, streamID string, finalContent string,
+) error {
+	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
@@ -487,11 +541,18 @@ func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessa
 	return nil
 }
 
-func (a *Adapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+// SendStreamChunk forwards incremental stream updates to UpdateStreamContent.
+func (a *Adapter) SendStreamChunk(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	content string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
-func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
+// EndStream removes the completed stream state from the in-memory registry.
+func (a *Adapter) EndStream(ctx context.Context, _ *im.IncomingMessage, streamID string) error {
 	streamsMu.Lock()
 	_, ok := streams[streamID]
 	delete(streams, streamID)
@@ -507,6 +568,7 @@ func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, s
 
 // ── FileDownloader implementation ──
 
+// DownloadFile downloads a Telegram document or photo attachment with bounded size.
 func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io.ReadCloser, string, error) {
 	if msg.FileKey == "" {
 		return nil, "", fmt.Errorf("file_key is required")
@@ -536,9 +598,9 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 		return nil, "", fmt.Errorf("download file: %w", redactTelegramErr(err, a.botToken))
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, "", fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
-	return resp.Body, msg.FileName, nil
+	return im.LimitAttachmentReadCloser(resp.Body), msg.FileName, nil
 }

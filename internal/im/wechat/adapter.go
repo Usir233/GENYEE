@@ -1,12 +1,5 @@
-// Adapter implements im.Adapter and im.FileDownloader for WeChat personal
-// accounts via the Tencent iLink Bot API.
-//
-// WeChat iLink uses HTTP long-polling for receiving messages (no WebSocket,
-// no Webhook). Sending is done via REST API.
-//
-// API base: https://ilinkai.weixin.qq.com
-// API paths: /ilink/bot/getupdates, /ilink/bot/sendmessage, etc.
-// Auth: Bearer token obtained via QR code login flow.
+// Package wechat implements the Tencent iLink Bot API IM adapter, long-polling
+// message receiver, and QR code login flow for WeChat personal accounts.
 package wechat
 
 import (
@@ -77,22 +70,23 @@ func NewAdapter(botToken, ilinkBotID string) *Adapter {
 	}
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformWeChat
 }
 
 // VerifyCallback is not supported — WeChat iLink uses long-polling, not webhooks.
-func (a *Adapter) VerifyCallback(c *gin.Context) error {
+func (a *Adapter) VerifyCallback(_ *gin.Context) error {
 	return fmt.Errorf("WeChat adapter does not support webhook callbacks")
 }
 
 // ParseCallback is not supported — messages arrive via long-polling.
-func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
+func (a *Adapter) ParseCallback(_ *gin.Context) (*im.IncomingMessage, error) {
 	return nil, fmt.Errorf("WeChat adapter does not support webhook callbacks")
 }
 
 // HandleURLVerification is not applicable for WeChat.
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
+func (a *Adapter) HandleURLVerification(_ *gin.Context) bool {
 	return false
 }
 
@@ -170,22 +164,22 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, "", fmt.Errorf("download failed: status=%d", resp.StatusCode)
 	}
 
-	// If no AES key provided, return raw content
+	// If no AES key provided, return bounded raw content.
 	aesKeyB64 := ""
 	if msg.Extra != nil {
 		aesKeyB64 = msg.Extra["aes_key"]
 	}
 	if aesKeyB64 == "" {
-		return resp.Body, fileName, nil
+		return im.LimitAttachmentReadCloser(resp.Body), fileName, nil
 	}
 
 	// Read and decrypt with AES-128-ECB
 	encryptedData, err := im.ReadIMAttachmentResponse(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if err != nil {
 		return nil, "", fmt.Errorf("read encrypted file: %w", err)
 	}
@@ -247,13 +241,16 @@ func parseAESKey(aesKeyStr string) ([]byte, error) {
 		return hexDecode(string(decoded))
 	}
 
-	return nil, fmt.Errorf("aes key decoded to %d bytes (expected 16 raw or 32 hex), input len=%d", len(decoded), len(aesKeyStr))
+	return nil, fmt.Errorf(
+		"aes key decoded to %d bytes (expected 16 raw or 32 hex), input len=%d",
+		len(decoded), len(aesKeyStr),
+	)
 }
 
 // isHex returns true if s contains only hexadecimal characters.
 func isHex(s string) bool {
 	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}
@@ -295,7 +292,7 @@ func (a *Adapter) ilinkPost(ctx context.Context, path string, payload interface{
 	if err != nil {
 		return fmt.Errorf("ilink request %s: %w", path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -322,11 +319,25 @@ func (a *Adapter) setAuthHeaders(req *http.Request, body []byte) {
 	}
 }
 
+var wechatRandReader io.Reader = rand.Reader
+
 // generateWeChatUIN generates a random X-WECHAT-UIN header value.
 // Format: random uint32 → decimal string → base64.
 func generateWeChatUIN() string {
-	buf := make([]byte, 4)
-	_, _ = rand.Read(buf)
-	n := binary.BigEndian.Uint32(buf)
+	var buf [4]byte
+	var n uint32
+	if _, err := io.ReadFull(wechatRandReader, buf[:]); err != nil {
+		logger.Warnf(
+			context.Background(),
+			"[WeChat] crypto/rand failed generating X-WECHAT-UIN, using fallback: %v",
+			err,
+		)
+		n = uint32(time.Now().UnixNano()) | 1
+	} else {
+		n = binary.BigEndian.Uint32(buf[:])
+		if n == 0 {
+			n = 1
+		}
+	}
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", n)))
 }

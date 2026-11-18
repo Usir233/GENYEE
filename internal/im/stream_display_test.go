@@ -24,14 +24,18 @@ func (m *recordingStreamSender) StartStream(_ context.Context, _ *IncomingMessag
 	return m.streamID, nil
 }
 
-func (m *recordingStreamSender) UpdateStreamContent(_ context.Context, _ *IncomingMessage, _ string, fullContent string) error {
+func (m *recordingStreamSender) UpdateStreamContent(
+	_ context.Context, _ *IncomingMessage, _ string, fullContent string,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.chunkContents = append(m.chunkContents, fullContent)
 	return nil
 }
 
-func (m *recordingStreamSender) FinalizeStream(_ context.Context, _ *IncomingMessage, _ string, finalContent string) error {
+func (m *recordingStreamSender) FinalizeStream(
+	_ context.Context, _ *IncomingMessage, _ string, finalContent string,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.finalContent = finalContent

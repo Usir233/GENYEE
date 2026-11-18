@@ -281,6 +281,12 @@ func (s *Server) resolveAskSession(
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 	if err := s.sessionService.SetSessionOwnerID(ctx, ep.TenantID, created.ID, ownerID); err != nil {
+		cleanupCtx := context.WithValue(context.WithoutCancel(ctx), types.TenantIDContextKey, ep.TenantID)
+		cleanupCtx, cancel := context.WithTimeout(cleanupCtx, 5*time.Second)
+		defer cancel()
+		if delErr := s.sessionService.DeleteSession(cleanupCtx, created.ID); delErr != nil {
+			logger.Warnf(cleanupCtx, "[mcpserver] failed to delete unbound session %s: %v", created.ID, delErr)
+		}
 		return nil, fmt.Errorf("failed to bind session: %w", err)
 	}
 	created.UserID = ownerID

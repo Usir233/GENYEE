@@ -117,7 +117,11 @@ var _ im.FileDownloader = (*WebhookAdapter)(nil)
 
 // NewWebhookAdapter creates a new WeCom webhook adapter.
 // apiBaseURL overrides the default WeCom API base URL; empty uses the public cloud endpoint.
-func NewWebhookAdapter(corpID, agentSecret, token, encodingAESKey string, corpAgentID int, apiBaseURL string) (*WebhookAdapter, error) {
+func NewWebhookAdapter(
+	corpID, agentSecret, token, encodingAESKey string,
+	corpAgentID int,
+	apiBaseURL string,
+) (*WebhookAdapter, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return nil, fmt.Errorf("token is required for WeCom webhook mode")
@@ -263,8 +267,11 @@ func (a *WebhookAdapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, err
 		return nil, fmt.Errorf("unmarshal decrypted message: %w", err)
 	}
 
-	logger.Debugf(c.Request.Context(), "[WeCom] Parsed webhook message: msgid=%s msgtype=%s from=%s content=%q picurl=%q mediaid=%q",
-		msg.MsgID, msg.MsgType, msg.FromUserName, msg.Content, msg.PicUrl, msg.MediaId)
+	logger.Debugf(
+		c.Request.Context(),
+		"[WeCom] Parsed webhook message: msgid=%s msgtype=%s from=%s content=%q picurl=%q mediaid=%q",
+		msg.MsgID, msg.MsgType, msg.FromUserName, msg.Content, msg.PicURL, msg.MediaID,
+	)
 
 	// Determine chat type
 	chatType := im.ChatTypeDirect
@@ -295,13 +302,13 @@ func (a *WebhookAdapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, err
 		}, nil
 
 	case "image":
-		// Image via webhook: has PicUrl (direct download) and MediaId
-		if msg.PicUrl == "" && msg.MediaId == "" {
+		// Image via webhook: has PicURL (direct download) and MediaID
+		if msg.PicURL == "" && msg.MediaID == "" {
 			return nil, nil
 		}
-		fileKey := msg.PicUrl
+		fileKey := msg.PicURL
 		if fileKey == "" {
-			fileKey = msg.MediaId
+			fileKey = msg.MediaID
 		}
 		return &im.IncomingMessage{
 			Platform:    im.PlatformWeCom,
@@ -398,7 +405,7 @@ func (a *WebhookAdapter) sendToAppChat(ctx context.Context, accessToken, chatID 
 	if err != nil {
 		return fmt.Errorf("send appchat message: %w", redactWeComSecrets(err, accessToken))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		ErrCode int    `json:"errcode"`
@@ -442,7 +449,7 @@ func (a *WebhookAdapter) sendToUser(ctx context.Context, accessToken, userID str
 	if err != nil {
 		return fmt.Errorf("send message: %w", redactWeComSecrets(err, accessToken))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		ErrCode int    `json:"errcode"`
@@ -480,7 +487,7 @@ func (a *WebhookAdapter) getAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("request access token: %w", redactWeComSecrets(err, a.agentSecret))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		ErrCode     int    `json:"errcode"`
@@ -604,10 +611,10 @@ type wecomMessage struct {
 	CreateTime   int64    `xml:"CreateTime"`
 	MsgType      string   `xml:"MsgType"`
 	Content      string   `xml:"Content"`      // text
-	PicUrl       string   `xml:"PicUrl"`       // image: download URL
-	MediaId      string   `xml:"MediaId"`      // image/voice/video: media ID for download
+	PicURL       string   `xml:"PicUrl"`       // image: download URL
+	MediaID      string   `xml:"MediaId"`      // image/voice/video: media ID for download
 	Format       string   `xml:"Format"`       // voice: audio format (amr/speex)
-	ThumbMediaId string   `xml:"ThumbMediaId"` // video: thumbnail media ID
+	ThumbMediaID string   `xml:"ThumbMediaId"` // video: thumbnail media ID
 	MsgID        string   `xml:"MsgId"`
 	AgentID      string   `xml:"AgentID"`
 	ChatID       string   `xml:"ChatId"`
@@ -632,7 +639,11 @@ func (a *WebhookAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessa
 
 	// If FileKey looks like a URL, download directly
 	if strings.HasPrefix(msg.FileKey, "http://") || strings.HasPrefix(msg.FileKey, "https://") {
-		return downloadFromURL(ctx, msg.FileKey, fileName, a.extraAllowedHost)
+		rc, name, dlErr := downloadFromURL(ctx, msg.FileKey, fileName, a.extraAllowedHost)
+		if dlErr != nil {
+			return nil, "", dlErr
+		}
+		return im.LimitAttachmentReadCloser(rc), name, nil
 	}
 
 	// Otherwise treat as media_id, download via temporary media API
@@ -647,7 +658,7 @@ func (a *WebhookAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessa
 	if dlErr != nil {
 		return nil, "", redactWeComSecrets(dlErr, accessToken)
 	}
-	return rc, name, nil
+	return im.LimitAttachmentReadCloser(rc), name, nil
 }
 
 // downloadFromURL performs a GET request and returns the response body.
@@ -655,7 +666,11 @@ func (a *WebhookAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessa
 //  1. Content-Disposition: attachment; filename="xxx.pdf"
 //  2. Content-Type → extension mapping (fallback for platforms like WeCom that
 //     don't provide the original filename in the callback JSON)
-func downloadFromURL(ctx context.Context, rawURL, fileName string, extraAllowedHost string) (io.ReadCloser, string, error) {
+func downloadFromURL(
+	ctx context.Context,
+	rawURL, fileName string,
+	extraAllowedHost string,
+) (io.ReadCloser, string, error) {
 	// SSRF protection: reject internal/private URLs unless on the WeCom API allowlist.
 	if !isAllowedIMAPIHost(rawURL, extraAllowedHost) {
 		if err := secutils.ValidateURLForSSRF(rawURL); err != nil {
@@ -674,7 +689,7 @@ func downloadFromURL(ctx context.Context, rawURL, fileName string, extraAllowedH
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, "", fmt.Errorf("download failed: status=%d", resp.StatusCode)
 	}
 

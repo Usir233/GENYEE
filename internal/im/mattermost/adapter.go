@@ -1,3 +1,4 @@
+// Package mattermost implements the Mattermost outgoing-webhook and REST v4 IM adapter for GENYEE.
 package mattermost
 
 import (
@@ -9,6 +10,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -40,6 +42,7 @@ type Adapter struct {
 
 // NewAdapter creates a Mattermost adapter.
 func NewAdapter(client *Client, outgoingToken, botUserID string, postReplyToMain bool) *Adapter {
+	startStreamReaper()
 	return &Adapter{
 		client:          client,
 		outgoingToken:   strings.TrimSpace(outgoingToken),
@@ -60,14 +63,17 @@ type outgoingPayload struct {
 	FileIDsRaw json.RawMessage `json:"file_ids"`
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformMattermost
 }
 
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
+// HandleURLVerification reports that Mattermost outgoing webhooks do not use challenge handshakes.
+func (a *Adapter) HandleURLVerification(_ *gin.Context) bool {
 	return false
 }
 
+// VerifyCallback validates the Mattermost outgoing webhook token in constant time.
 func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	if a.outgoingToken == "" {
 		return fmt.Errorf("invalid outgoing webhook token")
@@ -91,6 +97,7 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	return nil
 }
 
+// ParseCallback parses a Mattermost outgoing webhook payload into a unified IncomingMessage.
 func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -105,7 +112,10 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	}
 
 	if a.botUserID != "" && payload.UserID == a.botUserID {
-		logger.Infof(c.Request.Context(), "[Mattermost] Skip callback: user_id matches bot_user_id (avoid self-reply loop)")
+		logger.Infof(
+			c.Request.Context(),
+			"[Mattermost] Skip callback: user_id matches bot_user_id (avoid self-reply loop)",
+		)
 		return nil, nil
 	}
 
@@ -122,7 +132,8 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 		if threadRoot == "" {
 			// Outgoing webhooks may omit root_id for thread replies.
 			// Fetch the post to resolve the actual thread root.
-			if actualRootID, err := a.client.GetPost(c.Request.Context(), payload.PostID); err == nil && actualRootID != "" {
+			actualRootID, err := a.client.GetPost(c.Request.Context(), payload.PostID)
+			if err == nil && actualRootID != "" {
 				threadRoot = actualRootID
 			} else {
 				// Top-level message: use its own PostID as thread root.
@@ -228,6 +239,7 @@ func splitFileIDs(s string) []string {
 	return out
 }
 
+// SendReply posts a reply message to the originating Mattermost channel or thread.
 func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	channelID := incoming.ChatID
 	if channelID == "" {
@@ -247,17 +259,108 @@ func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, r
 }
 
 type mmStreamState struct {
-	mu      sync.Mutex
-	content strings.Builder
-	postID  string
-	channel string
+	mu             sync.Mutex
+	content        strings.Builder
+	postID         string
+	channel        string
+	lastActivityAt time.Time
+	ownerDone      <-chan struct{}
 }
 
-var (
-	mmStreamsMu sync.Mutex
-	mmStreams   = map[string]*mmStreamState{}
+const (
+	streamOrphanTTL      = 5 * time.Minute
+	streamReaperInterval = 1 * time.Minute
 )
 
+var (
+	mmStreamsMu   sync.Mutex
+	mmStreams     = map[string]*mmStreamState{}
+	reaperMu      sync.Mutex
+	reaperRunning bool
+	reaperStopCh  chan struct{}
+	reaperDoneCh  chan struct{}
+)
+
+func startStreamReaper() {
+	reaperMu.Lock()
+	if reaperRunning {
+		reaperMu.Unlock()
+		return
+	}
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	reaperStopCh = stopCh
+	reaperDoneCh = doneCh
+	reaperRunning = true
+	reaperMu.Unlock()
+
+	go func() {
+		defer close(doneCh)
+		ticker := time.NewTicker(streamReaperInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case now := <-ticker.C:
+				reapOrphanStreams(now)
+			case <-stopCh:
+				return
+			}
+		}
+	}()
+}
+
+func reapOrphanStreams(now time.Time) {
+	mmStreamsMu.Lock()
+	defer mmStreamsMu.Unlock()
+	for id, state := range mmStreams {
+		if state.ownerDone != nil {
+			select {
+			case <-state.ownerDone:
+			default:
+				state.lastActivityAt = now
+				continue
+			}
+		}
+		if state.lastActivityAt.Before(now.Add(-streamOrphanTTL)) {
+			delete(mmStreams, id)
+		}
+	}
+}
+
+func lookupStream(streamID string) (*mmStreamState, bool) {
+	mmStreamsMu.Lock()
+	defer mmStreamsMu.Unlock()
+	state, ok := mmStreams[streamID]
+	if ok {
+		state.lastActivityAt = time.Now()
+	}
+	return state, ok
+}
+
+// StopStreamReaper stops the background stream reaper goroutine and waits for it to exit.
+func StopStreamReaper() {
+	reaperMu.Lock()
+	stopCh := reaperStopCh
+	doneCh := reaperDoneCh
+	if reaperRunning {
+		reaperRunning = false
+		reaperStopCh = nil
+		close(stopCh)
+	}
+	reaperMu.Unlock()
+
+	if doneCh != nil {
+		<-doneCh
+	}
+}
+
+func isStreamReaperRunning() bool {
+	reaperMu.Lock()
+	defer reaperMu.Unlock()
+	return reaperRunning
+}
+
+// StartStream creates a placeholder post in Mattermost and registers the stream state.
 func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage) (string, error) {
 	channelID := incoming.ChatID
 	if channelID == "" {
@@ -275,21 +378,27 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 
 	streamID := channelID + ":" + postID
 	mmStreamsMu.Lock()
-	mmStreams[streamID] = &mmStreamState{postID: postID, channel: channelID}
+	mmStreams[streamID] = &mmStreamState{
+		postID:         postID,
+		channel:        channelID,
+		lastActivityAt: time.Now(),
+		ownerDone:      ctx.Done(),
+	}
 	mmStreamsMu.Unlock()
 
 	logger.Infof(ctx, "[Mattermost] Streaming started: stream_id=%s", streamID)
 	return streamID, nil
 }
 
-func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+// UpdateStreamContent patches the Mattermost post with the latest accumulated stream text.
+func (a *Adapter) UpdateStreamContent(
+	ctx context.Context, _ *im.IncomingMessage, streamID string, fullContent string,
+) error {
 	if fullContent == "" {
 		return nil
 	}
 
-	mmStreamsMu.Lock()
-	state, ok := mmStreams[streamID]
-	mmStreamsMu.Unlock()
+	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
@@ -306,15 +415,25 @@ func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.Incoming
 	return nil
 }
 
-func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
+// FinalizeStream patches the Mattermost post with the final answer content.
+func (a *Adapter) FinalizeStream(
+	ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, finalContent)
 }
 
-func (a *Adapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+// SendStreamChunk forwards incremental updates to UpdateStreamContent.
+func (a *Adapter) SendStreamChunk(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	content string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
-func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
+// EndStream applies the final accumulated text and removes the stream state.
+func (a *Adapter) EndStream(ctx context.Context, _ *im.IncomingMessage, streamID string) error {
 	mmStreamsMu.Lock()
 	state, ok := mmStreams[streamID]
 	delete(mmStreams, streamID)
@@ -336,6 +455,7 @@ func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, s
 	return nil
 }
 
+// DownloadFile fetches file metadata and opens a bounded download stream from Mattermost.
 func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io.ReadCloser, string, error) {
 	if msg.FileKey == "" {
 		return nil, "", fmt.Errorf("file_key is required")

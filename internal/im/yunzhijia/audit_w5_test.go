@@ -54,7 +54,7 @@ func TestLongConnClient_StopRacingWithDialClosesConnectionImmediately(t *testing
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		// Hold socket open silently; if client fails to detect Stop() right after
 		// DialContext, ReadMessage would block for webSocketReadTimeout (45s).
 		<-r.Context().Done()
@@ -75,7 +75,8 @@ func TestLongConnClient_StopRacingWithDialClosesConnectionImmediately(t *testing
 	}()
 
 	select {
-	case <-done:
+	case err := <-done:
+		_ = err
 	case <-time.After(500 * time.Millisecond):
 		lc.closeConn()
 		t.Fatal("connectAndRun blocked on ReadMessage despite Stop() having already set closed=true")

@@ -1,3 +1,4 @@
+// Package qqbot implements the GENYEE IM adapter and WebSocket gateway client for QQ Bot.
 package qqbot
 
 import (
@@ -15,26 +16,32 @@ import (
 
 var _ im.Adapter = (*Adapter)(nil)
 
+// Adapter implements im.Adapter for QQ Bot.
 type Adapter struct {
 	client *Client
 }
 
+// NewAdapter creates a QQ Bot adapter backed by the given API client.
 func NewAdapter(client *Client) *Adapter {
 	return &Adapter{client: client}
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformQQBot
 }
 
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
+// HandleURLVerification reports that QQ Bot does not use HTTP challenge verification.
+func (a *Adapter) HandleURLVerification(_ *gin.Context) bool {
 	return false
 }
 
-func (a *Adapter) VerifyCallback(c *gin.Context) error {
+// VerifyCallback rejects unauthenticated HTTP callbacks because QQ Bot uses WebSocket gateway mode.
+func (a *Adapter) VerifyCallback(_ *gin.Context) error {
 	return fmt.Errorf("QQ messages require an authenticated gateway connection")
 }
 
+// ParseCallback parses a QQ Bot gateway payload into a unified IncomingMessage.
 func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -50,6 +57,7 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	return parseGatewayPayload(&payload)
 }
 
+// SendReply sends a C2C or group reply message via the QQ Bot OpenAPI.
 func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	content := strings.TrimSpace(im.FormatIMDisplayContent(reply.Content, im.StreamDisplayFinal))
 	if content == "" {

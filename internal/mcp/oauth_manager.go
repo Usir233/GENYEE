@@ -373,6 +373,14 @@ func (m *OAuthManager) Revoke(
 	return m.repo.DeleteTokenForPrincipal(ctx, tenantID, principal, serviceID)
 }
 
+// Close releases background state-cleanup resources owned by the OAuth manager.
+func (m *OAuthManager) Close() {
+	if m == nil || m.states == nil {
+		return
+	}
+	m.states.Close()
+}
+
 // validateFrontendRedirect accepts application-relative paths or the explicitly
 // configured frontend origin. Request Host/Origin headers are not trusted.
 func validateFrontendRedirect(raw string) (string, error) {

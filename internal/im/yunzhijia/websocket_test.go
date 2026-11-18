@@ -195,8 +195,9 @@ func TestLongConnClientAcknowledgesFrameAndStops(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
-		if err := conn.WriteMessage(ws.TextMessage, []byte(`{"cmd":"directPush","needAck":true,"seq":42}`)); err != nil {
+		defer func() { _ = conn.Close() }()
+		pushFrame := []byte(`{"cmd":"directPush","needAck":true,"seq":42}`)
+		if err := conn.WriteMessage(ws.TextMessage, pushFrame); err != nil {
 			return
 		}
 		_, data, err := conn.ReadMessage()
@@ -243,7 +244,7 @@ func TestLongConnClientReconnectsAfterMaxConnectionAge(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		connections <- struct{}{}
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {

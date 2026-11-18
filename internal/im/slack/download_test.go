@@ -29,10 +29,8 @@ func TestDownloadFileTrustedEndpoints(t *testing.T) {
 					body := "file contents"
 					if strings.HasSuffix(req.URL.Path, "/files.info") {
 						body = fmt.Sprintf(`{"ok":true,"file":{"url_private_download":%q}}`, target)
-					} else {
-						if req.URL.String() != target || req.Header.Get("Authorization") != "Bearer test-token" {
-							return nil, fmt.Errorf("unexpected download URL or authorization")
-						}
+					} else if req.URL.String() != target || req.Header.Get("Authorization") != "Bearer test-token" {
+						return nil, fmt.Errorf("unexpected download URL or authorization")
 					}
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 				})

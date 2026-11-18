@@ -26,15 +26,21 @@ type SearchCommand struct {
 	kbService      interfaces.KnowledgeBaseService
 }
 
-func newSearchCommand(sessionService interfaces.SessionService, kbService interfaces.KnowledgeBaseService) *SearchCommand {
+func newSearchCommand(
+	sessionService interfaces.SessionService, kbService interfaces.KnowledgeBaseService,
+) *SearchCommand {
 	return &SearchCommand{sessionService: sessionService, kbService: kbService}
 }
 
+// Name returns the slash-command identifier.
 func (c *SearchCommand) Name() string { return "search" }
+
+// Description returns the localized command summary.
 func (c *SearchCommand) Description() string {
 	return "直接检索知识库原文（不经 AI 总结），例如：/search 退款政策"
 }
 
+// Execute runs the /search command.
 func (c *SearchCommand) Execute(ctx context.Context, cmdCtx *CommandContext, args []string) (*CommandResult, error) {
 	if cmdCtx == nil {
 		return nil, fmt.Errorf("command context is nil")
@@ -119,7 +125,7 @@ func (c *SearchCommand) Execute(ctx context.Context, cmdCtx *CommandContext, arg
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("🔍 **搜索「%s」** — 找到 %d 条结果\n\n", query, len(results)))
+	fmt.Fprintf(&sb, "🔍 **搜索「%s」** — 找到 %d 条结果\n\n", query, len(results))
 
 	for i, r := range shown {
 		// Trim content to a readable length.
@@ -136,16 +142,16 @@ func (c *SearchCommand) Execute(ctx context.Context, cmdCtx *CommandContext, arg
 			source = r.KnowledgeFilename
 		}
 
-		sb.WriteString(fmt.Sprintf("**[%d]** %s\n> %s%s\n", i+1, source, string(content), suffix))
+		fmt.Fprintf(&sb, "**[%d]** %s\n> %s%s\n", i+1, source, string(content), suffix)
 
 		if r.Score > 0 {
-			sb.WriteString(fmt.Sprintf("匹配度：%.0f%%\n", r.Score*100))
+			fmt.Fprintf(&sb, "匹配度：%.0f%%\n", r.Score*100)
 		}
 		sb.WriteString("\n")
 	}
 
 	if len(results) > searchMaxResults {
-		sb.WriteString(fmt.Sprintf("_（仅显示前 %d 条，共 %d 条）_", searchMaxResults, len(results)))
+		fmt.Fprintf(&sb, "_（仅显示前 %d 条，共 %d 条）_", searchMaxResults, len(results))
 	}
 
 	return &CommandResult{Content: sb.String()}, nil

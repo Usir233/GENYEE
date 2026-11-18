@@ -103,7 +103,8 @@ func TestMattermostClientBlocksRedirectToInternalURL(t *testing.T) {
 }
 
 func TestParseOutgoingBody_JSON(t *testing.T) {
-	body := `{"token":"tok","user_id":"u1","user_name":"alice","channel_id":"ch1","post_id":"p1","text":"hello","root_id":"r1"}`
+	body := `{"token":"tok","user_id":"u1","user_name":"alice",` +
+		`"channel_id":"ch1","post_id":"p1","text":"hello","root_id":"r1"}`
 
 	payload, err := parseOutgoingBody("application/json", []byte(body))
 	if err != nil {

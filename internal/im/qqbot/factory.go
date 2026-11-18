@@ -8,8 +8,13 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 )
 
+// NewFactory returns an im.AdapterFactory for QQ Bot WebSocket channels.
 func NewFactory() im.AdapterFactory {
-	return func(factoryCtx context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error) (im.Adapter, context.CancelFunc, error) {
+	return func(
+		_ context.Context,
+		channel *im.IMChannel,
+		msgHandler func(context.Context, *im.IncomingMessage) error,
+	) (im.Adapter, context.CancelFunc, error) {
 		creds, err := im.ParseCredentials(channel.Credentials)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse qqbot credentials: %w", err)
@@ -34,7 +39,11 @@ func NewFactory() im.AdapterFactory {
 		wsCtx, wsCancel := context.WithCancel(context.Background())
 		go func() {
 			if err := longConn.Start(wsCtx); err != nil && wsCtx.Err() == nil {
-				logger.Errorf(context.Background(), "[IM] QQBot long connection stopped for channel %s: %v", channel.ID, err)
+				logger.Errorf(
+					context.Background(),
+					"[IM] QQBot long connection stopped for channel %s: %v",
+					channel.ID, err,
+				)
 			}
 		}()
 

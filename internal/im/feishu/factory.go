@@ -15,7 +15,9 @@ import (
 // The HTTP adapter is always created (needed for SendReply in both modes);
 // "websocket" mode additionally runs a long-connection event stream.
 func NewFactory(region Region) im.AdapterFactory {
-	return func(factoryCtx context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error) (im.Adapter, context.CancelFunc, error) {
+	return func(
+		_ context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error,
+	) (im.Adapter, context.CancelFunc, error) {
 		creds, err := im.ParseCredentials(channel.Credentials)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse %s credentials: %w", region.Platform, err)
@@ -45,9 +47,10 @@ func NewFactory(region Region) im.AdapterFactory {
 
 			wsCtx, wsCancel := context.WithCancel(context.Background())
 			go func() {
-				if err := client.Start(wsCtx); err != nil && wsCtx.Err() == nil {
+				startErr := client.Start(wsCtx)
+				if wsCtx.Err() == nil {
 					logger.Errorf(context.Background(), "[IM] %s long connection stopped for channel %s: %v",
-						region.Label, channel.ID, err)
+						region.Label, channel.ID, startErr)
 				}
 			}()
 

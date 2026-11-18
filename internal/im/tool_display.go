@@ -9,6 +9,8 @@ import (
 )
 
 // IMToolStep tracks one tool invocation for IM display (mirrors Web agent stream events).
+//
+//nolint:revive // IMToolStep is the established exported API name in package im.
 type IMToolStep struct {
 	ToolCallID string
 	ToolName   string

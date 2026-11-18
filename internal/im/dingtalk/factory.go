@@ -10,7 +10,11 @@ import (
 // NewFactory returns an im.AdapterFactory for DingTalk channels.
 // Supports "websocket" (Stream) only.
 func NewFactory() im.AdapterFactory {
-	return func(factoryCtx context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error) (im.Adapter, context.CancelFunc, error) {
+	return func(
+		_ context.Context,
+		channel *im.IMChannel,
+		msgHandler func(context.Context, *im.IncomingMessage) error,
+	) (im.Adapter, context.CancelFunc, error) {
 		creds, err := im.ParseCredentials(channel.Credentials)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse dingtalk credentials: %w", err)

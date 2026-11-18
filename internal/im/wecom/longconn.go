@@ -1,4 +1,4 @@
-// WeCom Intelligent Bot long connection client.
+// Package wecom implements GENYEE IM adapters and long-connection clients for WeCom.
 //
 // Protocol reference: https://developer.work.weixin.qq.com/document/path/101463
 // Node.js SDK reference: https://github.com/WecomTeam/aibot-node-sdk
@@ -50,6 +50,8 @@ const (
 	// the IM service tears channels down while holding its own channel-map lock
 	// — every other channel operation in the process.
 	writeTimeout = 10 * time.Second
+
+	wecomStreamOrphanTTL = 5 * time.Minute
 )
 
 // wsFrame is the JSON frame exchanged over the WeCom bot WebSocket.
@@ -126,6 +128,12 @@ type streamReplyBody struct {
 // MessageHandler is called when an IM message is received via long connection.
 type MessageHandler func(ctx context.Context, msg *im.IncomingMessage) error
 
+type wecomStreamState struct {
+	buf            strings.Builder
+	lastActivityAt time.Time
+	ownerDone      <-chan struct{}
+}
+
 // LongConnClient manages a WeCom intelligent bot WebSocket long connection.
 type LongConnClient struct {
 	botID            string
@@ -143,7 +151,7 @@ type LongConnClient struct {
 	// WeCom stream protocol is replace-based: each frame's content replaces
 	// the previously displayed text, so we must send the full accumulated text.
 	streamBufsMu sync.Mutex
-	streamBufs   map[string]*strings.Builder
+	streamBufs   map[string]*wecomStreamState
 
 	// botDisplayName caches the bot's display name for @mention stripping.
 	// Set from credentials "bot_name", or learned from double-space messages.
@@ -207,9 +215,11 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 		delay := reconnectDelay(attempts)
 		logger.Warnf(ctx, "[WeCom] Connection lost (%v), reconnecting in %v (attempt %d)...", err, delay, attempts)
 
+		reconnectTimer := time.NewTimer(delay)
 		select {
-		case <-time.After(delay):
+		case <-reconnectTimer.C:
 		case <-ctx.Done():
+			reconnectTimer.Stop()
 			return ctx.Err()
 		}
 	}
@@ -219,11 +229,14 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 func (c *LongConnClient) Stop() {
 	c.closed.Store(true)
 	c.closeConn()
+	c.streamBufsMu.Lock()
+	clear(c.streamBufs)
+	c.streamBufsMu.Unlock()
 }
 
 // SendReply sends a text reply through the WebSocket connection.
 // This is used by the IM service to reply to messages in long connection mode.
-func (c *LongConnClient) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
+func (c *LongConnClient) SendReply(_ context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	var reqID string
 	if incoming.Extra != nil {
 		reqID = incoming.Extra["req_id"]
@@ -258,6 +271,28 @@ func (c *LongConnClient) SendReply(ctx context.Context, incoming *im.IncomingMes
 // Streaming support: send answer chunks over WebSocket in real-time
 // ──────────────────────────────────────────────────────────────────────
 
+func (c *LongConnClient) reapOrphanStreams(now time.Time) {
+	c.streamBufsMu.Lock()
+	defer c.streamBufsMu.Unlock()
+	c.reapOrphanStreamsLocked(now)
+}
+
+func (c *LongConnClient) reapOrphanStreamsLocked(now time.Time) {
+	for id, state := range c.streamBufs {
+		if state.ownerDone != nil {
+			select {
+			case <-state.ownerDone:
+			default:
+				state.lastActivityAt = now
+				continue
+			}
+		}
+		if state.lastActivityAt.Before(now.Add(-wecomStreamOrphanTTL)) {
+			delete(c.streamBufs, id)
+		}
+	}
+}
+
 // StartStream begins a streaming reply session.
 // Returns a stream ID that must be used in subsequent chunk/end calls.
 func (c *LongConnClient) StartStream(ctx context.Context, incoming *im.IncomingMessage) (string, error) {
@@ -265,44 +300,57 @@ func (c *LongConnClient) StartStream(ctx context.Context, incoming *im.IncomingM
 		return "", fmt.Errorf("missing req_id in incoming message extra")
 	}
 	streamID := fmt.Sprintf("stream_%d", c.reqSeq.Add(1))
+	now := time.Now()
 
-	// Initialize the accumulation buffer for this stream
+	// Initialize the accumulation buffer for this stream and sweep stale orphans.
 	c.streamBufsMu.Lock()
 	if c.streamBufs == nil {
-		c.streamBufs = make(map[string]*strings.Builder)
+		c.streamBufs = make(map[string]*wecomStreamState)
+	} else {
+		c.reapOrphanStreamsLocked(now)
 	}
-	c.streamBufs[streamID] = &strings.Builder{}
+	c.streamBufs[streamID] = &wecomStreamState{
+		lastActivityAt: now,
+		ownerDone:      ctx.Done(),
+	}
 	c.streamBufsMu.Unlock()
 
 	return streamID, nil
 }
 
 // UpdateStreamContent replaces the user-visible stream text (WeCom replace protocol).
-func (c *LongConnClient) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+func (c *LongConnClient) UpdateStreamContent(
+	_ context.Context, incoming *im.IncomingMessage, streamID string, fullContent string,
+) error {
 	if fullContent == "" {
 		return nil
 	}
 
 	c.streamBufsMu.Lock()
-	buf, ok := c.streamBufs[streamID]
+	state, ok := c.streamBufs[streamID]
 	if !ok {
 		c.streamBufsMu.Unlock()
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
-	buf.Reset()
-	buf.WriteString(fullContent)
+	state.lastActivityAt = time.Now()
+	state.buf.Reset()
+	state.buf.WriteString(fullContent)
 	c.streamBufsMu.Unlock()
 
 	return c.sendStreamFrame(incoming, streamID, fullContent, false)
 }
 
 // FinalizeStream replaces the display with answer-only content before the stream ends.
-func (c *LongConnClient) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
+func (c *LongConnClient) FinalizeStream(
+	ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string,
+) error {
 	return c.UpdateStreamContent(ctx, incoming, streamID, finalContent)
 }
 
 // SendStreamChunk is deprecated; kept as an alias for UpdateStreamContent.
-func (c *LongConnClient) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+func (c *LongConnClient) SendStreamChunk(
+	ctx context.Context, incoming *im.IncomingMessage, streamID string, content string,
+) error {
 	return c.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
@@ -310,10 +358,10 @@ func (c *LongConnClient) SendStreamChunk(ctx context.Context, incoming *im.Incom
 // It retries briefly if the connection is temporarily unavailable during a reconnect.
 func (c *LongConnClient) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
 	c.streamBufsMu.Lock()
-	buf, ok := c.streamBufs[streamID]
+	state, ok := c.streamBufs[streamID]
 	var fullContent string
 	if ok {
-		fullContent = buf.String()
+		fullContent = state.buf.String()
 		delete(c.streamBufs, streamID)
 	}
 	c.streamBufsMu.Unlock()
@@ -325,10 +373,12 @@ func (c *LongConnClient) EndStream(ctx context.Context, incoming *im.IncomingMes
 
 	// Retry up to 3 times with short delays to ride out a reconnection window.
 	for i := 0; i < 3; i++ {
+		retryTimer := time.NewTimer(500 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			retryTimer.Stop()
 			return ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+		case <-retryTimer.C:
 		}
 		if retryErr := c.sendStreamFrame(incoming, streamID, fullContent, true); retryErr == nil {
 			return nil
@@ -368,7 +418,10 @@ func (c *LongConnClient) sendStreamFrame(incoming *im.IncomingMessage, streamID,
 func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 	dialer := *ws.DefaultDialer
 	dialer.NetDialContext = secutils.SSRFSafeDialContext
-	conn, _, err := dialer.DialContext(ctx, c.endpoint, nil)
+	conn, resp, err := dialer.DialContext(ctx, c.endpoint, nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
 	}
@@ -434,7 +487,7 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 	}
 }
 
-func (c *LongConnClient) authenticate(ctx context.Context) error {
+func (c *LongConnClient) authenticate(_ context.Context) error {
 	authBody, _ := json.Marshal(map[string]string{
 		"bot_id": c.botID,
 		"secret": c.secret,
@@ -511,9 +564,13 @@ func (c *LongConnClient) handleCallback(ctx context.Context, conn *ws.Conn, fram
 		return
 	}
 
-	logger.Debugf(ctx, "[WeCom] Parsed message: msgid=%s msgtype=%s from=%s chattype=%s text=%q image_url=%q file_url=%q voice=%q mixed_items=%d",
+	logger.Debugf(
+		ctx,
+		"[WeCom] Parsed message: msgid=%s msgtype=%s from=%s chattype=%s "+
+			"text=%q image_url=%q file_url=%q voice=%q mixed_items=%d",
 		msg.MsgID, msg.MsgType, msg.From.UserID, msg.ChatType,
-		msg.Text.Content, msg.Image.URL, msg.File.URL, msg.Voice.Content, len(msg.Mixed.MsgItem))
+		msg.Text.Content, msg.Image.URL, msg.File.URL, msg.Voice.Content, len(msg.Mixed.MsgItem),
+	)
 
 	// Handle server-side events (e.g. disconnected_event) before normal messages.
 	if msg.MsgType == "event" {
@@ -634,8 +691,12 @@ func (c *LongConnClient) handleCallback(ctx context.Context, conn *ws.Conn, fram
 	if incoming != nil && msg.Quote != nil {
 		incoming.Quote = buildQuotedMessage(msg.Quote, msg.AiBotID)
 		if incoming.Quote != nil {
-			logger.Infof(ctx, "[WeCom] Quote detected: msgid=%s sender=%s is_bot=%v content_len=%d non_text_type=%s",
-				msg.Quote.MsgID, msg.Quote.From.UserID, incoming.Quote.IsBotMessage, len(incoming.Quote.Content), incoming.Quote.NonTextType)
+			logger.Infof(
+				ctx,
+				"[WeCom] Quote detected: msgid=%s sender=%s is_bot=%v content_len=%d non_text_type=%s",
+				msg.Quote.MsgID, msg.Quote.From.UserID, incoming.Quote.IsBotMessage,
+				len(incoming.Quote.Content), incoming.Quote.NonTextType,
+			)
 			// Debug: log raw IDs for bot identity verification during initial rollout
 			logger.Debugf(ctx, "[WeCom] Quote identity debug: quote.from.userid=%q quote.aibotid=%q msg.aibotid=%q",
 				msg.Quote.From.UserID, msg.Quote.AiBotID, msg.AiBotID)
@@ -653,7 +714,12 @@ func (c *LongConnClient) handleCallback(ctx context.Context, conn *ws.Conn, fram
 // treats a captioned image exactly like a standalone image message, so the
 // model sees the image and the user's question together. Text-only and
 // image-only messages keep their previous behavior.
-func (c *LongConnClient) convertMixedMessage(msg *botMessage, chatID string, chatType im.ChatType, reqID string) *im.IncomingMessage {
+func (c *LongConnClient) convertMixedMessage(
+	msg *botMessage,
+	chatID string,
+	chatType im.ChatType,
+	reqID string,
+) *im.IncomingMessage {
 	isGroup := chatType == im.ChatTypeGroup
 	var textParts []string
 	var firstImageURL string

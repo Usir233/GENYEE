@@ -138,8 +138,7 @@ func (r *oauthRuntime) ensureFresh(ctx context.Context, force bool, override *tr
 		}
 	}
 	if row.RefreshToken == "" {
-		_ = r.repo.DeleteTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
-		return &OAuthReauthorizationRequiredError{Reason: "the access token expired and no refresh token is available"}
+		return r.invalidateToken(ctx, false, "the access token expired and no refresh token is available")
 	}
 	return r.refreshWithLease(ctx, row, override)
 }
@@ -164,10 +163,12 @@ func (r *oauthRuntime) refreshWithLease(
 			return r.refreshAsLeaseOwner(ctx, observed, leaseID, override)
 		}
 
+		pollTimer := time.NewTimer(oauthRefreshPoll)
 		select {
 		case <-ctx.Done():
+			pollTimer.Stop()
 			return ctx.Err()
-		case <-time.After(oauthRefreshPoll):
+		case <-pollTimer.C:
 		}
 		current, err := r.repo.GetTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
 		if err != nil {
@@ -224,7 +225,9 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 	}
 	refreshed, refreshErr := handler.RefreshToken(ctx, current.RefreshToken)
 	if refreshErr == nil && refreshed != nil && refreshed.AccessToken != "" {
-		logger.GetLogger(ctx).Infof("MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID())
+		logger.GetLogger(ctx).Infof(
+			"MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID(),
+		)
 		return nil
 	}
 	if refreshErr == nil {

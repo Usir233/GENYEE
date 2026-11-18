@@ -28,24 +28,27 @@ func TestQRCodeService_IsolatesTenantsAndRedactsSecretsOnDecodeError(t *testing.
 		Transport: wcRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Path {
 			case "/ilink/bot/get_bot_qrcode":
+				qrBody := `{"qrcode":"qr-tenant-100","qrcode_img_content":"https://ilink.example/qr"}`
 				return &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader(`{"qrcode":"qr-tenant-100","qrcode_img_content":"https://ilink.example/qr"}`)),
+					Body:       io.NopCloser(strings.NewReader(qrBody)),
 					Header:     make(http.Header),
 				}, nil
 			case "/ilink/bot/get_qrcode_status":
 				statusHits.Add(1)
 				if r.URL.Query().Get("qrcode") == "qr-malformed" {
 					// Truncated JSON containing a sensitive bot_token fragment.
+					malformed := `{"status":"confirmed","bot_token":"` + secretBotToken
 					return &http.Response{
 						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"status":"confirmed","bot_token":"` + secretBotToken)),
+						Body:       io.NopCloser(strings.NewReader(malformed)),
 						Header:     make(http.Header),
 					}, nil
 				}
+				confirmed := `{"status":"confirmed","bot_token":"` + secretBotToken + `","ilink_bot_id":"bot-1"}`
 				return &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader(`{"status":"confirmed","bot_token":"` + secretBotToken + `","ilink_bot_id":"bot-1"}`)),
+					Body:       io.NopCloser(strings.NewReader(confirmed)),
 					Header:     make(http.Header),
 				}, nil
 			default:
@@ -108,7 +111,9 @@ func TestLongPollClient_WaitsForInFlightHandlersOnStop(t *testing.T) {
 	lc.httpClient = &http.Client{
 		Transport: wcRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			if pollCalls.Add(1) == 1 {
-				body := `{"ret":0,"errcode":0,"get_updates_buf":"cur-1","msgs":[{"message_id":1,"from_user_id":"u1","message_type":1,"context_token":"ct","item_list":[{"type":1,"text_item":{"text":"hello"}}]}]}`
+				body := `{"ret":0,"errcode":0,"get_updates_buf":"cur-1",` +
+					`"msgs":[{"message_id":1,"from_user_id":"u1","message_type":1,` +
+					`"context_token":"ct","item_list":[{"type":1,"text_item":{"text":"hello"}}]}]}`
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader(body)),
@@ -136,7 +141,8 @@ func TestLongPollClient_WaitsForInFlightHandlersOnStop(t *testing.T) {
 	// in-flight message handlers to complete before returning.
 	cancel()
 	select {
-	case <-startDone:
+	case err := <-startDone:
+		_ = err
 		if !handlerFinished.Load() {
 			t.Fatal("LongPollClient.Start returned before in-flight message handler finished")
 		}
@@ -146,7 +152,8 @@ func TestLongPollClient_WaitsForInFlightHandlersOnStop(t *testing.T) {
 
 	close(releaseHandler)
 	select {
-	case <-startDone:
+	case err := <-startDone:
+		_ = err
 		if !handlerFinished.Load() {
 			t.Fatal("handler should have finished before Start returned")
 		}

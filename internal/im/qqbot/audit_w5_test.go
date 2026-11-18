@@ -73,7 +73,7 @@ func TestLongConnClient_ConcurrentSeqHeartbeatAndStopSafety(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		// Send opHello with a 5ms heartbeat interval so heartbeatLoop races with seq updates.
 		_ = conn.WriteJSON(map[string]any{
@@ -153,7 +153,8 @@ func TestLongConnClient_ConcurrentSeqHeartbeatAndStopSafety(t *testing.T) {
 	cancel()
 
 	select {
-	case <-errCh:
+	case err := <-errCh:
+		_ = err
 	case <-time.After(time.Second):
 		t.Fatal("LongConnClient.Start did not exit promptly after Stop()")
 	}

@@ -104,3 +104,54 @@ func DecodeIMResponse(body io.Reader, target any) error {
 	}
 	return json.NewDecoder(bytes.NewReader(data)).Decode(target)
 }
+
+type limitedAttachmentReadCloser struct {
+	rc        io.ReadCloser
+	remaining int64
+	exceeded  bool
+}
+
+// LimitAttachmentReadCloser bounds an outbound IM attachment stream at
+// maxIMAttachmentBytes, closing the underlying stream and returning an error if
+// the remote server sends more bytes than allowed.
+func LimitAttachmentReadCloser(rc io.ReadCloser) io.ReadCloser {
+	if rc == nil {
+		return nil
+	}
+	return &limitedAttachmentReadCloser{
+		rc:        rc,
+		remaining: maxIMAttachmentBytes,
+	}
+}
+
+func (l *limitedAttachmentReadCloser) Read(p []byte) (int, error) {
+	if l.exceeded {
+		return 0, fmt.Errorf("%w: attachment exceeds the %d MiB limit", errResponseTooLarge, maxIMAttachmentBytes>>20)
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if l.remaining <= 0 {
+		var probe [1]byte
+		n, err := l.rc.Read(probe[:])
+		if n > 0 {
+			l.exceeded = true
+			_ = l.rc.Close()
+			return 0, fmt.Errorf(
+				"%w: attachment exceeds the %d MiB limit",
+				errResponseTooLarge, maxIMAttachmentBytes>>20,
+			)
+		}
+		return 0, err
+	}
+	if int64(len(p)) > l.remaining {
+		p = p[:l.remaining]
+	}
+	n, err := l.rc.Read(p)
+	l.remaining -= int64(n)
+	return n, err
+}
+
+func (l *limitedAttachmentReadCloser) Close() error {
+	return l.rc.Close()
+}

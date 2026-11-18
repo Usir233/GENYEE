@@ -58,7 +58,8 @@ func TestVerifyCallbackRejectsStaleTimestamp(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	msg := callbackMessage{
 		Type: 2, RobotID: "robot", RobotName: "GENYEE", OperatorOpenid: "user",
-		OperatorName: "User", Time: time.Now().Add(-10 * time.Minute).UnixMilli(), MsgID: "message", Content: "@GENYEE hello",
+		OperatorName: "User", Time: time.Now().Add(-10 * time.Minute).UnixMilli(),
+		MsgID: "message", Content: "@GENYEE hello",
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -241,7 +242,8 @@ func TestSendReplyAcceptsAny2xxAndBuildsPayload(t *testing.T) {
 	if payload.MsgType != textMessageType || payload.Content != "answer" {
 		t.Fatalf("payload = %#v", payload)
 	}
-	if len(payload.NotifyParams) != 1 || len(payload.NotifyParams[0].Values) != 1 || payload.NotifyParams[0].Values[0] != "user" {
+	if len(payload.NotifyParams) != 1 || len(payload.NotifyParams[0].Values) != 1 ||
+		payload.NotifyParams[0].Values[0] != "user" {
 		t.Fatalf("notify params = %#v", payload.NotifyParams)
 	}
 	if payload.Param == nil || payload.Param.FormatType != markdownFormatType {
@@ -268,7 +270,8 @@ func TestSendReplyReferencesIncomingMessage(t *testing.T) {
 	if err := adapter.SendReply(context.Background(), incoming, reply); err != nil {
 		t.Fatalf("SendReply() error = %v", err)
 	}
-	if payload.ParamType != 3 || payload.Param == nil || payload.Param.ReplyMsgID != "message-a" || !payload.Param.IsReference {
+	if payload.ParamType != 3 || payload.Param == nil ||
+		payload.Param.ReplyMsgID != "message-a" || !payload.Param.IsReference {
 		t.Fatalf("reference payload = %#v", payload)
 	}
 }
@@ -334,7 +337,9 @@ func TestDownloadFile(t *testing.T) {
 				t.Fatalf("token request = %#v", tokenReq)
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"data":{"accessToken":"token-1","expireIn":7136},"error":null,"errorCode":0,"success":true}`))
+			_, _ = w.Write([]byte(
+				`{"data":{"accessToken":"token-1","expireIn":7136},"error":null,"errorCode":0,"success":true}`,
+			))
 		case "/gateway/docrest/doc/file/downloadfileOpen":
 			if r.Header.Get("Authorization") != "Bearer token-1" {
 				t.Fatalf("Authorization = %q", r.Header.Get("Authorization"))
@@ -373,7 +378,7 @@ func TestDownloadFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DownloadFile() error = %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -514,7 +519,9 @@ func TestDownloadFileFollowsSingleRedirect(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/oauth2_v12/auth/getAppAccessToken":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"data":{"accessToken":"token-1","expireIn":7136},"error":null,"errorCode":0,"success":true}`))
+			_, _ = w.Write([]byte(
+				`{"data":{"accessToken":"token-1","expireIn":7136},"error":null,"errorCode":0,"success":true}`,
+			))
 		case "/gateway/docrest/doc/file/downloadfileOpen":
 			http.Redirect(w, r, "/cdn/file-1", http.StatusFound)
 		case "/cdn/file-1":
@@ -546,11 +553,14 @@ func TestDownloadFileFollowsSingleRedirect(t *testing.T) {
 	client := noRedirectClient(server)
 	client.Timeout = adapter.httpClient.Timeout
 	adapter.httpClient = client
-	reader, _, err := adapter.DownloadFile(context.Background(), &im.IncomingMessage{FileKey: "file-1", FileName: "message.png"})
+	reader, _, err := adapter.DownloadFile(
+		context.Background(),
+		&im.IncomingMessage{FileKey: "file-1", FileName: "message.png"},
+	)
 	if err != nil {
 		t.Fatalf("DownloadFile() error = %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
@@ -575,7 +585,9 @@ func TestDownloadFileRejectsRedirectOffAllowedHost(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/oauth2_v12/auth/getAppAccessToken":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"data":{"accessToken":"token-1","expireIn":7136},"error":null,"errorCode":0,"success":true}`))
+			_, _ = w.Write([]byte(
+				`{"data":{"accessToken":"token-1","expireIn":7136},"error":null,"errorCode":0,"success":true}`,
+			))
 		case "/gateway/docrest/doc/file/downloadfileOpen":
 			http.Redirect(w, r, "https://evil.example.com/steal", http.StatusFound)
 		default:
@@ -615,13 +627,13 @@ func TestDownloadFileRejectsRedirectOffAllowedHost(t *testing.T) {
 
 func TestLimitedReadCloserEnforcesMaxSize(t *testing.T) {
 	reader := newLimitedReadCloser(io.NopCloser(strings.NewReader("0123456789")), 4)
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	if _, err := io.ReadAll(reader); err == nil || !strings.Contains(err.Error(), "max download size") {
 		t.Fatalf("read error = %v, want max download size error", err)
 	}
 
 	ok := newLimitedReadCloser(io.NopCloser(strings.NewReader("1234")), 4)
-	defer ok.Close()
+	defer func() { _ = ok.Close() }()
 	if got, err := io.ReadAll(ok); err != nil || string(got) != "1234" {
 		t.Fatalf("read got=%q err=%v, want full read within limit", string(got), err)
 	}

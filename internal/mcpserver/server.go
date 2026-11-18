@@ -64,10 +64,12 @@ type Server struct {
 
 	limiter       *ratelimit.Limiter
 	limiterStopCh chan struct{}
+	closeOnce     sync.Once
 	lastTouch     sync.Map // endpoint id -> time.Time of the last last_used_at write
 
-	mcp     *server.MCPServer
-	handler http.Handler
+	mcp           *server.MCPServer
+	streamHandler *server.StreamableHTTPServer
+	handler       http.Handler
 }
 
 // NewServer builds the MCP server and its Streamable HTTP transport.
@@ -126,6 +128,7 @@ func NewServer(
 		s.mcp,
 		server.WithStateLess(true),
 	)
+	s.streamHandler = streamHandler
 	s.handler = boundedMCPRequestHandler(streamHandler)
 	return s
 }
@@ -143,7 +146,9 @@ func boundedMCPRequestHandler(next http.Handler) http.Handler {
 			if err != nil {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
-				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"failed to read request body"}}`))
+				_, _ = w.Write([]byte(
+					`{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"failed to read request body"}}`,
+				))
 				return
 			}
 			if int64(len(body)) > limit {
@@ -160,7 +165,9 @@ func boundedMCPRequestHandler(next http.Handler) http.Handler {
 func writeRequestTooLarge(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusRequestEntityTooLarge)
-	_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"request body exceeds maximum allowed size"}}`))
+	_, _ = w.Write([]byte(
+		`{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"request body exceeds maximum allowed size"}}`,
+	))
 }
 
 // Handler returns the http.Handler to mount under /mcp/:endpoint_id. The
@@ -169,16 +176,23 @@ func (s *Server) Handler() http.Handler {
 	return s.handler
 }
 
-// Close stops background tasks associated with the MCP server, including the rate limiter cleanup goroutine.
+// Close stops background tasks and active transport streams associated with the MCP server.
 func (s *Server) Close() {
-	if s.limiterStopCh != nil {
-		select {
-		case <-s.limiterStopCh:
-			// already closed
-		default:
-			close(s.limiterStopCh)
-		}
+	if s == nil {
+		return
 	}
+	s.closeOnce.Do(func() {
+		if s.limiterStopCh != nil {
+			select {
+			case <-s.limiterStopCh:
+			default:
+				close(s.limiterStopCh)
+			}
+		}
+		if s.streamHandler != nil {
+			_ = s.streamHandler.Shutdown(context.Background())
+		}
+	})
 }
 
 // LimiterStopCh returns the stop channel used for rate limiter cleanup.

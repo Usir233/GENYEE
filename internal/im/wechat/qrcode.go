@@ -1,15 +1,5 @@
-// QR code login flow for WeChat iLink Bot API.
-//
-// API endpoints (all relative to the iLink base URL):
-//
-//	GET  /ilink/bot/get_bot_qrcode?bot_type=3   → returns {qrcode, qrcode_img_content}
-//	GET  /ilink/bot/get_qrcode_status?qrcode=xxx → returns {status, bot_token, ilink_bot_id, ...}
-//
-// Flow:
-//  1. Call GetLoginQRCode to obtain a QR code URL and opaque qrcode token
-//  2. Display qrcode_img_content URL to user (in frontend)
-//  3. Long-poll PollQRCodeStatus until user scans and confirms
-//  4. On success, receive bot_token + ilink_bot_id + ilink_user_id + baseurl
+// Package wechat implements the Tencent iLink Bot API IM adapter, long-polling
+// message receiver, and QR code login flow for WeChat personal accounts.
 package wechat
 
 import (
@@ -130,7 +120,7 @@ func (s *QRCodeService) GetLoginQRCode(ctx context.Context) (*QRCodeResult, erro
 	if err != nil {
 		return nil, fmt.Errorf("request qrcode: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -217,7 +207,7 @@ func (s *QRCodeService) PollQRCodeStatus(ctx context.Context, qrcode string) (*L
 		}
 		return nil, fmt.Errorf("request qrcode status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := im.ReadIMResponse(resp.Body)
 	if err != nil {

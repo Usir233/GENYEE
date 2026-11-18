@@ -85,7 +85,7 @@ func (c *Client) CreatePost(ctx context.Context, channelID, rootID, message stri
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -93,7 +93,11 @@ func (c *Client) CreatePost(ctx context.Context, channelID, rootID, message stri
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if resp.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("mattermost create post: 403 forbidden — add the bot user to this Mattermost channel (Channel menu → Members → Add); body=%s", truncateForErr(respBody))
+			return "", fmt.Errorf(
+				"mattermost create post: 403 forbidden — add the bot user to this Mattermost channel "+
+					"(Channel menu → Members → Add); body=%s",
+				truncateForErr(respBody),
+			)
 		}
 		return "", fmt.Errorf("mattermost create post: status=%d body=%s", resp.StatusCode, truncateForErr(respBody))
 	}
@@ -141,7 +145,7 @@ func (c *Client) GetPost(ctx context.Context, postID string) (rootID string, err
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -182,7 +186,7 @@ func (c *Client) PatchPostMessage(ctx context.Context, postID, message string) e
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -218,7 +222,7 @@ func (c *Client) GetFileInfo(ctx context.Context, fileID string) (*FileInfo, err
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -254,22 +258,22 @@ func (c *Client) GetFileReader(ctx context.Context, fileID string) (io.ReadClose
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := im.ReadIMResponse(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if readErr != nil {
 			return nil, fmt.Errorf("read mattermost get file error response (status=%d): %w", resp.StatusCode, readErr)
 		}
 		return nil, fmt.Errorf("mattermost get file: status=%d body=%s", resp.StatusCode, truncateForErr(body))
 	}
-	return resp.Body, nil
+	return im.LimitAttachmentReadCloser(resp.Body), nil
 }
 
 func truncateForErr(b []byte) string {
-	const max = 512
+	const maxErrBytes = 512
 	s := string(b)
-	if len(s) > max {
+	if len(s) > maxErrBytes {
 		// Back off to a rune boundary: a partial multi-byte rune is invalid
 		// UTF-8 in an error string that callers log and surface.
-		cut := max
+		cut := maxErrBytes
 		for cut > 0 && !utf8.RuneStart(s[cut]) {
 			cut--
 		}

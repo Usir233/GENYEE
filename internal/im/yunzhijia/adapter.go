@@ -1,3 +1,4 @@
+// Package yunzhijia implements the GENYEE IM adapter and WebSocket client for Yunzhijia.
 package yunzhijia
 
 import (
@@ -99,11 +100,13 @@ func NewAdapter(sendMsgURL, secret, appID, appSecret string, timeoutSeconds int,
 	}
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformYunzhijia
 }
 
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
+// HandleURLVerification reports that Yunzhijia does not use HTTP challenge verification.
+func (a *Adapter) HandleURLVerification(_ *gin.Context) bool {
 	return false
 }
 
@@ -221,7 +224,10 @@ func toIncomingMessage(ctx context.Context, msg *callbackMessage) *im.IncomingMe
 		return nil
 	}
 
-	userID := firstNonEmpty(msg.OperatorOpenid, msg.OperatorOID, msg.OpenID, msg.SenderID, msg.OperatorID, msg.OperatorUserID)
+	userID := firstNonEmpty(
+		msg.OperatorOpenid, msg.OperatorOID, msg.OpenID,
+		msg.SenderID, msg.OperatorID, msg.OperatorUserID,
+	)
 	userName := firstNonEmpty(msg.OperatorName, msg.SenderName)
 	chatType := im.ChatTypeGroup
 	chatID := firstNonEmpty(msg.GroupID, msg.RobotID)
@@ -385,7 +391,7 @@ func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, r
 	if err != nil {
 		return fmt.Errorf("send reply: %w", redactYunzhijiaErr(err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		respBody, err := im.ReadIMResponse(resp.Body)
@@ -427,7 +433,8 @@ func redactYunzhijiaErr(err error) error {
 		b.WriteString(msg[i : i+idx+len("yzjtoken=")])
 		b.WriteString("[REDACTED]")
 		j := i + idx + len("yzjtoken=")
-		for j < len(msg) && msg[j] != '&' && msg[j] != '"' && msg[j] != '\'' && msg[j] != ' ' && msg[j] != ')' && msg[j] != '>' {
+		for j < len(msg) && msg[j] != '&' && msg[j] != '"' &&
+			msg[j] != '\'' && msg[j] != ' ' && msg[j] != ')' && msg[j] != '>' {
 			j++
 		}
 		i = j
@@ -461,7 +468,7 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, "", fmt.Errorf("download file returned %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -559,7 +566,7 @@ func (a *Adapter) fetchDownloadOnce(
 
 		// Redirect (3xx): re-validate the target before following.
 		location := strings.TrimSpace(resp.Header.Get("Location"))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if redirects >= maxDownloadRedirects {
 			return nil, fmt.Errorf("download file: too many redirects")
 		}
@@ -674,7 +681,7 @@ func (a *Adapter) getAppAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("request yunzhijia app access token: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("read yunzhijia token response: %w", err)
@@ -688,7 +695,10 @@ func (a *Adapter) getAppAccessToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("parse yunzhijia token response: %w", err)
 	}
 	if !tokenResp.Success || tokenResp.ErrorCode != 0 || tokenResp.Data.AccessToken == "" {
-		return "", fmt.Errorf("yunzhijia token response failed: errorCode=%d error=%v", tokenResp.ErrorCode, tokenResp.Error)
+		return "", fmt.Errorf(
+			"yunzhijia token response failed: errorCode=%d error=%v",
+			tokenResp.ErrorCode, tokenResp.Error,
+		)
 	}
 
 	expiresIn := tokenResp.Data.ExpireIn

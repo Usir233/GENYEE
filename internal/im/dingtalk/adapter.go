@@ -1,3 +1,4 @@
+// Package dingtalk implements the GENYEE IM adapter and stream client for DingTalk.
 package dingtalk
 
 import (
@@ -78,17 +79,19 @@ func NewAdapter(clientID, clientSecret, cardTemplateID string) *Adapter {
 	}
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformDingtalk
 }
 
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
+// HandleURLVerification reports that DingTalk does not use challenge URL verification.
+func (a *Adapter) HandleURLVerification(_ *gin.Context) bool {
 	return false
 }
 
 // VerifyCallback refuses the legacy HTTP protocol because its timestamp-only
 // signature cannot authenticate the message body. Stream events use the SDK.
-func (a *Adapter) VerifyCallback(c *gin.Context) error {
+func (a *Adapter) VerifyCallback(_ *gin.Context) error {
 	return fmt.Errorf("DingTalk HTTP callbacks are disabled; use Stream mode")
 }
 
@@ -101,13 +104,13 @@ type callbackMessage struct {
 	Text             *textContent    `json:"text"`
 	Content          json.RawMessage `json:"content"`
 	SenderNick       string          `json:"senderNick"`
-	SenderStaffId    string          `json:"senderStaffId"`
+	SenderStaffID    string          `json:"senderStaffId"`
 	SenderID         string          `json:"senderId"`
 	SessionWebhook   string          `json:"sessionWebhook"`
 	RobotCode        string          `json:"robotCode"`
 	AtUsers          []atUser        `json:"atUsers"`
 	IsInAtList       bool            `json:"isInAtList"`
-	ChatbotCorpId    string          `json:"chatbotCorpId"`
+	ChatbotCorpID    string          `json:"chatbotCorpId"`
 }
 
 type textContent struct {
@@ -119,6 +122,7 @@ type atUser struct {
 	StaffID    string `json:"staffId"`
 }
 
+// ParseCallback parses a DingTalk HTTP callback payload into an IncomingMessage.
 func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -316,13 +320,13 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, err := im.ReadIMResponse(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return nil, "", fmt.Errorf("read dingtalk download file response: %w", err)
 		}
 		return nil, "", fmt.Errorf("download file returned %d: %s", resp.StatusCode, string(body))
 	}
-	return resp.Body, msg.FileName, nil
+	return im.LimitAttachmentReadCloser(resp.Body), msg.FileName, nil
 }
 
 func parseCallbackMessage(msg *callbackMessage) *im.IncomingMessage {
@@ -333,7 +337,7 @@ func parseCallbackMessage(msg *callbackMessage) *im.IncomingMessage {
 		chatID = msg.ConversationID
 	}
 
-	userID := msg.SenderStaffId
+	userID := msg.SenderStaffID
 	if userID == "" {
 		userID = msg.SenderID
 	}
@@ -517,6 +521,7 @@ func streamToIncoming(data *chatbot.BotCallbackDataModel, fallbackRobotCode stri
 
 // ── Send reply ──
 
+// SendReply delivers a reply via DingTalk sessionWebhook or OpenAPI.
 func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	content := im.FormatIMDisplayContent(reply.Content, im.StreamDisplayFinal)
 
@@ -563,7 +568,7 @@ func (a *Adapter) replyViaSessionWebhook(ctx context.Context, webhookURL, conten
 	if err != nil {
 		return fmt.Errorf("send reply: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, err := im.ReadIMResponse(resp.Body)
@@ -618,7 +623,7 @@ func (a *Adapter) replyViaOpenAPI(ctx context.Context, incoming *im.IncomingMess
 	if err != nil {
 		return fmt.Errorf("send reply: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, err := im.ReadIMResponse(resp.Body)
@@ -665,7 +670,7 @@ func (a *Adapter) getAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, err := im.ReadIMResponse(resp.Body)
@@ -717,7 +722,7 @@ func (a *Adapter) dingtalkAPI(ctx context.Context, method, path string, body int
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -797,7 +802,8 @@ type streamState struct {
 	sessionWebhook string
 	outTrackID     string    // non-empty when using AI card streaming
 	lastUpdate     time.Time // for card update throttling
-	createdAt      time.Time // for orphan stream detection
+	lastActivityAt time.Time
+	ownerDone      <-chan struct{}
 }
 
 const (
@@ -806,39 +812,96 @@ const (
 )
 
 var (
-	streamsMu       sync.Mutex
-	dStreams        = map[string]*streamState{}
-	startReaperOnce sync.Once
-	reaperStopCh    = make(chan struct{})
+	streamsMu     sync.Mutex
+	dStreams      = map[string]*streamState{}
+	reaperMu      sync.Mutex
+	reaperRunning bool
+	reaperStopCh  chan struct{}
+	reaperDoneCh  chan struct{}
 )
 
-// startStreamReaper starts a background goroutine (once) that periodically
-// removes orphaned stream entries. This prevents memory leaks when EndStream
-// is never called due to panics or pipeline errors.
+// startStreamReaper starts a background goroutine that periodically removes
+// orphaned stream entries and restarts cleanly after StopStreamReaper.
 func startStreamReaper() {
-	startReaperOnce.Do(func() {
-		go func() {
-			ticker := time.NewTicker(streamReaperInterval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					cutoff := time.Now().Add(-streamOrphanTTL)
-					streamsMu.Lock()
-					for id, state := range dStreams {
-						if state.createdAt.Before(cutoff) {
-							delete(dStreams, id)
-						}
-					}
-					streamsMu.Unlock()
-				case <-reaperStopCh:
-					return
-				}
+	reaperMu.Lock()
+	if reaperRunning {
+		reaperMu.Unlock()
+		return
+	}
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	reaperStopCh = stopCh
+	reaperDoneCh = doneCh
+	reaperRunning = true
+	reaperMu.Unlock()
+
+	go func() {
+		defer close(doneCh)
+		ticker := time.NewTicker(streamReaperInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case now := <-ticker.C:
+				reapOrphanStreams(now)
+			case <-stopCh:
+				return
 			}
-		}()
-	})
+		}
+	}()
 }
 
+func reapOrphanStreams(now time.Time) {
+	streamsMu.Lock()
+	defer streamsMu.Unlock()
+	for id, state := range dStreams {
+		if state.ownerDone != nil {
+			select {
+			case <-state.ownerDone:
+			default:
+				state.lastActivityAt = now
+				continue
+			}
+		}
+		if state.lastActivityAt.Before(now.Add(-streamOrphanTTL)) {
+			delete(dStreams, id)
+		}
+	}
+}
+
+func lookupStream(streamID string) (*streamState, bool) {
+	streamsMu.Lock()
+	defer streamsMu.Unlock()
+	state, ok := dStreams[streamID]
+	if ok {
+		state.lastActivityAt = time.Now()
+	}
+	return state, ok
+}
+
+// StopStreamReaper stops the background stream reaper goroutine and waits for it to exit.
+func StopStreamReaper() {
+	reaperMu.Lock()
+	stopCh := reaperStopCh
+	doneCh := reaperDoneCh
+	if reaperRunning {
+		reaperRunning = false
+		reaperStopCh = nil
+		close(stopCh)
+	}
+	reaperMu.Unlock()
+
+	if doneCh != nil {
+		<-doneCh
+	}
+}
+
+func isStreamReaperRunning() bool {
+	reaperMu.Lock()
+	defer reaperMu.Unlock()
+	return reaperRunning
+}
+
+// StartStream initializes a DingTalk stream (using AI Card when configured).
 func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage) (string, error) {
 	sessionWebhook := ""
 	if incoming.Extra != nil {
@@ -849,7 +912,8 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 
 	state := &streamState{
 		sessionWebhook: sessionWebhook,
-		createdAt:      time.Now(),
+		lastActivityAt: time.Now(),
+		ownerDone:      ctx.Done(),
 	}
 
 	// If card template is configured, create an AI card for streaming
@@ -870,14 +934,18 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 	return streamID, nil
 }
 
-func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+// UpdateStreamContent updates the buffered stream text and throttled AI Card content.
+func (a *Adapter) UpdateStreamContent(
+	ctx context.Context,
+	_ *im.IncomingMessage,
+	streamID string,
+	fullContent string,
+) error {
 	if fullContent == "" {
 		return nil
 	}
 
-	streamsMu.Lock()
-	state, ok := dStreams[streamID]
-	streamsMu.Unlock()
+	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
@@ -906,10 +974,14 @@ func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.Incoming
 	return nil
 }
 
-func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
-	streamsMu.Lock()
-	state, ok := dStreams[streamID]
-	streamsMu.Unlock()
+// FinalizeStream writes the final answer text to the stream buffer and AI Card.
+func (a *Adapter) FinalizeStream(
+	ctx context.Context,
+	_ *im.IncomingMessage,
+	streamID string,
+	finalContent string,
+) error {
+	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
@@ -929,10 +1001,17 @@ func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessa
 	return nil
 }
 
-func (a *Adapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+// SendStreamChunk forwards incremental updates to UpdateStreamContent.
+func (a *Adapter) SendStreamChunk(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	content string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
+// EndStream finalizes the AI Card or sends the accumulated reply, then removes stream state.
 func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
 	streamsMu.Lock()
 	state, ok := dStreams[streamID]
@@ -949,15 +1028,16 @@ func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, s
 	sessionWebhook := state.sessionWebhook
 	state.mu.Unlock()
 
-	if outTrackID != "" {
+	switch {
+	case outTrackID != "":
 		if err := a.streamingUpdateCard(ctx, outTrackID, fullContent, true); err != nil {
 			logger.Warnf(ctx, "[DingTalk] Failed to finalize card stream: %v", err)
 		}
-	} else if sessionWebhook != "" {
+	case sessionWebhook != "":
 		if err := a.replyViaSessionWebhook(ctx, sessionWebhook, fullContent); err != nil {
 			logger.Warnf(ctx, "[DingTalk] Failed to end stream: %v", err)
 		}
-	} else {
+	default:
 		if err := a.replyViaOpenAPI(ctx, incoming, fullContent); err != nil {
 			logger.Warnf(ctx, "[DingTalk] Failed to end stream via OpenAPI: %v", err)
 		}

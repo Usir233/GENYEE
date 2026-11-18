@@ -31,7 +31,11 @@ func TestTelegramRedactsBotTokenFromTransportErrors(t *testing.T) {
 	t.Cleanup(func() { httpClient = origClient })
 
 	adapter := NewWebhookAdapter(secretBotToken, "wh-secret")
-	err := adapter.SendReply(context.Background(), &im.IncomingMessage{ChatID: "12345"}, &im.ReplyMessage{Content: "hello"})
+	err := adapter.SendReply(
+		context.Background(),
+		&im.IncomingMessage{ChatID: "12345"},
+		&im.ReplyMessage{Content: "hello"},
+	)
 	if err == nil {
 		t.Fatal("expected SendReply transport error, got nil")
 	}
@@ -72,7 +76,8 @@ func TestDownloadFileAndFinalizeStream_PathValidationAndErrorPropagation(t *test
 		httpClient = &http.Client{
 			Transport: tgRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				if strings.HasSuffix(r.URL.Path, "/getFile") {
-					body := `{"ok":true,"result":{"file_path":` + `"` + strings.ReplaceAll(badFilePath, `\`, `\\`) + `"` + `,"file_size":10}}`
+					escapedPath := strings.ReplaceAll(badFilePath, `\`, `\\`)
+					body := `{"ok":true,"result":{"file_path":"` + escapedPath + `","file_size":10}}`
 					return &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(strings.NewReader(body)),
@@ -123,7 +128,9 @@ func TestDownloadFileAndFinalizeStream_PathValidationAndErrorPropagation(t *test
 		streamsMu.Unlock()
 	})
 
-	if err := adapter.FinalizeStream(context.Background(), &im.IncomingMessage{ChatID: "100"}, streamID, "final"); err == nil {
+	if err := adapter.FinalizeStream(
+		context.Background(), &im.IncomingMessage{ChatID: "100"}, streamID, "final",
+	); err == nil {
 		t.Fatal("expected FinalizeStream to return error when both edit attempts fail, got nil")
 	}
 

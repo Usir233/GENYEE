@@ -51,7 +51,10 @@ func newIMResourceStorageFixture(t *testing.T) *imResourceStorageFixture {
 		// swallowed this fixture's 405. Model the actual successful ACL response.
 		if r.Method == http.MethodGet && r.URL.Query().Has("acl") {
 			w.Header().Set("Content-Type", "application/xml")
-			_, _ = w.Write([]byte("<AccessControlPolicy><AccessControlList><Grant>private</Grant></AccessControlList></AccessControlPolicy>"))
+			_, _ = w.Write([]byte(
+				"<AccessControlPolicy><AccessControlList>" +
+					"<Grant>private</Grant></AccessControlList></AccessControlPolicy>",
+			))
 			return
 		}
 		if r.Method != http.MethodHead && r.Method != http.MethodPut {

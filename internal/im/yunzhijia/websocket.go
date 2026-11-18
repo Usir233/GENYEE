@@ -46,6 +46,7 @@ type webSocketFrame struct {
 	control  string
 }
 
+// LongConnClient manages a Yunzhijia WebSocket push connection and reconnect loop.
 type LongConnClient struct {
 	channelID        string
 	url              string
@@ -64,6 +65,7 @@ type LongConnClient struct {
 	reconnectCount        atomic.Int64
 }
 
+// NewLongConnClient creates a Yunzhijia WebSocket push client.
 func NewLongConnClient(
 	channelID, webSocketURL string,
 	handler func(context.Context, *im.IncomingMessage) error,
@@ -82,6 +84,7 @@ func NewLongConnClient(
 	}
 }
 
+// Start connects to the Yunzhijia WebSocket endpoint and reconnects on disconnects.
 func (c *LongConnClient) Start(ctx context.Context) error {
 	logger.Infof(ctx, "[IM] Yunzhijia WebSocket connecting channel_id=%s", c.channelID)
 	go c.handleMessages(ctx)
@@ -107,21 +110,27 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 			"[Yunzhijia] WebSocket connection lost channel_id=%s reconnect_count=%d reason=%v; reconnecting in %v; %s",
 			c.channelID, reconnectCount, err, delay, c.healthStatus(),
 		)
+		backoffTimer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
+			backoffTimer.Stop()
 			return nil
-		case <-time.After(delay):
+		case <-backoffTimer.C:
 		}
 	}
 }
 
+// Stop closes the active WebSocket connection and prevents further reconnects.
 func (c *LongConnClient) Stop() {
 	c.closed.Store(true)
 	c.closeConn()
 }
 
 func (c *LongConnClient) connectAndRun(ctx context.Context) error {
-	conn, _, err := c.dialer.DialContext(ctx, c.url, nil)
+	conn, resp, err := c.dialer.DialContext(ctx, c.url, nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		return fmt.Errorf("dial websocket: %w", redactYunzhijiaErr(err))
 	}
@@ -239,9 +248,12 @@ func (c *LongConnClient) maxConnectionAgeLoop(ctx context.Context, conn *ws.Conn
 }
 
 func (c *LongConnClient) logFrame(ctx context.Context, frame *webSocketFrame) {
-	logger.Debugf(ctx,
-		"[Yunzhijia] WebSocket frame channel_id=%s cmd=%s type=%s event=%s seq=%d has_seq=%t need_ack=%t has_message=%t",
-		c.channelID, frame.cmd, frame.typeName, frame.event, frame.seq, frame.hasSeq, frame.needAck, frame.message != nil,
+	logger.Debugf(
+		ctx,
+		"[Yunzhijia] WebSocket frame channel_id=%s cmd=%s type=%s "+
+			"event=%s seq=%d has_seq=%t need_ack=%t has_message=%t",
+		c.channelID, frame.cmd, frame.typeName, frame.event,
+		frame.seq, frame.hasSeq, frame.needAck, frame.message != nil,
 	)
 }
 

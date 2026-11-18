@@ -5,9 +5,11 @@ import (
 	"context"
 	"crypto/aes"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/im"
@@ -76,4 +78,68 @@ func encryptAES128ECB(t *testing.T, plaintext, key []byte) []byte {
 		block.Encrypt(ciphertext[i:i+block.BlockSize()], padded[i:i+block.BlockSize()])
 	}
 	return ciphertext
+}
+
+type failingRandReader struct{}
+
+func (failingRandReader) Read([]byte) (int, error) {
+	return 0, errors.New("entropy unavailable")
+}
+
+func TestGenerateWeChatUINFallbackOnRandFailure(t *testing.T) {
+	origReader := wechatRandReader
+	wechatRandReader = failingRandReader{}
+	t.Cleanup(func() { wechatRandReader = origReader })
+
+	uin := generateWeChatUIN()
+	decoded, err := base64.StdEncoding.DecodeString(uin)
+	if err != nil {
+		t.Fatalf("DecodeString(%q): %v", uin, err)
+	}
+	val, err := strconv.ParseUint(string(decoded), 10, 32)
+	if err != nil || val == 0 {
+		t.Fatalf("expected non-zero fallback UIN when crypto/rand fails, got %q (%v)", string(decoded), err)
+	}
+}
+
+type endlessWeChatReader struct {
+	remaining int64
+}
+
+func (r *endlessWeChatReader) Read(p []byte) (int, error) {
+	if r.remaining <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > r.remaining {
+		p = p[:r.remaining]
+	}
+	for i := range p {
+		p[i] = 'w'
+	}
+	r.remaining -= int64(len(p))
+	return len(p), nil
+}
+
+func TestDownloadFileRejectsOversizedUnencryptedStream(t *testing.T) {
+	secutils.SetSSRFWhitelistFromRaw("127.0.0.1")
+	t.Cleanup(func() { secutils.SetSSRFWhitelistFromRaw("") })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.Copy(w, &endlessWeChatReader{remaining: 33 << 20})
+	}))
+	t.Cleanup(server.Close)
+
+	adapter := &Adapter{}
+	rc, _, err := adapter.DownloadFile(context.Background(), &im.IncomingMessage{
+		FileKey:  server.URL,
+		FileName: "raw.bin",
+	})
+	if err != nil {
+		t.Fatalf("DownloadFile: %v", err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	if _, err := io.ReadAll(rc); err == nil {
+		t.Fatal("expected oversized unencrypted WeChat attachment download to fail, got nil")
+	}
 }

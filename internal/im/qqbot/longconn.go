@@ -13,8 +13,10 @@ import (
 	ws "github.com/gorilla/websocket"
 )
 
+// MessageHandler handles incoming QQ Bot gateway messages.
 type MessageHandler func(ctx context.Context, msg *im.IncomingMessage) error
 
+// LongConnClient manages a QQ Bot WebSocket gateway connection and reconnect loop.
 type LongConnClient struct {
 	client  *Client
 	handler MessageHandler
@@ -26,10 +28,12 @@ type LongConnClient struct {
 	closed  bool
 }
 
+// NewLongConnClient creates a QQ Bot WebSocket gateway client.
 func NewLongConnClient(client *Client, handler MessageHandler) *LongConnClient {
 	return &LongConnClient{client: client, handler: handler}
 }
 
+// Start connects to the QQ Bot WebSocket gateway and automatically reconnects on disconnect.
 func (c *LongConnClient) Start(ctx context.Context) error {
 	logger.Infof(ctx, "[IM] QQBot WebSocket connecting...")
 	attempt := 0
@@ -44,10 +48,12 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 			attempt++
 			delay := reconnectDelay(attempt)
 			logger.Warnf(ctx, "[QQBot] connection lost: %v, reconnecting in %v", err, delay)
+			backoffTimer := time.NewTimer(delay)
 			select {
 			case <-ctx.Done():
+				backoffTimer.Stop()
 				return ctx.Err()
-			case <-time.After(delay):
+			case <-backoffTimer.C:
 			}
 			continue
 		}
@@ -55,6 +61,7 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 	}
 }
 
+// Stop closes the active WebSocket connection and prevents further reconnects.
 func (c *LongConnClient) Stop() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -72,7 +79,10 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 	}
 	dialer := *ws.DefaultDialer
 	dialer.NetDialContext = secutils.SSRFSafeDialContext
-	conn, _, err := dialer.DialContext(ctx, gatewayURL, nil)
+	conn, resp, err := dialer.DialContext(ctx, gatewayURL, nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		return err
 	}

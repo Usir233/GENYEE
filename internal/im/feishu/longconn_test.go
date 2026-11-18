@@ -92,7 +92,8 @@ func TestConvertEventIgnoresGroupMessageThatMentionsDifferentBot(t *testing.T) {
 }
 
 func TestConvertPostEventPreservesEmbeddedImage(t *testing.T) {
-	content := `{"title":"","content":[[{"tag":"at","user_id":"ou_bot"},{"tag":"text","text":"请描述这张图"},{"tag":"img","image_key":"img_v3_abc"}]]}`
+	content := `{"title":"","content":[[{"tag":"at","user_id":"ou_bot"},` +
+		`{"tag":"text","text":"请描述这张图"},{"tag":"img","image_key":"img_v3_abc"}]]}`
 	msg := &larkim.EventMessage{Content: &content}
 
 	got := convertPostEvent(RegionFeishu, msg, "ou_user", "oc_group", im.ChatTypeGroup, "om_message")

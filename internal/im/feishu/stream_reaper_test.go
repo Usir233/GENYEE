@@ -106,7 +106,12 @@ func TestLongRunningStreamFinalizesAfterReaper(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	adapter := &Adapter{region: testRegion(srv.URL), apiBaseURL: srv.URL, tokenCache: "test-token", tokenExpAt: time.Now().Add(time.Hour)}
+	adapter := &Adapter{
+		region:     testRegion(srv.URL),
+		apiBaseURL: srv.URL,
+		tokenCache: "test-token",
+		tokenExpAt: time.Now().Add(time.Hour),
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	streamID, err := adapter.StartStream(ctx, &im.IncomingMessage{UserID: "test-user"})
@@ -167,7 +172,12 @@ func TestEndStreamFailurePreservesSequenceForRetry(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":0}`))
 	}))
 	defer srv.Close()
-	adapter := &Adapter{region: testRegion(srv.URL), apiBaseURL: srv.URL, tokenCache: "test-token", tokenExpAt: time.Now().Add(time.Hour)}
+	adapter := &Adapter{
+		region:     testRegion(srv.URL),
+		apiBaseURL: srv.URL,
+		tokenCache: "test-token",
+		tokenExpAt: time.Now().Add(time.Hour),
+	}
 	registerTestStream(t, cardID, &feishuStreamState{seq: 42})
 	if err := adapter.EndStream(context.Background(), nil, cardID); err == nil {
 		t.Fatal("failed CardKit finalization reported success")
@@ -228,7 +238,12 @@ func TestSendReplySplitsLongTextWithoutLoss(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":0}`))
 	}))
 	defer srv.Close()
-	adapter := &Adapter{region: testRegion(srv.URL), apiBaseURL: srv.URL, tokenCache: "test-token", tokenExpAt: time.Now().Add(time.Hour)}
+	adapter := &Adapter{
+		region:     testRegion(srv.URL),
+		apiBaseURL: srv.URL,
+		tokenCache: "test-token",
+		tokenExpAt: time.Now().Add(time.Hour),
+	}
 	answer := strings.Repeat("中文答案 ✅\n", 1500)
 	if err := adapter.SendReply(context.Background(), &im.IncomingMessage{MessageID: "original-message"},
 		&im.ReplyMessage{Content: answer, IsFinal: true}); err != nil {
@@ -245,8 +260,10 @@ func TestSendReplySplitsLongTextWithoutLoss(t *testing.T) {
 }
 
 func TestSplitTextReplyPreservesBoundaries(t *testing.T) {
-	for _, text := range []string{"", "short", strings.Repeat("x", textReplyChunkBytes),
-		strings.Repeat("图", textReplyChunkBytes), strings.Repeat("\x00", textReplyChunkBytes+1)} {
+	for _, text := range []string{
+		"", "short", strings.Repeat("x", textReplyChunkBytes),
+		strings.Repeat("图", textReplyChunkBytes), strings.Repeat("\x00", textReplyChunkBytes+1),
+	} {
 		parts := splitTextReply(text)
 		if strings.Join(parts, "") != text {
 			t.Fatal("text changed when splitting")
@@ -256,5 +273,33 @@ func TestSplitTextReplyPreservesBoundaries(t *testing.T) {
 				t.Fatal("invalid text chunk")
 			}
 		}
+	}
+}
+
+func TestStopStreamReaperRestartsOnNewAdapterAndIsConcurrentSafe(t *testing.T) {
+	_, err := NewAdapter(RegionFeishu, "app", "secret", "verify", "", "")
+	if err != nil {
+		t.Fatalf("NewAdapter: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			StopStreamReaper()
+		}()
+	}
+	wg.Wait()
+
+	// Creating another adapter after StopStreamReaper must restart a live reaper stop channel.
+	_, err = NewAdapter(RegionFeishu, "app-2", "secret-2", "verify-2", "", "")
+	if err != nil {
+		t.Fatalf("NewAdapter after stop: %v", err)
+	}
+	t.Cleanup(StopStreamReaper)
+
+	if !isStreamReaperRunning() {
+		t.Fatal("expected stream reaper to restart when NewAdapter is called after StopStreamReaper")
 	}
 }

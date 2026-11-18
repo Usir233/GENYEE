@@ -74,10 +74,16 @@ func validateOAuthEndpointSyntax(rawURL, fieldName string) (string, error) {
 	}
 	scheme := strings.ToLower(parsed.Scheme)
 	if scheme != "http" && scheme != "https" {
-		return "", fmt.Errorf("%w: %s must use http or https scheme, got %q", ErrInvalidOAuthEndpoint, fieldName, parsed.Scheme)
+		return "", fmt.Errorf(
+			"%w: %s must use http or https scheme, got %q",
+			ErrInvalidOAuthEndpoint, fieldName, parsed.Scheme,
+		)
 	}
 	if parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
-		return "", fmt.Errorf("%w: %s must have a valid host without userinfo or fragment", ErrInvalidOAuthEndpoint, fieldName)
+		return "", fmt.Errorf(
+			"%w: %s must have a valid host without userinfo or fragment",
+			ErrInvalidOAuthEndpoint, fieldName,
+		)
 	}
 	return trimmed, nil
 }
@@ -99,7 +105,9 @@ func ValidateOAuthEndpointURL(rawURL, fieldName string) error {
 // validateOAuthServerMetadata fetches and validates remote OAuth authorization
 // server metadata endpoints before registration, redirect, or token exchange.
 func validateOAuthServerMetadata(
-	ctx context.Context, h *transport.OAuthHandler, requireAuthEndpoint, requireTokenEndpoint, requireRegistrationEndpoint bool,
+	ctx context.Context,
+	h *transport.OAuthHandler,
+	requireAuthEndpoint, requireTokenEndpoint, requireRegistrationEndpoint bool,
 ) (*transport.AuthServerMetadata, error) {
 	metadata, err := h.GetServerMetadata(ctx)
 	if err != nil {
@@ -159,24 +167,36 @@ func ResolveOAuthCallbackURI(rawRedirectURI string, forceCallbackPathOnLoopback 
 				return "", fmt.Errorf("%w: %v", ErrInvalidOAuthRedirectURI, err)
 			}
 			if !sameHTTPOriginURL(candidate, trustedURL) {
-				return "", fmt.Errorf("%w: redirect_uri origin does not match configured server base URL", ErrInvalidOAuthRedirectURI)
+				return "", fmt.Errorf(
+					"%w: redirect_uri origin does not match configured server base URL",
+					ErrInvalidOAuthRedirectURI,
+				)
 			}
 		}
 		return fixedCallback, nil
 	}
 
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("GIN_MODE")), "release") {
-		return "", fmt.Errorf("%w: APP_EXTERNAL_URL or FRONTEND_BASE_URL must be configured", ErrInvalidOAuthRedirectURI)
+		return "", fmt.Errorf(
+			"%w: APP_EXTERNAL_URL or FRONTEND_BASE_URL must be configured",
+			ErrInvalidOAuthRedirectURI,
+		)
 	}
 	if rawTrimmed == "" {
-		return "", fmt.Errorf("%w: APP_EXTERNAL_URL or FRONTEND_BASE_URL is required when redirect_uri is omitted", ErrInvalidOAuthRedirectURI)
+		return "", fmt.Errorf(
+			"%w: APP_EXTERNAL_URL or FRONTEND_BASE_URL is required when redirect_uri is omitted",
+			ErrInvalidOAuthRedirectURI,
+		)
 	}
 	candidate, err := parseCleanHTTPURL(rawTrimmed)
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrInvalidOAuthRedirectURI, err)
 	}
 	if !strings.EqualFold(candidate.Scheme, "http") || !isLoopbackOAuthHost(candidate.Hostname()) {
-		return "", fmt.Errorf("%w: untrusted redirect_uri host %q (configure APP_EXTERNAL_URL or FRONTEND_BASE_URL)", ErrInvalidOAuthRedirectURI, candidate.Host)
+		return "", fmt.Errorf(
+			"%w: untrusted redirect_uri host %q (configure APP_EXTERNAL_URL or FRONTEND_BASE_URL)",
+			ErrInvalidOAuthRedirectURI, candidate.Host,
+		)
 	}
 	if !strings.HasPrefix(candidate.Path, "/") || strings.HasPrefix(candidate.Path, "//") {
 		return "", fmt.Errorf("%w: redirect_uri must use an absolute path", ErrInvalidOAuthRedirectURI)
@@ -309,7 +329,10 @@ func (g *transportGuardRoundTripper) RoundTrip(req *http.Request) (*http.Respons
 		if limit := g.maxBodyBytes(); limit > 0 {
 			if resp.ContentLength > limit {
 				_ = resp.Body.Close()
-				return nil, fmt.Errorf("%w: content-length %d exceeds %d bytes", ErrMCPResponseTooLarge, resp.ContentLength, limit)
+				return nil, fmt.Errorf(
+					"%w: content-length %d exceeds %d bytes",
+					ErrMCPResponseTooLarge, resp.ContentLength, limit,
+				)
 			}
 			resp.Body = newBoundedReadCloser(resp.Body, limit)
 		}

@@ -1,3 +1,4 @@
+// Package slack implements the Slack Events API and Socket Mode IM adapter for GENYEE.
 package slack
 
 import (
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/slack-go/slack"
@@ -36,6 +38,7 @@ type Adapter struct {
 
 // NewAdapter creates an adapter backed by a Slack long connection client.
 func NewAdapter(client *LongConnClient, api *slack.Client) *Adapter {
+	startStreamReaper()
 	return &Adapter{
 		client: client,
 		api:    api,
@@ -44,13 +47,18 @@ func NewAdapter(client *LongConnClient, api *slack.Client) *Adapter {
 
 // NewWebhookAdapter creates an adapter for Slack Events API via Webhook.
 func NewWebhookAdapter(api *slack.Client, signingSecret string) *Adapter {
+	startStreamReaper()
 	return &Adapter{
 		api:           api,
 		signingSecret: signingSecret,
 	}
 }
 
-func parseIncomingMessage(user, channel, text, ts string, chatType im.ChatType, files []slack.File) *im.IncomingMessage {
+func parseIncomingMessage(
+	user, channel, text, ts string,
+	chatType im.ChatType,
+	files []slack.File,
+) *im.IncomingMessage {
 	content := text
 	if chatType == im.ChatTypeGroup {
 		// Slack mentions are in the format <@U12345678>
@@ -94,10 +102,12 @@ func parseIncomingMessage(user, channel, text, ts string, chatType im.ChatType, 
 	return msg
 }
 
+// Platform returns the platform identifier.
 func (a *Adapter) Platform() im.Platform {
 	return im.PlatformSlack
 }
 
+// VerifyCallback validates the Slack signing secret signature on Events API webhooks.
 func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	if a.signingSecret == "" {
 		return fmt.Errorf("webhook verification secret is required")
@@ -124,6 +134,7 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	return nil
 }
 
+// ParseCallback parses a Slack Events API webhook body into a unified IncomingMessage.
 func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -173,6 +184,7 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	return nil, nil
 }
 
+// HandleURLVerification responds to Slack's Events API url_verification challenge.
 func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -197,6 +209,7 @@ func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
 	return false
 }
 
+// SendReply posts a text reply to the Slack channel or thread.
 func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	channelID := incoming.ChatID
 	if channelID == "" {
@@ -217,17 +230,108 @@ func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, r
 
 // slackStreamState tracks per-stream accumulated content.
 type slackStreamState struct {
-	mu      sync.Mutex
-	content strings.Builder
-	ts      string // The timestamp of the message being updated
-	channel string // The channel ID
+	mu             sync.Mutex
+	content        strings.Builder
+	ts             string // The timestamp of the message being updated
+	channel        string // The channel ID
+	lastActivityAt time.Time
+	ownerDone      <-chan struct{}
 }
+
+const (
+	streamOrphanTTL      = 5 * time.Minute
+	streamReaperInterval = 1 * time.Minute
+)
 
 var (
 	slackStreamsMu sync.Mutex
 	slackStreams   = map[string]*slackStreamState{}
+	reaperMu       sync.Mutex
+	reaperRunning  bool
+	reaperStopCh   chan struct{}
+	reaperDoneCh   chan struct{}
 )
 
+func startStreamReaper() {
+	reaperMu.Lock()
+	if reaperRunning {
+		reaperMu.Unlock()
+		return
+	}
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	reaperStopCh = stopCh
+	reaperDoneCh = doneCh
+	reaperRunning = true
+	reaperMu.Unlock()
+
+	go func() {
+		defer close(doneCh)
+		ticker := time.NewTicker(streamReaperInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case now := <-ticker.C:
+				reapOrphanStreams(now)
+			case <-stopCh:
+				return
+			}
+		}
+	}()
+}
+
+func reapOrphanStreams(now time.Time) {
+	slackStreamsMu.Lock()
+	defer slackStreamsMu.Unlock()
+	for id, state := range slackStreams {
+		if state.ownerDone != nil {
+			select {
+			case <-state.ownerDone:
+			default:
+				state.lastActivityAt = now
+				continue
+			}
+		}
+		if state.lastActivityAt.Before(now.Add(-streamOrphanTTL)) {
+			delete(slackStreams, id)
+		}
+	}
+}
+
+func lookupStream(streamID string) (*slackStreamState, bool) {
+	slackStreamsMu.Lock()
+	defer slackStreamsMu.Unlock()
+	state, ok := slackStreams[streamID]
+	if ok {
+		state.lastActivityAt = time.Now()
+	}
+	return state, ok
+}
+
+// StopStreamReaper stops the background stream reaper goroutine and waits for it to exit.
+func StopStreamReaper() {
+	reaperMu.Lock()
+	stopCh := reaperStopCh
+	doneCh := reaperDoneCh
+	if reaperRunning {
+		reaperRunning = false
+		reaperStopCh = nil
+		close(stopCh)
+	}
+	reaperMu.Unlock()
+
+	if doneCh != nil {
+		<-doneCh
+	}
+}
+
+func isStreamReaperRunning() bool {
+	reaperMu.Lock()
+	defer reaperMu.Unlock()
+	return reaperRunning
+}
+
+// StartStream posts a placeholder message in Slack and registers the stream state.
 func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage) (string, error) {
 	channelID := incoming.ChatID
 	if channelID == "" {
@@ -249,8 +353,10 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 
 	slackStreamsMu.Lock()
 	slackStreams[streamID] = &slackStreamState{
-		ts:      ts,
-		channel: channelID,
+		ts:             ts,
+		channel:        channelID,
+		lastActivityAt: time.Now(),
+		ownerDone:      ctx.Done(),
 	}
 	slackStreamsMu.Unlock()
 
@@ -258,11 +364,17 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 	return streamID, nil
 }
 
-func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+// UpdateStreamContent updates the Slack message with the latest accumulated stream text.
+func (a *Adapter) UpdateStreamContent(
+	ctx context.Context, _ *im.IncomingMessage, streamID string, fullContent string,
+) error {
 	return a.updateStreamContent(ctx, streamID, fullContent, false)
 }
 
-func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
+// FinalizeStream updates the Slack message with the final answer and surfaces API errors.
+func (a *Adapter) FinalizeStream(
+	ctx context.Context, _ *im.IncomingMessage, streamID string, finalContent string,
+) error {
 	return a.updateStreamContent(ctx, streamID, finalContent, true)
 }
 
@@ -271,9 +383,7 @@ func (a *Adapter) updateStreamContent(ctx context.Context, streamID string, full
 		return nil
 	}
 
-	slackStreamsMu.Lock()
-	state, ok := slackStreams[streamID]
-	slackStreamsMu.Unlock()
+	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
 	}
@@ -295,11 +405,18 @@ func (a *Adapter) updateStreamContent(ctx context.Context, streamID string, full
 	return nil
 }
 
-func (a *Adapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+// SendStreamChunk forwards incremental updates to UpdateStreamContent.
+func (a *Adapter) SendStreamChunk(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	content string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
-func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
+// EndStream performs a final message update and removes the stream state.
+func (a *Adapter) EndStream(ctx context.Context, _ *im.IncomingMessage, streamID string) error {
 	slackStreamsMu.Lock()
 	state, ok := slackStreams[streamID]
 	delete(slackStreams, streamID)
@@ -322,6 +439,7 @@ func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, s
 	return nil
 }
 
+// DownloadFile downloads a private Slack file attachment with bounded size.
 func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io.ReadCloser, string, error) {
 	if msg.FileKey == "" {
 		return nil, "", fmt.Errorf("file_key is required")
@@ -355,7 +473,7 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 		pw.CloseWithError(err)
 	}()
 
-	return pr, msg.FileName, nil
+	return im.LimitAttachmentReadCloser(pr), msg.FileName, nil
 }
 
 // isTrustedFileDownloadURL accepts private download endpoints, not public

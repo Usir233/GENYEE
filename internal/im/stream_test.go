@@ -25,7 +25,12 @@ func (m *mockStreamSender) StartStream(_ context.Context, _ *IncomingMessage) (s
 	return m.streamID, nil
 }
 
-func (m *mockStreamSender) UpdateStreamContent(_ context.Context, _ *IncomingMessage, _ string, fullContent string) error {
+func (m *mockStreamSender) UpdateStreamContent(
+	_ context.Context,
+	_ *IncomingMessage,
+	_ string,
+	fullContent string,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.updates = append(m.updates, fullContent)

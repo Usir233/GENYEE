@@ -15,7 +15,9 @@ import (
 // NewFactory returns an im.AdapterFactory for Slack channels.
 // Supports "webhook" (Events API) and "websocket" (Socket Mode, default).
 func NewFactory() im.AdapterFactory {
-	return func(factoryCtx context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error) (im.Adapter, context.CancelFunc, error) {
+	return func(
+		_ context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error,
+	) (im.Adapter, context.CancelFunc, error) {
 		creds, err := im.ParseCredentials(channel.Credentials)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse slack credentials: %w", err)
@@ -46,8 +48,12 @@ func NewFactory() im.AdapterFactory {
 
 			wsCtx, wsCancel := context.WithCancel(context.Background())
 			go func() {
-				if err := client.Start(wsCtx); err != nil && wsCtx.Err() == nil {
-					logger.Errorf(context.Background(), "[IM] Slack long connection stopped for channel %s: %v", channel.ID, err)
+				startErr := client.Start(wsCtx)
+				if wsCtx.Err() == nil {
+					logger.Errorf(
+						context.Background(), "[IM] Slack long connection stopped for channel %s: %v",
+						channel.ID, startErr,
+					)
 				}
 			}()
 

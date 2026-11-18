@@ -19,7 +19,7 @@ func TestMCPClientDoesNotFollowCrossOriginRedirectWithCredentials(t *testing.T) 
 	for _, transportType := range []types.MCPTransportType{types.MCPTransportSSE, types.MCPTransportHTTPStreamable} {
 		t.Run(string(transportType), func(t *testing.T) {
 			var targetRequests, originRequests atomic.Int32
-			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				targetRequests.Add(1)
 				w.WriteHeader(http.StatusOK)
 			}))

@@ -36,7 +36,7 @@ func (c *boundedSSEConnection) Start(ctx context.Context) error {
 		err = cause
 	}
 	if err == nil && c.baseURL != nil {
-		if epErr := validatePinnedTransportURL(c.SSE.GetEndpoint(), c.baseURL); epErr != nil {
+		if epErr := validatePinnedTransportURL(c.GetEndpoint(), c.baseURL); epErr != nil {
 			err = epErr
 			_ = c.SSE.Close()
 		}

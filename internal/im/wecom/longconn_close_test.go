@@ -31,7 +31,10 @@ func newTestConn(t *testing.T) *ws.Conn {
 	}))
 	t.Cleanup(server.Close)
 
-	conn, _, err := ws.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	conn, resp, err := ws.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		t.Fatalf("dial test websocket: %v", err)
 	}

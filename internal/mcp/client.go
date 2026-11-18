@@ -1,3 +1,5 @@
+// Package mcp provides MCP client connection management, OAuth2 lifecycle
+// handling, and outbound transport security.
 package mcp
 
 import (
@@ -22,7 +24,9 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-// MCPClient defines the interface for MCP client implementations
+// MCPClient defines the interface for MCP client implementations.
+//
+//nolint:revive // MCPClient is referenced across internal/{agent,application/service,container}.
 type MCPClient interface {
 	// Connect establishes connection to the MCP service
 	Connect(ctx context.Context) error
@@ -314,7 +318,9 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 		}
 	case types.MCPTransportStdio:
 		// Stdio transport is disabled for security reasons (potential command injection vulnerabilities)
-		return nil, fmt.Errorf("stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead")
+		return nil, fmt.Errorf(
+			"stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead",
+		)
 	default:
 		return nil, ErrUnsupportedTransport
 	}
@@ -382,7 +388,9 @@ func buildOAuthConfig(config *ClientConfig, httpClient *http.Client) (transport.
 		principal = types.Principal{Type: types.PrincipalWebUser, ID: config.UserID}.Normalize()
 	}
 	if !principal.Valid() {
-		return transport.OAuthConfig{}, false, fmt.Errorf("principal context is required to connect to an OAuth MCP service")
+		return transport.OAuthConfig{}, false, fmt.Errorf(
+			"principal context is required to connect to an OAuth MCP service",
+		)
 	}
 	config.Principal = principal
 
@@ -497,7 +505,7 @@ func (c *mcpGoClient) Disconnect() error {
 
 	// Close the client
 	if c.client != nil {
-		c.client.Close()
+		_ = c.client.Close()
 	}
 	return nil
 }

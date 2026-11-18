@@ -59,7 +59,10 @@ func TestAuditMCPServerRejectsOversizedRequestBody(t *testing.T) {
 	})
 
 	t.Run("bounds streaming request body without buffering unbounded payload", func(t *testing.T) {
-		big := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"pad":"` + strings.Repeat("y", 32768) + `"}}`)
+		big := []byte(
+			`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"pad":"` +
+				strings.Repeat("y", 32768) + `"}}`,
+		)
 		stream := &countingStreamReader{data: big}
 		req := httptest.NewRequest(http.MethodPost, "/mcp/ep-size", io.NopCloser(stream))
 		req.ContentLength = -1
@@ -68,7 +71,9 @@ func TestAuditMCPServerRejectsOversizedRequestBody(t *testing.T) {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		require.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
-		require.LessOrEqual(t, stream.read.Load(), maxMCPServerRequestBytes+1, "must stop reading immediately past limit")
+		require.LessOrEqual(
+			t, stream.read.Load(), maxMCPServerRequestBytes+1, "must stop reading immediately past limit",
+		)
 	})
 
 	t.Run("accepts normal JSON-RPC request within limit", func(t *testing.T) {

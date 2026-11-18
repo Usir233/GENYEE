@@ -11,7 +11,11 @@ import (
 // NewFactory returns an im.AdapterFactory for WeCom channels.
 // Supports two modes: "webhook" (HTTP callback) and "websocket" (long connection, default).
 func NewFactory() im.AdapterFactory {
-	return func(factoryCtx context.Context, channel *im.IMChannel, msgHandler func(context.Context, *im.IncomingMessage) error) (im.Adapter, context.CancelFunc, error) {
+	return func(
+		_ context.Context,
+		channel *im.IMChannel,
+		msgHandler func(context.Context, *im.IncomingMessage) error,
+	) (im.Adapter, context.CancelFunc, error) {
 		creds, err := im.ParseCredentials(channel.Credentials)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse wecom credentials: %w", err)
@@ -58,7 +62,11 @@ func NewFactory() im.AdapterFactory {
 			wsCtx, wsCancel := context.WithCancel(context.Background())
 			go func() {
 				if err := client.Start(wsCtx); err != nil && wsCtx.Err() == nil {
-					logger.Errorf(context.Background(), "[IM] WeCom long connection stopped for channel %s: %v", channel.ID, err)
+					logger.Errorf(
+						context.Background(),
+						"[IM] WeCom long connection stopped for channel %s: %v",
+						channel.ID, err,
+					)
 				}
 			}()
 

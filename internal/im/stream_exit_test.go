@@ -194,8 +194,8 @@ func TestHandleMessageStreamWaitsForAgentCompletion(t *testing.T) {
 		t.Fatal("answer was not emitted")
 	}
 	select {
-	case <-returned:
-		t.Fatal("terminal answer caused exit before agent completion")
+	case err := <-returned:
+		t.Fatalf("terminal answer caused exit before agent completion: %v", err)
 	case <-time.After(30 * time.Millisecond):
 	}
 	close(releaseCompletion)
@@ -206,7 +206,9 @@ func TestHandleMessageStreamWaitsForAgentCompletion(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		cancel()
-		<-returned
+		if err := <-returned; err != nil {
+			t.Logf("cancelled handler returned: %v", err)
+		}
 		t.Fatal("completion did not finish stream")
 	}
 	<-producerStopped
@@ -294,8 +296,8 @@ func TestHandleMessageStreamWaitsForAsyncKnowledgeQA(t *testing.T) {
 		t.Fatal("KnowledgeQA did not return")
 	}
 	select {
-	case <-returned:
-		t.Fatal("KnowledgeQA return ended its asynchronous answer stream")
+	case err := <-returned:
+		t.Fatalf("KnowledgeQA return ended its asynchronous answer stream: %v", err)
 	case <-time.After(30 * time.Millisecond):
 	}
 	close(releaseAnswer)
@@ -306,7 +308,9 @@ func TestHandleMessageStreamWaitsForAsyncKnowledgeQA(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		cancel()
-		<-returned
+		if err := <-returned; err != nil {
+			t.Logf("cancelled handler returned: %v", err)
+		}
 		t.Fatal("asynchronous final answer did not end stream")
 	}
 	if err := <-emitted; err != nil {
@@ -373,7 +377,8 @@ func TestHandleMessageStreamReturnsWhenQAOmitsTerminalAnswer(t *testing.T) {
 			case <-time.After(time.Second):
 				cancel()
 				select {
-				case <-returned:
+				case err := <-returned:
+					_ = err
 				case <-time.After(2 * time.Second):
 					t.Fatal("handler did not exit even after cancellation")
 				}

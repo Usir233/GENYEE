@@ -72,7 +72,7 @@ func TestDownloadFile_EndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DownloadFile error: %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	got, err := io.ReadAll(reader)
 	if err != nil {
@@ -132,8 +132,7 @@ func TestDownloadFile_TempURLError(t *testing.T) {
 
 func TestDownloadFile_SSRFRejected(t *testing.T) {
 	useTestHTTPClient(t)
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1.0/oauth2/accessToken":
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"accessToken": "tok", "expireIn": 7200})

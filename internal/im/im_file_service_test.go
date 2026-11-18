@@ -113,7 +113,7 @@ func TestRewriteStorageURLs_MinIOFallbackViaGlobal(t *testing.T) {
 
 func TestRewriteStorageURLs_ScopedPathRequiresBoundBackend(t *testing.T) {
 	stub := &stubIMFileService{
-		getFileURL: func(_ context.Context, filePath string) (string, error) {
+		getFileURL: func(_ context.Context, _ string) (string, error) {
 			t.Fatal("an explicit backend must not fall back to global storage")
 			return "", nil
 		},

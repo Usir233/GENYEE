@@ -90,8 +90,8 @@ func TestReplyViaOpenAPIAndFinalizeStream_HonorBaseURLAndSurfaceFailure(t *testi
 	streamID := "dt:test:finalize-fail"
 	streamsMu.Lock()
 	dStreams[streamID] = &streamState{
-		outTrackID: "track-1",
-		createdAt:  time.Now(),
+		outTrackID:     "track-1",
+		lastActivityAt: time.Now(),
 	}
 	streamsMu.Unlock()
 	t.Cleanup(func() {
@@ -100,7 +100,9 @@ func TestReplyViaOpenAPIAndFinalizeStream_HonorBaseURLAndSurfaceFailure(t *testi
 		streamsMu.Unlock()
 	})
 
-	if err := a.FinalizeStream(context.Background(), &im.IncomingMessage{UserID: "user-1"}, streamID, "final answer"); err == nil {
+	if err := a.FinalizeStream(
+		context.Background(), &im.IncomingMessage{UserID: "user-1"}, streamID, "final answer",
+	); err == nil {
 		t.Fatal("expected FinalizeStream to return error when card update fails, got nil")
 	}
 }

@@ -40,14 +40,19 @@ func StripThinkBlocks(content string) string {
 }
 
 // IMStreamMode distinguishes agent reasoning from quick-QA RAG pipeline display.
+//
+//nolint:revive // IMStreamMode is the established exported API name in package im.
 type IMStreamMode int
 
+// Supported IM stream rendering modes.
 const (
 	IMStreamModeAgent IMStreamMode = iota
 	IMStreamModeQuickQA
 )
 
 // IMStreamParts separates stream content for IM display.
+//
+//nolint:revive // IMStreamParts is the established exported API name in package im.
 type IMStreamParts struct {
 	Mode IMStreamMode
 

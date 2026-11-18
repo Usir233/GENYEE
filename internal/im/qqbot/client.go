@@ -15,6 +15,7 @@ import (
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
+// Client communicates with the QQ Bot OpenAPI and manages OAuth access tokens.
 type Client struct {
 	appID        string
 	clientSecret string
@@ -27,6 +28,7 @@ type Client struct {
 	expiresAt   time.Time
 }
 
+// NewClient validates endpoints and creates a QQ Bot OpenAPI client.
 func NewClient(appID, clientSecret, apiBaseURL, gatewayURL string) (*Client, error) {
 	appID = strings.TrimSpace(appID)
 	clientSecret = strings.TrimSpace(clientSecret)
@@ -59,6 +61,7 @@ func NewClient(appID, clientSecret, apiBaseURL, gatewayURL string) (*Client, err
 	}, nil
 }
 
+// GatewayURL resolves and validates the QQ Bot WebSocket gateway URL.
 func (c *Client) GatewayURL(ctx context.Context) (string, error) {
 	if c.gatewayURL != "" {
 		return c.gatewayURL, nil
@@ -85,7 +88,10 @@ func validateHTTPAPIBaseURL(raw string) error {
 		return fmt.Errorf("invalid qqbot api_base_url: must use http or https")
 	}
 	if err := secutils.ValidateURLForSSRF(raw); err != nil {
-		return fmt.Errorf("invalid qqbot api_base_url: %w (for private deployments, add the hostname to SSRF_WHITELIST)", err)
+		return fmt.Errorf(
+			"invalid qqbot api_base_url: %w (for private deployments, add the hostname to SSRF_WHITELIST)",
+			err,
+		)
 	}
 	return nil
 }
@@ -126,6 +132,7 @@ func validateQQBotID(id string) error {
 	return nil
 }
 
+// SendC2CMessage sends a direct message reply to a QQ user.
 func (c *Client) SendC2CMessage(ctx context.Context, openID, content, msgID string) error {
 	if err := validateQQBotID(openID); err != nil {
 		return err
@@ -134,6 +141,7 @@ func (c *Client) SendC2CMessage(ctx context.Context, openID, content, msgID stri
 	return c.sendText(ctx, path, content, msgID)
 }
 
+// SendGroupMessage sends a group message reply to a QQ group.
 func (c *Client) SendGroupMessage(ctx context.Context, groupOpenID, content, msgID string) error {
 	if err := validateQQBotID(groupOpenID); err != nil {
 		return err
@@ -181,7 +189,7 @@ func (c *Client) doJSON(ctx context.Context, method, url string, body any, out a
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("qqbot api %s %s failed: %s", method, url, resp.Status)
@@ -195,6 +203,7 @@ func (c *Client) doJSON(ctx context.Context, method, url string, body any, out a
 	return nil
 }
 
+// AccessToken returns a cached or freshly requested QQ Bot app access token.
 func (c *Client) AccessToken(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	if c.accessToken != "" && time.Until(c.expiresAt) > time.Minute {

@@ -23,6 +23,7 @@ func (*lifecycleTestAdapter) VerifyCallback(*gin.Context) error { return nil }
 func (*lifecycleTestAdapter) ParseCallback(*gin.Context) (*IncomingMessage, error) {
 	return nil, nil
 }
+
 func (*lifecycleTestAdapter) SendReply(context.Context, *IncomingMessage, *ReplyMessage) error {
 	return nil
 }
@@ -34,7 +35,11 @@ type lifecycleFactoryCounters struct {
 }
 
 func (c *lifecycleFactoryCounters) factory() AdapterFactory {
-	return func(context.Context, *IMChannel, func(context.Context, *IncomingMessage) error) (Adapter, context.CancelFunc, error) {
+	return func(
+		context.Context,
+		*IMChannel,
+		func(context.Context, *IncomingMessage) error,
+	) (Adapter, context.CancelFunc, error) {
 		c.starts.Add(1)
 		var once sync.Once
 		return &lifecycleTestAdapter{}, func() {
@@ -196,7 +201,10 @@ func TestEnsureChannelAdapterRefreshesStaleConfig(t *testing.T) {
 		t.Fatalf("start initial channel: %v", err)
 	}
 	if err := db.Model(&IMChannel{}).Where("id = ?", channel.ID).
-		Updates(map[string]any{"agent_id": "agent-new", "credentials": types.JSON(`{"token":"v2"}`)}).Error; err != nil {
+		Updates(map[string]any{
+			"agent_id":    "agent-new",
+			"credentials": types.JSON(`{"token":"v2"}`),
+		}).Error; err != nil {
 		t.Fatalf("update durable channel: %v", err)
 	}
 
@@ -208,7 +216,10 @@ func TestEnsureChannelAdapterRefreshesStaleConfig(t *testing.T) {
 		t.Fatalf("stale runtime config returned: agent=%q credentials=%s", fresh.AgentID, fresh.Credentials)
 	}
 	if counters.starts.Load() != 2 || counters.stops.Load() != 1 {
-		t.Fatalf("runtime was not rebuilt exactly once: starts=%d stops=%d", counters.starts.Load(), counters.stops.Load())
+		t.Fatalf(
+			"runtime was not rebuilt exactly once: starts=%d stops=%d",
+			counters.starts.Load(), counters.stops.Load(),
+		)
 	}
 }
 
@@ -314,7 +325,10 @@ func TestChannelConfigEventReloadsOtherReplica(t *testing.T) {
 		_, runtimeChannel, ok := svcTwo.GetChannelAdapter(channel.ID)
 		if ok && runtimeChannel.AgentID == "agent-new" && string(runtimeChannel.Credentials) == `{"token":"v2"}` {
 			if countersTwo.starts.Load() < 2 || countersTwo.stops.Load() < 1 {
-				t.Fatalf("replica config changed without rebuilding runtime: starts=%d stops=%d", countersTwo.starts.Load(), countersTwo.stops.Load())
+				t.Fatalf(
+					"replica config changed without rebuilding runtime: starts=%d stops=%d",
+					countersTwo.starts.Load(), countersTwo.stops.Load(),
+				)
 			}
 			reloaded = true
 			break
@@ -491,7 +505,9 @@ func TestLeadershipLossStopsAdapterAndSchedulesRecovery(t *testing.T) {
 
 	// Simulate another owner replacing the lease before the next renewal.
 	key := RedisKeyLeader + channel.ID
-	redisServer.Set(key, "instance-two")
+	if err := redisServer.Set(key, "instance-two"); err != nil {
+		t.Fatalf("set leader key: %v", err)
+	}
 	svc.handleWSLeadershipLoss(channel.ID)
 
 	if _, _, ok := svc.GetChannelAdapter(channel.ID); ok {
@@ -514,5 +530,147 @@ func TestLeadershipLossStopsAdapterAndSchedulesRecovery(t *testing.T) {
 	svc.mu.RUnlock()
 	if retryCount != 1 {
 		t.Fatalf("leader retry goroutines after duplicate loss = %d, want one", retryCount)
+	}
+}
+
+func TestChannelConfigSubscriberReconnectsAfterRedisDisconnect(t *testing.T) {
+	db := newLifecycleTestDB(t)
+	channel := createLifecycleChannel(t, db, "channel-pubsub-reconnect", "agent-old")
+	redisServer := miniredis.RunT(t)
+	redisOne := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
+	redisTwo := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
+	t.Cleanup(func() { _ = redisOne.Close(); _ = redisTwo.Close() })
+
+	countersOne := &lifecycleFactoryCounters{}
+	countersTwo := &lifecycleFactoryCounters{}
+	svcOne := newLifecycleTestService(db, redisOne, "instance-one")
+	svcTwo := newLifecycleTestService(db, redisTwo, "instance-two")
+	svcOne.RegisterAdapterFactory("test", countersOne.factory())
+	svcTwo.RegisterAdapterFactory("test", countersTwo.factory())
+	svcOne.startChannelConfigSubscriber()
+	t.Cleanup(svcOne.Stop)
+	t.Cleanup(svcTwo.Stop)
+
+	if err := svcOne.StartChannel(channel); err != nil {
+		t.Fatalf("start channel on instance one: %v", err)
+	}
+	copyForTwo := *channel
+	if err := svcTwo.StartChannel(&copyForTwo); err != nil {
+		t.Fatalf("start channel on instance two: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		counts, err := redisOne.PubSubNumSub(context.Background(), RedisChannelConfig).Result()
+		if err == nil && counts[RedisChannelConfig] == 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Simulate transient Redis outage: close miniredis (dropping instance one's
+	// active Pub/Sub socket and causing instance two's initial Subscribe to hit
+	// the exponential-backoff retry loop), then restart miniredis.
+	redisServer.Close()
+	svcTwo.startChannelConfigSubscriber()
+	time.Sleep(50 * time.Millisecond)
+	if err := redisServer.Restart(); err != nil {
+		t.Fatalf("restart miniredis: %v", err)
+	}
+
+	deadline = time.Now().Add(3 * time.Second)
+	reconnected := false
+	for time.Now().Before(deadline) {
+		counts, err := redisOne.PubSubNumSub(context.Background(), RedisChannelConfig).Result()
+		if err == nil && counts[RedisChannelConfig] == 2 {
+			reconnected = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !reconnected {
+		t.Fatal("replicas did not reconnect their channel config Pub/Sub subscribers after Redis restart")
+	}
+
+	updated := *channel
+	updated.AgentID = "agent-reconnected"
+	updated.Credentials = types.JSON(`{"token":"v3"}`)
+	if err := svcOne.UpdateChannel(&updated); err != nil {
+		t.Fatalf("update channel after reconnect: %v", err)
+	}
+
+	deadline = time.Now().Add(2 * time.Second)
+	propagated := false
+	for time.Now().Before(deadline) {
+		_, runtimeChannel, ok := svcTwo.GetChannelAdapter(channel.ID)
+		if ok && runtimeChannel.AgentID == "agent-reconnected" {
+			propagated = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !propagated {
+		t.Fatal("second replica did not receive channel config event after Redis reconnect")
+	}
+
+	// Stop() must deterministically close Pub/Sub subscriptions and wait for the goroutines to exit.
+	svcOne.Stop()
+	svcTwo.Stop()
+	counts, err := redisOne.PubSubNumSub(context.Background(), RedisChannelConfig).Result()
+	if err != nil {
+		t.Fatalf("check PubSubNumSub after Stop: %v", err)
+	}
+	if counts[RedisChannelConfig] != 0 {
+		t.Fatalf("expected 0 active Pub/Sub subscribers after Stop(), got %d", counts[RedisChannelConfig])
+	}
+}
+
+func TestSessionAndChannelQueriesRespectContextCancellation(t *testing.T) {
+	db := newLifecycleTestDB(t)
+	if err := db.Exec(`CREATE TABLE im_channel_sessions (
+		id TEXT PRIMARY KEY,
+		platform TEXT NOT NULL,
+		user_id TEXT NOT NULL,
+		chat_id TEXT NOT NULL DEFAULT '',
+		thread_id TEXT NOT NULL DEFAULT '',
+		session_id TEXT NOT NULL,
+		tenant_id INTEGER NOT NULL,
+		agent_id TEXT NOT NULL DEFAULT '',
+		im_channel_id TEXT DEFAULT '',
+		created_at DATETIME,
+		updated_at DATETIME,
+		deleted_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create im_channel_sessions: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE custom_agents (
+		id TEXT PRIMARY KEY,
+		tenant_id INTEGER NOT NULL,
+		name TEXT NOT NULL DEFAULT '',
+		deleted_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create custom_agents: %v", err)
+	}
+
+	svc := newLifecycleTestService(db, nil, "instance-ctx")
+	t.Cleanup(svc.Stop)
+
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	msg := &IncomingMessage{
+		Platform: PlatformFeishu,
+		UserID:   "user-1",
+		ChatID:   "chat-1",
+		ThreadID: "thread-1",
+	}
+	if _, err := svc.resolveUserSession(cancelledCtx, msg, 1, "agent-1", "ch-1"); err == nil {
+		t.Fatal("resolveUserSession() succeeded on a cancelled context")
+	}
+	if _, err := svc.resolveThreadSession(cancelledCtx, msg, 1, "agent-1", "ch-1"); err == nil {
+		t.Fatal("resolveThreadSession() succeeded on a cancelled context")
+	}
+	if _, err := svc.ListChannelsByTenant(cancelledCtx, 1); err == nil {
+		t.Fatal("ListChannelsByTenant() succeeded on a cancelled context")
 	}
 }

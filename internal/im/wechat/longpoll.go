@@ -1,13 +1,5 @@
-// Long-polling client for the WeChat iLink Bot API.
-//
-// Flow:
-//  1. POST /ilink/bot/getupdates with get_updates_buf + base_info
-//  2. Parse response msgs[] into IncomingMessage
-//  3. Call msgHandler for each message
-//  4. Update cursor (get_updates_buf) for next poll
-//  5. On error, exponential backoff retry
-//
-// Token expiry: errcode -14 signals the token is no longer valid.
+// Package wechat implements the Tencent iLink Bot API IM adapter, long-polling
+// message receiver, and QR code login flow for WeChat personal accounts.
 package wechat
 
 import (
@@ -16,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,10 +19,10 @@ import (
 )
 
 const (
-	longPollTimeout      = 35 * time.Second
-	longPollHTTPTimeout  = 40 * time.Second // slightly longer than poll timeout
-	reconnectBaseDelay   = 1 * time.Second
-	reconnectMaxDelay    = 30 * time.Second
+	longPollTimeout           = 35 * time.Second
+	longPollHTTPTimeout       = 40 * time.Second // slightly longer than poll timeout
+	reconnectBaseDelay        = 1 * time.Second
+	reconnectMaxDelay         = 30 * time.Second
 	maxReconnectAttempts      = -1 // infinite
 	maxConcurrentPollHandlers = 32
 )
@@ -49,7 +42,10 @@ type LongPollClient struct {
 }
 
 // NewLongPollClient creates a new WeChat long-polling client.
-func NewLongPollClient(botToken, ilinkBotID string, handler func(ctx context.Context, msg *im.IncomingMessage) error) *LongPollClient {
+func NewLongPollClient(
+	botToken, ilinkBotID string,
+	handler func(ctx context.Context, msg *im.IncomingMessage) error,
+) *LongPollClient {
 	return &LongPollClient{
 		botToken:   botToken,
 		ilinkBotID: ilinkBotID,
@@ -104,9 +100,11 @@ func (c *LongPollClient) Start(ctx context.Context) error {
 		delay := pollReconnectDelay(attempts)
 		logger.Warnf(ctx, "[WeChat] Poll error (%v), retrying in %v (attempt %d)...", err, delay, attempts)
 
+		retryTimer := time.NewTimer(delay)
 		select {
-		case <-time.After(delay):
+		case <-retryTimer.C:
 		case <-ctx.Done():
+			retryTimer.Stop()
 			return ctx.Err()
 		}
 	}
@@ -121,7 +119,9 @@ func (c *LongPollClient) poll(ctx context.Context) error {
 
 	body, _ := json.Marshal(payload)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ilinkBaseURL+"/ilink/bot/getupdates", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, ilinkBaseURL+"/ilink/bot/getupdates", bytes.NewReader(body),
+	)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
@@ -136,7 +136,7 @@ func (c *LongPollClient) poll(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("poll request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -297,7 +297,9 @@ func (c *LongPollClient) parseMessage(msg *weixinMessage) *im.IncomingMessage {
 		}
 		var fileSize int64
 		if item.FileItem.Len != "" {
-			fmt.Sscanf(item.FileItem.Len, "%d", &fileSize)
+			if parsed, err := strconv.ParseInt(item.FileItem.Len, 10, 64); err == nil {
+				fileSize = parsed
+			}
 		}
 		return &im.IncomingMessage{
 			Platform:    im.PlatformWeChat,

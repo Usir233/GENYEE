@@ -10,6 +10,7 @@ import (
 // Platform identifies an IM platform.
 type Platform string
 
+// Supported IM platform identifiers.
 const (
 	PlatformWeCom  Platform = "wecom"
 	PlatformFeishu Platform = "feishu"
@@ -38,6 +39,7 @@ const (
 // MessageType identifies the kind of IM message.
 type MessageType string
 
+// Supported IM message types.
 const (
 	MessageTypeText  MessageType = "text"
 	MessageTypeFile  MessageType = "file"
@@ -105,6 +107,7 @@ type QuotedMessage struct {
 // ChatType represents the IM chat type.
 type ChatType string
 
+// Supported IM chat types.
 const (
 	ChatTypeDirect ChatType = "direct"
 	ChatTypeGroup  ChatType = "group"

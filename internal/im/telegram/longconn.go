@@ -54,10 +54,12 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 			}
 			logger.Errorf(ctx, "[Telegram] getUpdates error: %v", err)
 			// Back off on error
+			backoffTimer := time.NewTimer(3 * time.Second)
 			select {
 			case <-ctx.Done():
+				backoffTimer.Stop()
 				return ctx.Err()
-			case <-time.After(3 * time.Second):
+			case <-backoffTimer.C:
 			}
 			continue
 		}
@@ -102,7 +104,7 @@ func (c *LongConnClient) getUpdates(ctx context.Context) ([]telegramUpdate, erro
 	if err != nil {
 		return nil, redactTelegramErr(err, c.botToken)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var apiResp struct {
 		OK          bool             `json:"ok"`

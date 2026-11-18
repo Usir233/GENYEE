@@ -148,7 +148,10 @@ func TestStartAuthorizationBlocksRedirectPoisoningAndUnsafeMetadataEndpoints(t *
 	tokenEndpoint = srv.URL + "/token"
 	repo := newFakeOAuthRepo()
 	mgr := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
-	_, _, err := mgr.StartAuthorization(context.Background(), service, 7, principal, "https://evil.attacker.com/cb", "/")
+	t.Cleanup(mgr.Close)
+	_, _, err := mgr.StartAuthorization(
+		context.Background(), service, 7, principal, "https://evil.attacker.com/cb", "/",
+	)
 	require.ErrorIs(t, err, ErrInvalidOAuthRedirectURI)
 	require.Zero(t, regCount)
 	stored, _ := repo.GetClient(context.Background(), 7, service.ID)

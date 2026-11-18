@@ -15,6 +15,8 @@ import (
 
 // IMChannel represents an IM channel configuration stored in the database.
 // Each channel binds to an agent and contains platform-specific credentials.
+//
+//nolint:revive // IMChannel is referenced across external internal/handler callers.
 type IMChannel struct {
 	ID              string         `json:"id"          gorm:"type:varchar(36);primaryKey;default:uuid_generate_v4()"`
 	TenantID        uint64         `json:"tenant_id"   gorm:"not null;index:idx_im_channels_tenant"`
@@ -26,7 +28,7 @@ type IMChannel struct {
 	OutputMode      string         `json:"output_mode"       gorm:"type:varchar(20);not null;default:'stream'"`
 	Locale          string         `json:"locale"            gorm:"type:varchar(16);not null;default:''"`
 	KnowledgeBaseID string         `json:"knowledge_base_id" gorm:"type:varchar(36);default:''"`
-	BotIdentity     string         `json:"bot_identity"      gorm:"type:varchar(255);not null;default:'';uniqueIndex:idx_im_channels_bot_identity,where:deleted_at IS NULL AND bot_identity != ''"`
+	BotIdentity     string         `json:"bot_identity"      gorm:"type:varchar(255);not null;default:'';uniqueIndex:idx_im_channels_bot_identity,where:deleted_at IS NULL AND bot_identity != ''"` //nolint:lll // one-line struct tag
 	SessionMode     string         `json:"session_mode"      gorm:"type:varchar(20);not null;default:'user'"`
 	Credentials     types.JSON     `json:"credentials"       gorm:"type:jsonb;not null;default:'{}'"`
 	CreatedAt       time.Time      `json:"created_at"`
@@ -34,6 +36,7 @@ type IMChannel struct {
 	DeletedAt       gorm.DeletedAt `json:"deleted_at"  gorm:"index"`
 }
 
+// TableName returns the GORM table name for IMChannel.
 func (IMChannel) TableName() string {
 	return "im_channels"
 }
@@ -41,6 +44,8 @@ func (IMChannel) TableName() string {
 // IMChannelSummary is the HTTP-safe list shape for IM channels. Credentials
 // are never included — use Admin+ Create/Update responses to read back
 // values immediately after a mutation.
+//
+//nolint:revive // IMChannelSummary is the established exported API name in package im.
 type IMChannelSummary struct {
 	ID                    string    `json:"id"`
 	TenantID              uint64    `json:"tenant_id"`
@@ -94,7 +99,8 @@ func imCredentialsConfigured(cred types.JSON) bool {
 	return s != "" && s != "{}"
 }
 
-func (ch *IMChannel) BeforeCreate(tx *gorm.DB) error {
+// BeforeCreate populates default fields and encrypts credentials before insert.
+func (ch *IMChannel) BeforeCreate(_ *gorm.DB) error {
 	if ch.ID == "" {
 		ch.ID = uuid.New().String()
 	}
@@ -124,7 +130,7 @@ func (ch *IMChannel) BeforeCreate(tx *gorm.DB) error {
 
 // BeforeSave ensures bot_identity is recomputed, session_mode is validated,
 // and credentials are encrypted at rest on every save (create + update).
-func (ch *IMChannel) BeforeSave(tx *gorm.DB) error {
+func (ch *IMChannel) BeforeSave(_ *gorm.DB) error {
 	if ch.SessionMode == "" {
 		ch.SessionMode = string(SessionModeUser)
 	}
@@ -140,14 +146,14 @@ func (ch *IMChannel) BeforeSave(tx *gorm.DB) error {
 }
 
 // AfterSave restores decrypted credentials on the in-memory struct after DB write.
-func (ch *IMChannel) AfterSave(tx *gorm.DB) error {
+func (ch *IMChannel) AfterSave(_ *gorm.DB) error {
 	ch.Credentials = DecryptCredentialsJSON(ch.Credentials)
 	return nil
 }
 
 // AfterFind decrypts stored credentials after loading from the database while
 // seamlessly preserving legacy unencrypted JSON entries.
-func (ch *IMChannel) AfterFind(tx *gorm.DB) error {
+func (ch *IMChannel) AfterFind(_ *gorm.DB) error {
 	ch.Credentials = DecryptCredentialsJSON(ch.Credentials)
 	return nil
 }
@@ -273,11 +279,13 @@ type ChannelSession struct {
 	DeletedAt   gorm.DeletedAt `json:"deleted_at"    gorm:"index"`
 }
 
+// TableName returns the GORM table name for ChannelSession.
 func (ChannelSession) TableName() string {
 	return "im_channel_sessions"
 }
 
-func (cs *ChannelSession) BeforeCreate(tx *gorm.DB) error {
+// BeforeCreate populates default fields before insert.
+func (cs *ChannelSession) BeforeCreate(_ *gorm.DB) error {
 	if cs.ID == "" {
 		cs.ID = uuid.New().String()
 	}

@@ -61,13 +61,15 @@ func TestSlackFactoryAndFinalizeStream_RequireTokensAndSurfaceError(t *testing.T
 		slackStreamsMu.Unlock()
 	})
 
-	if err := adapter.FinalizeStream(context.Background(), &im.IncomingMessage{ChatID: "C123"}, streamID, "final answer"); err == nil {
+	if err := adapter.FinalizeStream(
+		context.Background(), &im.IncomingMessage{ChatID: "C123"}, streamID, "final answer",
+	); err == nil {
 		t.Fatal("expected FinalizeStream error when Slack UpdateMessageContext fails, got nil")
 	}
 }
 
 func TestLongConnClient_NilEventRequestAndClosedEventsChannelDoNotPanic(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 	}))
 	defer srv.Close()
@@ -105,7 +107,8 @@ func TestLongConnClient_NilEventRequestAndClosedEventsChannelDoNotPanic(t *testi
 	cancel()
 
 	select {
-	case <-done:
+	case err := <-done:
+		_ = err
 	case <-time.After(time.Second):
 		t.Fatal("Slack LongConnClient.Start did not terminate on context cancellation")
 	}

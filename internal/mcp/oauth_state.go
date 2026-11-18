@@ -15,7 +15,10 @@ import (
 
 // oauthStateTTL bounds how long an in-flight authorization may take from
 // "authorize-url issued" to "callback received".
-const oauthStateTTL = 10 * time.Minute
+const (
+	oauthStateTTL               = 10 * time.Minute
+	defaultOAuthStateGCInterval = time.Minute
+)
 
 // OAuthState is the transient data needed to complete an authorization-code
 // exchange. It is keyed by the opaque OAuth `state` parameter and MUST hold
@@ -41,9 +44,14 @@ type OAuthState struct {
 type oauthStateStore struct {
 	rdb *redis.Client
 
-	mu       sync.Mutex
-	mem      map[string]memStateEntry
-	attempts map[string]memAttemptEntry
+	mu         sync.Mutex
+	mem        map[string]memStateEntry
+	attempts   map[string]memAttemptEntry
+	gcInterval time.Duration
+	gcRunning  bool
+	closed     bool
+	stopCh     chan struct{}
+	gcDone     chan struct{}
 }
 
 type memStateEntry struct {
@@ -68,15 +76,38 @@ type memAttemptEntry struct {
 }
 
 func newOAuthStateStore(rdb *redis.Client) *oauthStateStore {
-	s := &oauthStateStore{
-		rdb:      rdb,
-		mem:      make(map[string]memStateEntry),
-		attempts: make(map[string]memAttemptEntry),
+	return &oauthStateStore{
+		rdb:        rdb,
+		mem:        make(map[string]memStateEntry),
+		attempts:   make(map[string]memAttemptEntry),
+		gcInterval: defaultOAuthStateGCInterval,
+		stopCh:     make(chan struct{}),
 	}
-	if rdb == nil {
-		go s.gcLoop()
+}
+
+// Close stops any background in-memory state cleanup goroutine and waits for it to exit.
+func (s *oauthStateStore) Close() {
+	if s == nil {
+		return
 	}
-	return s
+	s.mu.Lock()
+	if !s.closed {
+		s.closed = true
+		if s.stopCh != nil {
+			close(s.stopCh)
+		}
+	}
+	done := s.gcDone
+	s.mu.Unlock()
+	if done != nil {
+		<-done
+	}
+}
+
+func (s *oauthStateStore) isGCRunning() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.gcRunning
 }
 
 func (s *oauthStateStore) key(state string) string {
@@ -114,10 +145,28 @@ func (s *oauthStateStore) Put(ctx context.Context, state string, value OAuthStat
 		return err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	if s.closed {
+		s.mu.Unlock()
+		return fmt.Errorf("oauth state store is closed")
+	}
 	expiresAt := time.Now().Add(oauthStateTTL)
 	s.mem[state] = memStateEntry{value: value, expiresAt: expiresAt}
 	s.attempts[state] = memAttemptEntry{value: attempt, expiresAt: expiresAt}
+	var done chan struct{}
+	stopCh := s.stopCh
+	interval := s.gcInterval
+	if interval <= 0 {
+		interval = defaultOAuthStateGCInterval
+	}
+	if !s.gcRunning {
+		s.gcRunning = true
+		done = make(chan struct{})
+		s.gcDone = done
+	}
+	s.mu.Unlock()
+	if done != nil {
+		go s.gcLoop(interval, stopCh, done)
+	}
 	return nil
 }
 
@@ -212,22 +261,38 @@ func (s *oauthStateStore) Take(ctx context.Context, state string) (OAuthState, e
 	return entry.value, nil
 }
 
-func (s *oauthStateStore) gcLoop() {
-	ticker := time.NewTicker(time.Minute)
+func (s *oauthStateStore) gcLoop(interval time.Duration, stopCh <-chan struct{}, done chan struct{}) {
+	defer close(done)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
-		now := time.Now()
-		s.mu.Lock()
-		for k, v := range s.mem {
-			if now.After(v.expiresAt) {
-				delete(s.mem, k)
+	for {
+		select {
+		case <-stopCh:
+			s.mu.Lock()
+			s.gcRunning = false
+			s.mu.Unlock()
+			return
+		case <-ticker.C:
+			now := time.Now()
+			s.mu.Lock()
+			for k, v := range s.mem {
+				if now.After(v.expiresAt) {
+					delete(s.mem, k)
+				}
+			}
+			for k, v := range s.attempts {
+				if now.After(v.expiresAt) {
+					delete(s.attempts, k)
+				}
+			}
+			empty := len(s.mem) == 0 && len(s.attempts) == 0
+			if empty {
+				s.gcRunning = false
+			}
+			s.mu.Unlock()
+			if empty {
+				return
 			}
 		}
-		for k, v := range s.attempts {
-			if now.After(v.expiresAt) {
-				delete(s.attempts, k)
-			}
-		}
-		s.mu.Unlock()
 	}
 }

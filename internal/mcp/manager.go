@@ -12,7 +12,9 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
-// MCPManager manages MCP client connections
+// MCPManager manages MCP client connections.
+//
+//nolint:revive // MCPManager is referenced across internal/{agent,application/service,container}.
 type MCPManager struct {
 	clients    map[string]MCPClient // cacheKey -> client
 	clientsMu  sync.RWMutex
@@ -128,7 +130,9 @@ func (m *MCPManager) GetOrCreateClient(ctx context.Context, service *types.MCPSe
 
 	// Stdio transport is disabled for security reasons
 	if service.TransportType == types.MCPTransportStdio {
-		return nil, fmt.Errorf("stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead")
+		return nil, fmt.Errorf(
+			"stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead",
+		)
 	}
 
 	ctxTenantID, _ := types.TenantIDFromContext(ctx)
@@ -248,7 +252,7 @@ func (m *MCPManager) initializeClient(
 	defer initCancel()
 
 	if _, err := client.Initialize(initCtx); err != nil {
-		client.Disconnect()
+		_ = client.Disconnect()
 		if errPrefix == "" {
 			errPrefix = "failed to initialize MCP client"
 		}

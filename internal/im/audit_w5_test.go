@@ -105,7 +105,9 @@ func (*w5SessionServiceStub) CreateSession(_ context.Context, s *types.Session) 
 	return &cp, nil
 }
 
-func (s *w5SessionServiceStub) SearchKnowledge(_ context.Context, _ []string, _ []string, _ []types.TagScope, _ string, _ *types.KnowledgeSearchOptions) (*types.RetrievalResult, error) {
+func (s *w5SessionServiceStub) SearchKnowledge(
+	_ context.Context, _ []string, _ []string, _ []types.TagScope, _ string, _ *types.KnowledgeSearchOptions,
+) (*types.RetrievalResult, error) {
 	s.searchCalls++
 	return &types.RetrievalResult{
 		Results: []*types.SearchResult{{KnowledgeTitle: "Leaked Doc", Content: "Sensitive passage"}},
@@ -193,12 +195,23 @@ func TestHandleMessage_ScopesDedupPerChannel(t *testing.T) {
 				"ch-tenant-1": {},
 				"ch-tenant-2": {},
 			}
-			svc.RegisterAdapterFactory("test", func(_ context.Context, ch *IMChannel, _ func(context.Context, *IncomingMessage) error) (Adapter, context.CancelFunc, error) {
-				return adapters[ch.ID], func() {}, nil
-			})
+			svc.RegisterAdapterFactory(
+				"test",
+				func(
+					_ context.Context, ch *IMChannel, _ func(context.Context, *IncomingMessage) error,
+				) (Adapter, context.CancelFunc, error) {
+					return adapters[ch.ID], func() {}, nil
+				},
+			)
 
-			ch1 := &IMChannel{ID: "ch-tenant-1", TenantID: 101, AgentID: "ag-1", Platform: "test", Enabled: true, Mode: "webhook", SessionMode: "user", Credentials: types.JSON(`{}`)}
-			ch2 := &IMChannel{ID: "ch-tenant-2", TenantID: 202, AgentID: "ag-2", Platform: "test", Enabled: true, Mode: "webhook", SessionMode: "user", Credentials: types.JSON(`{}`)}
+			ch1 := &IMChannel{
+				ID: "ch-tenant-1", TenantID: 101, AgentID: "ag-1", Platform: "test",
+				Enabled: true, Mode: "webhook", SessionMode: "user", Credentials: types.JSON(`{}`),
+			}
+			ch2 := &IMChannel{
+				ID: "ch-tenant-2", TenantID: 202, AgentID: "ag-2", Platform: "test",
+				Enabled: true, Mode: "webhook", SessionMode: "user", Credentials: types.JSON(`{}`),
+			}
 			if err := db.Create(ch1).Error; err != nil {
 				t.Fatalf("insert ch1: %v", err)
 			}
@@ -214,8 +227,12 @@ func TestHandleMessage_ScopesDedupPerChannel(t *testing.T) {
 
 			// Identical platform-local MessageID ("42") on two different channels/tenants
 			// must NOT suppress the second tenant's message.
-			msgA := &IncomingMessage{Platform: Platform("test"), MessageID: "42", UserID: "u1", ChatID: "c1", Content: "/help"}
-			msgB := &IncomingMessage{Platform: Platform("test"), MessageID: "42", UserID: "u2", ChatID: "c2", Content: "/help"}
+			msgA := &IncomingMessage{
+				Platform: Platform("test"), MessageID: "42", UserID: "u1", ChatID: "c1", Content: "/help",
+			}
+			msgB := &IncomingMessage{
+				Platform: Platform("test"), MessageID: "42", UserID: "u2", ChatID: "c2", Content: "/help",
+			}
 			if err := svc.HandleMessage(context.Background(), msgA, ch1.ID); err != nil {
 				t.Fatalf("HandleMessage ch1: %v", err)
 			}
@@ -226,7 +243,10 @@ func TestHandleMessage_ScopesDedupPerChannel(t *testing.T) {
 				t.Fatalf("ch1 reply count = %d, want 1", adapters[ch1.ID].count())
 			}
 			if adapters[ch2.ID].count() != 1 {
-				t.Fatalf("ch2 reply count = %d, want 1 (cross-channel MessageID collision dropped tenant 2 message)", adapters[ch2.ID].count())
+				t.Fatalf(
+					"ch2 reply count = %d, want 1 (cross-channel MessageID collision dropped tenant 2 message)",
+					adapters[ch2.ID].count(),
+				)
 			}
 
 			// Replaying the same MessageID on the SAME channel must still be deduplicated.

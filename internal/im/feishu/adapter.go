@@ -176,24 +176,35 @@ func (a *Adapter) api(path string, args ...any) string {
 	return a.apiBaseURL + fmt.Sprintf(path, args...)
 }
 
-// startStreamReaper starts a background goroutine (once) that periodically
-// removes orphaned stream entries from feishuStreams. This prevents memory
-// leaks when EndStream is never called due to panics or pipeline errors.
+// startStreamReaper starts a background goroutine that periodically removes
+// orphaned stream entries from feishuStreams. It restarts cleanly after
+// StopStreamReaper when a new adapter is initialized.
 func startStreamReaper() {
-	startReaperOnce.Do(func() {
-		go func() {
-			ticker := time.NewTicker(streamReaperInterval)
-			defer ticker.Stop()
-			for {
-				select {
-				case now := <-ticker.C:
-					reapOrphanStreams(now)
-				case <-reaperStopCh:
-					return
-				}
+	reaperMu.Lock()
+	if reaperRunning {
+		reaperMu.Unlock()
+		return
+	}
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	reaperStopCh = stopCh
+	reaperDoneCh = doneCh
+	reaperRunning = true
+	reaperMu.Unlock()
+
+	go func() {
+		defer close(doneCh)
+		ticker := time.NewTicker(streamReaperInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case now := <-ticker.C:
+				reapOrphanStreams(now)
+			case <-stopCh:
+				return
 			}
-		}()
-	})
+		}
+	}()
 }
 
 func reapOrphanStreams(now time.Time) {
@@ -227,15 +238,28 @@ func lookupStream(streamID string) (*feishuStreamState, bool) {
 	return state, ok
 }
 
-// StopStreamReaper stops the background stream reaper goroutine.
+// StopStreamReaper stops the background stream reaper goroutine and waits for it to exit.
 // Should be called during application shutdown.
 func StopStreamReaper() {
-	select {
-	case <-reaperStopCh:
-		// already closed
-	default:
-		close(reaperStopCh)
+	reaperMu.Lock()
+	stopCh := reaperStopCh
+	doneCh := reaperDoneCh
+	if reaperRunning {
+		reaperRunning = false
+		reaperStopCh = nil
+		close(stopCh)
 	}
+	reaperMu.Unlock()
+
+	if doneCh != nil {
+		<-doneCh
+	}
+}
+
+func isStreamReaperRunning() bool {
+	reaperMu.Lock()
+	defer reaperMu.Unlock()
+	return reaperRunning
 }
 
 // Platform returns the platform identifier.
@@ -451,7 +475,9 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 	// Check event type
 	if eventBody.Header == nil || eventBody.Header.EventType != "im.message.receive_v1" {
 		if eventBody.Header != nil {
-			logger.Infof(c.Request.Context(), "[%s] Ignoring event type: %s", a.region.Label, eventBody.Header.EventType)
+			logger.Infof(
+				c.Request.Context(), "[%s] Ignoring event type: %s", a.region.Label, eventBody.Header.EventType,
+			)
 		}
 		return nil, nil
 	}
@@ -753,7 +779,8 @@ func (a *Adapter) sendWithFallback(
 	// lands under the original message / thread. If message_id is empty (rare:
 	// some event payloads omit it), skip straight to the fallback send API —
 	// the reply API needs a message_id in the path and can't work without one.
-	if incoming.MessageID != "" && feishuSafePathParam(incoming.MessageID) {
+	switch {
+	case incoming.MessageID != "" && feishuSafePathParam(incoming.MessageID):
 		replyURL := a.api("/open-apis/im/v1/messages/%s/reply", incoming.MessageID)
 		code, msg, err := a.postFeishuMessage(ctx, accessToken, replyURL, replyPayload)
 		switch {
@@ -770,12 +797,12 @@ func (a *Adapter) sendWithFallback(
 			logger.Warnf(ctx, "[%s] reply API returned code=%d msg=%s, falling back to send-message API",
 				a.region.Label, code, msg)
 		}
-	} else if incoming.MessageID != "" {
+	case incoming.MessageID != "":
 		// message_id present but contains unsafe characters — refuse rather
 		// than put it in a URL path. Don't fall back either, since a malformed
 		// id suggests a tampered payload.
 		return fmt.Errorf("invalid message_id for reply API: %q", incoming.MessageID)
-	} else {
+	default:
 		logger.Warnf(ctx,
 			"[%s] incoming message has no message_id; replying via send-message API (will not attach to thread)",
 			a.region.Label)
@@ -795,7 +822,11 @@ func (a *Adapter) sendWithFallback(
 
 // postFeishuMessage POSTs a JSON payload to a Feishu IM message API and returns
 // the (code, msg) from the response body. Shared by reply and send paths.
-func (a *Adapter) postFeishuMessage(ctx context.Context, accessToken, url string, payload map[string]interface{}) (code int, msg string, err error) {
+func (a *Adapter) postFeishuMessage(
+	ctx context.Context,
+	accessToken, url string,
+	payload map[string]interface{},
+) (code int, msg string, err error) {
 	payloadBytes, _ := json.Marshal(payload)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payloadBytes))
 	if err != nil {
@@ -808,7 +839,7 @@ func (a *Adapter) postFeishuMessage(ctx context.Context, accessToken, url string
 	if err != nil {
 		return 0, "", fmt.Errorf("send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Code int    `json:"code"`
@@ -829,7 +860,7 @@ func (a *Adapter) postFeishuMessage(ctx context.Context, accessToken, url string
 // traversal attacks via crafted callback payloads.
 func feishuSafePathParam(s string) bool {
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' {
 			return false
 		}
 	}
@@ -874,7 +905,7 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, "", fmt.Errorf("download file failed: status=%d", resp.StatusCode)
 	}
 
@@ -887,7 +918,7 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 		fileName = msg.FileKey
 	}
 
-	return resp.Body, fileName, nil
+	return im.LimitAttachmentReadCloser(resp.Body), fileName, nil
 }
 
 // contentDispositionFilename extracts a filename using the standard parser so
@@ -962,8 +993,10 @@ var (
 	feishuStreamsMu sync.Mutex
 	feishuStreams   = map[string]*feishuStreamState{}
 
-	startReaperOnce sync.Once
-	reaperStopCh    = make(chan struct{})
+	reaperMu      sync.Mutex
+	reaperRunning bool
+	reaperStopCh  chan struct{}
+	reaperDoneCh  chan struct{}
 )
 
 func (s *feishuStreamState) nextSeq() int {
@@ -1039,7 +1072,12 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 }
 
 // UpdateStreamContent replaces the card element with the full visible content so far.
-func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+func (a *Adapter) UpdateStreamContent(
+	ctx context.Context,
+	_ *im.IncomingMessage,
+	streamID string,
+	fullContent string,
+) error {
 	if fullContent == "" {
 		return nil
 	}
@@ -1078,17 +1116,27 @@ func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.Incoming
 }
 
 // FinalizeStream replaces the card with answer-only content.
-func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
+func (a *Adapter) FinalizeStream(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	finalContent string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, finalContent)
 }
 
 // SendStreamChunk is an alias for UpdateStreamContent.
-func (a *Adapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+func (a *Adapter) SendStreamChunk(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	content string,
+) error {
 	return a.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
 // EndStream disables streaming_mode, replaces the temporary summary, and cleans up state.
-func (a *Adapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
+func (a *Adapter) EndStream(ctx context.Context, _ *im.IncomingMessage, streamID string) error {
 	state, ok := lookupStream(streamID)
 	if !ok {
 		return fmt.Errorf("unknown stream ID: %s", streamID)
@@ -1147,7 +1195,7 @@ func (a *Adapter) cardkitCreate(ctx context.Context, accessToken, cardJSON strin
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := im.ReadIMResponse(resp.Body)
 	if err != nil {
@@ -1181,7 +1229,12 @@ func (a *Adapter) cardkitCreate(ctx context.Context, accessToken, cardJSON strin
 // message API so it lands under the original message / thread. Falls back to
 // the plain send-message API on fallback-eligible errors (e.g. group does not
 // support reply-in-thread).
-func (a *Adapter) sendCardByCardID(ctx context.Context, accessToken string, incoming *im.IncomingMessage, cardID string) error {
+func (a *Adapter) sendCardByCardID(
+	ctx context.Context,
+	accessToken string,
+	incoming *im.IncomingMessage,
+	cardID string,
+) error {
 	receiveIDType, receiveID := a.resolveReceiveID(incoming)
 
 	// Key: type must be "card" (not "card_id")
@@ -1207,7 +1260,11 @@ func (a *Adapter) sendCardByCardID(ctx context.Context, accessToken string, inco
 
 // cardkitUpdateElement updates a card element's content for streaming.
 // PUT /open-apis/cardkit/v1/cards/:card_id/elements/:element_id/content
-func (a *Adapter) cardkitUpdateElement(ctx context.Context, accessToken, cardID, elementID, content string, sequence int) error {
+func (a *Adapter) cardkitUpdateElement(
+	ctx context.Context,
+	accessToken, cardID, elementID, content string,
+	sequence int,
+) error {
 	payload, _ := json.Marshal(map[string]interface{}{
 		"content":  content,
 		"sequence": sequence,
@@ -1225,7 +1282,7 @@ func (a *Adapter) cardkitUpdateElement(ctx context.Context, accessToken, cardID,
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Code int    `json:"code"`
@@ -1369,7 +1426,7 @@ func (a *Adapter) uploadImageFromURL(ctx context.Context, accessToken, rawURL st
 	if err != nil {
 		return "", fmt.Errorf("download image: %w", err)
 	}
-	defer imgResp.Body.Close()
+	defer func() { _ = imgResp.Body.Close() }()
 	if imgResp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("download image: status=%d", imgResp.StatusCode)
 	}
@@ -1413,7 +1470,7 @@ func (a *Adapter) uploadImageFromURL(ctx context.Context, accessToken, rawURL st
 	if err != nil {
 		return "", fmt.Errorf("upload image: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Code int    `json:"code"`
@@ -1463,7 +1520,7 @@ func (a *Adapter) cardkitSetStreaming(
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Code int    `json:"code"`
@@ -1505,7 +1562,7 @@ func (a *Adapter) getTenantAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("request token: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Code              int    `json:"code"`

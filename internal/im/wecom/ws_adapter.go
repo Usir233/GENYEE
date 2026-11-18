@@ -34,44 +34,69 @@ func NewWSAdapter(client *LongConnClient) *WSAdapter {
 	return &WSAdapter{client: client}
 }
 
+// Platform returns the platform identifier.
 func (a *WSAdapter) Platform() im.Platform {
 	return im.PlatformWeCom
 }
 
-func (a *WSAdapter) VerifyCallback(c *gin.Context) error {
+// VerifyCallback rejects HTTP callbacks on the WebSocket adapter.
+func (a *WSAdapter) VerifyCallback(_ *gin.Context) error {
 	return fmt.Errorf("WeCom bot adapter does not support webhook callbacks")
 }
 
-func (a *WSAdapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
+// ParseCallback rejects HTTP callbacks on the WebSocket adapter.
+func (a *WSAdapter) ParseCallback(_ *gin.Context) (*im.IncomingMessage, error) {
 	return nil, fmt.Errorf("WeCom bot adapter does not support webhook callbacks")
 }
 
-func (a *WSAdapter) HandleURLVerification(c *gin.Context) bool {
+// HandleURLVerification reports that WebSocket mode does not handle URL verification.
+func (a *WSAdapter) HandleURLVerification(_ *gin.Context) bool {
 	return false
 }
 
+// SendReply delegates reply delivery to the WebSocket LongConnClient.
 func (a *WSAdapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
 	return a.client.SendReply(ctx, incoming, reply)
 }
 
 // ── StreamSender implementation ──
 
+// StartStream delegates stream initialization to the WebSocket LongConnClient.
 func (a *WSAdapter) StartStream(ctx context.Context, incoming *im.IncomingMessage) (string, error) {
 	return a.client.StartStream(ctx, incoming)
 }
 
-func (a *WSAdapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+// UpdateStreamContent delegates stream content replacement to the WebSocket LongConnClient.
+func (a *WSAdapter) UpdateStreamContent(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	fullContent string,
+) error {
 	return a.client.UpdateStreamContent(ctx, incoming, streamID, fullContent)
 }
 
-func (a *WSAdapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
+// FinalizeStream delegates stream finalization to the WebSocket LongConnClient.
+func (a *WSAdapter) FinalizeStream(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	finalContent string,
+) error {
 	return a.client.FinalizeStream(ctx, incoming, streamID, finalContent)
 }
 
-func (a *WSAdapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {
+// SendStreamChunk forwards incremental updates to UpdateStreamContent.
+func (a *WSAdapter) SendStreamChunk(
+	ctx context.Context,
+	incoming *im.IncomingMessage,
+	streamID string,
+	content string,
+) error {
 	return a.client.UpdateStreamContent(ctx, incoming, streamID, content)
 }
 
+// EndStream delegates stream completion to the WebSocket LongConnClient.
 func (a *WSAdapter) EndStream(ctx context.Context, incoming *im.IncomingMessage, streamID string) error {
 	return a.client.EndStream(ctx, incoming, streamID)
 }
@@ -80,6 +105,7 @@ func (a *WSAdapter) EndStream(ctx context.Context, incoming *im.IncomingMessage,
 // WeCom aibot provides AES-256-CBC encrypted URLs for image/file/video messages.
 // Each message carries its own aeskey for decryption.
 
+// DownloadFile downloads and optionally AES-CBC decrypts an attachment from WeCom.
 func (a *WSAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io.ReadCloser, string, error) {
 	if msg.FileKey == "" {
 		return nil, "", fmt.Errorf("no file URL in message")
@@ -100,13 +126,13 @@ func (a *WSAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (
 	// connection mode where each file/image message carries a per-message aeskey.
 	aesKeyB64 := msg.Extra["aes_key"]
 	if aesKeyB64 == "" {
-		// No encryption — return raw content (e.g. webhook mode uses media API)
-		return reader, fileName, nil
+		// No encryption — return bounded raw content (e.g. webhook mode uses media API)
+		return im.LimitAttachmentReadCloser(reader), fileName, nil
 	}
 
 	// Read bounded encrypted attachment content (capped at maxIMAttachmentBytes).
 	encryptedData, err := im.ReadIMAttachmentResponse(reader)
-	reader.Close()
+	_ = reader.Close()
 	if err != nil {
 		return nil, "", fmt.Errorf("read encrypted file: %w", err)
 	}

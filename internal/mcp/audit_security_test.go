@@ -172,9 +172,12 @@ func TestAuditManagerIsolatesBuiltinOAuthConnectionsAcrossTenants(t *testing.T) 
 	var seenAuth []string
 
 	mcpSrv := sdkserver.NewMCPServer("builtin-oauth-test", "1.0.0")
-	mcpSrv.AddTool(sdkmcp.NewTool("echo"), func(context.Context, sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-		return sdkmcp.NewToolResultText("ok"), nil
-	})
+	mcpSrv.AddTool(
+		sdkmcp.NewTool("echo"),
+		func(context.Context, sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
+			return sdkmcp.NewToolResultText("ok"), nil
+		},
+	)
 	streamSrv := sdkserver.NewStreamableHTTPServer(mcpSrv, sdkserver.WithStateLess(true))
 	httpSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -272,9 +275,14 @@ func TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata(t *testing.T) {
 		t.Cleanup(func() { maxMCPResponseBytes = prev })
 
 		bigDescription := strings.Repeat("A", 8192)
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26","capabilities":{},"serverInfo":{"name":"big","version":"1.0","description":%q}}}`, bigDescription)
+			_, _ = fmt.Fprintf(
+				w,
+				`{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26","capabilities":{},`+
+					`"serverInfo":{"name":"big","version":"1.0","description":%q}}}`,
+				bigDescription,
+			)
 		}))
 		t.Cleanup(srv.Close)
 
@@ -303,7 +311,7 @@ func TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata(t *testing.T) {
 		t.Cleanup(func() { maxMCPSSEEventBytes = prev })
 
 		// 1. Oversized single SSE line/event without blank line must fail Connect promptly.
-		oversizedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		oversizedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.WriteHeader(http.StatusOK)
 			rc := http.NewResponseController(w)
@@ -329,15 +337,23 @@ func TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata(t *testing.T) {
 		defer cancel()
 		start := time.Now()
 		err = cBad.Connect(ctx)
-		require.ErrorIs(t, err, ErrMCPResponseTooLarge, "oversized SSE event must fail Connect with ErrMCPResponseTooLarge")
-		require.Less(t, time.Since(start), time.Second, "oversized SSE event must abort immediately without waiting for timeout")
+		require.ErrorIs(
+			t, err, ErrMCPResponseTooLarge, "oversized SSE event must fail Connect with ErrMCPResponseTooLarge",
+		)
+		require.Less(
+			t, time.Since(start), time.Second,
+			"oversized SSE event must abort immediately without waiting for timeout",
+		)
 
 		// 2. Multiple bounded SSE events whose cumulative bytes exceed maxMCPSSEEventBytes must succeed.
 		mcpSrv := sdkserver.NewMCPServer("sse-multi", "1.0.0")
 		pad := strings.Repeat("y", 1200)
-		mcpSrv.AddTool(sdkmcp.NewTool("pad"), func(context.Context, sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-			return sdkmcp.NewToolResultText(pad), nil
-		})
+		mcpSrv.AddTool(
+			sdkmcp.NewTool("pad"),
+			func(context.Context, sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
+				return sdkmcp.NewToolResultText(pad), nil
+			},
+		)
 		sseSrv := sdkserver.NewSSEServer(mcpSrv)
 		httpSSE := httptest.NewServer(sseSrv)
 		t.Cleanup(httpSSE.Close)
@@ -394,7 +410,7 @@ func TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata(t *testing.T) {
 		authSrvURL = authSrv.URL
 		t.Cleanup(authSrv.Close)
 
-		mcpHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mcpHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 		}))
 		t.Cleanup(mcpHTTP.Close)
