@@ -136,8 +136,7 @@ IMAGES=(
     "self-built|core|${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|true"
     "self-built|core|${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|true"
     "third-party|core|paradedb/paradedb:v0.25.11-pg17|AGPL-3.0-only|true"
-    "third-party|core|redis:7.0-alpine|BSD-3-Clause|false"
-    "third-party|helm|redis:7.2-alpine|BSD-3-Clause|false"
+    "third-party|core|redis:7.2-alpine|BSD-3-Clause|false"
 )
 
 if profile_enabled "minio"; then
@@ -311,12 +310,10 @@ if [[ -d "${PROJECT_ROOT}/helm" ]]; then
     cp -R "${PROJECT_ROOT}/helm" "${OUTPUT_DIR}/helm"
 fi
 
-for s in offline-load.sh; do
-    if [[ -f "${PROJECT_ROOT}/scripts/${s}" ]]; then
-        cp "${PROJECT_ROOT}/scripts/${s}" "${OUTPUT_DIR}/scripts/"
-        chmod +x "${OUTPUT_DIR}/scripts/${s}"
-    fi
-done
+if [[ -f "${PROJECT_ROOT}/scripts/offline-load.sh" ]]; then
+    cp "${PROJECT_ROOT}/scripts/offline-load.sh" "${OUTPUT_DIR}/scripts/"
+    chmod +x "${OUTPUT_DIR}/scripts/offline-load.sh"
+fi
 
 # The source checkout's start_all.sh can pull or build images and is not an
 # offline launcher. Ship explicit commands that use the already imported images.
@@ -410,7 +407,7 @@ awk -v registry="$GENYEE_REGISTRY" -v tag="$IMAGE_TAG" '
                 docker pull --platform "${PLATFORM}" "${image}" >&2
             fi
             actual_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}{{if .Variant}}/{{.Variant}}{{end}}' "$image")"
-            if [[ "$actual_platform" != "$PLATFORM" && !( "$PLATFORM" == linux/arm64 && "$actual_platform" == linux/arm64/v8 ) ]]; then
+            if [[ "$actual_platform" != "$PLATFORM" && ! ( "$PLATFORM" == linux/arm64 && "$actual_platform" == linux/arm64/v8 ) ]]; then
                 fail "Image $image is $actual_platform; requested $PLATFORM. Build/pull the matching architecture before packaging."
             fi
             echo "[INFO] 导出镜像: ${image} -> ${archive_name}" >&2

@@ -251,6 +251,7 @@ if [ "${GY_AB_LOCK_HELD:-}" != 1 ]; then
   fi
 fi
 touch "$BROWSER_ROOT/.busy"
+# shellcheck disable=SC2329
 cleanup() { rm -f "$BROWSER_ROOT/.busy" "$BROWSER_ROOT/.launching"; }
 trap cleanup EXIT
 # Refresh the busy TTL for commands longer than one mirror interval.

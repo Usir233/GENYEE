@@ -214,20 +214,28 @@ _wait_odl_hybrid_ready() {
         sleep "$interval"
         waited=$((waited + interval))
     done
-    log_warning "odl-hybrid 在 ${max_wait}s 内未就绪，请查看: docker logs GENYEE-odl-hybrid"
+    log_warning "odl-hybrid 在 ${max_wait}s 内未就绪，请查看: docker logs GENYEE-odl-hybrid-dev"
     return 1
+}
+
+run_dev_compose() {
+    local args=()
+    if [ -n "$DOCKER_COMPOSE_SUBCMD" ]; then
+        args+=("$DOCKER_COMPOSE_SUBCMD")
+    fi
+    args+=(-f docker-compose.dev.yml)
+    "$DOCKER_COMPOSE_BIN" "${args[@]}" "$@"
 }
 
 # 启动基础设施服务
 start_services() {
     log_info "启动开发环境基础设施服务..."
     
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
 
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 检查 .env 文件
     if [ ! -f ".env" ]; then
@@ -238,8 +246,7 @@ start_services() {
     # 为留空的必填及内部服务鉴权密钥自动生成随机值（对齐 start_all.sh / check-env.sh，兼容 CRLF）
     ensure_dev_secrets ".env"
 
-    load_env_files
-    if [ $? -ne 0 ]; then
+    if ! load_env_files; then
         log_error ".env 文件不存在，请先创建"
         return 1
     fi
@@ -251,8 +258,12 @@ start_services() {
         return 0
     fi
     
-    # 解析 profile 参数
-    shift  # 移除 "start" 命令本身
+    # 解析 profile 参数（移除可能传入的 start / restart 子命令词）
+    if [ $# -gt 0 ]; then
+        case "$1" in
+            start|restart) shift ;;
+        esac
+    fi
     # 默认仅启动基础设施（postgres / redis / docreader），不默认启用 langfuse。
     # 其余可选服务通过 --minio / --qdrant / --neo4j / --dex / --langfuse / --full 按需开启。
     PROFILES=""
@@ -300,17 +311,22 @@ start_services() {
         shift
     done
 
+    local profile_args=()
+    if [ -n "$PROFILES" ]; then
+        read -r -a profile_args <<< "$PROFILES"
+    fi
+
     # 启动服务（odl-hybrid 单独 --build，避免每次重建 docreader）
-    "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.dev.yml $PROFILES up -d
-    local compose_rc=$?
+    local compose_rc=0
+    run_dev_compose "${profile_args[@]}" up -d || compose_rc=$?
     if [ "$compose_rc" -eq 0 ] && [[ "$ENABLED_SERVICES" == *"odl-hybrid"* ]]; then
         log_info "构建/更新 odl-hybrid 镜像..."
-        "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.dev.yml $PROFILES up -d --build odl-hybrid
+        run_dev_compose "${profile_args[@]}" up -d --build odl-hybrid
         _wait_odl_hybrid_ready || true
         # docreader 需读取 DOCREADER_ODL_HYBRID；若刚改 .env，强制重建以注入环境变量
         if _should_enable_odl_hybrid_from_env; then
             log_info "重建 docreader 以应用 DOCREADER_ODL_HYBRID=${DOCREADER_ODL_HYBRID} ..."
-            "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.dev.yml up -d --force-recreate docreader
+            run_dev_compose up -d --force-recreate docreader
         fi
     fi
 
@@ -358,15 +374,12 @@ start_services() {
 stop_services() {
     log_info "停止开发环境服务..."
     
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
     
-    cd "$PROJECT_ROOT"
-    "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.dev.yml down
-    
-    if [ $? -eq 0 ]; then
+    cd "$PROJECT_ROOT" || return 1
+    if run_dev_compose down; then
         log_success "所有服务已停止"
         return 0
     else
@@ -377,31 +390,29 @@ stop_services() {
 
 # 重启服务
 restart_services() {
-    stop_services
+    stop_services || return 1
     sleep 2
-    start_services
+    start_services "$@"
 }
 
 # 查看日志
 show_logs() {
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
 
-    cd "$PROJECT_ROOT"
-    "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.dev.yml logs -f
+    cd "$PROJECT_ROOT" || return 1
+    run_dev_compose logs -f
 }
 
 # 查看状态
 show_status() {
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
 
-    cd "$PROJECT_ROOT"
-    "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.dev.yml ps
+    cd "$PROJECT_ROOT" || return 1
+    run_dev_compose ps
 }
 
 # 远程开发模式下检查基础设施端口是否可达
@@ -444,7 +455,7 @@ check_remote_dev_connectivity() {
         log_info "排查建议:"
         echo "  1. 确认远程机器 Docker 容器在运行 (postgres/redis/docreader)"
         echo "  2. 确认本机与 ${host} 在同一局域网 (本机: $(ipconfig getifaddr en0 2>/dev/null || echo '未知'))"
-        echo "  3. 在远程检查端口映射: docker ps --format 'table {{.Names}}\t{{.Ports}}'"
+        printf '%s\n' "  3. 在远程检查端口映射: docker ps --format 'table {{.Names}}\t{{.Ports}}'"
         echo "  4. 检查远程防火墙是否放行 5432/6379/50051"
         return 1
     fi
@@ -495,7 +506,7 @@ enable_anydoc_build_tag() {
 start_app() {
     log_info "启动后端应用（本地开发模式）..."
     
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 检查 Go 是否安装
     if ! command -v go &> /dev/null; then
@@ -585,12 +596,12 @@ start_app() {
 start_frontend() {
     log_info "启动前端开发服务器..."
 
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     if [ -f ".env" ] || [ -f ".env.local" ]; then
         load_env_files >/dev/null 2>&1 || true
     fi
     
-    cd "$PROJECT_ROOT/frontend"
+    cd "$PROJECT_ROOT/frontend" || return 1
     
     # 检查 npm 是否安装
     if ! command -v npm &> /dev/null; then
@@ -623,7 +634,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
             stop_services
             ;;
         restart)
-            restart_services
+            restart_services "$@"
             ;;
         logs)
             show_logs

@@ -7,6 +7,7 @@
 # cookies, socket length, headless fallback.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
 IMG="${1:?usage: smoke-image.sh IMAGE}"
 C=gy-browser-smoke
@@ -65,6 +66,7 @@ assert_contains "B owns a seat" "$B" "$LIST"
 
 # Count daemon socket path bytes without a trailing newline. Linux sun_path
 # is 108 bytes; keep paths within the wrapper's 104-byte budget.
+# shellcheck disable=SC2016
 SOCK="$(dx 'for f in /var/lib/genyee/sessions/*.browser/home/.agent-browser/*.sock; do [ -e "$f" ] && printf "%s\n" "$(printf %s "$f" | wc -c)"; done')"
 assert_eq "one daemon socket per session" 2 "$(echo "$SOCK" | grep -c '[0-9]')"
 for n in $SOCK; do

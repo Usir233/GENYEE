@@ -214,16 +214,17 @@ storageClassName: {{ .Values.global.storageClass | quote }}
 
 {{/*
 Pod security context.
-Merges global defaults with component-specific overrides.
+Deep-merges global defaults with component-specific overrides without mutating .Values.
+Usage: include "genyee.podSecurityContext" (dict "componentSecurityContext" .Values.app.podSecurityContext "context" .)
 */}}
 {{- define "genyee.podSecurityContext" -}}
-{{- $global := .Values.global.podSecurityContext | default dict }}
-{{- $component := .componentSecurityContext | default dict }}
-{{- $merged := merge $component $global }}
-{{- if $merged }}
+{{- $global := deepCopy (.context.Values.global.podSecurityContext | default dict) -}}
+{{- $component := deepCopy (.componentSecurityContext | default dict) -}}
+{{- $merged := mustMergeOverwrite $global $component -}}
+{{- if $merged -}}
 securityContext:
 {{- toYaml $merged | nindent 2 }}
-{{- end }}
+{{- end -}}
 {{- end }}
 
 {{/*

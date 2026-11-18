@@ -35,10 +35,7 @@ spec:
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
-      {{- with .Values.docreader.podSecurityContext | default .Values.global.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "genyee.podSecurityContext" (dict "componentSecurityContext" .Values.docreader.podSecurityContext "context" .) | nindent 6 }}
       containers:
         - name: docreader
           image: {{ include "genyee.docreader.image" . }}
@@ -52,8 +49,6 @@ spec:
               name: grpc
               protocol: TCP
           env:
-            - name: STORAGE_TYPE
-              value: {{ .Values.docreader.env.STORAGE_TYPE | quote }}
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
             - name: DOCREADER_GRPC_PORT
@@ -71,12 +66,24 @@ spec:
             - name: GRPC_TLS_KEY
               value: "/etc/docreader-tls/tls.key"
             {{- end }}
-          {{- if $tlsEnabled }}
+            {{- $managedDocreaderEnv := dict "MAX_FILE_SIZE_MB" true "DOCREADER_GRPC_PORT" true "GRPC_AUTH_TOKEN" true "GRPC_TLS_ENABLED" true "GRPC_TLS_CERT" true "GRPC_TLS_KEY" true }}
+            {{- range $key := keys (.Values.docreader.env | default dict) | sortAlpha }}
+            {{- if not (hasKey $managedDocreaderEnv $key) }}
+            - name: {{ $key | quote }}
+              value: {{ index $.Values.docreader.env $key | toString | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.docreader.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if $tlsEnabled }}
             - name: docreader-tls
               mountPath: /etc/docreader-tls
               readOnly: true
-          {{- end }}
+            {{- end }}
           resources:
             {{- toYaml .Values.docreader.resources | nindent 12 }}
           # gRPC health check using grpc_health_probe
@@ -116,12 +123,14 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
-      {{- if $tlsEnabled }}
       volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if $tlsEnabled }}
         - name: docreader-tls
           secret:
             secretName: {{ $tlsSecretName | quote }}
-      {{- end }}
+        {{- end }}
       {{- with .Values.docreader.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

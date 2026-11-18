@@ -2,6 +2,7 @@
 # chrome-gy argument shaping. The real browser is replaced so exec is the
 # recorded command and the script's pid is the stub's pid.
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
 CHROME="$HERE/../chrome-gy.sh"
 

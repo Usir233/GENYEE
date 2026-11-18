@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
 WRAP="$HERE/../agent-browser-wrapper.sh"
 DISP="$HERE/stubs/gy-display-stub.sh"
@@ -360,8 +361,11 @@ t_close_harvests_cookies_into_the_vault() {
   # Capture must precede the final CLI call while Chrome is still alive.
   ab_line=$(grep -n '^ab "' "$WRAP" | head -1 | cut -d: -f1)
   harvest_line=$(grep -n 'timeout 10' "$WRAP" | head -1 | cut -d: -f1)
-  [ -n "$ab_line" ] && [ -n "$harvest_line" ] && [ "$harvest_line" -lt "$ab_line" ] \
-    && pass "harvest runs before the close call" || fail "harvest order wrong"
+  if [ -n "$ab_line" ] && [ -n "$harvest_line" ] && [ "$harvest_line" -lt "$ab_line" ]; then
+    pass "harvest runs before the close call"
+  else
+    fail "harvest order wrong"
+  fi
   teardown
 }
 

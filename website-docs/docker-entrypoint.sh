@@ -20,6 +20,7 @@ WEBSITE_NGINX_PORT=$(validate_port "${WEBSITE_NGINX_PORT:-80}")
 export WEBSITE_NGINX_PORT
 
 # Substitute only the port; preserve Nginx variables such as $uri.
+# shellcheck disable=SC2016
 envsubst '${WEBSITE_NGINX_PORT}' \
   < /etc/nginx/templates/default.conf.template \
   > /etc/nginx/conf.d/default.conf

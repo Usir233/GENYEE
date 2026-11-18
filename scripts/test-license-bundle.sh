@@ -12,7 +12,8 @@ cp "${repo_root}/scripts/"{check-license-bundle,copy-licenses}.sh "${fixture}/sc
 cp "${repo_root}/LICENSE" "${repo_root}/THIRD_PARTY_NOTICES.md" "${fixture}/"
 cp "${repo_root}/licenses/"*.txt "${fixture}/licenses/"
 touch "${fixture}/go.sum"
-export LICENSE_TEST_REAL_GO="$(command -v go)"
+LICENSE_TEST_REAL_GO="$(command -v go)"
+export LICENSE_TEST_REAL_GO
 export LICENSE_TEST_ROOT="${fixture}"
 printf 'Original Go runtime license\n' > "${fixture}/goroot/LICENSE"
 printf 'Original Go vendor license\n' > "${fixture}/goroot/src/vendor/example/LICENSE"

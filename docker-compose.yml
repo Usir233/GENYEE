@@ -53,7 +53,6 @@ services:
         - VERSION_ARG=${VERSION_ARG:-}
         - COMMIT_ID_ARG=${COMMIT_ID_ARG:-}
         - BUILD_TIME_ARG=${BUILD_TIME_ARG:-}
-        - GO_VERSION_ARG=${GO_VERSION_ARG:-}
     container_name: GENYEE-app
     ports:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080"
@@ -157,6 +156,8 @@ services:
       - COS_TEMP_REGION=${COS_TEMP_REGION:-}
 
       # 认证 / 空间 / RBAC / 审计
+      # 注册策略：self_serve（开放自助注册）/ invite_register（仅受邀可注册）/ invite_only（仅管理员邀请）
+      - GENYEE_AUTH_REGISTRATION_MODE=${GENYEE_AUTH_REGISTRATION_MODE:-}
       # 禁止新用户注册（生产建议 true）
       - DISABLE_REGISTRATION=${DISABLE_REGISTRATION:-false}
       # 开启后密码必须包含大小写字母、数字和特殊字符，特殊字符包含：!@#$%^&*()_+-=[]{}|;:,.<>?
@@ -397,6 +398,9 @@ services:
       - GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT=${GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT:-}
       # MCP 工具人工审批失败时是否放行（true 放行 / 默认 fail-close 拒绝）
       - GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN=${GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN:-}
+      - GENYEE_AGENT_PROMPT_SUSPEND=${GENYEE_AGENT_PROMPT_SUSPEND:-}
+      - GENYEE_AGENT_PROMPT_HOT_WAIT=${GENYEE_AGENT_PROMPT_HOT_WAIT:-}
+      - GENYEE_AGENT_PROMPT_EXPIRE=${GENYEE_AGENT_PROMPT_EXPIRE:-}
       # Tenant / RBAC（详见 website-docs/03-features/01-tenant-auth.md 与 .env.example 注释）
       # - GENYEE_TENANT_ENABLE_RBAC: 是否启用空间角色强制鉴权（true / false），默认 true
       # - GENYEE_TENANT_MAX_OWNED_PER_USER: 单个非超管自助创建空间的上限
@@ -413,7 +417,6 @@ services:
       - GENYEE_ASYNQ_SHARED_CONCURRENCY=${GENYEE_ASYNQ_SHARED_CONCURRENCY:-6}
       - GENYEE_WIKI_ASYNQ_CONCURRENCY=${GENYEE_WIKI_ASYNQ_CONCURRENCY:-8}
       - GENYEE_MODEL_MAX_CONCURRENCY=${GENYEE_MODEL_MAX_CONCURRENCY:-32}
-      - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
       - GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=${GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL:-}
       # ========== OIDC 认证（可选，OIDC_AUTH_ENABLE=true 启用，详见 .env.example）==========
       - OIDC_AUTH_ENABLE=${OIDC_AUTH_ENABLE:-false}
@@ -428,7 +431,7 @@ services:
       - OIDC_AUTH_USER_INFO_ENDPOINT=${OIDC_AUTH_USER_INFO_ENDPOINT:-}
       - OIDC_AUTH_JWKS_URI=${OIDC_AUTH_JWKS_URI:-}
       - OIDC_AUTH_SCOPES=${OIDC_AUTH_SCOPES:-}
-      - OIDC_USER_INFO_MAPPING_USER_NAME=${OIDC_USER_INFO_MAPPING_USER_NAME:-}
+      - OIDC_USER_INFO_MAPPING_USERNAME=${OIDC_USER_INFO_MAPPING_USERNAME:-}
       - OIDC_USER_INFO_MAPPING_EMAIL=${OIDC_USER_INFO_MAPPING_EMAIL:-}
       # 已废弃：解析模式改在数据源编辑页按数据源配置（默认 blocks）。此变量仅在
       # 数据源未配置 parse_mode 时回退读取并打印弃用警告，后续版本将移除。
@@ -440,7 +443,7 @@ services:
       - FEISHU_EXPORT_POLL_INTERVAL=${FEISHU_EXPORT_POLL_INTERVAL:-}
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
       docreader:
@@ -595,7 +598,25 @@ services:
       - DOCREADER_PDF_MAX_CHART_REGION_AREA=${DOCREADER_PDF_MAX_CHART_REGION_AREA:-}
       - DOCREADER_PDF_MAX_FIGURE_HEIGHT_RATIO=${DOCREADER_PDF_MAX_FIGURE_HEIGHT_RATIO:-}
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=localhost:50051"]
+      test:
+        - CMD
+        - sh
+        - -ec
+        - |
+          set -- -addr="localhost:$${DOCREADER_GRPC_PORT:-50051}"
+          case "$$(printf '%s' "$${GRPC_TLS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
+            1|true|yes|on)
+              set -- "$$@" -tls
+              [ -n "$${GRPC_TLS_CA:-}" ] && set -- "$$@" -tls-ca-cert="$$GRPC_TLS_CA"
+              [ -n "$${GRPC_TLS_SERVER_NAME:-}" ] && set -- "$$@" -tls-server-name="$$GRPC_TLS_SERVER_NAME"
+              case "$$(printf '%s' "$${GRPC_MTLS_REQUIRE_CLIENT_CERT:-false}" | tr '[:upper:]' '[:lower:]')" in
+                1|true|yes|on)
+                  [ -n "$${GRPC_TLS_CERT:-}" ] && [ -n "$${GRPC_TLS_KEY:-}" ] && set -- "$$@" -tls-client-cert="$$GRPC_TLS_CERT" -tls-client-key="$$GRPC_TLS_KEY"
+                  ;;
+              esac
+              ;;
+          esac
+          exec grpc_health_probe "$$@"
       interval: 30s
       timeout: 10s
       retries: 3
@@ -652,10 +673,34 @@ services:
     stop_grace_period: 1m
 
   redis:
-    image: redis:7.0-alpine
+    image: redis:7.2-alpine
     container_name: GENYEE-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    restart: always
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    command:
+      - sh
+      - -ec
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --dir /data --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec redis-server --appendonly yes --dir /data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |
+          if [ -n "$$REDIS_PASSWORD" ]; then
+            REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli -e --no-auth-warning ping
+          else
+            redis-cli -e ping
+          fi
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
     networks:
       - GENYEE-network
 
@@ -1027,7 +1072,7 @@ services:
       langfuse-db-init:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
       langfuse-clickhouse:
         condition: service_healthy
       langfuse-minio:
@@ -1147,10 +1192,14 @@ services:
       - MCP_SERVER_AUTH_TOKEN=${MCP_SERVER_AUTH_TOKEN:-}
       # 调用 GENYEE REST 的读超时（秒，默认 300）
       - GENYEE_CHAT_TIMEOUT=${GENYEE_CHAT_TIMEOUT:-300}
+      - GENYEE_API_TIMEOUT=${GENYEE_API_TIMEOUT:-}
       # 是否校验 GENYEE 后端 TLS 证书（默认 true；自签证书可设 false）
       - GENYEE_VERIFY_SSL=${GENYEE_VERIFY_SSL:-true}
       # 允许上传的目录白名单（逗号分隔；留空禁用文件上传工具）
       - MCP_ALLOWED_UPLOAD_DIRS=${MCP_ALLOWED_UPLOAD_DIRS:-}
+      - MCP_ENABLE_ADMIN_TOOLS=${MCP_ENABLE_ADMIN_TOOLS:-}
+      - MCP_ALLOWED_HOSTS=${MCP_ALLOWED_HOSTS:-}
+      - MCP_ALLOWED_ORIGINS=${MCP_ALLOWED_ORIGINS:-}
     depends_on:
       app:
         condition: service_healthy
@@ -1167,6 +1216,7 @@ networks:
 
 volumes:
   postgres-data:
+  redis_data:
   data-files:
   docreader-tmp:
   minio_data:

@@ -14,7 +14,6 @@ PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # 版本信息
 VERSION="1.0.1" # 版本更新
-SCRIPT_NAME=$(basename "$0")
 
 # 显示帮助信息
 show_help() {
@@ -100,6 +99,14 @@ detect_compose_cmd() {
 	return 1
 }
 
+run_compose() {
+    if [ -n "$DOCKER_COMPOSE_SUBCMD" ]; then
+        "$DOCKER_COMPOSE_BIN" "$DOCKER_COMPOSE_SUBCMD" "$@"
+    else
+        "$DOCKER_COMPOSE_BIN" "$@"
+    fi
+}
+
 # CRLF 安全读取 .env 文件
 _source_env_file() {
     local src="$1"
@@ -176,26 +183,27 @@ install_ollama() {
     log_info "本地Ollama未安装，正在安装..."
     
     OS=$(uname)
+    local install_rc=0
     if [ "$OS" = "Darwin" ]; then
         # Mac安装方式
         log_info "检测到Mac系统，使用brew安装Ollama..."
         if ! command -v brew &> /dev/null; then
             # 通过安装包安装
             log_info "Homebrew未安装，使用直接下载方式..."
-            curl -fsSL https://ollama.com/download/Ollama-darwin.zip -o ollama.zip
-            unzip ollama.zip
-            mv ollama /usr/local/bin
-            rm ollama.zip
+            curl -fsSL https://ollama.com/download/Ollama-darwin.zip -o ollama.zip && \
+                unzip ollama.zip && \
+                mv ollama /usr/local/bin && \
+                rm ollama.zip || install_rc=$?
         else
-            brew install ollama
+            brew install ollama || install_rc=$?
         fi
     else
         # Linux安装方式
         log_info "检测到Linux系统，使用安装脚本..."
-        curl -fsSL https://ollama.com/install.sh | sh
+        curl -fsSL https://ollama.com/install.sh | sh || install_rc=$?
     fi
     
-    if [ $? -eq 0 ]; then
+    if [ "$install_rc" -eq 0 ]; then
         log_success "本地Ollama安装完成"
         return 0
     else
@@ -246,8 +254,7 @@ start_ollama() {
     # 以下为本地服务的处理
     # 检查Ollama是否已安装
     if ! command -v ollama &> /dev/null; then
-        install_ollama
-        if [ $? -ne 0 ]; then
+        if ! install_ollama; then
             return 1
         fi
     fi
@@ -378,7 +385,7 @@ ensure_sandbox_image() {
 
     # 后台拉取，不阻塞主流程
     (
-        if PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD --profile full pull sandbox 2>/dev/null; then
+        if PLATFORM="$PLATFORM" run_compose --profile full pull sandbox 2>/dev/null; then
             log_success "沙箱镜像拉取完成: $sandbox_image"
         else
             log_warning "沙箱镜像拉取失败，Agent Skills 功能可能不可用"
@@ -394,8 +401,7 @@ start_docker() {
     log_info "正在启动Docker容器..."
     
     # 检查Docker环境
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
     
@@ -404,28 +410,28 @@ start_docker() {
     
     # 读取.env文件
     _source_env_file "$PROJECT_ROOT/.env"
-    storage_type=${STORAGE_TYPE:-local}
     
     check_platform
     
 	# 进入项目根目录再执行docker-compose命令
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
 
     export_build_args
     
     # 启动基本服务
     log_info "启动核心服务容器..."
 	# 统一通过已检测到的 Compose 命令启动
+    local up_rc=0
 	if [ "$NO_PULL" = true ]; then
 		# 不拉取镜像，使用本地镜像
 		log_info "跳过镜像拉取，使用本地镜像..."
-		PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD up --build -d
+		PLATFORM="$PLATFORM" run_compose up --build -d || up_rc=$?
 	else
 		# 拉取最新镜像
 		log_info "拉取最新镜像..."
-		PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD up --pull always -d
+		PLATFORM="$PLATFORM" run_compose up --pull always -d || up_rc=$?
 	fi
-    if [ $? -ne 0 ]; then
+    if [ "$up_rc" -ne 0 ]; then
         log_error "Docker容器启动失败"
         return 1
     fi
@@ -434,7 +440,7 @@ start_docker() {
 
     # 显示容器状态
     log_info "当前容器状态:"
-	"$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD ps
+	run_compose ps
 
     # 预拉取Sandbox镜像（Agent Skills 执行所需，仅拉取不启动）
     ensure_sandbox_image
@@ -447,18 +453,16 @@ stop_docker() {
     log_info "正在停止Docker容器..."
     
     # 检查Docker环境
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         # 即使检查失败也尝试停止，以防万一
         log_warning "Docker环境检查失败，仍将尝试停止容器..."
     fi
     
     # 进入项目根目录再执行docker-compose命令
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 停止所有容器
-	"$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD down --remove-orphans
-    if [ $? -ne 0 ]; then
+	if ! run_compose down --remove-orphans; then
         log_error "Docker容器停止失败"
         return 1
     fi
@@ -472,17 +476,16 @@ list_containers() {
     log_info "列出所有正在运行的容器..."
     
     # 检查Docker环境
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
     
     # 进入项目根目录再执行docker-compose命令
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 列出所有容器
     printf "%b\n" "${BLUE}当前正在运行的容器:${NC}"
-	"$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD ps --services | sort
+	run_compose ps --services | sort
     
     return 0
 }
@@ -492,8 +495,7 @@ pull_images() {
     log_info "正在拉取最新的Docker镜像..."
     
     # 检查Docker环境
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
     
@@ -502,24 +504,22 @@ pull_images() {
     
     # 读取.env文件
     _source_env_file "$PROJECT_ROOT/.env"
-    storage_type=${STORAGE_TYPE:-local}
     
     check_platform
     
     # 进入项目根目录再执行docker-compose命令
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 拉取所有镜像
     log_info "拉取所有服务的最新镜像..."
-	PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD pull
-    if [ $? -ne 0 ]; then
+	if ! PLATFORM="$PLATFORM" run_compose pull; then
         log_error "镜像拉取失败"
         return 1
     fi
 
     # 拉取 sandbox 镜像（sandbox 在 full profile 中，需要单独拉取）
     log_info "拉取沙箱镜像..."
-    PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD --profile full pull sandbox 2>/dev/null || \
+    PLATFORM="$PLATFORM" run_compose --profile full pull sandbox 2>/dev/null || \
         log_warning "沙箱镜像拉取失败（非必需，跳过）"
 
     log_success "所有镜像已成功拉取到最新版本"
@@ -545,20 +545,19 @@ restart_container() {
     log_info "正在重新构建并重启容器: $container_name"
     
     # 检查Docker环境
-    check_docker
-    if [ $? -ne 0 ]; then
+    if ! check_docker; then
         return 1
     fi
     
     check_platform
     
     # 进入项目根目录再执行docker-compose命令
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
 
     export_build_args
     
     # 检查容器是否存在
-	if ! "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD ps --services | grep -Fxq -- "$container_name"; then
+	if ! run_compose ps --services | grep -Fxq -- "$container_name"; then
         log_error "容器 '$container_name' 不存在或未运行"
         echo "可用的容器有:"
         list_containers
@@ -567,15 +566,13 @@ restart_container() {
     
     # 构建并重启容器
     log_info "正在重新构建容器 '$container_name'..."
-	PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD build "$container_name"
-    if [ $? -ne 0 ]; then
+	if ! PLATFORM="$PLATFORM" run_compose build "$container_name"; then
         log_error "容器 '$container_name' 构建失败"
         return 1
     fi
     
     log_info "正在重启容器 '$container_name'..."
-	PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD up -d --no-deps "$container_name"
-    if [ $? -ne 0 ]; then
+	if ! PLATFORM="$PLATFORM" run_compose up -d --no-deps "$container_name"; then
         log_error "容器 '$container_name' 重启失败"
         return 1
     fi
@@ -812,7 +809,7 @@ else
             printf "%b\n" "${GREEN}  - API接口: http://localhost:${APP_PORT:-8080}${NC}"
             echo ""
             log_info "正在持续输出容器日志（按 Ctrl+C 退出日志，容器不会停止）..."
-            "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD logs app docreader postgres --since=10s -f
+            run_compose logs app docreader postgres --since=10s -f
         else
             log_error "部分服务启动失败，请检查日志并修复问题"
         fi
@@ -825,7 +822,7 @@ else
         printf "%b\n" "${GREEN}  - API接口: http://localhost:${APP_PORT:-8080}${NC}"
         echo ""
         log_info "正在持续输出容器日志（按 Ctrl+C 退出日志，容器不会停止）..."
-        "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD logs app docreader postgres --since=10s -f
+        run_compose logs app docreader postgres --since=10s -f
     fi
 fi
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
 MID="$HERE/../gy-machine-id.sh"
 

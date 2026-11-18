@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=docker-entrypoint.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/docker-entrypoint.sh"
 
 TEST_DIR="$(mktemp -d)"

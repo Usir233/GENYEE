@@ -44,10 +44,7 @@ spec:
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
-      {{- with .Values.app.podSecurityContext | default .Values.global.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "genyee.podSecurityContext" (dict "componentSecurityContext" .Values.app.podSecurityContext "context" .) | nindent 6 }}
       containers:
         - name: app
           image: {{ include "genyee.app.image" . }}
@@ -68,6 +65,8 @@ spec:
               value: {{ .Values.app.env.TZ | quote }}
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
+            - name: MAX_SKILL_BUNDLE_SIZE_MB
+              value: {{ (.Values.global.maxSkillBundleSizeMB | default 256) | toString | quote }}
             # Database configuration
             - name: DB_DRIVER
               value: "postgres"
@@ -165,6 +164,13 @@ spec:
             # whatever Engine API this process can reach (often host root).
             - name: GENYEE_SANDBOX_DOCKER_ENABLED
               value: {{ .Values.app.env.GENYEE_SANDBOX_DOCKER_ENABLED | default "false" | quote }}
+            {{- $managedAppEnv := dict "GIN_MODE" true "TZ" true "STREAM_MANAGER_TYPE" true "RETRIEVE_DRIVER" true "STORAGE_TYPE" true "LOCAL_STORAGE_BASE_DIR" true "AUTO_RECOVER_DIRTY" true "CONCURRENCY_POOL_SIZE" true "GENYEE_SANDBOX_DOCKER_ENABLED" true }}
+            {{- range $key := keys (.Values.app.env | default dict) | sortAlpha }}
+            {{- if not (hasKey $managedAppEnv $key) }}
+            - name: {{ $key | quote }}
+              value: {{ index $.Values.app.env $key | toString | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.neo4j.enabled }}
             # Neo4j configuration (for GraphRAG)
             # NEO4J_ENABLE 是知识图谱的唯一开关（Go 代码认它，不认 ENABLE_GRAPH_RAG）。

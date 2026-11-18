@@ -30,6 +30,11 @@ global:
   # limit). Same knob as MAX_FILE_SIZE_MB in docker-compose.yml.
   maxFileSizeMB: 50
 
+  # -- Maximum skill bundle / GitHub zipball upload size in MB, applied to the
+  # frontend skill upload routes, the app, and default Ingress proxy-body-size.
+  # Same knob as MAX_SKILL_BUNDLE_SIZE_MB in docker-compose.yml.
+  maxSkillBundleSizeMB: 256
+
   # -- Default security context for all pods
   # Note: Official images (nginx, postgres, redis) run as root by default
   # Enable runAsNonRoot only if using non-root compatible images
@@ -143,6 +148,8 @@ app:
     # Leave false unless this is a private single-node install that also mounts
     # the daemon socket or points at a remote tcp:// daemon with TLS.
     GENYEE_SANDBOX_DOCKER_ENABLED: "false"
+    # Comma-separated CORS allowed origins (empty keeps default same-origin policy).
+    GENYEE_CORS_ALLOWED_ORIGINS: ""
 
   # -- Additional environment variables
   extraEnv: []
@@ -240,6 +247,9 @@ frontend:
       cpu: 200m
       memory: 256Mi
 
+  # -- Pod security context override
+  podSecurityContext: {}
+
   # -- Container security context
   # Master binds :80 then drops worker processes to unprivileged nginx user
   securityContext:
@@ -288,14 +298,14 @@ docreader:
     # -- Image pull policy
     pullPolicy: IfNotPresent
 
-  # -- Resource requests and limits
+  # -- Resource requests and limits (sized for RapidOCR/ODL/LibreOffice/PDFium/WebKit)
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
+      cpu: 200m
       memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 4Gi
 
   # -- Pod security context override
   podSecurityContext:
@@ -328,9 +338,13 @@ docreader:
     # -- Optional TLS server name override for certificate verification
     serverName: ""
 
-  # -- Environment variables
-  env:
-    STORAGE_TYPE: local
+  # -- Environment variables for the docreader container
+  env: {}
+  # LOG_LEVEL: info
+  # DOCREADER_GRPC_MAX_WORKERS: "4"
+
+  # -- Additional environment variables (supports valueFrom / secretKeyRef)
+  extraEnv: []
 
   # -- Service configuration
   service:
@@ -365,14 +379,17 @@ postgresql:
     # -- Image tag
     tag: v0.25.11-pg17
 
-  # -- Resource requests and limits
+  # -- Resource requests and limits (sized for ParadeDB PG17 + HNSW/BM25 indexes)
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
+      cpu: 250m
       memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  # -- Pod security context override
+  podSecurityContext: {}
 
   # -- Container security context
   # Note: PostgreSQL entrypoint initializes PGDATA then drops to postgres user
@@ -431,6 +448,9 @@ redis:
     limits:
       cpu: 200m
       memory: 256Mi
+
+  # -- Pod security context override
+  podSecurityContext: {}
 
   # -- Container security context
   securityContext:
@@ -508,7 +528,7 @@ ingress:
   # -- Additional annotations
   # Ref: https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "256m"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -617,6 +637,9 @@ neo4j:
     limits:
       cpu: "1"
       memory: 2Gi
+
+  # -- Pod security context override
+  podSecurityContext: {}
 
   # -- Container security context
   securityContext:

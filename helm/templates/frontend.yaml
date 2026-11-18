@@ -29,10 +29,7 @@ spec:
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
-      {{- with .Values.global.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "genyee.podSecurityContext" (dict "componentSecurityContext" .Values.frontend.podSecurityContext "context" .) | nindent 6 }}
       containers:
         - name: frontend
           image: {{ include "genyee.frontend.image" . }}
@@ -48,9 +45,18 @@ spec:
               value: {{ .Values.frontend.appPort | default .Values.app.service.port | quote }}
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
-            {{- range $key, $value := .Values.frontend.env }}
+            {{- $frontendEnv := .Values.frontend.env | default dict }}
+            {{- $skillBundleMB := .Values.global.maxSkillBundleSizeMB | default 256 }}
+            {{- if hasKey $frontendEnv "MAX_SKILL_BUNDLE_SIZE_MB" }}
+            {{- $skillBundleMB = index $frontendEnv "MAX_SKILL_BUNDLE_SIZE_MB" }}
+            {{- end }}
+            - name: MAX_SKILL_BUNDLE_SIZE_MB
+              value: {{ $skillBundleMB | toString | quote }}
+            {{- range $key := keys $frontendEnv | sortAlpha }}
+            {{- if and (ne $key "MAX_SKILL_BUNDLE_SIZE_MB") (ne $key "MAX_FILE_SIZE_MB") (ne $key "APP_HOST") (ne $key "APP_PORT") }}
             - name: {{ $key | quote }}
-              value: {{ $value | quote }}
+              value: {{ index $frontendEnv $key | toString | quote }}
+            {{- end }}
             {{- end }}
           ports:
             - containerPort: 80

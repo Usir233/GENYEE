@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # GENYEE interactive PTY prompt: classic \u@\h:\W\$
 # (user@host:last-path-segment, # for root / $ otherwise).
 #

@@ -5,14 +5,13 @@ Run with Helm on PATH and PyYAML installed:
 """
 
 import os
-from pathlib import Path
 import re
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 
 import yaml
-
 
 CHART = Path(os.environ.get("HELM_CHART_DIR", Path(__file__).resolve().parents[1]))
 
@@ -26,12 +25,19 @@ def render(values=None):
             arguments.extend(["-f", str(path)])
         return subprocess.run(
             [
-                "helm", "template", "audit", str(CHART),
-                "--namespace", "audit",
-                "--set", "secrets.existingSecret=fixture-secret",
+                "helm",
+                "template",
+                "audit",
+                str(CHART),
+                "--namespace",
+                "audit",
+                "--set",
+                "secrets.existingSecret=fixture-secret",
                 *arguments,
             ],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
 
@@ -42,9 +48,11 @@ class AppStorageTests(unittest.TestCase):
         return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
 
     def app(self, documents):
-        return next(doc for doc in documents
-                    if doc["kind"] == "Deployment"
-                    and doc["metadata"]["name"] == "audit-genyee-app")
+        return next(
+            doc
+            for doc in documents
+            if doc["kind"] == "Deployment" and doc["metadata"]["name"] == "audit-genyee-app"
+        )
 
     def assert_data_claim(self, app, name):
         volumes = app["spec"]["template"]["spec"]["volumes"]
@@ -52,50 +60,88 @@ class AppStorageTests(unittest.TestCase):
         self.assertEqual(volume["persistentVolumeClaim"]["claimName"], name)
 
     def readme_values(self, filename):
-        blocks = re.findall(r"```yaml\n(.*?)\n```", (CHART / "README.md").read_text(), re.S)
-        return yaml.safe_load(next(block for block in blocks
-                                   if block.startswith(f"# {filename}\n")))
+        blocks = re.findall(r"```yaml\n(.*?)\n```", (CHART / "README.md").read_text(), re.DOTALL)
+        return yaml.safe_load(
+            next(block for block in blocks if block.startswith(f"# {filename}\n"))
+        )
 
     def test_persistent_single_writer_storage_defaults_to_recreate(self):
         app = self.app(self.documents())
-        self.assertEqual(app["spec"]["strategy"], {
-            "type": "Recreate",
-        })
+        self.assertEqual(
+            app["spec"]["strategy"],
+            {
+                "type": "Recreate",
+            },
+        )
 
     def test_nonpersistent_storage_defaults_to_rolling_update(self):
         app = self.app(self.documents({"dataFiles": {"persistence": {"enabled": False}}}))
-        self.assertEqual(app["spec"]["strategy"], {
-            "type": "RollingUpdate",
-            "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
-        })
+        self.assertEqual(
+            app["spec"]["strategy"],
+            {
+                "type": "RollingUpdate",
+                "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
+            },
+        )
 
     def test_shared_storage_defaults_to_rolling_update(self):
-        app = self.app(self.documents({"dataFiles": {"persistence": {
-            "accessModes": ["ReadWriteMany"],
-        }}}))
+        app = self.app(
+            self.documents(
+                {
+                    "dataFiles": {
+                        "persistence": {
+                            "accessModes": ["ReadWriteMany"],
+                        }
+                    }
+                }
+            )
+        )
         self.assertEqual(app["spec"]["strategy"]["type"], "RollingUpdate")
 
     def test_explicit_rolling_update_overrides_safe_default(self):
-        app = self.app(self.documents({"app": {"strategy": {
-            "type": "RollingUpdate",
-        }}}))
-        self.assertEqual(app["spec"]["strategy"], {
-            "type": "RollingUpdate",
-            "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
-        })
+        app = self.app(
+            self.documents(
+                {
+                    "app": {
+                        "strategy": {
+                            "type": "RollingUpdate",
+                        }
+                    }
+                }
+            )
+        )
+        self.assertEqual(
+            app["spec"]["strategy"],
+            {
+                "type": "RollingUpdate",
+                "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
+            },
+        )
 
     def test_recreate_omits_rolling_update(self):
         app = self.app(self.documents({"app": {"strategy": {"type": "Recreate"}}}))
         self.assertEqual(app["spec"]["strategy"], {"type": "Recreate"})
 
     def test_custom_rolling_update_preserves_zero_and_percentage(self):
-        app = self.app(self.documents({"app": {"strategy": {
-            "type": "RollingUpdate",
-            "rollingUpdate": {"maxSurge": 0, "maxUnavailable": "25%"},
-        }}}))
-        self.assertEqual(app["spec"]["strategy"]["rollingUpdate"], {
-            "maxSurge": 0, "maxUnavailable": "25%",
-        })
+        app = self.app(
+            self.documents(
+                {
+                    "app": {
+                        "strategy": {
+                            "type": "RollingUpdate",
+                            "rollingUpdate": {"maxSurge": 0, "maxUnavailable": "25%"},
+                        }
+                    }
+                }
+            )
+        )
+        self.assertEqual(
+            app["spec"]["strategy"]["rollingUpdate"],
+            {
+                "maxSurge": 0,
+                "maxUnavailable": "25%",
+            },
+        )
 
     def test_null_strategy_falls_back_to_defaults(self):
         app = self.app(self.documents({"app": {"strategy": None}}))
@@ -112,17 +158,23 @@ class AppStorageTests(unittest.TestCase):
         self.assertEqual(app["spec"]["replicas"], 1)
         self.assertEqual(app["spec"]["strategy"], {"type": "Recreate"})
         self.assert_data_claim(app, "audit-genyee-data-files")
-        pvc = next(doc for doc in documents
-                   if doc["kind"] == "PersistentVolumeClaim"
-                   and doc["metadata"]["name"] == "audit-genyee-data-files")
+        pvc = next(
+            doc
+            for doc in documents
+            if doc["kind"] == "PersistentVolumeClaim"
+            and doc["metadata"]["name"] == "audit-genyee-data-files"
+        )
         self.assertEqual(pvc["spec"]["accessModes"], ["ReadWriteOnce"])
         env = app["spec"]["template"]["spec"]["containers"][0]["env"]
         self.assertIn({"name": "STORAGE_TYPE", "value": "local"}, env)
 
     def data_files_claim(self, documents):
-        return next(doc for doc in documents
-                    if doc["kind"] == "PersistentVolumeClaim"
-                    and doc["metadata"]["name"] == "audit-genyee-data-files")
+        return next(
+            doc
+            for doc in documents
+            if doc["kind"] == "PersistentVolumeClaim"
+            and doc["metadata"]["name"] == "audit-genyee-data-files"
+        )
 
     def test_data_files_claim_defaults_to_read_write_once(self):
         pvc = self.data_files_claim(self.documents())
@@ -137,11 +189,16 @@ class AppStorageTests(unittest.TestCase):
         ``existingClaim``. Setting the access modes lets that deployment keep
         ``app.strategy.type: RollingUpdate``.
         """
-        documents = self.documents({"dataFiles": {"persistence": {
-            "accessModes": ["ReadWriteMany"],
-        }}})
-        self.assertEqual(self.data_files_claim(documents)["spec"]["accessModes"],
-                         ["ReadWriteMany"])
+        documents = self.documents(
+            {
+                "dataFiles": {
+                    "persistence": {
+                        "accessModes": ["ReadWriteMany"],
+                    }
+                }
+            }
+        )
+        self.assertEqual(self.data_files_claim(documents)["spec"]["accessModes"], ["ReadWriteMany"])
         app = self.app(documents)
         self.assertEqual(app["spec"]["strategy"]["type"], "RollingUpdate")
 
@@ -153,9 +210,13 @@ class AppStorageTests(unittest.TestCase):
         self.assertEqual(app["spec"]["replicas"], 3)
         self.assertEqual(app["spec"]["strategy"]["type"], "RollingUpdate")
         self.assert_data_claim(app, "genyee-shared-files")
-        self.assertFalse(any(doc["kind"] == "PersistentVolumeClaim"
-                             and doc["metadata"]["name"] == "audit-genyee-data-files"
-                             for doc in documents))
+        self.assertFalse(
+            any(
+                doc["kind"] == "PersistentVolumeClaim"
+                and doc["metadata"]["name"] == "audit-genyee-data-files"
+                for doc in documents
+            )
+        )
 
 
 if __name__ == "__main__":

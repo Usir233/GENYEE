@@ -2,6 +2,7 @@
 # Tiny assertion helpers; sourced by every test_*.sh.
 set -u
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TESTS_DIR
 ORIG_PATH="$PATH"
 FAILS=0
 

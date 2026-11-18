@@ -91,12 +91,12 @@ helm install genyee ./helm \
   --create-namespace \
   --set app.extraEnv[0].name=OLLAMA_BASE_URL \
   --set app.extraEnv[0].value=http://ollama.ollama:11434 \
-  --set app.extraEnv[1].name=INIT_LLM_MODEL_NAME \
-  --set app.extraEnv[1].value=qwen2.5:7b \
   --set secrets.dbPassword=secure-password \
   --set secrets.redisPassword=secure-password \
   --set secrets.jwtSecret=$(openssl rand -base64 32)
 ```
+
+After installation, configure Chat, Embedding, and Rerank models in the Web UI (`Settings -> Models`) or mount a declarative `builtin_models.yaml` via `BUILTIN_MODELS_CONFIG`.
 
 ### Production Installation
 
@@ -273,6 +273,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 | `global.storageClass` | Storage class for PVCs | `""` |
 | `global.imagePullSecrets` | Image pull secrets | `[]` |
 | `global.maxFileSizeMB` | Maximum upload size in MB (frontend, app, docreader) | `50` |
+| `global.maxSkillBundleSizeMB` | Maximum skill bundle upload size in MB (frontend, app, ingress) | `256` |
 | `global.podSecurityContext` | Pod security context | See values.yaml |
 | `global.containerSecurityContext` | Container security context | See values.yaml |
 
@@ -333,6 +334,8 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 | `docreader.tls.caProvided` | Whether `secretName` includes a custom CA certificate (`GRPC_TLS_CA` / `-tls-ca-cert`) | `false` |
 | `docreader.tls.caKey` | CA certificate key inside `secretName` when `caProvided=true` | `"ca.crt"` |
 | `docreader.tls.serverName` | Optional TLS server name override for certificate verification | `""` |
+| `docreader.env` | Environment variables map for DocReader | `{}` |
+| `docreader.extraEnv` | Additional env entries (supports `valueFrom` / `secretKeyRef`) | `[]` |
 
 ### PostgreSQL (ParadeDB)
 

@@ -5,8 +5,9 @@ FROM python:3.12.16-bookworm AS builder
 
 ARG APT_MIRROR=""
 RUN if [ -n "$APT_MIRROR" ]; then \
-        sed -i "s@http://deb.debian.org@${APT_MIRROR}@g" /etc/apt/sources.list.d/debian.sources && \
-        sed -i "s@http://security.debian.org@${APT_MIRROR}@g" /etc/apt/sources.list.d/debian.sources; \
+        mirror="${APT_MIRROR%/}"; \
+        case "$mirror" in http://*|https://*) ;; *) mirror="http://${mirror}" ;; esac; \
+        sed -i -E "s@https?://(deb|security)\.debian\.org@${mirror}@g" /etc/apt/sources.list.d/debian.sources; \
     fi
 
 WORKDIR /app
@@ -50,8 +51,9 @@ ENV DOCREADER_VERSION=${VERSION_ARG} DOCREADER_COMMIT_ID=${COMMIT_ID_ARG}
 
 ARG APT_MIRROR=""
 RUN if [ -n "$APT_MIRROR" ]; then \
-        sed -i "s@http://deb.debian.org@${APT_MIRROR}@g" /etc/apt/sources.list.d/debian.sources && \
-        sed -i "s@http://security.debian.org@${APT_MIRROR}@g" /etc/apt/sources.list.d/debian.sources; \
+        mirror="${APT_MIRROR%/}"; \
+        case "$mirror" in http://*|https://*) ;; *) mirror="http://${mirror}" ;; esac; \
+        sed -i -E "s@https?://(deb|security)\.debian\.org@${mirror}@g" /etc/apt/sources.list.d/debian.sources; \
     fi
 
 WORKDIR /app
@@ -123,7 +125,7 @@ RUN python -m playwright install-deps webkit && rm -rf /var/lib/apt/lists/*
 
 COPY docreader/pyproject.toml docreader/uv.lock ./
 COPY --from=builder /app/docreader docreader
-COPY testdata/ /app/testdata/
+RUN rm -rf /app/docreader/tests
 
 # 随附许可证与第三方开源声明
 LABEL org.opencontainers.image.vendor="GENYEE" \

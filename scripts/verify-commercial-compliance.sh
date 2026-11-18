@@ -17,7 +17,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${REPO_ROOT}"
+cd "${REPO_ROOT}" || exit 1
 
 # Color codes (disabled if NO_COLOR is set or non-tty)
 if [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]; then
@@ -131,18 +131,22 @@ run_test() {
 
     if [[ $exit_code -eq 0 ]]; then
         PASSED_TESTS=$((PASSED_TESTS + 1))
-        printf "${C_GREEN}${C_BOLD}[PASS]${C_RESET}\n"
+        printf '%b[PASS]%b\n' "${C_GREEN}${C_BOLD}" "${C_RESET}"
         if [[ $VERBOSE -eq 1 ]] && [[ -n "${output}" ]]; then
             echo -e "${C_CYAN}--- Command Output ---${C_RESET}"
-            echo "${output}" | sed 's/^/    /'
+            while IFS= read -r _line; do
+                printf '    %s\n' "${_line}"
+            done <<< "${output}"
             echo -e "${C_CYAN}----------------------${C_RESET}"
         fi
     else
         FAILED_TESTS=$((FAILED_TESTS + 1))
         FAILED_TEST_LIST+=("${test_id}: ${description}")
-        printf "${C_RED}${C_BOLD}[FAIL]${C_RESET}\n"
+        printf '%b[FAIL]%b\n' "${C_RED}${C_BOLD}" "${C_RESET}"
         echo -e "${C_RED}    [ERROR] Command failed with exit code ${exit_code}:${C_RESET}"
-        echo "${output}" | sed 's/^/    /'
+        while IFS= read -r _line; do
+            printf '    %s\n' "${_line}"
+        done <<< "${output}"
         if [[ $BAIL_ON_FAIL -eq 1 ]]; then
             echo -e "\n${C_RED}${C_BOLD}[BAIL] Stopping immediately on first test failure.${C_RESET}"
             print_summary

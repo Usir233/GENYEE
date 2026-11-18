@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Environment for the gy-display tests (sourced after lib.sh).
 # Fake Xvfb/xfwm4/x11vnc/xdpyinfo live in stubs/seatstub.sh; every process they start inherits
 # FAKE_X (unique per test), which is how teardown finds and kills all of them.
@@ -60,8 +61,8 @@ teardown_seats() {
   [ -n "${FAKE_X:-}" ] || return 0
   local p i
   for i in 1 2 3; do
-    for p in $(fake_x_pids); do kill -KILL "$p" 2>/dev/null; done
-    [ -z "$(fake_x_pids)" ] && break
+    for p in $(fake_x_pids ""); do kill -KILL "$p" 2>/dev/null; done
+    [ -z "$(fake_x_pids "")" ] && break
     sleep 0.2
   done
   export PATH="$ORIG_PATH"

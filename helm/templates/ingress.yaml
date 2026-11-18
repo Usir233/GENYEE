@@ -14,6 +14,12 @@ metadata:
   labels:
     {{- include "genyee.componentLabels" (dict "component" "ingress" "context" .) | nindent 4 }}
   {{- $annotations := deepCopy (.Values.ingress.annotations | default dict) }}
+  {{- $fileLimitMB := add (int (.Values.global.maxFileSizeMB | default 50)) 1 }}
+  {{- $skillLimitMB := int (.Values.global.maxSkillBundleSizeMB | default 256) }}
+  {{- $effectiveBodyMB := max $fileLimitMB $skillLimitMB }}
+  {{- if or (not (hasKey $annotations "nginx.ingress.kubernetes.io/proxy-body-size")) (and (eq (toString (index $annotations "nginx.ingress.kubernetes.io/proxy-body-size")) "256m") (gt $effectiveBodyMB 256)) }}
+    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/proxy-body-size" (printf "%dm" $effectiveBodyMB) }}
+  {{- end }}
   {{- if and (not .Values.frontend.enabled) (not (hasKey $annotations "nginx.ingress.kubernetes.io/server-snippet")) }}
     {{- $_ := set $annotations "nginx.ingress.kubernetes.io/server-snippet" "location ^~ /api/v1/local-browser/internal {\n  return 404;\n}\n" }}
   {{- end }}

@@ -34,7 +34,7 @@ printf "%b\n" "${GREEN}  GENYEE 开发环境配置检查${NC}"
 printf "%b\n" "${GREEN}========================================${NC}"
 echo ""
 
-cd "$PROJECT_ROOT"
+cd "$PROJECT_ROOT" || exit 1
 
 # 检查 .env 文件
 log_info "检查 .env 文件..."
@@ -66,7 +66,7 @@ errors=0
 
 check_var() {
     local var_name=$1
-    local var_value="${!var_name}"
+    local var_value="${!var_name:-}"
     local display_value="$var_value"
     
     if [ -z "$var_value" ]; then
@@ -85,57 +85,113 @@ check_var() {
 # 数据库配置
 log_info "数据库配置:"
 check_var "DB_DRIVER"
-check_var "DB_HOST"
-check_var "DB_PORT"
-check_var "DB_USER"
-check_var "DB_PASSWORD"
-check_var "DB_NAME"
+case "${DB_DRIVER:-}" in
+    sqlite)
+        if [ -n "${DB_PATH:-}" ]; then
+            log_success "DB_PATH = $DB_PATH"
+        else
+            log_info "DB_PATH 未设置（将使用默认路径 ./data/genyee.db）"
+        fi
+        ;;
+    postgres)
+        check_var "DB_HOST"
+        check_var "DB_PORT"
+        check_var "DB_USER"
+        check_var "DB_PASSWORD"
+        check_var "DB_NAME"
+        ;;
+    "")
+        ;;
+    *)
+        log_error "不支持的 DB_DRIVER: $DB_DRIVER（仅支持 postgres 或 sqlite）"
+        errors=$((errors + 1))
+        ;;
+esac
 
 echo ""
 log_info "存储配置:"
 check_var "STORAGE_TYPE"
 
-if [ "$STORAGE_TYPE" = "minio" ]; then
-    check_var "MINIO_BUCKET_NAME"
-fi
-
-if [ "$STORAGE_TYPE" = "tos" ]; then
-    check_var "TOS_ENDPOINT"
-    check_var "TOS_REGION"
-    check_var "TOS_ACCESS_KEY"
-    check_var "TOS_SECRET_KEY"
-    check_var "TOS_BUCKET_NAME"
-fi
-
-if [ "$STORAGE_TYPE" = "s3" ]; then
-    check_var "S3_REGION"
-    check_var "S3_BUCKET_NAME"
-fi
+case "${STORAGE_TYPE:-}" in
+    minio)
+        check_var "MINIO_ACCESS_KEY_ID"
+        check_var "MINIO_SECRET_ACCESS_KEY"
+        check_var "MINIO_BUCKET_NAME"
+        ;;
+    cos)
+        check_var "COS_SECRET_ID"
+        check_var "COS_SECRET_KEY"
+        check_var "COS_REGION"
+        check_var "COS_BUCKET_NAME"
+        ;;
+    tos)
+        check_var "TOS_ENDPOINT"
+        check_var "TOS_REGION"
+        check_var "TOS_ACCESS_KEY"
+        check_var "TOS_SECRET_KEY"
+        check_var "TOS_BUCKET_NAME"
+        ;;
+    s3)
+        check_var "S3_REGION"
+        check_var "S3_BUCKET_NAME"
+        if [ -n "${S3_ACCESS_KEY:-}" ] || [ -n "${S3_SECRET_KEY:-}" ]; then
+            check_var "S3_ACCESS_KEY"
+            check_var "S3_SECRET_KEY"
+        fi
+        ;;
+    obs)
+        check_var "OBS_ENDPOINT"
+        check_var "OBS_REGION"
+        check_var "OBS_ACCESS_KEY"
+        check_var "OBS_SECRET_KEY"
+        check_var "OBS_BUCKET_NAME"
+        ;;
+    oss)
+        check_var "OSS_ENDPOINT"
+        check_var "OSS_REGION"
+        check_var "OSS_ACCESS_KEY"
+        check_var "OSS_SECRET_KEY"
+        check_var "OSS_BUCKET_NAME"
+        ;;
+esac
 
 echo ""
-log_info "Redis 与内部鉴权配置:"
-check_var "REDIS_ADDR"
+log_info "Redis、密钥与内部鉴权配置:"
+if [ "${STREAM_MANAGER_TYPE:-}" = "redis" ] || { [ -z "${STREAM_MANAGER_TYPE:-}" ] && [ "${DB_DRIVER:-}" != "sqlite" ]; }; then
+    check_var "REDIS_ADDR"
+else
+    log_info "STREAM_MANAGER_TYPE = ${STREAM_MANAGER_TYPE:-memory}（跳过 REDIS_ADDR 强制检查）"
+fi
 check_var "JWT_SECRET"
+check_var "SYSTEM_AES_KEY"
+if [ -n "${SYSTEM_AES_KEY:-}" ] && [ "${#SYSTEM_AES_KEY}" -ne 32 ]; then
+    log_error "SYSTEM_AES_KEY 长度必须精确为 32 字节（当前: ${#SYSTEM_AES_KEY}）"
+    errors=$((errors + 1))
+fi
 if [ "${DOCREADER_ALLOW_UNAUTHENTICATED:-false}" != "true" ]; then
     check_var "GRPC_AUTH_TOKEN"
 fi
 
 echo ""
-log_info "Ollama 配置:"
-check_var "OLLAMA_BASE_URL"
-
-echo ""
-log_info "模型配置:"
-if [ -n "$INIT_LLM_MODEL_NAME" ]; then
-    log_success "INIT_LLM_MODEL_NAME = $INIT_LLM_MODEL_NAME"
+log_info "模型与 Ollama 配置:"
+if [ -n "${OLLAMA_BASE_URL:-}" ]; then
+    log_success "OLLAMA_BASE_URL = $OLLAMA_BASE_URL"
+elif [ "${OLLAMA_OPTIONAL:-true}" = "false" ]; then
+    check_var "OLLAMA_BASE_URL"
 else
-    log_warning "INIT_LLM_MODEL_NAME 未设置（可选）"
+    log_warning "OLLAMA_BASE_URL 未设置（可选，使用云端或 OpenAI 兼容模型时无需配置）"
 fi
 
-if [ -n "$INIT_EMBEDDING_MODEL_NAME" ]; then
-    log_success "INIT_EMBEDDING_MODEL_NAME = $INIT_EMBEDDING_MODEL_NAME"
+if [ -n "${LLM_MODEL_NAME:-}" ]; then
+    log_success "LLM_MODEL_NAME = $LLM_MODEL_NAME"
 else
-    log_warning "INIT_EMBEDDING_MODEL_NAME 未设置（可选）"
+    log_info "LLM_MODEL_NAME 未设置（可在 Web 界面「设置 → 模型」中配置）"
+fi
+
+if [ -n "${EMBEDDING_MODEL_NAME:-}" ]; then
+    log_success "EMBEDDING_MODEL_NAME = $EMBEDDING_MODEL_NAME"
+else
+    log_info "EMBEDDING_MODEL_NAME 未设置（可在 Web 界面「设置 → 模型」中配置）"
 fi
 
 # 检查 Go 环境
@@ -168,7 +224,7 @@ else
     errors=$((errors + 1))
 fi
 
-# 检查 Docker
+# 检查 Docker（SQLite Lite 模式下为可选）
 echo ""
 log_info "检查 Docker 环境..."
 if command -v docker &> /dev/null; then
@@ -177,10 +233,14 @@ if command -v docker &> /dev/null; then
     
     if docker info &> /dev/null; then
         log_success "Docker 服务正在运行"
+    elif [ "${DB_DRIVER:-}" = "sqlite" ]; then
+        log_warning "Docker 服务未运行（SQLite Lite 模式可选）"
     else
         log_error "Docker 服务未运行"
         errors=$((errors + 1))
     fi
+elif [ "${DB_DRIVER:-}" = "sqlite" ]; then
+    log_warning "Docker 未安装（SQLite Lite 模式可选）"
 else
     log_error "Docker 未安装"
     errors=$((errors + 1))
@@ -193,6 +253,8 @@ if docker compose version &> /dev/null; then
 elif command -v docker-compose &> /dev/null; then
     compose_version=$(docker-compose --version)
     log_success "docker-compose 已安装: $compose_version"
+elif [ "${DB_DRIVER:-}" = "sqlite" ]; then
+    log_warning "Docker Compose 未安装（SQLite Lite 模式可选）"
 else
     log_error "Docker Compose 未安装"
     errors=$((errors + 1))

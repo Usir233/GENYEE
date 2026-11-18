@@ -150,7 +150,7 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
     fi && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        postgresql-client default-mysql-client tzdata sed curl bash wget \
+        postgresql-client tzdata sed curl bash wget \
         libsqlite3-0 \
         python3 python3-pip \
         nodejs npm \
@@ -172,9 +172,8 @@ RUN mkdir -p /data/files && \
 COPY --from=builder /go/bin/migrate /usr/local/bin/
 COPY --from=builder /app/yanyiwu/ /go/pkg/mod/github.com/yanyiwu/
 
-# Copy the binary from the builder stage
+# Copy runtime configuration, migrations, and binary from builder stage
 COPY --from=builder /app/config ./config
-COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/dataset/samples ./dataset/samples
 COPY --from=builder --chown=appuser:appuser /root/.duckdb /home/appuser/.duckdb
@@ -185,15 +184,16 @@ LABEL org.opencontainers.image.vendor="GENYEE" \
       org.opencontainers.image.title="genyee-app" \
       org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
 
-# Copy and make entrypoint script executable
+# Copy only runtime entrypoint and migration helper scripts
 COPY --from=builder /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
-
-# Make scripts executable
-RUN chmod +x ./scripts/*.sh
+COPY --from=builder /app/scripts/migrate.sh ./scripts/migrate.sh
+RUN chmod +x ./scripts/docker-entrypoint.sh ./scripts/migrate.sh
 
 # Expose ports
 EXPOSE 8080
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
 CMD ["./GENYEE"]

@@ -122,7 +122,8 @@ seat_bus() { echo "unix:path=$RUN_DIR/seat-$1/bus"; }
 # makes the second xfce4-session attach to the first one's xfconf and the
 # panel never appears on the new screen.
 prepare_seat_home() {
-  local n=$1 d="$RUN_DIR/seat-$n"
+  local n=$1
+  local d="$RUN_DIR/seat-$n"
   mkdir -p "$d/xdg" "$d/config" "$d/cache" "$d/data"
   chmod 0700 "$d/xdg" "$d/config" "$d/cache" "$d/data"
   [ -e "$d/config/.seeded" ] && return 0
@@ -195,7 +196,8 @@ wait_for() { # wait_for <tries> cmd...  poll a condition instead of sleeping bli
 }
 
 up_locked() {
-  local n=$1 port=$((VNC_BASE + n)) vnc_args
+  local n=$1
+  local port=$((VNC_BASE + n)) vnc_args
   # Every X probe carries its own timeout: a wedged X server accepts the
   # connection and then never replies, and an unbounded probe here would
   # hold seat-N.lock forever — every later claim of the seat queues until
@@ -251,7 +253,7 @@ seat_file() { echo "$SEATS_DIR/$1-$2"; } # seat_file N sid
 
 seat_entry() { # seat_entry N -> the table entry of seat N, or nothing
   local f
-  for f in "$SEATS_DIR"/$1-*; do
+  for f in "$SEATS_DIR/$1"-*; do
     [ -e "$f" ] && { echo "$f"; return 0; }
   done
   return 1

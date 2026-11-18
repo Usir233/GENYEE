@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
+# shellcheck disable=SC1091
 . "$HERE/lib_seats.sh"
 DISP="$HERE/../gy-display.sh"
 
@@ -25,7 +27,7 @@ t_claim_brings_up_the_whole_stack() {
   assert_eq "xfwm4 is left to the session" 0 "$(fake_x_pids xfwm4 | wc -l | tr -d ' ')"
   assert_eq "vnc listens on base+N" 1 "$(listening $((GY_VNC_BASE + n)))"
   assert_eq "token routes N to its own vnc port" "$n: 127.0.0.1:$((GY_VNC_BASE + n))" "$(cat "$GY_TOKENS_DIR/$n")"
-  assert_eq "no temp token left behind" "" "$(ls -A "$GY_RUN_DIR" | grep '^\.token\.')"
+  assert_eq "no temp token left behind" "" "$(find "$GY_RUN_DIR" -maxdepth 1 -name '.token.*' -print -quit)"
   teardown_seats
 }
 
@@ -77,14 +79,15 @@ wait_watched() { # wait_watched N...: until every seat shows an established view
 t_full_machine_fails_loudly_when_every_seat_is_watched() {
   setup_seats
   for i in 1 2 3 4; do "$DISP" claim "s$i" >/dev/null; done
-  watchers=""; for n in 1 2 3 4; do watchers="$watchers $(watch_seat "$n")"; done
+  local watchers=()
+  for n in 1 2 3 4; do watchers+=("$(watch_seat "$n")"); done
   wait_watched 1 2 3 4
   out="$("$DISP" claim s5 2>"$TMP/err")"; rc=$?
   assert_eq "exit 1" 1 "$rc"
   assert_eq "stdout empty" "" "$out"
   assert_contains "marker on stderr" GENYEE_NO_FREE_SCREEN "$(cat "$TMP/err")"
   for n in 1 2 3 4; do assert_eq "watched seat $n kept" "$n" "$("$DISP" where "s$n")"; done
-  kill $watchers 2>/dev/null
+  kill "${watchers[@]}" 2>/dev/null
   teardown_seats
 }
 
@@ -116,12 +119,13 @@ t_full_machine_evicts_an_app_seat_when_nothing_else_is_left() {
   for i in 1 2 3 4; do "$DISP" claim "s$i" >/dev/null; done
   touch -d '2 minutes ago' "$GY_SEATS_DIR"/1-* "$GY_SEATS_DIR"/3-* "$GY_SEATS_DIR"/4-*
   touch -d '8 minutes ago' "$GY_SEATS_DIR"/2-*
-  guis=""; for n in 1 2 3 4; do env DISPLAY=:$n fakegui 300 & guis="$guis $!"; done
+  local guis=()
+  for n in 1 2 3 4; do env DISPLAY=":$n" fakegui 300 & guis+=("$!"); done
   sleep 0.3
   assert_eq "the longest-idle seat with an app goes" 2 "$("$DISP" claim s5)"
   assert_eq "its session lost the seat" "" "$("$DISP" where s2)"
   assert_eq "the other app seats are kept" 1 "$("$DISP" where s1)"
-  kill $guis 2>/dev/null
+  kill "${guis[@]}" 2>/dev/null
   teardown_seats
 }
 
@@ -130,8 +134,8 @@ t_where_allocates_nothing_on_a_miss() {
   out="$("$DISP" where nobody)"; rc=$?
   assert_eq "unknown session: exit 1" 1 "$rc"
   assert_eq "unknown session: no output" "" "$out"
-  assert_eq "where did not allocate" "" "$(ls -A "$GY_SEATS_DIR" 2>/dev/null | grep -v '^\.lock$')"
-  assert_eq "where started nothing" "" "$(fake_x_pids)"
+  assert_eq "where did not allocate" "" "$(find "$GY_SEATS_DIR" -mindepth 1 -maxdepth 1 ! -name '.lock' -print -quit 2>/dev/null)"
+  assert_eq "where started nothing" "" "$(fake_x_pids "")"
   teardown_seats
 }
 
@@ -155,7 +159,7 @@ t_release_kills_only_its_own_stack() {
   assert_eq "seat 1 vnc port closed" 0 "$(listening $((GY_VNC_BASE + 1)))"
   assert_eq "seat 1 X is gone" 1 "$(xdpyinfo -display :1 >/dev/null 2>&1; echo $?)"
   assert_eq "client on the released screen is gone" 1 "$(kill -0 "$g1" 2>/dev/null && echo 0 || echo 1)"
-  assert_eq "token removed" "" "$(ls "$GY_TOKENS_DIR" | grep -x 1)"
+  assert_eq "token removed" "" "$(if [ -e "$GY_TOKENS_DIR/1" ]; then echo 1; fi)"
   assert_eq "seat 2 vnc untouched" 1 "$(listening $((GY_VNC_BASE + 2)))"
   assert_eq "seat 2 X untouched" 0 "$(xdpyinfo -display :2 >/dev/null 2>&1; echo $?)"
   assert_eq "client on the other screen survives" 0 "$(kill -0 "$g2" 2>/dev/null && echo 0 || echo 1)"
@@ -177,7 +181,7 @@ t_reap_only_takes_idle_unwatched_seats() {
   assert_eq "busy seat kept" 2 "$("$DISP" where s2)"
   assert_eq "watched seat kept" 3 "$("$DISP" where s3)"
   assert_eq "reclaimed seat has no table entry" "" "$("$DISP" where s1)"
-  assert_eq "reclaimed seat lost its token" "" "$(ls "$GY_TOKENS_DIR" | grep -x -e 1 -e 4)"
+  assert_eq "reclaimed seat lost its token" "" "$(for _t in 1 4; do [ -e "$GY_TOKENS_DIR/$_t" ] && echo "$_t"; done)"
   assert_eq "reclaimed seat vnc closed" 0 "$(listening $((GY_VNC_BASE + 4)))"
   assert_eq "kept seat vnc still up" 1 "$(listening $((GY_VNC_BASE + 3)))"
   kill "$busy" "$viewer" 2>/dev/null
@@ -245,7 +249,7 @@ t_rejects_hostile_ids() {
   "$DISP" claim "$(printf 'a%.0s' $(seq 65))" 2>/dev/null; assert_eq "65 chars rejected" 2 $?
   "$DISP" where '../x' 2>/dev/null; assert_eq "where rejects too" 2 $?
   "$DISP" release 'a b' 2>/dev/null; assert_eq "release rejects too" 2 $?
-  assert_eq "nothing was allocated" "" "$(ls -A "$GY_SEATS_DIR" | grep -v '^\.lock$')"
+  assert_eq "nothing was allocated" "" "$(find "$GY_SEATS_DIR" -mindepth 1 -maxdepth 1 ! -name '.lock' -print -quit 2>/dev/null)"
   teardown_seats
 }
 

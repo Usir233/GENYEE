@@ -36,12 +36,11 @@ printf "%b\n" "${GREEN}========================================${NC}"
 echo ""
 
 # 检查是否在项目根目录
-cd "$PROJECT_ROOT"
+cd "$PROJECT_ROOT" || exit 1
 
 # 1. 启动基础设施
 log_info "步骤 1/3: 启动基础设施服务..."
-./scripts/dev.sh start
-if [ $? -ne 0 ]; then
+if ! ./scripts/dev.sh start; then
     log_error "基础设施启动失败"
     exit 1
 fi
@@ -60,6 +59,7 @@ if [ "$start_backend" = "y" ] || [ "$start_backend" = "Y" ]; then
     log_info "启动后端..."
     mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/tmp"
     # 在后台启动后端（通过位置参数传递目录，避免路径特殊字符注入）
+    # shellcheck disable=SC2016
     nohup bash -c 'cd -- "$1" && ./scripts/dev.sh app' _ "$PROJECT_ROOT" > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
     BACKEND_PID=$!
     echo "$BACKEND_PID" > "$PROJECT_ROOT/tmp/backend.pid"
@@ -80,6 +80,7 @@ if [ "$start_frontend" = "y" ] || [ "$start_frontend" = "Y" ]; then
     log_info "启动前端..."
     mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/tmp"
     # 在后台启动前端（通过位置参数传递目录，避免路径特殊字符注入）
+    # shellcheck disable=SC2016
     nohup bash -c 'cd -- "$1/frontend" && npm run dev' _ "$PROJECT_ROOT" > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" > "$PROJECT_ROOT/tmp/frontend.pid"

@@ -112,8 +112,11 @@ case "$1" in
         echo "Creating migration files for $2..."
         migrate create -ext sql -dir "${MIGRATIONS_DIR}" -seq -- "$2"
         echo "Created:"
-        echo "  - ${MIGRATIONS_DIR}/$(ls -t "${MIGRATIONS_DIR}" | head -1)"
-        echo "  - ${MIGRATIONS_DIR}/$(ls -t "${MIGRATIONS_DIR}" | head -2 | tail -1)"
+        for _mig_file in "${MIGRATIONS_DIR}"/*_"$2".*.sql; do
+            if [ -e "$_mig_file" ]; then
+                echo "  - $_mig_file"
+            fi
+        done
         ;;
     version)
         echo "Checking current migration version..."

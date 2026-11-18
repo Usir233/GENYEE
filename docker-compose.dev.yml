@@ -24,14 +24,36 @@ services:
     stop_grace_period: 1m
 
   redis:
-    image: redis:7.0-alpine
+    image: redis:7.2-alpine
     container_name: GENYEE-redis-dev
     ports:
       - "${REDIS_BIND:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     volumes:
       - redis_data_dev:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    restart: always
+    command:
+      - sh
+      - -ec
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --dir /data --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec redis-server --appendonly yes --dir /data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |
+          if [ -n "$$REDIS_PASSWORD" ]; then
+            REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli -e --no-auth-warning ping
+          else
+            redis-cli -e ping
+          fi
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
     networks:
       - GENYEE-network-dev
 
@@ -247,6 +269,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.sandbox
+      target: sandbox
     profiles:
       - full
     command: ["true"]
@@ -257,12 +280,15 @@ services:
       context: .
       dockerfile: docker/Dockerfile.docreader
       args:
+        APT_MIRROR: ${APT_MIRROR:-}
+        PLAYWRIGHT_DOWNLOAD_HOST: ${PLAYWRIGHT_DOWNLOAD_HOST:-}
+        PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST: ${PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST:-}
         VERSION_ARG: ${DOCREADER_VERSION:-unknown}
         COMMIT_ID_ARG: ${DOCREADER_COMMIT_ID:-unknown}
     image: ${GENYEE_REGISTRY:-genyee}/genyee-docreader:${GENYEE_VERSION:-latest}
     container_name: GENYEE-docreader-dev
     ports:
-      - "${DOCREADER_BIND:-127.0.0.1}:${DOCREADER_PORT:-50051}:50051"
+      - "${DOCREADER_BIND:-127.0.0.1}:${DOCREADER_PORT:-50051}:${DOCREADER_GRPC_PORT:-50051}"
     volumes:
       - docreader-tmp-dev:/tmp/docreader
     environment:
@@ -299,6 +325,15 @@ services:
       # ========== 解析通用 ==========
       - DOCREADER_DOCX_MAX_PAGES=${DOCREADER_DOCX_MAX_PAGES:-0}
       - DOCREADER_MARKITDOWN_MAX_WORKERS=${DOCREADER_MARKITDOWN_MAX_WORKERS:-1}
+      - DOCREADER_HTML_MAIN_CONTENT=${DOCREADER_HTML_MAIN_CONTENT:-false}
+      # ========== XLSX / Excel ==========
+      - DOCREADER_XLSX_PERCENT_AS_TEXT=${DOCREADER_XLSX_PERCENT_AS_TEXT:-false}
+      - DOCREADER_XLSX_PCT_ROW_HINT_MIN=${DOCREADER_XLSX_PCT_ROW_HINT_MIN:-0}
+      - GENYEE_PREPROCESS_PAD=${GENYEE_PREPROCESS_PAD:-}
+      - GENYEE_PREPROCESS_MIN_SCORE=${GENYEE_PREPROCESS_MIN_SCORE:-}
+      - GENYEE_PREPROCESS_ANG_TOL=${GENYEE_PREPROCESS_ANG_TOL:-}
+      - GENYEE_PREPROCESS_SIZE_MIN=${GENYEE_PREPROCESS_SIZE_MIN:-}
+      - GENYEE_PREPROCESS_QUAD_TOL=${GENYEE_PREPROCESS_QUAD_TOL:-}
       # 出站 HTTP/HTTPS 代理（抓取网页 / 远程图片时）
       - DOCREADER_EXTERNAL_HTTP_PROXY=${DOCREADER_EXTERNAL_HTTP_PROXY:-}
       - DOCREADER_EXTERNAL_HTTPS_PROXY=${DOCREADER_EXTERNAL_HTTPS_PROXY:-}
@@ -350,7 +385,25 @@ services:
       - DOCREADER_PDF_MAX_CHART_REGION_AREA=${DOCREADER_PDF_MAX_CHART_REGION_AREA:-}
       - DOCREADER_PDF_MAX_FIGURE_HEIGHT_RATIO=${DOCREADER_PDF_MAX_FIGURE_HEIGHT_RATIO:-}
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=localhost:50051"]
+      test:
+        - CMD
+        - sh
+        - -ec
+        - |
+          set -- -addr="localhost:$${DOCREADER_GRPC_PORT:-50051}"
+          case "$$(printf '%s' "$${GRPC_TLS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')" in
+            1|true|yes|on)
+              set -- "$$@" -tls
+              [ -n "$${GRPC_TLS_CA:-}" ] && set -- "$$@" -tls-ca-cert="$$GRPC_TLS_CA"
+              [ -n "$${GRPC_TLS_SERVER_NAME:-}" ] && set -- "$$@" -tls-server-name="$$GRPC_TLS_SERVER_NAME"
+              case "$$(printf '%s' "$${GRPC_MTLS_REQUIRE_CLIENT_CERT:-false}" | tr '[:upper:]' '[:lower:]')" in
+                1|true|yes|on)
+                  [ -n "$${GRPC_TLS_CERT:-}" ] && [ -n "$${GRPC_TLS_KEY:-}" ] && set -- "$$@" -tls-client-cert="$$GRPC_TLS_CERT" -tls-client-key="$$GRPC_TLS_KEY"
+                  ;;
+              esac
+              ;;
+          esac
+          exec grpc_health_probe "$$@"
       interval: 30s
       timeout: 10s
       retries: 3
@@ -368,8 +421,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.odl-hybrid
+      args:
+        - PRELOAD_MODELS=${PRELOAD_MODELS:-false}
     image: ${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${GENYEE_VERSION:-latest}
-    container_name: GENYEE-odl-hybrid
+    container_name: GENYEE-odl-hybrid-dev
     profiles:
       - odl-hybrid
     ports:
@@ -509,7 +564,7 @@ services:
       langfuse-db-init:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
       langfuse-clickhouse:
         condition: service_healthy
       langfuse-minio:

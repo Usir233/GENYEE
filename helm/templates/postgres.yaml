@@ -28,10 +28,7 @@ spec:
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
-      {{- with .Values.global.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "genyee.podSecurityContext" (dict "componentSecurityContext" .Values.postgresql.podSecurityContext "context" .) | nindent 6 }}
       containers:
         - name: postgres
           image: {{ include "genyee.postgresql.image" . }}

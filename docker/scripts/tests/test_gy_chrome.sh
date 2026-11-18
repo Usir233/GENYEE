@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
 GYCHROME="$HERE/../gy-chrome.sh"
 
@@ -52,7 +53,7 @@ t_a_seat_with_a_session_opens_the_session_browser() {
 
 t_no_seat_falls_back_to_chrome_gy() {
   setup_gy_chrome
-  DISPLAY= "$GYCHROME" https://x.example
+  DISPLAY='' "$GYCHROME" https://x.example
   assert_contains "fell back to the plain shim" "chromegy" "$(cat "$CHROME_GY_LOG")"
   assert_eq "session path untouched" "" "$(cat "$AB_LOG")"
   teardown
@@ -145,7 +146,7 @@ EOF
   chmod 0755 "$TMP/bin/agent-browser"
   rm -f /tmp/gy-chrome.log
   DISPLAY=:3 "$GYCHROME" https://x.example
-  assert_eq "/tmp/gy-chrome.log is never created" 1 "$(test -e /tmp/gy-chrome.log; echo $?)"
+  assert_eq "/tmp/gy-chrome.log is never created" 1 "$(if [ -e /tmp/gy-chrome.log ]; then echo 0; else echo 1; fi)"
   assert_contains "log written inside session browser root" "agent-browser-secret-URL-diagnostic" \
     "$(cat "$GY_SESSIONS_ROOT/sess-3.browser/.gy-chrome.log")"
   assert_eq "session log mode is 600" 600 "$(stat -c %a "$GY_SESSIONS_ROOT/sess-3.browser/.gy-chrome.log")"

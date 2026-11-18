@@ -38,12 +38,12 @@ h=$(printf '%s' "$geom" | cut -dx -f2)
 case "$w" in ""|*[!0-9]*) w=1280 ;; esac
 case "$h" in ""|*[!0-9]*) h=800 ;; esac
 
-BASE="--no-sandbox --disable-dev-shm-usage \
---disable-blink-features=AutomationControlled --hide-crash-restore-bubble \
---no-first-run --no-default-browser-check --password-store=basic \
---enable-unsafe-swiftshader --accept-lang=en-US,en"
-
 if [ -n "${GY_SEAT:-}" ]; then
-  exec "$BIN" $BASE --window-position=0,0 --window-size="${w},${h}" "$@"
+  set -- --window-position=0,0 --window-size="${w},${h}" "$@"
 fi
-exec "$BIN" $BASE "$@"
+exec "$BIN" \
+  --no-sandbox --disable-dev-shm-usage \
+  --disable-blink-features=AutomationControlled --hide-crash-restore-bubble \
+  --no-first-run --no-default-browser-check --password-store=basic \
+  --enable-unsafe-swiftshader --accept-lang=en-US,en \
+  "$@"

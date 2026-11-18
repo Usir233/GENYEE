@@ -73,11 +73,12 @@ EOF
 # client_max_body_size 计的是整个请求体（文件 + multipart 分隔符/文件名等），
 # 前端按文件本身大小校验。上限若恰等于 FILE_MB，正好 FILE_MB 的文件会被
 # nginx 以 413 拒绝，所以给 multipart 开销留 1M 余量。
-export MAX_FILE_SIZE=$((FILE_MB + 1))M
-export MAX_SKILL_BUNDLE_SIZE=${SKILL_MB}M
-export APP_HOST=${APP_HOST:-app}
-export APP_PORT=${APP_PORT:-8080}
-export APP_SCHEME=${APP_SCHEME:-http}
+export MAX_FILE_SIZE="$((FILE_MB + 1))M"
+export MAX_SKILL_BUNDLE_SIZE="${SKILL_MB}M"
+export APP_HOST="${APP_HOST:-app}"
+export APP_PORT="${APP_PORT:-8080}"
+export APP_SCHEME="${APP_SCHEME:-http}"
+# shellcheck disable=SC2016
 envsubst '${MAX_FILE_SIZE} ${MAX_SKILL_BUNDLE_SIZE} ${APP_HOST} ${APP_PORT} ${APP_SCHEME}' \
   < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
 

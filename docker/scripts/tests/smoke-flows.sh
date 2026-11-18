@@ -15,6 +15,7 @@
 # Order matters: the vault must be non-empty before item 3.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 . "$HERE/lib.sh"
 IMG="${1:?usage: smoke-flows.sh IMAGE}"
 C=gy-flows-smoke
@@ -287,10 +288,10 @@ for i in 1 2 3 4; do
   ev "racing session $i rc=$(cat /tmp/race$i.rc 2>/dev/null)"; blk "$(cat /tmp/race$i.log 2>/dev/null)"
 done
 ev "seat table after the race"; blk "$(seat_map)"
-DS=""
-for i in 1 2 3 4; do DS="$DS $(seat_of "5e5e5e5e-0000-4000-8000-00000000000$i")"; done
-ev "claimed seats:$DS"
-assert_eq "four sessions hold four distinct seats" 4 "$(printf '%s\n' $DS | sort -u | wc -l)"
+DS=()
+for i in 1 2 3 4; do DS+=("$(seat_of "5e5e5e5e-0000-4000-8000-00000000000$i")"); done
+ev "claimed seats: ${DS[*]}"
+assert_eq "four sessions hold four distinct seats" 4 "$(printf '%s\n' "${DS[@]}" | sort -u | wc -l)"
 for i in 1 2 3 4; do
   s="5e5e5e5e-0000-4000-8000-00000000000$i"
   d="$(seat_of "$s")"; p="$(main_pid "$s")"

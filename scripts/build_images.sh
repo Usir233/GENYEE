@@ -21,7 +21,6 @@ IMAGE_TAG="${GENYEE_VERSION:-latest}"
 
 # 版本信息
 VERSION="1.0.0"
-SCRIPT_NAME=$(basename "$0")
 
 # 显示帮助信息
 show_help() {
@@ -129,12 +128,12 @@ get_version_info() {
 build_app_image() {
     log_info "构建应用镜像 (${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG})..."
     
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 获取版本信息
     get_version_info
     
-    docker build \
+    if docker build \
         --platform "$PLATFORM" \
         --build-arg "GOPRIVATE_ARG=${GOPRIVATE:-}" \
         --build-arg "GOPROXY_ARG=${GOPROXY:-https://goproxy.cn,direct}" \
@@ -147,9 +146,7 @@ build_app_image() {
         -f docker/Dockerfile.app \
         -t "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-app:latest" \
-        .
-    
-    if [ $? -eq 0 ]; then
+        .; then
         log_success "应用镜像构建成功"
         return 0
     else
@@ -162,12 +159,12 @@ build_app_image() {
 build_docreader_image() {
     log_info "构建文档读取器镜像 (${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG})..."
     
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
 
     # 与 app 镜像使用同一份 VERSION 和 Git 提交信息。
     get_version_info
     
-    docker build \
+    if docker build \
         --platform "$PLATFORM" \
         --build-arg "PLATFORM=$PLATFORM" \
         --build-arg "TARGETARCH=$TARGETARCH" \
@@ -179,9 +176,7 @@ build_docreader_image() {
         -f docker/Dockerfile.docreader \
         -t "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-docreader:latest" \
-        .
-    
-    if [ $? -eq 0 ]; then
+        .; then
         log_success "文档读取器镜像构建成功"
         return 0
     else
@@ -194,7 +189,7 @@ build_docreader_image() {
 build_frontend_image() {
     log_info "构建前端镜像 (${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG})..."
     
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
     
     # 获取版本信息（用于注入前端 commit hash）
     get_version_info
@@ -207,16 +202,14 @@ build_frontend_image() {
         extra_args+=(--build-arg "NODE_MAX_OLD_SPACE_SIZE=$NODE_MAX_OLD_SPACE_SIZE")
     fi
 
-    docker build \
+    if docker build \
         --platform "$PLATFORM" \
         --build-arg "VITE_FRONTEND_COMMIT=$COMMIT_ID" \
         "${extra_args[@]}" \
         -f frontend/Dockerfile \
         -t "${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-ui:latest" \
-        frontend/
-    
-    if [ $? -eq 0 ]; then
+        frontend/; then
         log_success "前端镜像构建成功"
         return 0
     else
@@ -229,11 +222,11 @@ build_frontend_image() {
 build_sandbox_image() {
     log_info "构建沙箱镜像 (${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG})..."
 
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
 
     # 同时打上 latest 与 main：默认镜像跟的是 latest（见 sandbox.go 的 DefaultDockerImage），
     # 而 Docker 后端只在本地缺失时才去拉，本地不打对应标签就等于白构建。
-    docker build \
+    if ! docker build \
         --platform "$PLATFORM" \
         --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
@@ -241,9 +234,7 @@ build_sandbox_image() {
         -t "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:latest" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:main" \
-        .
-
-    if [ $? -ne 0 ]; then
+        .; then
         log_error "沙箱镜像构建失败"
         return 1
     fi
@@ -252,16 +243,14 @@ build_sandbox_image() {
     # 因此 Cube 用的是注入了 envd 的变体镜像。详见 website-docs/06-development/04-sandbox-deployment.md。
     log_info "构建沙箱镜像 Cube 变体 (${GENYEE_REGISTRY}/genyee-sandbox:latest-cube)..."
 
-    docker build \
+    if ! docker build \
         --platform "$PLATFORM" \
         --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
         --target cube \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-cube" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:main-cube" \
-        .
-
-    if [ $? -ne 0 ]; then
+        .; then
         log_error "沙箱镜像 Cube 变体构建失败"
         return 1
     fi
@@ -270,7 +259,7 @@ build_sandbox_image() {
     # builds; the Docker backend does not consume this image yet.
     log_info "构建沙箱镜像桌面变体 (${GENYEE_REGISTRY}/genyee-sandbox:desktop)..."
 
-    docker build \
+    if ! docker build \
         --platform "$PLATFORM" \
         --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
@@ -278,16 +267,14 @@ build_sandbox_image() {
         -t "${GENYEE_REGISTRY}/genyee-sandbox:desktop" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:main-desktop" \
-        .
-
-    if [ $? -ne 0 ]; then
+        .; then
         log_error "沙箱镜像桌面变体构建失败"
         return 1
     fi
 
     log_info "构建沙箱镜像桌面 Cube 变体 (${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube)..."
 
-    docker build \
+    if docker build \
         --platform "$PLATFORM" \
         --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
@@ -295,9 +282,7 @@ build_sandbox_image() {
         -t "${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop-cube" \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:main-desktop-cube" \
-        .
-
-    if [ $? -eq 0 ]; then
+        .; then
         log_success "沙箱镜像构建成功"
         return 0
     else
@@ -310,17 +295,15 @@ build_sandbox_image() {
 build_odl_hybrid_image() {
     log_info "构建混合文档解析器镜像 (${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG})..."
 
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
 
-    docker build \
+    if docker build \
         --platform "$PLATFORM" \
         --build-arg "PRELOAD_MODELS=${PRELOAD_MODELS:-false}" \
         -f docker/Dockerfile.odl-hybrid \
         -t "${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" \
-        .
-
-    if [ $? -eq 0 ]; then
+        .; then
         log_success "混合文档解析器镜像构建成功"
         return 0
     else
@@ -333,16 +316,14 @@ build_odl_hybrid_image() {
 build_mcp_image() {
     log_info "构建 MCP Server 镜像 (${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG})..."
 
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || return 1
 
-    docker build \
+    if docker build \
         --platform "$PLATFORM" \
         -f mcp-server/Dockerfile \
         -t "${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-mcp:latest" \
-        mcp-server/
-
-    if [ $? -eq 0 ]; then
+        mcp-server/; then
         log_success "MCP Server 镜像构建成功"
         return 0
     else
@@ -437,22 +418,38 @@ build_all_images() {
 # 清理本地镜像
 clean_images() {
     log_info "清理本地GENYEE镜像..."
-    
+    local img
+    local id_arr=()
+    local target_images=(
+        "${GENYEE_REGISTRY}/genyee-app:latest"
+        "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}"
+        "${GENYEE_REGISTRY}/genyee-docreader:latest"
+        "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}"
+        "${GENYEE_REGISTRY}/genyee-ui:latest"
+        "${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}"
+        "${GENYEE_REGISTRY}/genyee-odl-hybrid:latest"
+        "${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}"
+        "${GENYEE_REGISTRY}/genyee-mcp:latest"
+        "${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}"
+    )
+
     # 停止相关容器
     log_info "停止相关容器..."
-    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-app:latest" 2>/dev/null) 2>/dev/null || true
-    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-docreader:latest" 2>/dev/null) 2>/dev/null || true
-    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-ui:latest" 2>/dev/null) 2>/dev/null || true
-    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" 2>/dev/null) 2>/dev/null || true
-    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-mcp:latest" 2>/dev/null) 2>/dev/null || true
-    
+    for img in "${target_images[@]}"; do
+        mapfile -t id_arr < <(docker ps -q --filter "ancestor=${img}" 2>/dev/null || true)
+        if [ "${#id_arr[@]}" -gt 0 ]; then
+            docker stop "${id_arr[@]}" 2>/dev/null || true
+        fi
+    done
+
     # 删除相关容器
     log_info "删除相关容器..."
-    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-app:latest" 2>/dev/null) 2>/dev/null || true
-    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-docreader:latest" 2>/dev/null) 2>/dev/null || true
-    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-ui:latest" 2>/dev/null) 2>/dev/null || true
-    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" 2>/dev/null) 2>/dev/null || true
-    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-mcp:latest" 2>/dev/null) 2>/dev/null || true
+    for img in "${target_images[@]}"; do
+        mapfile -t id_arr < <(docker ps -aq --filter "ancestor=${img}" 2>/dev/null || true)
+        if [ "${#id_arr[@]}" -gt 0 ]; then
+            docker rm "${id_arr[@]}" 2>/dev/null || true
+        fi
+    done
     
     # 删除镜像
     log_info "删除本地镜像..."
@@ -521,8 +518,7 @@ while [ "$1" != "" ]; do
 done
 
 # 检查Docker环境
-check_docker
-if [ $? -ne 0 ]; then
+if ! check_docker; then
     exit 1
 fi
 

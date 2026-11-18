@@ -83,13 +83,12 @@ Optional components enabled:
   CONNECTING TO LLM
 --------------------------------------------------------------------------------
 
-GENYEE requires an LLM backend. Configure via environment variables:
+GENYEE requires an LLM backend. Configure Ollama via environment variables and
+register your models in the Web UI (Settings -> Models) or via BUILTIN_MODELS_CONFIG:
 
   helm upgrade {{ .Release.Name }} ./helm \
     --set app.extraEnv[0].name=OLLAMA_BASE_URL \
-    --set app.extraEnv[0].value=http://ollama:11434 \
-    --set app.extraEnv[1].name=INIT_LLM_MODEL_NAME \
-    --set app.extraEnv[1].value=qwen2.5:7b
+    --set app.extraEnv[0].value=http://ollama:11434
 
 Supported LLM backends:
   - Ollama (local)
