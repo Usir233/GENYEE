@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/infrastructure/docparser"
@@ -55,16 +56,22 @@ func TestBindStoredImagesClaimsExtractedImagesForTheDocument(t *testing.T) {
 	s := &knowledgeService{resourceCatalog: catalog}
 	knowledge := &types.Knowledge{ID: "doc-1", TenantID: 7}
 
-	if err := s.bindStoredImages(context.Background(), knowledge, []docparser.StoredImage{
+	err := s.bindStoredImages(context.Background(), knowledge, []docparser.StoredImage{
 		{ServingURL: "resource://ownImage"},
 		{ServingURL: "resource://secondOwnImage"},
 		{ServingURL: "  "},                         // blank ref is skipped
-		{ServingURL: "resource://unknownImage"},    // unresolvable is skipped
-		{ServingURL: "resource://foreignImage"},    // cross-workspace is skipped
-		{ServingURL: "resource://bindFailsImage"},  // bind error does not abort the loop
+		{ServingURL: "resource://unknownImage"},    // unresolvable surfaces error without aborting loop
+		{ServingURL: "resource://foreignImage"},    // cross-workspace surfaces error without aborting loop
+		{ServingURL: "resource://bindFailsImage"},  // bind error surfaces without aborting loop
 		{ServingURL: "local://images/physicalRef"}, // provider:// refs resolve and bind too
-	}); err != nil {
-		t.Fatalf("bindStoredImages: %v", err)
+	})
+	if err == nil {
+		t.Fatal("expected joined error from unresolvable, cross-workspace, and failed-bind refs, got nil")
+	}
+	for _, wantErrSubstr := range []string{"unknownImage", "foreignImage", "boom"} {
+		if !strings.Contains(err.Error(), wantErrSubstr) {
+			t.Errorf("bindStoredImages error %q missing substring %q", err.Error(), wantErrSubstr)
+		}
 	}
 
 	want := []string{
