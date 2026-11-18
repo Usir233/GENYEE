@@ -14,13 +14,18 @@ import (
 )
 
 func TestNormalizeSearchMode(t *testing.T) {
-	for in, want := range map[string]string{
-		"": SearchModeHybrid, "hybrid": SearchModeHybrid,
-		" Semantic ": SearchModeSemantic, "KEYWORD": SearchModeKeyword,
+	for _, tc := range []struct {
+		in   string
+		want string
+	}{
+		{"", SearchModeHybrid},
+		{"hybrid", SearchModeHybrid},
+		{" Semantic ", SearchModeSemantic},
+		{"KEYWORD", SearchModeKeyword},
 	} {
-		got, err := normalizeSearchMode(in)
-		if err != nil || got != want {
-			t.Errorf("normalizeSearchMode(%q) = %q, %v; want %q", in, got, err, want)
+		got, err := normalizeSearchMode(tc.in)
+		if err != nil || got != tc.want {
+			t.Errorf("normalizeSearchMode(%q) = %q, %v; want %q", tc.in, got, err, tc.want)
 		}
 	}
 	if _, err := normalizeSearchMode("regex"); err == nil {

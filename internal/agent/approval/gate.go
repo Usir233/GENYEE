@@ -58,8 +58,10 @@ type Decision struct {
 
 // PendingRequest carries everything needed to block and notify the UI.
 type PendingRequest struct {
-	TenantID           uint64
-	UserID             string // owner of the session that initiated the call (used for Resolve authorization); empty disables user check
+	TenantID uint64
+	// UserID is the owner of the session that initiated the call (used for Resolve authorization);
+	// empty disables the per-user check.
+	UserID             string
 	SessionID          string
 	AssistantMessageID string
 	RequestID          string

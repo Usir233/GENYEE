@@ -103,10 +103,12 @@ func TestTruncateForSummary(t *testing.T) {
 			want:    "Section",
 		},
 		{
-			name:    "truncates long content",
-			content: "This is a very long paragraph that should be truncated at some point because it exceeds the maximum length",
-			maxLen:  20,
-			want:    "This is a very long ..."},
+			name: "truncates long content",
+			content: "This is a very long paragraph that should be truncated at some point because it exceeds " +
+				"the maximum length",
+			maxLen: 20,
+			want:   "This is a very long ...",
+		},
 		{
 			name:    "takes first paragraph",
 			content: "First paragraph.\n\nSecond paragraph.",
@@ -287,7 +289,11 @@ func TestWikiSearchSharesRoutesWithWikiReadPage(t *testing.T) {
 		wikiPageKey("kb-1", page.Slug),
 	}
 	if !reflect.DeepEqual(service.getCalls, wantCalls) {
-		t.Fatalf("GetPageBySlug calls = %v, want cached owner first and full ambiguity scan %v", service.getCalls, wantCalls)
+		t.Fatalf(
+			"GetPageBySlug calls = %v, want cached owner first and full ambiguity scan %v",
+			service.getCalls,
+			wantCalls,
+		)
 	}
 }
 

@@ -138,7 +138,12 @@ func TestHostApprovalsUsesCallerWorkspaceAndValidUTF8Preview(t *testing.T) {
 		Stdin:        multiByte,
 	})
 	require.NoError(t, err)
-	require.Equal(t, callerTenant, gate.lastReq.TenantID, "host approval must file under caller workspace, not shared agent owner")
+	require.Equal(
+		t,
+		callerTenant,
+		gate.lastReq.TenantID,
+		"host approval must file under caller workspace, not shared agent owner",
+	)
 	require.True(t, utf8.ValidString(gate.lastReq.Host.WritePreview), "WritePreview must remain valid UTF-8")
 	require.LessOrEqual(t, len(gate.lastReq.Host.WritePreview), hostPreviewLimit)
 	require.True(t, utf8.ValidString(gate.lastReq.Host.Stdin), "Stdin preview must remain valid UTF-8")
@@ -188,14 +193,20 @@ func (t *w5ValidatedInnerTool) Cleanup(context.Context) error {
 	return nil
 }
 
-// W5-TOOLS-003: ValidateParams / CastParams 64-bit integer range safety & ConfirmedTool ModifiedArgs validation + forwarding.
+// W5-TOOLS-003: ValidateParams / CastParams 64-bit integer range safety & ConfirmedTool ModifiedArgs validation +
+// forwarding.
 func TestValidateParamsAcceptsMaxInt64AndConfirmedToolValidatesModifiedArgs(t *testing.T) {
 	intSchema := json.RawMessage(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`)
 
 	// math.MaxInt64 rounds to 2^63 in float64, where int64(f) overflows to MinInt64 in Go.
 	errs := ValidateParams(json.RawMessage(`{"id":9223372036854775807}`), intSchema)
 	require.Empty(t, errs, "math.MaxInt64 must pass integer schema validation")
-	require.NotEmpty(t, ValidateParams(json.RawMessage(`{"id":1.5}`), intSchema), "fractional numbers must fail integer check")
+	require.NotEmpty(
+		t,
+		ValidateParams(json.RawMessage(`{"id":1.5}`),
+			intSchema),
+		"fractional numbers must fail integer check",
+	)
 
 	// CastParams must not overflow huge exponent floats to negative int64.
 	casted := CastParams(json.RawMessage(`{"id":1e20}`), intSchema)
@@ -219,7 +230,12 @@ func TestValidateParamsAcceptsMaxInt64AndConfirmedToolValidatesModifiedArgs(t *t
 			ModifiedArgs: json.RawMessage(`{"count":999}`),
 		},
 	}
-	confirmedBad := NewConfirmedTool(inner, operations.RiskWrite, operations.Access{Level: types.AssistantAccessConfirm}, badGate)
+	confirmedBad := NewConfirmedTool(
+		inner,
+		operations.RiskWrite,
+		operations.Access{Level: types.AssistantAccessConfirm},
+		badGate,
+	)
 	res, err := confirmedBad.Execute(interactiveCtx(), json.RawMessage(`{"count":5}`))
 	require.NoError(t, err)
 	require.False(t, res.Success, "out-of-range ModifiedArgs must fail validation")
@@ -232,7 +248,12 @@ func TestValidateParamsAcceptsMaxInt64AndConfirmedToolValidatesModifiedArgs(t *t
 			ModifiedArgs: json.RawMessage(`{"count":"7"}`),
 		},
 	}
-	confirmedGood := NewConfirmedTool(inner, operations.RiskWrite, operations.Access{Level: types.AssistantAccessConfirm}, goodGate)
+	confirmedGood := NewConfirmedTool(
+		inner,
+		operations.RiskWrite,
+		operations.Access{Level: types.AssistantAccessConfirm},
+		goodGate,
+	)
 	reg := NewToolRegistry()
 	reg.SetMaxToolOutputSize(32)
 	reg.RegisterTool(confirmedGood)
@@ -275,7 +296,8 @@ func (s *w5SkillStore) WriteSessionFile(_ context.Context, _, filePath string, c
 	return nil
 }
 
-// W5-TOOLS-004: WriteSkillFileTool & EditSkillFileTool reject relative skillDir, symlink/non-dir ancestors, and symlink targets.
+// W5-TOOLS-004: WriteSkillFileTool & EditSkillFileTool reject relative skillDir, symlink/non-dir ancestors, and
+// symlink targets.
 func TestSkillFileToolsRejectSymlinkTargetsAndAncestors(t *testing.T) {
 	_, err := resolveSkillFilePath("relative/skill", "SKILL.md")
 	require.Error(t, err, "relative skillDir must be rejected")
@@ -285,11 +307,11 @@ func TestSkillFileToolsRejectSymlinkTargetsAndAncestors(t *testing.T) {
 
 	store := &w5SkillStore{
 		stats: map[string]*sandbox.RemoteStatEntry{
-			skillDir:                   {Type: sandbox.RemoteEntryDir},
-			skillDir + "/symlink-dir":  {Type: sandbox.RemoteEntryOther},
-			skillDir + "/symlink.txt":  {Type: sandbox.RemoteEntryOther, Size: 10},
-			skillDir + "/subdir":       {Type: sandbox.RemoteEntryDir},
-			skillDir + "/regular.txt":  {Type: sandbox.RemoteEntryFile, Size: 11},
+			skillDir:                  {Type: sandbox.RemoteEntryDir},
+			skillDir + "/symlink-dir": {Type: sandbox.RemoteEntryOther},
+			skillDir + "/symlink.txt": {Type: sandbox.RemoteEntryOther, Size: 10},
+			skillDir + "/subdir":      {Type: sandbox.RemoteEntryDir},
+			skillDir + "/regular.txt": {Type: sandbox.RemoteEntryFile, Size: 11},
 		},
 		files: map[string][]byte{
 			skillDir + "/symlink.txt": []byte("hello world"),
@@ -337,11 +359,19 @@ type w5CaptureSearchKBService struct {
 	callKB []string
 }
 
-func (s *w5CaptureSearchKBService) GetKnowledgeBasesByIDsOnly(_ context.Context, _ []string) ([]*types.KnowledgeBase, error) {
+func (s *w5CaptureSearchKBService) GetKnowledgeBasesByIDsOnly(
+	_ context.Context,
+	_ []string,
+) ([]*types.KnowledgeBase,
+	error,
+) {
 	return s.kbs, nil
 }
 
-func (s *w5CaptureSearchKBService) ResolveEmbeddingModelKeys(_ context.Context, kbs []*types.KnowledgeBase) map[string]string {
+func (s *w5CaptureSearchKBService) ResolveEmbeddingModelKeys(
+	_ context.Context,
+	kbs []*types.KnowledgeBase,
+) map[string]string {
 	out := make(map[string]string, len(kbs))
 	for _, kb := range kbs {
 		if kb != nil {
@@ -355,7 +385,13 @@ func (s *w5CaptureSearchKBService) GetQueryEmbedding(_ context.Context, _, _ str
 	return []float32{0.1, 0.2}, nil
 }
 
-func (s *w5CaptureSearchKBService) HybridSearch(_ context.Context, kbID string, params types.SearchParams) ([]*types.SearchResult, error) {
+func (s *w5CaptureSearchKBService) HybridSearch(
+	_ context.Context,
+	kbID string,
+	params types.SearchParams,
+) ([]*types.SearchResult,
+	error,
+) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.callKB = append(s.callKB, kbID)
@@ -394,9 +430,32 @@ func TestSearchKnowledgeEnforcesScopeTagIDsAndEmptyTargets(t *testing.T) {
 
 	kbSvc := &w5CaptureSearchKBService{
 		kbs: []*types.KnowledgeBase{
-			{ID: "kb-scoped-tag", EmbeddingModelID: "emb-1", IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true}},
-			{ID: "kb-full", EmbeddingModelID: "emb-1", IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true}},
-			{ID: "kb-empty-doc-target", EmbeddingModelID: "emb-1", IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true}},
+			{
+				ID:               "kb-scoped-tag",
+				EmbeddingModelID: "emb-1",
+				IndexingStrategy: types.IndexingStrategy{
+					VectorEnabled:  true,
+					KeywordEnabled: true,
+				},
+			},
+
+			{
+				ID:               "kb-full",
+				EmbeddingModelID: "emb-1",
+				IndexingStrategy: types.IndexingStrategy{
+					VectorEnabled:  true,
+					KeywordEnabled: true,
+				},
+			},
+
+			{
+				ID:               "kb-empty-doc-target",
+				EmbeddingModelID: "emb-1",
+				IndexingStrategy: types.IndexingStrategy{
+					VectorEnabled:  true,
+					KeywordEnabled: true,
+				},
+			},
 		},
 	}
 	tool := NewSearchKnowledgeTool(kbSvc, nil, nil, targets, nil, nil)
@@ -410,7 +469,12 @@ func TestSearchKnowledgeEnforcesScopeTagIDsAndEmptyTargets(t *testing.T) {
 	for i, p := range kbSvc.calls {
 		kbID := kbSvc.callKB[i]
 		require.NotEqual(t, "kb-empty-doc-target", kbID, "empty narrowed target must never execute whole-KB search")
-		require.NotContains(t, p.KnowledgeBaseIDs, "kb-scoped-tag", "tag-scoped KB must not be merged into unfiltered batch")
+		require.NotContains(
+			t,
+			p.KnowledgeBaseIDs,
+			"kb-scoped-tag",
+			"tag-scoped KB must not be merged into unfiltered batch",
+		)
 		if kbID == "kb-scoped-tag" {
 			effectiveTags := dedupNonEmptyStrings(append(append([]string(nil), p.TagIDs...), p.ScopeTagIDs...))
 			require.Contains(t, effectiveTags, "tag-finance")
@@ -425,7 +489,12 @@ type w5MessageService struct {
 	items     []*types.MessageSearchGroupItem
 }
 
-func (m *w5MessageService) SearchMessages(_ context.Context, _ *types.MessageSearchParams) (*types.MessageSearchResult, error) {
+func (m *w5MessageService) SearchMessages(
+	_ context.Context,
+	_ *types.MessageSearchParams,
+) (*types.MessageSearchResult,
+	error,
+) {
 	m.called = true
 	if m.nilResult {
 		return nil, nil
@@ -433,7 +502,8 @@ func (m *w5MessageService) SearchMessages(_ context.Context, _ *types.MessageSea
 	return &types.MessageSearchResult{Items: m.items}, nil
 }
 
-// W5-TOOLS-006: SearchConversationsTool fails closed on empty ownerID, handles nil result, and frames untrusted history.
+// W5-TOOLS-006: SearchConversationsTool fails closed on empty ownerID, handles nil result, and frames untrusted
+// history.
 func TestSearchConversationsRequiresOwnerIDAndFramesUntrustedOutput(t *testing.T) {
 	svc := &w5MessageService{}
 	noOwnerTool := NewSearchConversationsTool(svc, "   ", "sess-cur")
@@ -507,7 +577,8 @@ func (r *w5TenantCaptureResolver) ResolveFileService(
 	return r.svc, "local", nil
 }
 
-// W5-TOOLS-007: DataAnalysis DuckDB function/schema hardening, session table isolation, shared storage owner resolution,
+// W5-TOOLS-007: DataAnalysis DuckDB function/schema hardening, session table isolation, shared storage owner
+// resolution,
 // and DatabaseQueryTool nil/zero-tenant fail-closed guards.
 func TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStorage(t *testing.T) {
 	schema := &TableSchema{TableName: "k_safe"}
@@ -532,11 +603,15 @@ func TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStor
 		nil,
 		"sess-nil",
 	)
-	res, err := nilDBTool.Execute(context.Background(), json.RawMessage(`{"knowledge_id":"doc-1","sql":"SELECT * FROM dataset"}`))
+	res, err := nilDBTool.Execute(
+		context.Background(),
+		json.RawMessage("{\"knowledge_id\":\"doc-1\",\"sql\":\"SELECT * FROM dataset\"}"),
+	)
 	require.Error(t, err)
 	require.False(t, res.Success)
 
-	// Crafted knowledge.ID cannot break out of identifier quotes, and two sessions sharing DuckDB do not drop each other's table.
+	// Crafted knowledge.ID cannot break out of identifier quotes, and two sessions sharing DuckDB do not drop each
+	// other's table.
 	db := newPlainDuckDB(t)
 	doc := &types.Knowledge{ID: `doc"inject`, FileType: "csv", FilePath: "shared.csv"}
 	files := &csvFileService{files: map[string]string{"shared.csv": "amount\n10\n20\n"}}
@@ -549,7 +624,12 @@ func TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStor
 		toolB.Cleanup(context.Background())
 	})
 	require.NotContains(t, toolA.TableName(doc), `"`)
-	require.NotEqual(t, toolA.TableName(doc), toolB.TableName(doc), "distinct tool instances must isolate physical tables")
+	require.NotEqual(
+		t,
+		toolA.TableName(doc),
+		toolB.TableName(doc),
+		"distinct tool instances must isolate physical tables",
+	)
 
 	qArgs, err := json.Marshal(DataAnalysisInput{KnowledgeID: doc.ID, SQL: `SELECT COUNT(*) AS n FROM dataset`})
 	require.NoError(t, err)
@@ -573,7 +653,12 @@ func TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStor
 	backendID := "owner-backend"
 	captureResolver := &w5TenantCaptureResolver{svc: &csvFileService{files: map[string]string{"shared.csv": "v\n1\n"}}}
 	sharedTool := NewDataAnalysisTool(
-		&w5SharedKBService{sharedKB: &types.KnowledgeBase{ID: "kb-shared", TenantID: ownerTenantID, StorageBackendID: &backendID}},
+		&w5SharedKBService{sharedKB: &types.KnowledgeBase{
+			ID:               "kb-shared",
+			TenantID:         ownerTenantID,
+			StorageBackendID: &backendID,
+		}},
+
 		nil,
 		&w5TenantService{tenants: map[uint64]*types.Tenant{
 			ownerTenantID:  {ID: ownerTenantID},
@@ -592,7 +677,12 @@ func TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStor
 		KnowledgeBaseID: "kb-shared",
 		FilePath:        "local://100/shared.csv",
 	})
-	require.Equal(t, ownerTenantID, captureResolver.resolvedTenantID, "shared KB must resolve owner tenant storage, not viewer tenant")
+	require.Equal(
+		t,
+		ownerTenantID,
+		captureResolver.resolvedTenantID,
+		"shared KB must resolve owner tenant storage, not viewer tenant",
+	)
 
 	// DatabaseQueryTool must fail closed on nil db or zero tenantID.
 	dbQueryTool := NewDatabaseQueryTool(nil, types.SearchTargets{{
@@ -666,7 +756,8 @@ func (s *w5WikiService) UpdateIssueStatus(_ context.Context, _, issueID, _ strin
 	return nil
 }
 
-// W5-TOOLS-008: Wiki read/write/replace/rename/delete/issue scope enforcement, TenantID population, and index/summary protection.
+// W5-TOOLS-008: Wiki read/write/replace/rename/delete/issue scope enforcement, TenantID population, and
+// index/summary protection.
 func TestWikiToolsEnforceNarrowedScopePopulateTenantIDAndProtectIndex(t *testing.T) {
 	svc := &w5WikiService{
 		pages: map[string]*types.WikiPage{
@@ -727,21 +818,36 @@ func TestWikiToolsEnforceNarrowedScopePopulateTenantIDAndProtectIndex(t *testing
 	require.NotContains(t, res.Output, "TOP SECRET OUT OF SCOPE SUMMARY")
 
 	// 2. wiki_write_page, wiki_replace_text, wiki_flag_issue must block mutating/flagging out-of-scope existing page!
-	writeTool := NewWikiWritePageTool(svc, []string{"kb-1"}, nil, NewWikiRouteResolver()).WithSearchTargets(narrowTargets)
+	writeTool := NewWikiWritePageTool(
+		svc,
+		[]string{"kb-1"},
+		nil,
+		NewWikiRouteResolver(),
+	).WithSearchTargets(narrowTargets)
 	res, err = writeTool.Execute(context.Background(), json.RawMessage(
 		`{"slug":"entity/secret","title":"T","summary":"S","content":"C","page_type":"entity"}`,
 	))
 	require.NoError(t, err)
 	require.False(t, res.Success, "must reject overwriting existing page outside narrowed document scope")
 
-	replaceTool := NewWikiReplaceTextTool(svc, []string{"kb-1"}, nil, NewWikiRouteResolver()).WithSearchTargets(narrowTargets)
+	replaceTool := NewWikiReplaceTextTool(
+		svc,
+		[]string{"kb-1"},
+		nil,
+		NewWikiRouteResolver(),
+	).WithSearchTargets(narrowTargets)
 	res, err = replaceTool.Execute(context.Background(), json.RawMessage(
 		`{"slug":"entity/secret","old_text":"Secret","new_text":"Public"}`,
 	))
 	require.NoError(t, err)
 	require.False(t, res.Success, "must reject replacing text on page outside narrowed document scope")
 
-	flagTool := NewWikiFlagIssueTool(svc, []string{"kb-1"}, NewWikiRouteResolver()).WithKnowledgeScope(nil, narrowTargets)
+	flagTool := NewWikiFlagIssueTool(
+		svc,
+		[]string{"kb-1"},
+		NewWikiRouteResolver(),
+	).WithKnowledgeScope(nil,
+		narrowTargets)
 	res, err = flagTool.Execute(context.Background(), json.RawMessage(
 		`{"slug":"entity/secret","issue_type":"other","description":"leak check"}`,
 	))
@@ -852,7 +958,12 @@ func TestToolsRejectNegativeLineOffsetPageOverflowAndNilDeps(t *testing.T) {
 	require.False(t, lineRes.Success, "negative LineOffset must not panic or succeed")
 
 	rf := NewReadFileTool(nil).WithAttachments(nil)
-	require.Equal(t, time.Duration(0), rf.ExecutionTimeout(), "WithAttachments(nil) must not leave nil source that panics")
+	require.Equal(
+		t,
+		time.Duration(0),
+		rf.ExecutionTimeout(),
+		"WithAttachments(nil) must not leave nil source that panics",
+	)
 	res, err := rf.Execute(context.Background(), json.RawMessage(`{"path":"/workspace/a.txt","line_offset":-1}`))
 	require.NoError(t, err)
 	require.False(t, res.Success)
@@ -885,9 +996,14 @@ func TestToolsRejectNegativeLineOffsetPageOverflowAndNilDeps(t *testing.T) {
 	// 3. observationTokensFromTextChars huge float64 clamp (must be > 1, not negative overflow -> 1).
 	assert.Greater(t, observationTokensFromTextChars(float64(1e30)), 1000)
 
-	// 4. Nil dependency guards on BrowserFillSecretTool, SearchGENYEEDocsTool, ReadGENYEEDocTool, WorkWaitTool, WorkCancelTool.
+	// 4. Nil dependency guards on BrowserFillSecretTool, SearchGENYEEDocsTool, ReadGENYEEDocTool, WorkWaitTool,
+	// WorkCancelTool.
 	fillCtx := WithToolExecContext(context.Background(), &ToolExecContext{SessionID: "s1", UserID: "u1"})
-	res, err = NewBrowserFillSecretTool(nil, nil).Execute(fillCtx, json.RawMessage(`{"handle":"cred_1","targets":{"user":"@e1"}}`))
+	res, err = NewBrowserFillSecretTool(
+		nil,
+		nil,
+	).Execute(fillCtx,
+		json.RawMessage("{\"handle\":\"cred_1\",\"targets\":{\"user\":\"@e1\"}}"))
 	require.NoError(t, err)
 	require.False(t, res.Success)
 

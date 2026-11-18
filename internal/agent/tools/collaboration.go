@@ -193,7 +193,14 @@ func (t *CollaborationTool) Execute(ctx context.Context, args json.RawMessage) (
 	key := ""
 	if exec != nil && exec.ToolCallID != "" {
 		if exec.Round > 0 || exec.ToolIndex > 0 {
-			key = fmt.Sprintf("%s:r%d:i%d:%s:%s", exec.AssistantMessageID, exec.Round, exec.ToolIndex, exec.ToolCallID, t.Name())
+			key = fmt.Sprintf(
+				"%s:r%d:i%d:%s:%s",
+				exec.AssistantMessageID,
+				exec.Round,
+				exec.ToolIndex,
+				exec.ToolCallID,
+				t.Name(),
+			)
 		} else {
 			key = exec.AssistantMessageID + ":" + exec.ToolCallID + ":" + t.Name()
 		}

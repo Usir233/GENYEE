@@ -19,8 +19,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/gorilla/websocket"
 )
 
@@ -114,6 +116,9 @@ type Manager struct {
 	binary, publicURL                  string
 	daemon                             *daemon
 	starting                           chan struct{}
+	stopCh                             chan struct{}
+	bgWorkers                          sync.WaitGroup
+	bgActive                           atomic.Int32
 	closed                             bool
 	maxConnections                     int
 	devices                            map[string]*device
@@ -127,6 +132,7 @@ func NewManager(stores ...*Store) *Manager {
 	m := &Manager{
 		binary:         os.Getenv("BROWSERSKILL_BINARY"),
 		publicURL:      os.Getenv("BROWSERSKILL_PUBLIC_URL"),
+		stopCh:         make(chan struct{}),
 		devices:        map[string]*device{},
 		maxConnections: connectionLimit(),
 		nodeID:         randomID(),
@@ -144,6 +150,20 @@ func NewManager(stores ...*Store) *Manager {
 
 // Enabled reports whether the browser integration has been configured.
 func (m *Manager) Enabled() bool { return m != nil && m.binary != "" }
+
+func (m *Manager) ensureStopChLocked() chan struct{} {
+	if m.stopCh == nil {
+		m.stopCh = make(chan struct{})
+	}
+	return m.stopCh
+}
+
+func (m *Manager) activeBackgroundWorkers() int32 {
+	if m == nil {
+		return 0
+	}
+	return m.bgActive.Load()
+}
 
 func (m *Manager) get(s Scope) *device {
 	if m == nil || !s.valid() {
@@ -415,7 +435,9 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = m.store.release(ctx, record.ID, leaseKey)
+		if releaseErr := m.store.release(ctx, record.ID, leaseKey); releaseErr != nil {
+			logger.Warnf(ctx, "[BrowserSkill] release device %s failed: %v", record.ID, releaseErr)
+		}
 	}()
 	d.mu.Lock()
 	if d.conn != nil || d.attaching {
@@ -538,7 +560,11 @@ func (m *Manager) attach(
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	target := fmt.Sprintf("ws://127.0.0.1:%d", d.runtime.port)
-	up, _, err = websocket.DefaultDialer.DialContext(ctx, target, http.Header{"Origin": []string{origin}})
+	var resp *http.Response
+	up, resp, err = websocket.DefaultDialer.DialContext(ctx, target, http.Header{"Origin": []string{origin}})
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		http.Error(w, "daemon unavailable", http.StatusServiceUnavailable)
 		return nil, nil, err
@@ -1000,15 +1026,16 @@ func (m *Manager) Call(
 			t.pageURL = statusPageURL(page.URL)
 		}
 	}
-	if err != nil {
+	switch {
+	case err != nil:
 		t.lastError = err.Error()
-	} else if NavigationIncomplete(method, result) {
+	case NavigationIncomplete(method, result):
 		t.lastError = page.Error
 		if t.lastError == "" {
 			t.lastError = "Navigation did not reach the requested loading phase. " +
 				"Observe the current page before continuing."
 		}
-	} else if method == "evaluate" && page.OK != nil && !*page.OK {
+	case method == "evaluate" && page.OK != nil && !*page.OK:
 		var failure struct {
 			Text string `json:"text"`
 		}
@@ -1160,17 +1187,21 @@ func (m *Manager) Control(ctx context.Context, s Scope, session, action string) 
 	// A cancel acknowledgement can precede the extension's terminal response.
 	// Only the passive resume read may be retried while that response drains.
 	drainUntil := time.Now().Add(2 * time.Second)
-	for method == "tool.observe" && err != nil &&
-		strings.Contains(err.Error(), "unfinished command") && time.Now().Before(drainUntil) {
-		select {
-		case <-lifecycleCtx.Done():
-			err = lifecycleCtx.Err()
-		case <-time.After(50 * time.Millisecond):
-			result, err = rpc(lifecycleCtx, d, method, params)
+	if method == "tool.observe" && err != nil && strings.Contains(err.Error(), "unfinished command") {
+		drainTick := time.NewTicker(50 * time.Millisecond)
+		for method == "tool.observe" && err != nil &&
+			strings.Contains(err.Error(), "unfinished command") && time.Now().Before(drainUntil) {
+			select {
+			case <-lifecycleCtx.Done():
+				err = lifecycleCtx.Err()
+			case <-drainTick.C:
+				result, err = rpc(lifecycleCtx, d, method, params)
+			}
+			if lifecycleCtx.Err() != nil {
+				break
+			}
 		}
-		if lifecycleCtx.Err() != nil {
-			break
-		}
+		drainTick.Stop()
 	}
 	if err == nil && id != "" && action == "resume" {
 		// A passive read cannot release a BrowserSkill hold/stop. Only
@@ -1306,7 +1337,9 @@ func (m *Manager) Forget(s Scope, sessions []string) {
 	for _, session := range sessions {
 		if _, remote, err := m.route(ctx, s, session, "forget", "", nil); remote || err != nil {
 			if err == nil {
-				_ = m.store.clearTask(ctx, s, session)
+				if clearErr := m.store.clearTask(ctx, s, session); clearErr != nil {
+					logger.Warnf(ctx, "[BrowserSkill] clear task %s failed: %v", session, clearErr)
+				}
 			}
 			continue
 		}
@@ -1320,7 +1353,9 @@ func (m *Manager) forgetLocal(s Scope, sessions []string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		for _, session := range sessions {
-			_ = m.store.clearTask(ctx, s, session)
+			if err := m.store.clearTask(ctx, s, session); err != nil {
+				logger.Warnf(ctx, "[BrowserSkill] clear task %s failed: %v", session, err)
+			}
 		}
 		return
 	}
@@ -1334,15 +1369,30 @@ func (m *Manager) forgetLocal(s Scope, sessions []string) {
 			forgotten[session] = t
 		} else {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_ = m.store.clearTask(ctx, s, session)
+			if err := m.store.clearTask(ctx, s, session); err != nil {
+				logger.Warnf(ctx, "[BrowserSkill] clear task %s failed: %v", session, err)
+			}
 			cancel()
 		}
 	}
 	d.mu.Unlock()
 	for session, original := range forgotten {
+		m.mu.Lock()
+		if m.closed {
+			m.mu.Unlock()
+			return
+		}
+		stopCh := m.ensureStopChLocked()
+		m.bgWorkers.Add(1)
+		m.bgActive.Add(1)
+		m.mu.Unlock()
 		go func(session string, original *task) {
+			defer m.bgWorkers.Done()
+			defer m.bgActive.Add(-1)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
+			tick := time.NewTicker(50 * time.Millisecond)
+			defer tick.Stop()
 			// A session.start already in flight can still create a window. Wait
 			// for its ID and cancellation cleanup before asking upstream to stop.
 			var id string
@@ -1359,10 +1409,17 @@ func (m *Manager) forgetLocal(s Scope, sessions []string) {
 					break
 				}
 				select {
+				case <-stopCh:
+					return
 				case <-ctx.Done():
 					return // Retain the tombstone; native session idle cleanup remains active.
-				case <-time.After(50 * time.Millisecond):
+				case <-tick.C:
 				}
+			}
+			select {
+			case <-stopCh:
+				return
+			default:
 			}
 			if id != "" {
 				if _, err := rpc(ctx, d, "session.stop", map[string]any{"session_id": id, "all": false}); err != nil {
@@ -1373,6 +1430,8 @@ func (m *Manager) forgetLocal(s Scope, sessions []string) {
 			if t := d.tasks[session]; t == original && t.id == id {
 				if err := m.store.clearTask(ctx, s, session); err == nil {
 					delete(d.tasks, session)
+				} else {
+					logger.Warnf(ctx, "[BrowserSkill] clear forgotten task %s failed: %v", session, err)
 				}
 			}
 			d.mu.Unlock()

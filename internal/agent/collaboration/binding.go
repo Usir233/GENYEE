@@ -131,11 +131,12 @@ func (b *Binding) End(suspended bool) {
 		return
 	} // retain lease until the old stream has settled
 	if suspended {
-		_ = b.Runtime.Store.Change(
+		err := b.Runtime.Store.Change(
 			b.Context(ctx),
 			b.Scope,
 			func(g *Group) error { g.ParentOwner = ""; g.ParentLease = time.Time{}; return nil },
 		)
+		b.Runtime.reportStoreError(ctx, b.Scope, "end_suspend_release", err)
 		return
 	}
 	// A turn that never delegated has nothing to cancel. Completing it keeps
@@ -145,7 +146,7 @@ func (b *Binding) End(suspended bool) {
 			return
 		}
 	}
-	_ = b.Runtime.Cancel(b.Context(ctx), b.Scope)
+	b.Runtime.reportStoreError(ctx, b.Scope, "end_cancel", b.Runtime.Cancel(b.Context(ctx), b.Scope))
 }
 
 // MessageParent publishes an idempotent child message while its execution lease remains valid.
@@ -248,7 +249,7 @@ func (b *Binding) Wait(ctx context.Context, after int64, duration time.Duration)
 			}
 		}
 		remaining := max(time.Until(deadline), time.Duration(0))
-		updated, err := b.Runtime.Wait(ctx, b.Scope, after, min(remaining, b.Runtime.Poll))
+		updated, err := b.Runtime.Wait(ctx, b.Scope, after, min(remaining, b.Runtime.pollInterval()))
 		if err != nil || updated {
 			return updated, err
 		}

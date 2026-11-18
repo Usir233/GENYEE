@@ -16,6 +16,7 @@ type wikiUpdateIssueTool struct {
 	kbIDs       []string
 }
 
+// NewWikiUpdateIssueTool creates a tool for updating wiki page issue status.
 func NewWikiUpdateIssueTool(wikiService interfaces.WikiPageService, kbIDs []string) types.Tool {
 	return &wikiUpdateIssueTool{
 		BaseTool: NewBaseTool(

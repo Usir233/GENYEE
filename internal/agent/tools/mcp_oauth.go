@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/agent/approval"
 	"github.com/Usir233/GENYEE/internal/event"
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/mcp"
 	"github.com/Usir233/GENYEE/internal/types"
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -115,9 +116,11 @@ func getOrCreateMCPClientWithOAuthRetry(
 	// and any built with a replaced OAuth client registration. Other users'
 	// in-flight calls continue.
 	tenantID, _ := types.TenantIDFromContext(retryCtx)
-	_ = mcpManager.CloseClientsAfterAuthorization(
+	if closeErr := mcpManager.CloseClientsAfterAuthorization(
 		retryCtx, tenantID, service.ID, types.MCPOAuthPrincipalFromContext(retryCtx),
-	)
+	); closeErr != nil {
+		logger.Warnf(retryCtx, "[Tool][MCPOAuth] Recycle clients for service %s failed: %v", service.ID, closeErr)
+	}
 	return mcpManager.GetOrCreateClient(retryCtx, service)
 }
 
@@ -159,7 +162,15 @@ func waitForMCPOAuthAuthorization(
 	// service). Instead, emit a one-shot notice the channel can surface to the
 	// user and continue without the tool. See types.WithMCPOAuthNonInteractive.
 	if types.IsMCPOAuthNonInteractive(ctx) || types.IsMCPOAuthNonInteractive(waitCtx) {
-		emitMCPOAuthRequiredNotice(waitCtx, sess, service, mcpToolName, toolCallID, types.CallerFromContext(ctx).TenantID, requestID)
+		emitMCPOAuthRequiredNotice(
+			waitCtx,
+			sess,
+			service,
+			mcpToolName,
+			toolCallID,
+			types.CallerFromContext(ctx).TenantID,
+			requestID,
+		)
 		return ctx, noop, false
 	}
 

@@ -27,6 +27,7 @@ type ReadFileTool struct {
 	shell       bool
 }
 
+// ReadFileInput holds arguments for the unified read_file tool.
 type ReadFileInput struct {
 	Path       string `json:"path" jsonschema:"Path inside the current session sandbox (relative to /workspace), skill:// resource, saved web:// page, resource:// generated file, or attachment://<handle>; attachment images use the full attachment://<handle>/images/N address"` //nolint:lll // JSON schema tags must remain on one line.
 	LineOffset int    `json:"line_offset,omitempty" jsonschema:"Web, artifacts and attachments: character offset within a long line; continue at next_line_offset"`                                                                                                                  //nolint:lll // JSON schema tags must remain on one line.
@@ -39,6 +40,7 @@ type ReadFileInput struct {
 	Focus      string `json:"focus,omitempty" jsonschema:"What to look for; specify relevant labels, series and values when reading charts or tables"`                                                         //nolint:lll // JSON schema tags must remain on one line.
 }
 
+// NewReadFileTool constructs a read_file tool backed by the session sandbox file source.
 func NewReadFileTool(source SandboxFileSource) *ReadFileTool {
 	t := &ReadFileTool{BaseTool: BaseTool{name: ToolReadFile, schema: utils.GenerateSchema[ReadFileInput]()}}
 	if source != nil {
@@ -55,6 +57,7 @@ func (t *ReadFileTool) WithWebPages(source WebPageSource) *ReadFileTool {
 	return t
 }
 
+// WithSkills attaches skill resource lookup and shell availability metadata to read_file.
 func (t *ReadFileTool) WithSkills(manager *skills.Manager, shell bool) *ReadFileTool {
 	t.skills, t.shell = manager, shell
 	t.updateDescription()
@@ -127,7 +130,10 @@ func (t *ReadFileTool) updateDescription() {
 		}
 	}
 	if t.skills != nil && t.skills.IsEnabled() {
-		scopes = append(scopes, "Skill resources: skill://<name>/SKILL.md loads the allowed skill's instructions, file list and execution guidance; skill://<name>/<relative-file> reads a bundled resource. These are package resources, not shell paths or arbitrary host files.")
+		scopes = append(scopes,
+			"Skill resources: skill://<name>/SKILL.md loads the allowed skill's instructions, file list "+
+				"and execution guidance; skill://<name>/<relative-file> reads a bundled resource. These are "+
+				"package resources, not shell paths or arbitrary host files.")
 	}
 	t.description = "Read files from the available sources.\n" + strings.Join(scopes, "\n") +
 		"\nText: offset is a 1-based line; limit defaults to 2000; max_bytes is capped at 65536. " +
@@ -139,6 +145,7 @@ func (t *ReadFileTool) updateDescription() {
 		"Do not infer category/value pairs from an unlabelled OCR list; re-read unclear mappings before calculating."
 }
 
+// Execute dispatches read_file across sandbox, skill, web, resource, and attachment schemes.
 func (t *ReadFileTool) Execute(ctx context.Context, args json.RawMessage) (*types.ToolResult, error) {
 	var input ReadFileInput
 	if err := json.Unmarshal(args, &input); err != nil {
@@ -262,7 +269,8 @@ func (t *ReadFileTool) readSkillResource(ctx context.Context, input ReadFileInpu
 				"(host virtualenvs and node_modules are not copied). "+
 				"Deliverables belong in /workspace/output.\n\n", name, dir)
 		} else {
-			b.WriteString("Execution is unavailable: this agent has no sandbox shell. The skill instructions can be read; configuring a shell-capable sandbox is required to run scripts.\n\n")
+			b.WriteString("Execution is unavailable: this agent has no sandbox shell. The skill instructions can be " +
+				"read; configuring a shell-capable sandbox is required to run scripts.\n\n")
 		}
 		b.WriteString(skill.Instructions)
 		files, err := t.skills.ListSkillFiles(ctx, name)
@@ -280,7 +288,10 @@ func (t *ReadFileTool) readSkillResource(ctx context.Context, input ReadFileInpu
 		}
 	}
 	if int64(len(content)) > maxReadSandboxDownloadBytes {
-		return fail(fmt.Errorf("skill resource exceeds the %d-byte read limit; split the package resource into smaller files", maxReadSandboxDownloadBytes))
+		return fail(fmt.Errorf(
+			"skill resource exceeds the %d-byte read limit; split the package resource into smaller files",
+			maxReadSandboxDownloadBytes,
+		))
 	}
 	result := renderFilePage(ctx, input, []byte(content), resolveSessionID(ctx), input.Path, "skill://"+name)
 	if result.Data != nil {

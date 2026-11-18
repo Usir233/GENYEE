@@ -113,7 +113,13 @@ func (t *wikiReplaceTextTool) Execute(ctx context.Context, args json.RawMessage)
 	// Get the existing page
 	existingPage, kbID, err := resolveUniqueWikiPage(ctx, t.wikiPageService, params.Slug, t.kbIDs, t.routes)
 	if err != nil {
-		return &types.ToolResult{Success: false, Error: fmt.Sprintf("Failed to fetch page %s: %v", params.Slug, err)}, nil
+		return &types.ToolResult{
+				Success: false,
+				Error: fmt.Sprintf("Failed to fetch page %s: %v",
+					params.Slug,
+					err),
+			},
+			nil
 	}
 	if existingPage.PageType == types.WikiPageTypeIndex {
 		return &types.ToolResult{
@@ -122,14 +128,24 @@ func (t *wikiReplaceTextTool) Execute(ctx context.Context, args json.RawMessage)
 		}, nil
 	}
 	if t.scopeEnforced {
-		if scopeErr := ensureWikiPageInSearchTargets(ctx, existingPage, kbID, t.searchTargets, t.knowledgeService); scopeErr != nil {
+		if scopeErr := ensureWikiPageInSearchTargets(
+			ctx,
+			existingPage,
+			kbID,
+			t.searchTargets,
+			t.knowledgeService,
+		); scopeErr != nil {
 			return &types.ToolResult{Success: false, Error: scopeErr.Error()}, nil
 		}
 	}
 
 	replacementCount := strings.Count(existingPage.Content, params.OldText)
 	if replacementCount == 0 {
-		return &types.ToolResult{Success: false, Error: "old_text not found in the current page content. Ensure you copy it exactly as it appears."}, nil
+		return &types.ToolResult{
+				Success: false,
+				Error:   "old_text not found in the current page content. Ensure you copy it exactly as it appears.",
+			},
+			nil
 	}
 
 	existingPage.Content = strings.ReplaceAll(existingPage.Content, params.OldText, params.NewText)
@@ -152,7 +168,13 @@ func (t *wikiReplaceTextTool) Execute(ctx context.Context, args json.RawMessage)
 	oldPreview := truncateRunes(params.OldText, 80)
 	newPreview := truncateRunes(params.NewText, 80)
 
-	output := fmt.Sprintf("Successfully replaced %d occurrence(s) on page [[%s]].\n- Old: %s\n- New: %s", replacementCount, params.Slug, oldPreview, newPreview)
+	output := fmt.Sprintf(
+		"Successfully replaced %d occurrence(s) on page [[%s]].\n- Old: %s\n- New: %s",
+		replacementCount,
+		params.Slug,
+		oldPreview,
+		newPreview,
+	)
 
 	return &types.ToolResult{
 		Success: true,

@@ -21,7 +21,7 @@ func TestFileOpsKeepsNewPathsAfterReachingLimit(t *testing.T) {
 				toolCallMsg(tool, `{"path":"/workspace/newest.txt"}`),
 			})
 			read, modified := current.resolve()
-			paths := append(read, modified...)
+			paths := append(append([]string(nil), read...), modified...)
 			require.Len(t, paths, maxTrackedFilePaths)
 			assert.Contains(t, paths, "/workspace/newest.txt")
 			assert.NotContains(t, paths, "/workspace/00.txt")

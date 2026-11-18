@@ -132,20 +132,41 @@ func TestDaemonSocketGatekeeperEnforcesSharedSecret(t *testing.T) {
 	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 
 	// 1. Unauthenticated caller must be rejected without reaching upstream.
-	_, err = rpc(context.Background(), &device{runtime: &daemon{home: base}}, "tool.snapshot", map[string]any{"session_id": "s1"})
+	_, err = rpc(
+		context.Background(),
+		&device{runtime: &daemon{home: base}},
+		"tool.snapshot",
+		map[string]any{"session_id": "s1"},
+	)
 	var rpcErr *RPCError
 	require.ErrorAs(t, err, &rpcErr)
 	require.Equal(t, "unauthorized", rpcErr.Code)
 	require.Empty(t, upstreamRequests)
 
 	// 2. Wrong secret must be rejected without reaching upstream.
-	_, err = rpc(context.Background(), &device{runtime: &daemon{home: base, secret: "wrong-secret"}}, "tool.snapshot", map[string]any{"session_id": "s1"})
+	_, err = rpc(
+		context.Background(),
+		&device{runtime: &daemon{
+			home:   base,
+			secret: "wrong-secret",
+		}},
+		"tool.snapshot",
+		map[string]any{"session_id": "s1"},
+	)
 	require.ErrorAs(t, err, &rpcErr)
 	require.Equal(t, "unauthorized", rpcErr.Code)
 	require.Empty(t, upstreamRequests)
 
 	// 3. Valid secret must succeed and strip auth_token before forwarding to upstream bsk.
-	res, err := rpc(context.Background(), &device{runtime: &daemon{home: base, secret: secret}}, "tool.snapshot", map[string]any{"session_id": "s1"})
+	res, err := rpc(
+		context.Background(),
+		&device{runtime: &daemon{
+			home:   base,
+			secret: secret,
+		}},
+		"tool.snapshot",
+		map[string]any{"session_id": "s1"},
+	)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"ok":true}`, string(res))
 

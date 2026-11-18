@@ -321,7 +321,7 @@ func (e *AgentEngine) emitCompletionEvent(
 	if state.Suspended != nil {
 		data.Suspended = state.Suspended
 	}
-	e.eventBus.Emit(ctx, event.Event{
+	_ = e.eventBus.Emit(ctx, event.Event{
 		ID:        generateEventID("complete"),
 		Type:      event.EventAgentComplete,
 		SessionID: sessionID,

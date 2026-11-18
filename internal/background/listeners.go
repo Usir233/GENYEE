@@ -81,21 +81,22 @@ func (l *Listeners) NotifyDelete(ctx context.Context, s interfaces.SessionRef) e
 	if err := errors.Join(failures...); err != nil {
 		return err
 	}
+	cleanupCtx := context.WithoutCancel(ctx)
 	if l.registry != nil {
-		items, err := l.registry.List(ctx, s)
+		items, err := l.registry.List(cleanupCtx, s)
 		if err != nil {
-			l.logf(ctx, "[Background] list activity on delete failed session=%s: %v", s.SessionID, err)
+			l.logf(cleanupCtx, "[Background] list activity on delete failed session=%s: %v", s.SessionID, err)
 		}
 		for _, it := range items {
-			if err := l.registry.Remove(ctx, s, it.ID); err != nil {
-				l.logf(ctx, "[Background] remove activity on delete failed session=%s id=%s: %v",
+			if err := l.registry.Remove(cleanupCtx, s, it.ID); err != nil {
+				l.logf(cleanupCtx, "[Background] remove activity on delete failed session=%s id=%s: %v",
 					s.SessionID, it.ID, err)
 			}
 		}
 	}
 	if l.inbox != nil {
-		if err := l.inbox.Clear(ctx, s); err != nil {
-			l.logf(ctx, "[Background] clear inbox on delete failed session=%s: %v", s.SessionID, err)
+		if err := l.inbox.Clear(cleanupCtx, s); err != nil {
+			l.logf(cleanupCtx, "[Background] clear inbox on delete failed session=%s: %v", s.SessionID, err)
 		}
 	}
 	return nil

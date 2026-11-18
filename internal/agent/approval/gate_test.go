@@ -26,7 +26,7 @@ type stubChecker struct {
 	enabledErr error
 }
 
-func (s *stubChecker) IsRequired(ctx context.Context, tenantID uint64, serviceID, toolName string) (bool, error) {
+func (s *stubChecker) IsRequired(_ context.Context, _ uint64, _, _ string) (bool, error) {
 	return s.required, s.err
 }
 
@@ -36,7 +36,7 @@ func (s *stubChecker) Policy(context.Context, uint64, string, string) (*types.MC
 
 func (s *stubChecker) ObserveRisk(context.Context, uint64, string, string, string) error { return nil }
 
-func (s *stubChecker) IsEnabled(ctx context.Context, tenantID uint64, serviceID, toolName string) (bool, error) {
+func (s *stubChecker) IsEnabled(_ context.Context, _ uint64, _, _ string) (bool, error) {
 	if s.enabledErr != nil {
 		return false, s.enabledErr
 	}
@@ -48,7 +48,11 @@ func (s *stubChecker) IsEnabled(ctx context.Context, tenantID uint64, serviceID,
 
 func TestGate_RequestAndWait_Approve(t *testing.T) {
 	bus := event.NewEventBus()
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}},
+		&stubChecker{required: true},
+		nil,
+	)
 
 	ctx := attended()
 	req := PendingRequest{
@@ -82,7 +86,11 @@ func TestGate_RequestAndWait_Approve(t *testing.T) {
 }
 
 func TestGate_RequestAndWait_Timeout(t *testing.T) {
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 1}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 1}},
+		&stubChecker{required: true},
+		nil,
+	)
 	ctx := attended()
 	req := PendingRequest{
 		TenantID:           1,
@@ -144,14 +152,22 @@ func TestGate_Verdict_NoChecker(t *testing.T) {
 }
 
 func TestGate_Resolve_NotFound(t *testing.T) {
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 1}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 1}},
+		&stubChecker{required: true},
+		nil,
+	)
 	err := resolveFor(g, 1, "", "no-such-id", Decision{Approved: true})
 	require.ErrorIs(t, err, ErrPendingNotFound)
 }
 
 func TestGate_Resolve_TenantMismatch(t *testing.T) {
 	bus := event.NewEventBus()
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}},
+		&stubChecker{required: true},
+		nil,
+	)
 	req := PendingRequest{
 		TenantID: 1, EventBus: bus, SessionID: "s1", AssistantMessageID: "m1",
 		ServiceID: "svc", MCPToolName: "t", Args: json.RawMessage(`{}`),
@@ -171,7 +187,11 @@ func TestGate_Resolve_TenantMismatch(t *testing.T) {
 
 func TestGate_Resolve_UserMismatch(t *testing.T) {
 	bus := event.NewEventBus()
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}},
+		&stubChecker{required: true},
+		nil,
+	)
 	req := PendingRequest{
 		TenantID: 1, UserID: "alice", EventBus: bus,
 		SessionID: "s1", AssistantMessageID: "m1",
@@ -195,7 +215,11 @@ func TestGate_Resolve_UserMismatch(t *testing.T) {
 // per-user check entirely (allowing same-tenant cross-user approval).
 func TestGate_Resolve_EmptyUserIDRejectedWhenWaiterHasUser(t *testing.T) {
 	bus := event.NewEventBus()
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 2}},
+		&stubChecker{required: true},
+		nil,
+	)
 	req := PendingRequest{
 		TenantID: 1, UserID: "alice", EventBus: bus,
 		SessionID: "s1", AssistantMessageID: "m1",
@@ -215,7 +239,11 @@ func TestGate_Resolve_EmptyUserIDRejectedWhenWaiterHasUser(t *testing.T) {
 }
 
 func TestGate_Resolve_AlreadyResolvedAfterTimeout(t *testing.T) {
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 1}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 1}},
+		&stubChecker{required: true},
+		nil,
+	)
 	bus := event.NewEventBus()
 
 	var pendingID string
@@ -288,7 +316,11 @@ func TestGate_ApprovedCallStaysExecutingUntilMarked(t *testing.T) {
 }
 
 func TestGate_Resolve_RaceWinsAlreadyResolved(t *testing.T) {
-	g := NewGate(&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 30}}, &stubChecker{required: true}, nil)
+	g := NewGate(
+		&config.Config{Agent: &config.AgentConfig{ToolApprovalTimeoutSeconds: 30}},
+		&stubChecker{required: true},
+		nil,
+	)
 	bus := event.NewEventBus()
 
 	type result struct {

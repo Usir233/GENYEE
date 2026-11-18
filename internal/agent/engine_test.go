@@ -60,7 +60,12 @@ func (m *mockChat) ChatStream(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.callCount >= len(m.responses) {
-		return nil, fmt.Errorf("unexpected ChatStream call #%d (only %d responses prepared)", m.callCount, len(m.responses))
+		return nil,
+			fmt.Errorf(
+				"unexpected ChatStream call #%d (only %d responses prepared)",
+				m.callCount,
+				len(m.responses),
+			)
 	}
 	resp := m.responses[m.callCount]
 	m.calls = append(m.calls, append([]chat.Message(nil), messages...))

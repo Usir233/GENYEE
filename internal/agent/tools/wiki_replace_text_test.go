@@ -105,7 +105,10 @@ func TestWikiReplaceTextExactMatchCases(t *testing.T) {
 		},
 		{
 			name: "markdown links remain plain exact text", content: "See [[concept/old]] and [[concept/old]].",
-			oldText: "[[concept/old]]", newText: "[[concept/new]]", want: "See [[concept/new]] and [[concept/new]].", wantCount: 2,
+			oldText:   "[[concept/old]]",
+			newText:   "[[concept/new]]",
+			want:      "See [[concept/new]] and [[concept/new]].",
+			wantCount: 2,
 		},
 	}
 

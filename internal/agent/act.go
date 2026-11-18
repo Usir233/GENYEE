@@ -1,3 +1,4 @@
+// Package agent implements the ReAct execution engine, prompt assembly, and runtime loops.
 package agent
 
 import (
@@ -412,7 +413,7 @@ func (e *AgentEngine) emitToolOutcome(
 		result = &types.ToolResult{Success: false, Error: "no result"}
 	}
 
-	e.eventBus.Emit(ctx, event.Event{
+	_ = e.eventBus.Emit(ctx, event.Event{
 		ID:        toolCall.ID + "-tool-result",
 		Type:      event.EventAgentToolResult,
 		SessionID: sessionID,
@@ -428,7 +429,7 @@ func (e *AgentEngine) emitToolOutcome(
 		},
 	})
 
-	e.eventBus.Emit(ctx, event.Event{
+	_ = e.eventBus.Emit(ctx, event.Event{
 		ID:        toolCall.ID + "-tool-exec",
 		Type:      event.EventAgentTool,
 		SessionID: sessionID,
@@ -562,7 +563,7 @@ func (e *AgentEngine) runToolCallAnswered(
 
 	// Emit tool hint for UI progress display
 	toolHint := formatToolHint(executionName, executionArgs)
-	e.eventBus.Emit(ctx, event.Event{
+	_ = e.eventBus.Emit(ctx, event.Event{
 		ID:        tc.ID + "-tool-hint",
 		Type:      event.EventAgentToolCall,
 		SessionID: sessionID,
@@ -701,11 +702,12 @@ func (e *AgentEngine) runToolCallAnswered(
 	if toolCall.Result != nil && toolCall.Result.Error != "" {
 		pipelineFields["error"] = toolCall.Result.Error
 	}
-	if err != nil {
+	switch {
+	case err != nil:
 		common.PipelineError(ctx, "Agent", "tool_call_result", pipelineFields)
-	} else if toolSuccess {
+	case toolSuccess:
 		common.PipelineInfo(ctx, "Agent", "tool_call_result", pipelineFields)
-	} else {
+	default:
 		common.PipelineWarn(ctx, "Agent", "tool_call_result", pipelineFields)
 	}
 

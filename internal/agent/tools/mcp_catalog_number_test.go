@@ -2,12 +2,20 @@ package tools
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMCPTargetNumbersPreserveProxyAndDirectArguments(t *testing.T) {
-	for _, number := range []string{"9007199254740993", "18446744073709551615", "0.12345678901234567890123456789", "1e400", "1.00", "42"} {
+	for _, number := range []string{
+		"9007199254740993",
+		"18446744073709551615",
+		"0.12345678901234567890123456789",
+		"1e400",
+		"1.00",
+		"42",
+	} {
 		for _, mode := range []string{"proxy", "direct"} {
 			t.Run(number+"/"+mode, func(t *testing.T) {
 				ctx, registry, catalog, _, _ := catalogFixture(t, 1)

@@ -60,7 +60,15 @@ func TestResumeReplaysBackgroundInjectionsAndDisplaySteps(t *testing.T) {
 
 	state1 := &types.AgentState{}
 	engine1.beginTurn("check job", nil, state1)
-	_, err := engine1.executeLoop(context.Background(), state1, "check job", emptyMessages(), emptyTools(), "sess-1", "msg-1")
+	_, err := engine1.executeLoop(
+		context.Background(),
+		state1,
+		"check job",
+		emptyMessages(),
+		emptyTools(),
+		"sess-1",
+		"msg-1",
+	)
 	require.NoError(t, err)
 	require.NotNil(t, state1.Suspended)
 	require.NotEmpty(t, blocked.snapshot)
@@ -161,7 +169,15 @@ func TestNaturalStopContinuationPlacesDraftBoundaryBeforeInjectedInput(t *testin
 	}})
 
 	state := &types.AgentState{}
-	_, err = engine.executeLoop(context.Background(), state, "run task", emptyMessages(), emptyTools(), scope.SessionID, scope.ID)
+	_, err = engine.executeLoop(
+		context.Background(),
+		state,
+		"run task",
+		emptyMessages(),
+		emptyTools(),
+		scope.SessionID,
+		scope.ID,
+	)
 	require.NoError(t, err)
 	require.Len(t, model.calls, 2)
 
@@ -182,7 +198,12 @@ func TestNaturalStopContinuationPlacesDraftBoundaryBeforeInjectedInput(t *testin
 	require.NotEqual(t, -1, boundaryIdx)
 	require.NotEqual(t, -1, injectedIdx)
 	assert.Less(t, draftIdx, boundaryIdx, "draft boundary must follow assistant draft")
-	assert.Less(t, boundaryIdx, injectedIdx, "draft boundary must precede newly injected input (matching Resume replay)")
+	assert.Less(
+		t,
+		boundaryIdx,
+		injectedIdx,
+		"draft boundary must precede newly injected input (matching Resume replay)",
+	)
 }
 
 func TestResumeEarlyErrorEndsCollaborationParentLease(t *testing.T) {
@@ -260,12 +281,25 @@ func TestCollaborationSpawnAcrossRoundsWithRepeatedToolCallID(t *testing.T) {
 	t.Cleanup(func() { _ = rt.Stop(context.Background()) })
 
 	state := &types.AgentState{}
-	_, err = engine.executeLoop(context.Background(), state, "delegate two slices", emptyMessages(), emptyTools(), scope.SessionID, scope.ID)
+	_, err = engine.executeLoop(
+		context.Background(),
+		state,
+		"delegate two slices",
+		emptyMessages(),
+		emptyTools(),
+		scope.SessionID,
+		scope.ID,
+	)
 	require.NoError(t, err)
 
 	group, err := store.Read(context.Background(), scope)
 	require.NoError(t, err)
-	require.Len(t, group.Members, 2, "both rounds must spawn distinct child agents despite identical normalized tool_call_id")
+	require.Len(
+		t,
+		group.Members,
+		2,
+		"both rounds must spawn distinct child agents despite identical normalized tool_call_id",
+	)
 	assert.Equal(t, "worker_one", group.Members[0].Name)
 	assert.Equal(t, "worker_two", group.Members[1].Name)
 	assert.NotEqual(t, group.Members[0].ID, group.Members[1].ID)

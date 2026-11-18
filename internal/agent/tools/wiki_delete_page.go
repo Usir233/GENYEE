@@ -69,7 +69,11 @@ func (t *wikiDeletePageTool) Execute(ctx context.Context, args json.RawMessage) 
 	}
 	params.Slug = normalizedSlug
 	if params.Slug == "index" || isSummaryNamespace(params.Slug) {
-		return &types.ToolResult{Success: false, Error: "structural index and document summary pages cannot be deleted directly"}, nil
+		return &types.ToolResult{
+				Success: false,
+				Error:   "structural index and document summary pages cannot be deleted directly",
+			},
+			nil
 	}
 
 	// Fetch page to get its incoming links before deleting
@@ -78,7 +82,11 @@ func (t *wikiDeletePageTool) Execute(ctx context.Context, args json.RawMessage) 
 		return &types.ToolResult{Success: false, Error: "Failed to fetch page to delete: " + err.Error()}, nil
 	}
 	if existingPage.PageType == types.WikiPageTypeIndex || existingPage.PageType == types.WikiPageTypeSummary {
-		return &types.ToolResult{Success: false, Error: "structural index and document summary pages cannot be deleted directly"}, nil
+		return &types.ToolResult{
+				Success: false,
+				Error:   "structural index and document summary pages cannot be deleted directly",
+			},
+			nil
 	}
 	inLinks := make([]string, len(existingPage.InLinks))
 	copy(inLinks, existingPage.InLinks)
@@ -115,7 +123,11 @@ func (t *wikiDeletePageTool) Execute(ctx context.Context, args json.RawMessage) 
 	t.routes.forget(params.Slug, kbID)
 	updatedCount := len(updatedSlugs)
 
-	outputMsg := fmt.Sprintf("Successfully deleted page [[%s]] and cleaned up %d incoming links.", params.Slug, updatedCount)
+	outputMsg := fmt.Sprintf(
+		"Successfully deleted page [[%s]] and cleaned up %d incoming links.",
+		params.Slug,
+		updatedCount,
+	)
 	if updatedCount > 0 {
 		outputMsg += fmt.Sprintf("\n- Affected pages: %s", strings.Join(updatedSlugs, ", "))
 	}

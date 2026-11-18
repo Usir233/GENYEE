@@ -1,9 +1,10 @@
 package tools
 
 import (
-	"github.com/Usir233/GENYEE/internal/agent/skills"
 	"sort"
 	"strings"
+
+	"github.com/Usir233/GENYEE/internal/agent/skills"
 )
 
 // skillTreeSkipDirs are install/cache trees that walk the skill root but are

@@ -130,6 +130,10 @@ type Broker struct {
 	waiters    map[string]chan struct{}
 	validators map[string]ResponseValidator
 
+	stopOnce sync.Once
+	stopCh   chan struct{}
+	subDone  chan struct{}
+
 	pollInterval  time.Duration
 	leaseTTL      time.Duration
 	renewInterval time.Duration
@@ -200,6 +204,7 @@ func NewBroker(store Store, rdb *redis.Client, opts ...Option) *Broker {
 		rdb:           rdb,
 		waiters:       make(map[string]chan struct{}),
 		validators:    make(map[string]ResponseValidator),
+		stopCh:        make(chan struct{}),
 		pollInterval:  defaultPollInterval,
 		leaseTTL:      defaultLeaseTTL,
 		renewInterval: defaultRenewInterval,
@@ -209,9 +214,27 @@ func NewBroker(store Store, rdb *redis.Client, opts ...Option) *Broker {
 		opt(b)
 	}
 	if rdb != nil {
+		b.subDone = make(chan struct{})
 		go b.runSubscriber()
 	}
 	return b
+}
+
+// Close stops background pub/sub listeners owned by the broker. It is safe to
+// call multiple times.
+func (b *Broker) Close() error {
+	if b == nil {
+		return nil
+	}
+	b.stopOnce.Do(func() {
+		if b.stopCh != nil {
+			close(b.stopCh)
+		}
+	})
+	if b.subDone != nil {
+		<-b.subDone
+	}
+	return nil
 }
 
 // Store exposes the backing store to kind adapters and tests.
@@ -321,9 +344,9 @@ func (b *Broker) Await(ctx context.Context, spec Spec) (out Outcome, err error) 
 
 	timer := time.NewTimer(spec.Timeout)
 	defer timer.Stop()
-	poll := time.NewTicker(b.pollInterval)
+	poll := time.NewTicker(max(b.pollInterval, time.Millisecond))
 	defer poll.Stop()
-	renew := time.NewTicker(b.renewInterval)
+	renew := time.NewTicker(max(b.renewInterval, time.Millisecond))
 	defer renew.Stop()
 
 	for {
@@ -636,8 +659,10 @@ func (b *Broker) Resolve(ctx context.Context, req ResolveRequest) (Resolution, e
 // treats the resumed run as abandoned.
 func (b *Broker) KeepLease(ctx context.Context, id, owner string) (stop func()) {
 	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
 	go func() {
-		ticker := time.NewTicker(b.renewInterval)
+		defer close(done)
+		ticker := time.NewTicker(max(b.renewInterval, time.Millisecond))
 		defer ticker.Stop()
 		for {
 			select {
@@ -655,7 +680,10 @@ func (b *Broker) KeepLease(ctx context.Context, id, owner string) (stop func()) 
 			}
 		}
 	}()
-	return cancel
+	return sync.OnceFunc(func() {
+		cancel()
+		<-done
+	})
 }
 
 // Fail closes a prompt the caller holds (answered or executing) whose run
@@ -729,27 +757,53 @@ func (b *Broker) wake(ctx context.Context, id string) {
 	}
 }
 
-// runSubscriber listens for cross-instance wake-ups for the process lifetime.
+// runSubscriber listens for cross-instance wake-ups until Close is called.
 func (b *Broker) runSubscriber() {
-	ctx := context.Background()
+	defer close(b.subDone)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		<-b.stopCh
+		cancel()
+	}()
 	channel := pubsubChannel()
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 	for {
+		if ctx.Err() != nil {
+			return
+		}
 		sub := b.rdb.Subscribe(ctx, channel)
-		for msg := range sub.Channel() {
-			backoff = time.Second
-			var m wakeMessage
-			if err := json.Unmarshal([]byte(msg.Payload), &m); err != nil {
-				logger.GetLogger(ctx).Warnf("agent prompt pubsub: bad payload: %v", err)
-				continue
-			}
-			if m.OriginID != instanceID {
-				b.wakeLocal(m.PromptID)
+		ch := sub.Channel()
+	readLoop:
+		for {
+			select {
+			case <-b.stopCh:
+				_ = sub.Close()
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					break readLoop
+				}
+				backoff = time.Second
+				var m wakeMessage
+				if err := json.Unmarshal([]byte(msg.Payload), &m); err != nil {
+					logger.GetLogger(ctx).Warnf("agent prompt pubsub: bad payload: %v", err)
+					continue
+				}
+				if m.OriginID != instanceID {
+					b.wakeLocal(m.PromptID)
+				}
 			}
 		}
 		_ = sub.Close()
-		time.Sleep(backoff)
+		timer := time.NewTimer(backoff)
+		select {
+		case <-b.stopCh:
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 		backoff = min(backoff*2, maxBackoff)
 	}
 }

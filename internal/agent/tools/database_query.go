@@ -18,8 +18,10 @@ var databaseQueryTool = BaseTool{
 
 ## Security Features
 - Automatic tenant_id injection: All queries are automatically filtered by the logged-in user's tenant_id
-- Automatic soft-delete filtering: All queries are automatically filtered to include only records with deleted_at IS NULL
-- Read-only queries: Only SELECT statements are allowed
+` +
+		"- Automatic soft-delete filtering: All queries are automatically filtered to include only records " +
+		"with deleted_at IS NULL\n" +
+		`- Read-only queries: Only SELECT statements are allowed
 - Safe tables: Only allow queries on authorized tables (knowledge_bases, knowledges, chunks)
 
 ## Available Tables and Columns
@@ -78,8 +80,10 @@ Get storage usage:
 
 Join knowledge bases and documents:
 {
-  "sql": "SELECT kb.name as kb_name, COUNT(k.id) as doc_count FROM knowledge_bases kb LEFT JOIN knowledges k ON kb.id = k.knowledge_base_id GROUP BY kb.id, kb.name"
-}
+` +
+		"  \"sql\": \"SELECT kb.name as kb_name, COUNT(k.id) as doc_count FROM knowledge_bases kb LEFT JOIN " +
+		"knowledges k ON kb.id = k.knowledge_base_id GROUP BY kb.id, kb.name\"\n" +
+		`}
 
 ## Important Notes
 - DO NOT include tenant_id in WHERE clause - it's automatically added
@@ -91,8 +95,9 @@ Join knowledge bases and documents:
 	schema: utils.GenerateSchema[DatabaseQueryInput](),
 }
 
+// DatabaseQueryInput holds the read-only SQL query executed by DatabaseQueryTool.
 type DatabaseQueryInput struct {
-	SQL string `json:"sql" jsonschema:"The SELECT SQL query to execute. DO NOT include tenant_id condition - it will be automatically added for security."`
+	SQL string `json:"sql" jsonschema:"The SELECT SQL query to execute. DO NOT include tenant_id condition - it will be automatically added for security."` //nolint:lll // jsonschema tag
 }
 
 // DatabaseQueryTool allows AI to query the database with auto-injected tenant_id for security
@@ -182,7 +187,7 @@ func (t *DatabaseQueryTool) Execute(ctx context.Context, args json.RawMessage) (
 			Error:   fmt.Sprintf("Query execution failed: %v", err),
 		}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	logger.Debugf(ctx, "[Tool][DatabaseQuery] Query executed successfully, processing rows...")
 
@@ -234,6 +239,12 @@ func (t *DatabaseQueryTool) Execute(ctx context.Context, args json.RawMessage) (
 		return &types.ToolResult{
 			Success: false,
 			Error:   fmt.Sprintf("Error iterating rows: %v", err),
+		}, err
+	}
+	if err := rows.Close(); err != nil {
+		return &types.ToolResult{
+			Success: false,
+			Error:   fmt.Sprintf("Error closing rows: %v", err),
 		}, err
 	}
 
@@ -360,7 +371,10 @@ func (t *DatabaseQueryTool) formatQueryResults(
 
 	// Add summary statistics if applicable
 	if len(results) > 10 {
-		output += fmt.Sprintf("Note: Showing %d records out of %d total. Consider using a LIMIT clause to restrict the result count.\n", len(results), len(results))
+		output += fmt.Sprintf(
+			"Note: Showing %d records out of %d total. Consider using a LIMIT clause to restrict the result count.\n",
+			len(results), len(results),
+		)
 	}
 
 	return output

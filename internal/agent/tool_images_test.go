@@ -312,13 +312,172 @@ func TestToolImageSourceNumbersUseCombinedMessagePositions(t *testing.T) {
 		calls         []types.ToolCall
 		images, notes []string
 	}{
-		{"two searches", []types.ToolCall{search("a", []string{a}, []string{"one"}), search("b", []string{b}, []string{"two"})}, []string{a, b}, []string{"Image 1: chunk chunk://1.", "Image 2: chunk chunk://2."}},
-		{"search after other images", []types.ToolCall{makeCall("other", tools.ToolReadFile, []string{a, b}, nil), search("c", []string{c}, []string{"two"})}, []string{a, b, c}, []string{"Image 3: chunk chunk://2."}},
-		{"multiple images per search", []types.ToolCall{search("a", []string{a, b}, []string{"two", "one"}), search("b", []string{c}, []string{"two"})}, []string{a, b, c}, []string{"Image 1: chunk chunk://2.", "Image 2: chunk chunk://1.", "Image 3: chunk chunk://2."}},
-		{"skipped calls do not advance index", []types.ToolCall{failed, {ID: "nil"}, search("empty", nil, []string{"two"}), search("a", []string{a}, []string{"one"}), search("b", []string{b}, []string{"two"})}, []string{a, b}, []string{"Image 1: chunk chunk://1.", "Image 2: chunk chunk://2."}},
-		{"unknown source retains actual index", []types.ToolCall{search("a", []string{a}, []string{"one"}), search("b", []string{b, c}, []string{"unknown", "two"})}, []string{a, b, c}, []string{"Image 1: chunk chunk://1.", "Image 2: source unavailable; do not invent a citation.", "Image 3: chunk chunk://2."}},
-		{"extra metadata cannot invent attachment", []types.ToolCall{search("a", []string{a}, []string{"one", "unknown"}), search("b", []string{b}, []string{"two"})}, []string{a, b}, []string{"Image 1: chunk chunk://1.", "Image 2: chunk chunk://2."}},
-		{"missing metadata still advances index", []types.ToolCall{search("a", []string{a, b}, nil), search("c", []string{c}, []any{"two"})}, []string{a, b, c}, []string{"Image 3: chunk chunk://2."}},
+		{
+			"two searches",
+			[]types.ToolCall{
+				search("a",
+					[]string{a},
+					[]string{"one"}),
+				search("b",
+					[]string{b},
+					[]string{"two"}),
+			},
+			[]string{
+				a,
+				b,
+			},
+			[]string{
+				"Image 1: chunk chunk://1.",
+				"Image 2: chunk chunk://2.",
+			},
+		},
+
+		{
+			"search after other images",
+			[]types.ToolCall{
+				makeCall("other",
+					tools.ToolReadFile,
+					[]string{
+						a,
+						b,
+					},
+					nil),
+				search("c",
+					[]string{c},
+					[]string{"two"}),
+			},
+			[]string{
+				a,
+				b,
+				c,
+			},
+			[]string{"Image 3: chunk chunk://2."},
+		},
+
+		{
+			"multiple images per search",
+			[]types.ToolCall{
+				search("a",
+					[]string{
+						a,
+						b,
+					},
+					[]string{
+						"two",
+						"one",
+					}),
+				search("b",
+					[]string{c},
+					[]string{"two"}),
+			},
+			[]string{
+				a,
+				b,
+				c,
+			},
+			[]string{
+				"Image 1: chunk chunk://2.",
+				"Image 2: chunk chunk://1.",
+				"Image 3: chunk chunk://2.",
+			},
+		},
+
+		{
+			"skipped calls do not advance index",
+			[]types.ToolCall{
+				failed,
+				{ID: "nil"},
+				search("empty",
+					nil,
+					[]string{"two"}),
+				search("a",
+					[]string{a},
+					[]string{"one"}),
+				search("b",
+					[]string{b},
+					[]string{"two"}),
+			},
+			[]string{
+				a,
+				b,
+			},
+			[]string{
+				"Image 1: chunk chunk://1.",
+				"Image 2: chunk chunk://2.",
+			},
+		},
+
+		{
+			"unknown source retains actual index",
+			[]types.ToolCall{
+				search("a",
+					[]string{a},
+					[]string{"one"}),
+				search("b",
+					[]string{
+						b,
+						c,
+					},
+					[]string{
+						"unknown",
+						"two",
+					}),
+			},
+			[]string{
+				a,
+				b,
+				c,
+			},
+			[]string{
+				"Image 1: chunk chunk://1.",
+				"Image 2: source unavailable; do not invent a citation.",
+				"Image 3: chunk chunk://2.",
+			},
+		},
+
+		{
+			"extra metadata cannot invent attachment",
+			[]types.ToolCall{
+				search("a",
+					[]string{a},
+					[]string{
+						"one",
+						"unknown",
+					}),
+				search("b",
+					[]string{b},
+					[]string{"two"}),
+			},
+			[]string{
+				a,
+				b,
+			},
+			[]string{
+				"Image 1: chunk chunk://1.",
+				"Image 2: chunk chunk://2.",
+			},
+		},
+
+		{
+			"missing metadata still advances index",
+			[]types.ToolCall{
+				search("a",
+					[]string{
+						a,
+						b,
+					},
+					nil),
+				search("c",
+					[]string{c},
+					[]any{"two"}),
+			},
+			[]string{
+				a,
+				b,
+				c,
+			},
+			[]string{"Image 3: chunk chunk://2."},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

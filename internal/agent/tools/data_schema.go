@@ -18,10 +18,12 @@ var dataSchemaTool = BaseTool{
 	schema: utils.GenerateSchema[DataSchemaInput](),
 }
 
+// DataSchemaInput identifies the tabular knowledge document whose schema is requested.
 type DataSchemaInput struct {
 	KnowledgeID string `json:"knowledge_id" jsonschema:"doc://N document handle to query"`
 }
 
+// DataSchemaTool inspects table summary and column chunks for CSV/Excel documents.
 type DataSchemaTool struct {
 	BaseTool
 	knowledgeService interfaces.KnowledgeService
@@ -40,7 +42,12 @@ func (t *DataSchemaTool) WithSearchTargets(searchTargets types.SearchTargets) *D
 	return t
 }
 
-func NewDataSchemaTool(knowledgeService interfaces.KnowledgeService, chunkRepo interfaces.ChunkRepository, targetChunkTypes ...types.ChunkType) *DataSchemaTool {
+// NewDataSchemaTool creates a DataSchemaTool reading table summary and column chunks.
+func NewDataSchemaTool(
+	knowledgeService interfaces.KnowledgeService,
+	chunkRepo interfaces.ChunkRepository,
+	targetChunkTypes ...types.ChunkType,
+) *DataSchemaTool {
 	if len(targetChunkTypes) == 0 {
 		targetChunkTypes = []types.ChunkType{types.ChunkTypeTableSummary, types.ChunkTypeTableColumn}
 	}
@@ -111,9 +118,10 @@ func (t *DataSchemaTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 
 	var summaryContent, columnContent string
 	for _, chunk := range chunks {
-		if chunk.ChunkType == types.ChunkTypeTableSummary {
+		switch chunk.ChunkType {
+		case types.ChunkTypeTableSummary:
 			summaryContent = chunk.Content
-		} else if chunk.ChunkType == types.ChunkTypeTableColumn {
+		case types.ChunkTypeTableColumn:
 			columnContent = chunk.Content
 		}
 	}

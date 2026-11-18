@@ -117,11 +117,19 @@ func Parse(t types.AutomationTrigger) (*Schedule, error) {
 }
 
 // Trigger is the normalized trigger.
-func (s *Schedule) Trigger() types.AutomationTrigger { return s.trigger }
+func (s *Schedule) Trigger() types.AutomationTrigger {
+	if s == nil {
+		return types.AutomationTrigger{}
+	}
+	return s.trigger
+}
 
 // Next is the first time the trigger fires strictly after after, or nil when
 // it never fires again.
 func (s *Schedule) Next(after time.Time) *time.Time {
+	if s == nil {
+		return nil
+	}
 	if s.cron == nil {
 		at := s.once
 		if at.After(after) {
@@ -129,7 +137,11 @@ func (s *Schedule) Next(after time.Time) *time.Time {
 		}
 		return nil
 	}
-	next := s.cron.Next(after.In(s.location))
+	loc := s.location
+	if loc == nil {
+		loc = time.UTC
+	}
+	next := s.cron.Next(after.In(loc))
 	if next.IsZero() {
 		return nil
 	}
@@ -139,10 +151,13 @@ func (s *Schedule) Next(after time.Time) *time.Time {
 
 // Upcoming is the next n firing times after after.
 func (s *Schedule) Upcoming(after time.Time, n int) []time.Time {
+	if s == nil || n <= 0 {
+		return nil
+	}
 	var out []time.Time
 	for len(out) < n {
 		next := s.Next(after)
-		if next == nil {
+		if next == nil || !next.After(after) {
 			break
 		}
 		out = append(out, *next)
@@ -155,7 +170,7 @@ func (s *Schedule) Upcoming(after time.Time, n int) []time.Time {
 // looks at the gaps over the next days, which catches expressions such as
 // "* * * * *" and "*/2 9 * * *" alike.
 func (s *Schedule) CheckInterval(from time.Time, minInterval time.Duration) error {
-	if s.cron == nil || minInterval <= 0 {
+	if s == nil || s.cron == nil || minInterval <= 0 {
 		return nil
 	}
 	times := s.Upcoming(from, 64)

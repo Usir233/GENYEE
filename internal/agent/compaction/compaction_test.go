@@ -373,10 +373,12 @@ func TestSummaryKindIsNotSerialized(t *testing.T) {
 // tool arguments rendered for compaction transcripts and raw archives must keep
 // exact JSON number literals rather than rounding through float64.
 func TestRenderToolArgsPreserves64BitIntegerPrecision(t *testing.T) {
-	args := `{"id":9007199254740993,"max_uint64":18446744073709551615,"neg":-9007199254740993,"nested":{"target_id":9007199254740995}}`
+	args := "{\"id\":9007199254740993,\"max_uint64\":18446744073709551615,\"neg\":-9007199254740993,\"nested\":" +
+		"{\"target_id\":9007199254740995}}"
 	got := renderToolArgs(args)
 	assert.Equal(t,
-		`id=9007199254740993, max_uint64=18446744073709551615, neg=-9007199254740993, nested={"target_id":9007199254740995}`,
+		"id=9007199254740993, max_uint64=18446744073709551615, neg=-9007199254740993, "+
+			"nested={\"target_id\":9007199254740995}",
 		got,
 	)
 

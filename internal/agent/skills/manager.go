@@ -39,8 +39,10 @@ const skillDirEnvVar = "GENYEE_SKILL_DIR"
 // never injected — a skill's Python packages arrive through its venv
 // interpreter — but stays on the blacklist below, because a stored PYTHONPATH
 // could otherwise shadow exactly those packages.
-const pythonPathEnvVar = "PYTHONPATH"
-const nodePathEnvVar = "NODE_PATH"
+const (
+	pythonPathEnvVar = "PYTHONPATH"
+	nodePathEnvVar   = "NODE_PATH"
+)
 
 // InjectedSandboxEnvVars is every name skill environment preparation writes into the sandbox
 // environment. The skill-env declaration blacklist must reject these so a
@@ -172,7 +174,7 @@ func (m *Manager) installedSkillsRoot() string {
 // resolveSource decides which source owns one skill name. An installed image
 // is the only copy the sandbox can run: falling back to a host skill directory
 // would advertise files that are not in the image.
-func (m *Manager) resolveSource(skillName string) SkillSource {
+func (m *Manager) resolveSource(_ string) SkillSource {
 	if m.tenantSource != nil {
 		return m.tenantSource
 	}
@@ -191,7 +193,7 @@ func (m *Manager) discoverAllSkills() ([]*SkillMetadata, error) {
 
 // Initialize discovers all skills and caches their metadata
 // This should be called at startup
-func (m *Manager) Initialize(ctx context.Context) error {
+func (m *Manager) Initialize(_ context.Context) error {
 	if !m.enabled {
 		return nil
 	}
@@ -250,7 +252,7 @@ func (m *Manager) GetAllMetadata() []*SkillMetadata {
 }
 
 // LoadSkill loads the full instructions of a skill (Level 2)
-func (m *Manager) LoadSkill(ctx context.Context, skillName string) (*Skill, error) {
+func (m *Manager) LoadSkill(_ context.Context, skillName string) (*Skill, error) {
 	if !m.enabled {
 		return nil, fmt.Errorf("skills are not enabled")
 	}
@@ -277,7 +279,7 @@ func (m *Manager) isSkillAllowed(skillName string) bool {
 }
 
 // ReadSkillFile reads an additional file from a skill directory (Level 3)
-func (m *Manager) ReadSkillFile(ctx context.Context, skillName, filePath string) (string, error) {
+func (m *Manager) ReadSkillFile(_ context.Context, skillName, filePath string) (string, error) {
 	if !m.enabled {
 		return "", fmt.Errorf("skills are not enabled")
 	}
@@ -295,7 +297,7 @@ func (m *Manager) ReadSkillFile(ctx context.Context, skillName, filePath string)
 }
 
 // ListSkillFiles lists all files in a skill directory
-func (m *Manager) ListSkillFiles(ctx context.Context, skillName string) ([]string, error) {
+func (m *Manager) ListSkillFiles(_ context.Context, skillName string) ([]string, error) {
 	if !m.enabled {
 		return nil, fmt.Errorf("skills are not enabled")
 	}
@@ -342,7 +344,7 @@ func sessionFileStoreFromManager(mgr sandbox.Manager) sandbox.SessionFileStore {
 }
 
 // GetSkillInfo returns detailed information about a skill
-func (m *Manager) GetSkillInfo(ctx context.Context, skillName string) (*SkillInfo, error) {
+func (m *Manager) GetSkillInfo(_ context.Context, skillName string) (*SkillInfo, error) {
 	if !m.enabled {
 		return nil, fmt.Errorf("skills are not enabled")
 	}
@@ -381,7 +383,7 @@ type SkillInfo struct {
 }
 
 // Reload refreshes the skill cache by rediscovering all skills
-func (m *Manager) Reload(ctx context.Context) error {
+func (m *Manager) Reload(_ context.Context) error {
 	if !m.enabled {
 		return nil
 	}

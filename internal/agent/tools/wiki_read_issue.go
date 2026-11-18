@@ -15,6 +15,7 @@ type wikiReadIssueTool struct {
 	kbIDs       []string
 }
 
+// NewWikiReadIssueTool creates a tool for reading pending or specific wiki page issues.
 func NewWikiReadIssueTool(wikiService interfaces.WikiPageService, kbIDs []string) types.Tool {
 	return &wikiReadIssueTool{
 		BaseTool: NewBaseTool(

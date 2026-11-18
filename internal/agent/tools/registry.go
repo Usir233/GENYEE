@@ -303,12 +303,13 @@ func (r *ToolRegistry) execute(ctx context.Context, tool types.Tool, args json.R
 			fields["error"] = result.Error
 		}
 	}
-	if execErr != nil {
+	switch {
+	case execErr != nil:
 		fields["error"] = execErr.Error()
 		common.PipelineError(ctx, "AgentTool", "execute_done", fields)
-	} else if result != nil && !result.Success {
+	case result != nil && !result.Success:
 		common.PipelineWarn(ctx, "AgentTool", "execute_done", fields)
-	} else {
+	default:
 		common.PipelineInfo(ctx, "AgentTool", "execute_done", fields)
 	}
 

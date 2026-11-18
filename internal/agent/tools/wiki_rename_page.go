@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
@@ -84,7 +85,11 @@ func (t *wikiRenamePageTool) Execute(ctx context.Context, args json.RawMessage) 
 		return &types.ToolResult{Success: false, Error: "the index page cannot be renamed or overwritten"}, nil
 	}
 	if isSummaryNamespace(params.Slug) || isSummaryNamespace(params.NewSlug) {
-		return &types.ToolResult{Success: false, Error: "summary pages are keyed by source document ID and cannot be renamed"}, nil
+		return &types.ToolResult{
+				Success: false,
+				Error:   "summary pages are keyed by source document ID and cannot be renamed",
+			},
+			nil
 	}
 
 	// Get existing page
@@ -164,9 +169,16 @@ func (t *wikiRenamePageTool) Execute(ctx context.Context, args json.RawMessage) 
 	t.wikiPageService.InjectCrossLinks(ctx, kbID, []string{params.NewSlug})
 
 	// Rebuild the index page to reflect the new/updated summary
-	_ = t.wikiPageService.RebuildIndexPage(ctx, kbID)
+	if err := t.wikiPageService.RebuildIndexPage(ctx, kbID); err != nil {
+		logger.Warnf(ctx, "[Tool][WikiRenamePage] Rebuild index page for KB %s failed: %v", kbID, err)
+	}
 
-	outputMsg := fmt.Sprintf("Successfully renamed page [[%s]] → [[%s]] and updated %d incoming links.", params.Slug, params.NewSlug, updatedCount)
+	outputMsg := fmt.Sprintf(
+		"Successfully renamed page [[%s]] → [[%s]] and updated %d incoming links.",
+		params.Slug,
+		params.NewSlug,
+		updatedCount,
+	)
 	if updatedCount > 0 {
 		outputMsg += fmt.Sprintf("\n- Affected pages: %s", strings.Join(updatedSlugs, ", "))
 	}

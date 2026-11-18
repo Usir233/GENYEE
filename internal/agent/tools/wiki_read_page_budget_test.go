@@ -22,7 +22,7 @@ func newBulkyWikiPage(kbID, slug string, bodyRunes int) *types.WikiPage {
 	return page
 }
 
-func readPageOutput(t *testing.T, ctx context.Context, tool types.Tool, slugs []string) *types.ToolResult {
+func readPageOutput(ctx context.Context, t *testing.T, tool types.Tool, slugs []string) *types.ToolResult {
 	t.Helper()
 	args, err := json.Marshal(map[string]any{"slugs": slugs})
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestWikiReadPageKeepsEveryRequestedSlugWithinBudget(t *testing.T) {
 	service := &fakeWikiPageService{pages: pages}
 	tool := NewWikiReadPageTool(service, nil, NewWikiScopesFromKBIDs([]string{"kb-1"}), NewWikiRouteResolver())
 
-	result := readPageOutput(t, context.Background(), tool, slugs)
+	result := readPageOutput(context.Background(), t, tool, slugs)
 
 	assertWellFormedPages(t, result.Output, len(slugs))
 	for _, slug := range slugs {
@@ -85,7 +85,7 @@ func TestWikiReadPageNamesOmittedPagesWhenBudgetIsTooSmall(t *testing.T) {
 	tool := NewWikiReadPageTool(service, nil, NewWikiScopesFromKBIDs([]string{"kb-1"}), NewWikiRouteResolver())
 
 	ctx := WithOutputBudget(context.Background(), 2000)
-	result := readPageOutput(t, ctx, tool, slugs)
+	result := readPageOutput(ctx, t, tool, slugs)
 
 	omitted, ok := result.Data["omitted_slugs"].([]string)
 	require.True(t, ok)
@@ -110,7 +110,7 @@ func TestWikiReadPageKeepsSmallPagesIntactBesideLargeOnes(t *testing.T) {
 	}}
 	tool := NewWikiReadPageTool(service, nil, NewWikiScopesFromKBIDs([]string{"kb-1"}), NewWikiRouteResolver())
 
-	result := readPageOutput(t, context.Background(), tool, []string{"concept/small", "concept/huge"})
+	result := readPageOutput(context.Background(), t, tool, []string{"concept/small", "concept/huge"})
 
 	assertWellFormedPages(t, result.Output, 2)
 	assert.Contains(t, result.Output, small.Content, "the small page must survive untrimmed")
@@ -132,7 +132,7 @@ func TestWikiReadPageCapsInlinedLinkSummaries(t *testing.T) {
 	service := &fakeWikiPageService{pages: pages}
 	tool := NewWikiReadPageTool(service, nil, NewWikiScopesFromKBIDs([]string{"kb-1"}), NewWikiRouteResolver())
 
-	result := readPageOutput(t, context.Background(), tool, []string{"concept/hub"})
+	result := readPageOutput(context.Background(), t, tool, []string{"concept/hub"})
 
 	assert.Equal(t, wikiMaxLinkSummaries, strings.Count(result.Output, "NEIGHBOUR_SUMMARY"),
 		"only the first %d neighbour summaries may be inlined", wikiMaxLinkSummaries)

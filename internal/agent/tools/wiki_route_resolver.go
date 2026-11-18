@@ -25,6 +25,7 @@ type WikiRouteResolver struct {
 	bySlug map[string]map[string]struct{}
 }
 
+// NewWikiRouteResolver constructs an empty request-scoped wiki route resolver.
 func NewWikiRouteResolver() *WikiRouteResolver {
 	return &WikiRouteResolver{bySlug: make(map[string]map[string]struct{})}
 }
@@ -204,7 +205,12 @@ func resolveWikiCreateKB(
 	if len(scopes) == 1 {
 		return scopes[0].KnowledgeBaseID, nil
 	}
-	return "", fmt.Errorf("cannot choose a knowledge base for new wiki page %s from %d allowed scopes", slug, len(scopes))
+	return "",
+		fmt.Errorf(
+			"cannot choose a knowledge base for new wiki page %s from %d allowed scopes",
+			slug,
+			len(scopes),
+		)
 }
 
 func firstWikiRoute(routes []*WikiRouteResolver) *WikiRouteResolver {

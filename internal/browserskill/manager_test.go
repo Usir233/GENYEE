@@ -132,10 +132,13 @@ func TestNativeDaemonRelay(t *testing.T) {
 	link = redeemTestPair(ctx, t, m, link)
 	parts := strings.Split(link, "#")
 	dialer := websocket.Dialer{Subprotocols: []string{AuthProtocol + parts[1]}}
-	ws, _, err := dialer.Dial(
+	ws, hsResp, err := dialer.Dial(
 		parts[0],
 		http.Header{"Origin": []string{"chrome-extension://" + strings.Repeat("a", 32)}},
 	)
+	if hsResp != nil && hsResp.Body != nil {
+		_ = hsResp.Body.Close()
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,9 +353,13 @@ func TestNativeDaemonRelay(t *testing.T) {
 	if err := m.Revoke(ctx, scope); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err = dialer.Dial(parts[0], http.Header{
+	_, revokedResp, err := dialer.Dial(parts[0], http.Header{
 		"Origin": []string{"chrome-extension://" + strings.Repeat("a", 32)},
-	}); err == nil {
+	})
+	if revokedResp != nil && revokedResp.Body != nil {
+		_ = revokedResp.Body.Close()
+	}
+	if err == nil {
 		t.Fatal("revoked credential accepted")
 	}
 }

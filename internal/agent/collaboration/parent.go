@@ -28,12 +28,13 @@ func (r *Runtime) AcquireParent(ctx context.Context, requested Scope) (*Binding,
 		First(&row).
 		Error
 	recovered := false
-	if err == nil {
+	switch {
+	case err == nil:
 		recovered = row.ID != requested.ID
 		requested.ID = row.ID
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+	case !errors.Is(err, gorm.ErrRecordNotFound):
 		return nil, err
-	} else {
+	default:
 		members, err := r.previousChildren(ctx, &requested)
 		if err != nil {
 			return nil, err
@@ -53,7 +54,7 @@ func (r *Runtime) AcquireParent(ctx context.Context, requested Scope) (*Binding,
 		g.ParentWait = nil
 		g.ParentMessageID = messageID
 		g.ParentOwner = owner
-		g.ParentLease = time.Now().Add(r.Lease)
+		g.ParentLease = time.Now().Add(r.leaseDuration())
 		return nil
 	})
 	if err != nil {
@@ -81,7 +82,7 @@ func (b *Binding) Start(ctx context.Context) (context.Context, func()) {
 		defer close(done)
 		tick := time.NewTicker(b.Runtime.heartbeatInterval())
 		defer tick.Stop()
-		lease := time.Now().Add(b.Runtime.Lease)
+		lease := time.Now().Add(b.Runtime.leaseDuration())
 		for {
 			select {
 			case <-ctx.Done():
@@ -99,7 +100,7 @@ func (b *Binding) Start(ctx context.Context) (context.Context, func()) {
 					}
 					now := time.Now()
 					if b.Runtime.renewalDue(g.ParentLease, now) {
-						g.ParentLease = now.Add(b.Runtime.Lease)
+						g.ParentLease = now.Add(b.Runtime.leaseDuration())
 						touchDeadline(g, now)
 					}
 					lease = g.ParentLease

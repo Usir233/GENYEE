@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
@@ -111,7 +112,11 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 		return &types.ToolResult{Success: false, Error: "No knowledge bases available for editing"}, nil
 	}
 	if params.Title == "" || strings.TrimSpace(params.PageType) == "" || params.Content == "" || params.Summary == "" {
-		return &types.ToolResult{Success: false, Error: "title, summary, content, and page_type are required for write action"}, nil
+		return &types.ToolResult{
+				Success: false,
+				Error:   "title, summary, content, and page_type are required for write action",
+			},
+			nil
 	}
 	params.PageType = strings.ToLower(strings.TrimSpace(params.PageType))
 	if !types.IsValidWikiPageType(params.PageType) {
@@ -156,7 +161,11 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 		existingPage = nil
 		sourceKBHints, sourceErr := wikiKnowledgeBasesForSourceDocuments(sourceDocs, t.kbIDs)
 		if sourceErr != nil {
-			return &types.ToolResult{Success: false, Error: "Failed to resolve source_refs routing: " + sourceErr.Error()}, nil
+			return &types.ToolResult{
+					Success: false,
+					Error:   "Failed to resolve source_refs routing: " + sourceErr.Error(),
+				},
+				nil
 		}
 		kbID, err = resolveWikiCreateKB(params.Slug, t.kbIDs, t.routes, sourceKBHints...)
 	}
@@ -179,7 +188,13 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 	}
 	if existingPage != nil {
 		if t.scopeEnforced {
-			if scopeErr := ensureWikiPageInSearchTargets(ctx, existingPage, kbID, t.searchTargets, t.knowledgeService); scopeErr != nil {
+			if scopeErr := ensureWikiPageInSearchTargets(
+				ctx,
+				existingPage,
+				kbID,
+				t.searchTargets,
+				t.knowledgeService,
+			); scopeErr != nil {
 				return &types.ToolResult{Success: false, Error: scopeErr.Error()}, nil
 			}
 		}
@@ -197,7 +212,13 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 	// This rewrites LLM-mangled links (most importantly UUID-based summary
 	// slugs) back to their real target when a confident match exists, and
 	// leaves everything else untouched. Best-effort — never block the write.
-	if repaired, changed, rerr := t.wikiPageService.RepairContentLinks(ctx, kbID, params.Slug, params.Content); rerr == nil && changed {
+	if repaired, changed, rerr := t.wikiPageService.RepairContentLinks(
+		ctx,
+		kbID,
+		params.Slug,
+		params.Content,
+	); rerr == nil &&
+		changed {
 		params.Content = repaired
 	}
 
@@ -264,9 +285,19 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 	t.wikiPageService.InjectCrossLinks(ctx, kbID, []string{params.Slug})
 
 	// Rebuild the index page to reflect the new/updated summary
-	_ = t.wikiPageService.RebuildIndexPage(ctx, kbID)
+	if err := t.wikiPageService.RebuildIndexPage(ctx, kbID); err != nil {
+		logger.Warnf(ctx, "[Tool][WikiWritePage] Rebuild index page for KB %s failed: %v", kbID, err)
+	}
 
-	output := fmt.Sprintf("Successfully %s page [[%s]].\n- Title: %s\n- Type: %s\n- Summary: %s\n- Content length: %d chars", action, params.Slug, params.Title, params.PageType, params.Summary, len(params.Content))
+	output := fmt.Sprintf(
+		"Successfully %s page [[%s]].\n- Title: %s\n- Type: %s\n- Summary: %s\n- Content length: %d chars",
+		action,
+		params.Slug,
+		params.Title,
+		params.PageType,
+		params.Summary,
+		len(params.Content),
+	)
 	if params.Aliases != nil && len(*params.Aliases) > 0 {
 		output += fmt.Sprintf("\n- Aliases: %s", strings.Join(*params.Aliases, ", "))
 	}

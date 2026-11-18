@@ -52,7 +52,7 @@ func readContainedSkillFile(subRoot *os.Root, basePath string) (*Skill, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open skill file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {
@@ -120,7 +120,7 @@ func (l *Loader) discoverInDirectory(dir string) ([]*SkillMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open skill directory %s: %w", dir, err)
 	}
-	defer dirRoot.Close()
+	defer func() { _ = dirRoot.Close() }()
 
 	// Read directory entries
 	entries, err := os.ReadDir(dir)
@@ -189,7 +189,7 @@ func (l *Loader) loadSkillFromDirectory(dir, skillName string) (*Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer dirRoot.Close()
+	defer func() { _ = dirRoot.Close() }()
 
 	// First, check if we can find by directory name matching skill name
 	if subRoot, err := dirRoot.OpenRoot(skillName); err == nil {
@@ -243,7 +243,12 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 		}
 	}
 
-	if strings.TrimSpace(relativePath) == "" || strings.ContainsRune(relativePath, '\\') || filepath.IsAbs(relativePath) {
+	if strings.TrimSpace(relativePath) == "" ||
+		strings.ContainsRune(
+			relativePath,
+			'\\',
+		) ||
+		filepath.IsAbs(relativePath) {
 		return nil, fmt.Errorf("invalid file path: %s", relativePath)
 	}
 
@@ -267,7 +272,13 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 		return nil, err
 	}
 	relPath, err := filepath.Rel(absSkillPath, absFilePath)
-	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+	if err != nil ||
+		relPath == ".." ||
+		strings.HasPrefix(
+			relPath,
+			".."+string(filepath.Separator),
+		) ||
+		filepath.IsAbs(relPath) {
 		return nil, fmt.Errorf("file path outside skill directory: %s", relativePath)
 	}
 
@@ -278,13 +289,13 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to open skill directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	f, err := root.Open(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {
@@ -327,7 +338,7 @@ func (l *Loader) ListSkillFiles(skillName string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list skill files: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	var files []string
 	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, walkErr error) error {

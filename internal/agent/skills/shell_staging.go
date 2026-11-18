@@ -62,7 +62,12 @@ func (m *Manager) stageShellSkill(ctx context.Context, sessionID, name string) (
 	}
 	sort.Strings(files)
 	if len(files) > maxStagedSkillFiles {
-		return "", fmt.Errorf("skill %q exceeds the %d-file staging limit; install it into the sandbox image", name, maxStagedSkillFiles)
+		return "",
+			fmt.Errorf(
+				"skill %q exceeds the %d-file staging limit; install it into the sandbox image",
+				name,
+				maxStagedSkillFiles,
+			)
 	}
 	type resource struct {
 		name string
@@ -88,9 +93,14 @@ func (m *Manager) stageShellSkill(ctx context.Context, sessionID, name string) (
 		}
 		total += len(file.Content)
 		if total > maxStagedSkillBytes {
-			return "", fmt.Errorf("skill %q exceeds the %d-byte staging limit; install it into the sandbox image", name, maxStagedSkillBytes)
+			return "",
+				fmt.Errorf(
+					"skill %q exceeds the %d-byte staging limit; install it into the sandbox image",
+					name,
+					maxStagedSkillBytes,
+				)
 		}
-		fmt.Fprintf(digest, "%d:%s:%d:", len(rel), rel, len(file.Content))
+		_, _ = fmt.Fprintf(digest, "%d:%s:%d:", len(rel), rel, len(file.Content))
 		digest.Write([]byte(file.Content))
 		resources = append(resources, resource{rel, []byte(file.Content)})
 	}

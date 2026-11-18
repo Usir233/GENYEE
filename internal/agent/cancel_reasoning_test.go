@@ -3,12 +3,13 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"testing"
+
 	agenttools "github.com/Usir233/GENYEE/internal/agent/tools"
 	"github.com/Usir233/GENYEE/internal/event"
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // Deliver every prepared chunk before cancelling and closing the provider
@@ -18,7 +19,13 @@ type interruptedReasoningChat struct {
 	cancel context.CancelFunc
 }
 
-func (m *interruptedReasoningChat) ChatStream(ctx context.Context, msgs []chat.Message, opts *chat.ChatOptions) (<-chan types.StreamResponse, error) {
+func (m *interruptedReasoningChat) ChatStream(
+	ctx context.Context,
+	msgs []chat.Message,
+	opts *chat.ChatOptions,
+) (<-chan types.StreamResponse,
+	error,
+) {
 	source, err := m.mockChat.ChatStream(ctx, msgs, opts)
 	if err != nil {
 		return nil, err
@@ -33,6 +40,7 @@ func (m *interruptedReasoningChat) ChatStream(ctx context.Context, msgs []chat.M
 	}()
 	return out, nil
 }
+
 func TestInterruptedReasoningPersistsWithoutCompletingOrExecutingTools(t *testing.T) {
 	metadata := types.ProviderMetadata{"provider": json.RawMessage(`{"encrypted":"opaque-state"}`)}
 	cases := []struct {
@@ -44,7 +52,14 @@ func TestInterruptedReasoningPersistsWithoutCompletingOrExecutingTools(t *testin
 		{name: "signature", signature: "provider-signature"},
 		{name: "metadata", metadata: metadata},
 		{name: "answer", thought: "partial preamble"},
-		{name: "combined", thought: "partial preamble", reasoning: "partial reasoning", signature: "provider-signature", metadata: metadata},
+		{
+			name:      "combined",
+			thought:   "partial preamble",
+			reasoning: "partial reasoning",
+			signature: "provider-signature",
+			metadata:  metadata,
+		},
+
 		{name: "unexecuted tool", reasoning: "partial reasoning", tool: true},
 		{name: "prior successful tools", reasoning: "partial reasoning", prior: true},
 		{name: "overflow finish", reasoning: "partial reasoning", finish: "model_context_window_exceeded"},
@@ -59,24 +74,67 @@ func TestInterruptedReasoningPersistsWithoutCompletingOrExecutingTools(t *testin
 			t.Run(tc.name+"/"+ending, func(t *testing.T) {
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
-				chunks := []types.StreamResponse{{ResponseType: types.ResponseTypeThinking, Content: tc.reasoning, FinishReason: tc.finish, Data: map[string]any{"reasoning_signature": tc.signature, "reasoning_metadata": tc.metadata}}}
+				chunks := []types.StreamResponse{{
+					ResponseType: types.ResponseTypeThinking,
+					Content:      tc.reasoning,
+					FinishReason: tc.finish,
+					Data: map[string]any{
+						"reasoning_signature": tc.signature,
+						"reasoning_metadata":  tc.metadata,
+					},
+				}}
 				if tc.thought != "" {
-					chunks = append(chunks, types.StreamResponse{ResponseType: types.ResponseTypeAnswer, Content: tc.thought})
+					chunks = append(
+						chunks,
+						types.StreamResponse{
+							ResponseType: types.ResponseTypeAnswer,
+							Content:      tc.thought,
+						},
+					)
 				}
 				if tc.tool {
-					chunks = append(chunks, types.StreamResponse{ResponseType: types.ResponseTypeAnswer, ToolCalls: []types.LLMToolCall{{ID: "must-not-run", Function: types.FunctionCall{Name: "write_test", Arguments: `{"content":"partial"}`}}}})
+					chunks = append(
+						chunks,
+						types.StreamResponse{
+							ResponseType: types.ResponseTypeAnswer,
+							ToolCalls: []types.LLMToolCall{{
+								ID: "must-not-run",
+								Function: types.FunctionCall{
+									Name:      "write_test",
+									Arguments: "{\"content\":\"partial\"}",
+								},
+							}},
+						},
+					)
 				}
 				if explicitError {
-					chunks = append(chunks, types.StreamResponse{ResponseType: types.ResponseTypeError, Content: "context canceled", Done: true})
+					chunks = append(
+						chunks,
+						types.StreamResponse{
+							ResponseType: types.ResponseTypeError,
+							Content:      "context canceled",
+							Done:         true,
+						},
+					)
 				}
-				model := &interruptedReasoningChat{mockChat: mockChat{responses: []mockResponse{{chunks: chunks}}}, cancel: cancel}
+				model := &interruptedReasoningChat{
+					mockChat: mockChat{responses: []mockResponse{{chunks: chunks}}},
+					cancel:   cancel,
+				}
 				engine := newTestEngine(t, model)
 				engine.toolRegistry = agenttools.NewToolRegistry()
 				tool := newCountingTool("write_test")
 				engine.toolRegistry.RegisterTool(tool)
 				state := &types.AgentState{}
 				if tc.prior {
-					state.RoundSteps = []types.AgentStep{{ToolCalls: []types.ToolCall{{ID: "prior", Name: "write_test", Result: &types.ToolResult{Success: true, Output: "previous result"}}}}}
+					state.RoundSteps = []types.AgentStep{{ToolCalls: []types.ToolCall{{
+						ID:   "prior",
+						Name: "write_test",
+						Result: &types.ToolResult{
+							Success: true,
+							Output:  "previous result",
+						},
+					}}}}
 				}
 				var completed *event.AgentCompleteData
 				engine.eventBus.On(event.EventAgentComplete, func(_ context.Context, evt event.Event) error {
@@ -85,7 +143,15 @@ func TestInterruptedReasoningPersistsWithoutCompletingOrExecutingTools(t *testin
 					return nil
 				})
 				engine.beginTurn("question", nil, state)
-				_, err := engine.executeLoop(ctx, state, "question", emptyMessages(), emptyTools(), "session", "message")
+				_, err := engine.executeLoop(
+					ctx,
+					state,
+					"question",
+					emptyMessages(),
+					emptyTools(),
+					"session",
+					"message",
+				)
 				if explicitError {
 					require.Error(t, err, "provider error remains an error for callers")
 				} else {
@@ -113,15 +179,37 @@ func TestInterruptedReasoningPersistsWithoutCompletingOrExecutingTools(t *testin
 				}
 				require.NotNil(t, completed)
 				require.Empty(t, completed.FinalAnswer)
-				require.Equal(t, state.RoundSteps, completed.AgentSteps, "the completion event is the actual persistence input")
+				require.Equal(
+					t,
+					state.RoundSteps,
+					completed.AgentSteps,
+					"the completion event is the actual persistence input",
+				)
 			})
 		}
 	}
 }
+
 func TestInterruptedReasoningFailureWithoutParentCancellationStillRetries(t *testing.T) {
 	model := &mockChat{responses: []mockResponse{
-		{chunks: []types.StreamResponse{{ResponseType: types.ResponseTypeThinking, Content: "failed attempt reasoning"}, {ResponseType: types.ResponseTypeError, Content: "upstream 503", Done: true}}},
-		{chunks: []types.StreamResponse{{ResponseType: types.ResponseTypeAnswer, Content: "recovered", Done: true, FinishReason: "stop"}}},
+		{chunks: []types.StreamResponse{
+			{
+				ResponseType: types.ResponseTypeThinking,
+				Content:      "failed attempt reasoning",
+			},
+			{
+				ResponseType: types.ResponseTypeError,
+				Content:      "upstream 503",
+				Done:         true,
+			},
+		}},
+
+		{chunks: []types.StreamResponse{{
+			ResponseType: types.ResponseTypeAnswer,
+			Content:      "recovered",
+			Done:         true,
+			FinishReason: "stop",
+		}}},
 	}}
 	engine := newTestEngine(t, model)
 	engine.toolRegistry = agenttools.NewToolRegistry()

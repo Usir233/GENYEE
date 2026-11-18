@@ -202,7 +202,10 @@ func CompactToolOutputForHistory(toolName string, result *types.ToolResult) stri
 }
 
 func isSandboxContentTool(toolName string) bool {
-	return toolName == ToolShellExec || toolName == ToolReadFile || toolName == LegacyToolReadSandboxFile || toolName == LegacyToolExecuteSkillScript
+	return toolName == ToolShellExec ||
+		toolName == ToolReadFile ||
+		toolName == LegacyToolReadSandboxFile ||
+		toolName == LegacyToolExecuteSkillScript
 }
 
 // failedToolVisibleContent keeps stdout/stderr (in Output) when a tool fails.
@@ -353,7 +356,8 @@ func compactToolSummary(success bool, errMsg string, data map[string]interface{}
 			docs = intField(data, "result_count")
 		}
 		if chunks > 0 {
-			return fmt.Sprintf("Keyword search found %d matching chunks across %d document(s) (details omitted from history)", chunks, docs)
+			return fmt.Sprintf("Keyword search found %d matching chunks across %d document(s) (details omitted from "+
+				"history)", chunks, docs)
 		}
 	case "search_results":
 		count := intField(data, "result_count")

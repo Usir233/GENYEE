@@ -287,7 +287,8 @@ func trimToolResultsToBudget(
 
 func compactedToolResultMarker(content string) string {
 	return fmt.Sprintf(
-		"[Tool result compacted: original_bytes=%d. Re-run the tool with narrower filters or a smaller range if more detail is needed.]",
+		"[Tool result compacted: original_bytes=%d. Re-run the tool with narrower filters or a "+
+			"smaller range if more detail is needed.]",
 		len(content),
 	)
 }
@@ -398,11 +399,12 @@ func (e *AgentEngine) analyzeResponse(
 
 		answer := response.Content
 		if answer == "" {
-			answer = "Sorry, this request was blocked by the content safety policy. Please try rephrasing your question."
+			answer = "Sorry, this request was blocked by the content safety policy. Please try rephrasing your " +
+				"question."
 		}
 
 		answerID := generateEventID("answer")
-		e.eventBus.Emit(ctx, event.Event{
+		_ = e.eventBus.Emit(ctx, event.Event{
 			ID:        answerID,
 			Type:      event.EventAgentFinalAnswer,
 			SessionID: sessionID,
@@ -411,7 +413,7 @@ func (e *AgentEngine) analyzeResponse(
 				Done:    false,
 			},
 		})
-		e.eventBus.Emit(ctx, event.Event{
+		_ = e.eventBus.Emit(ctx, event.Event{
 			ID:        answerID,
 			Type:      event.EventAgentFinalAnswer,
 			SessionID: sessionID,
@@ -473,7 +475,7 @@ func (e *AgentEngine) analyzeResponse(
 		} else {
 			answerID = generateEventID("answer")
 			if response.Content != "" && !e.holdCollaborationAnswer {
-				e.eventBus.Emit(ctx, event.Event{
+				_ = e.eventBus.Emit(ctx, event.Event{
 					ID:        answerID,
 					Type:      event.EventAgentFinalAnswer,
 					SessionID: sessionID,
@@ -1158,8 +1160,9 @@ func redactHistoryKBResults(llmContext []chat.Message) []chat.Message {
 	for _, msg := range llmContext {
 		if msg.Role == "tool" && kbToolNames[msg.Name] {
 			redacted = append(redacted, chat.Message{
-				Role:       msg.Role,
-				Content:    "[Previous retrieval result omitted — knowledge base may have changed. Please perform a fresh search.]",
+				Role: msg.Role,
+				Content: "[Previous retrieval result omitted — knowledge base may have changed. Please perform " +
+					"a fresh search.]",
 				ToolCallID: msg.ToolCallID,
 				Name:       msg.Name,
 				TurnID:     msg.TurnID,
@@ -1197,9 +1200,16 @@ func (e *AgentEngine) buildMessagesWithLLMContext(
 	if len(llmContext) > 0 {
 		sanitized := HistoryAsSent(llmContext, e.config.RetainRetrievalHistory)
 		if e.config.RetainRetrievalHistory {
-			logger.Infof(context.Background(), "Retaining full retrieval history in context (RetainRetrievalHistory=true)")
+			logger.Infof(
+				context.Background(),
+				"Retaining full retrieval history in context (RetainRetrievalHistory=true)",
+			)
 		} else {
-			logger.Infof(context.Background(), "Added %d history messages to context (KB tool results redacted)", len(llmContext))
+			logger.Infof(
+				context.Background(),
+				"Added %d history messages to context (KB tool results redacted)",
+				len(llmContext),
+			)
 		}
 
 		for _, msg := range sanitized {

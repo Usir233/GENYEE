@@ -117,7 +117,13 @@ func TestPromptMasksSecretEnvValuesWhileEnforcingRawSizeLimit(t *testing.T) {
 	require.Contains(t, prompt, `"DB_PASSWORD":"***"`)
 	require.Contains(t, prompt, `"AWS_SECRET_ACCESS_KEY":"***"`)
 	require.Contains(t, prompt, `"SESSION_COOKIE":"***"`)
-	for _, secret := range []string{"sk-live-secret-123", "ghp_secret_456", "hunter2-pw", "aws-super-secret", "sid=secretcookie"} {
+	for _, secret := range []string{
+		"sk-live-secret-123",
+		"ghp_secret_456",
+		"hunter2-pw",
+		"aws-super-secret",
+		"sid=secretcookie",
+	} {
 		require.NotContains(t, prompt, secret)
 	}
 

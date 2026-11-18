@@ -48,7 +48,12 @@ func TestNormalizeAndValidateWikiSlug(t *testing.T) {
 		{name: "lowercased and spaces", in: "Entity/Acme Corp", want: "entity/acme-corp"},
 		{name: "trimmed", in: "  concept/rag  ", want: "concept/rag"},
 		{name: "cjk kept", in: "entity/上海中心大厦", want: "entity/上海中心大厦"},
-		{name: "uuid summary", in: "summary/07a20bb1-a662-47cf-9929-06fb5d5b5b5e", want: "summary/07a20bb1-a662-47cf-9929-06fb5d5b5b5e"},
+		{
+			name: "uuid summary",
+			in:   "summary/07a20bb1-a662-47cf-9929-06fb5d5b5b5e",
+			want: "summary/07a20bb1-a662-47cf-9929-06fb5d5b5b5e",
+		},
+
 		{name: "empty", in: "   ", wantErr: true},
 		{name: "leading slash", in: "/entity/x", wantErr: true},
 		{name: "trailing slash", in: "entity/x/", wantErr: true},
@@ -140,7 +145,8 @@ func TestWikiWritePageDistinguishesOmittedAndExplicitEmptyAliases(t *testing.T) 
 		},
 		{
 			name: "explicit list replaces stored aliases",
-			args: `{"slug":"concept/a","title":"A","summary":"S","content":"C","page_type":"concept","aliases":["fresh"]}`,
+			args: "{\"slug\":\"concept/a\",\"title\":\"A\",\"summary\":\"S\",\"content\":\"C\",\"page_type\":" +
+				"\"concept\",\"aliases\":[\"fresh\"]}",
 			want: []string{"fresh"},
 		},
 	} {
@@ -180,7 +186,8 @@ func TestWikiWritePageRoutesNewPageFromAuthorizedSourceRefs(t *testing.T) {
 	).WithSearchTargets(searchTargets)
 
 	result, err := tool.Execute(context.Background(), json.RawMessage(
-		`{"slug":"concept/new","title":"New","summary":"Summary","content":"Content","page_type":"concept","source_refs":["doc-2"]}`,
+		"{\"slug\":\"concept/new\",\"title\":\"New\",\"summary\":\"Summary\",\"content\":\"Content\","+
+			"\"page_type\":\"concept\",\"source_refs\":[\"doc-2\"]}",
 	))
 	if err != nil || result == nil || !result.Success {
 		t.Fatalf("write failed: result=%+v err=%v", result, err)

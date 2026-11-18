@@ -19,7 +19,12 @@ type stubKnowledgeBaseService struct {
 	getKBPanicIDs map[string]bool
 }
 
-func (s *stubKnowledgeBaseService) CreateKnowledgeBase(context.Context, *types.KnowledgeBase) (*types.KnowledgeBase, error) {
+func (s *stubKnowledgeBaseService) CreateKnowledgeBase(
+	context.Context,
+	*types.KnowledgeBase,
+) (*types.KnowledgeBase,
+	error,
+) {
 	return nil, nil
 }
 
@@ -36,7 +41,12 @@ func (s *stubKnowledgeBaseService) GetKnowledgeBaseByIDOnly(
 	return s.kb, nil
 }
 
-func (s *stubKnowledgeBaseService) GetKnowledgeBasesByIDsOnly(context.Context, []string) ([]*types.KnowledgeBase, error) {
+func (s *stubKnowledgeBaseService) GetKnowledgeBasesByIDsOnly(
+	context.Context,
+	[]string,
+) ([]*types.KnowledgeBase,
+	error,
+) {
 	return nil, nil
 }
 
@@ -48,7 +58,12 @@ func (s *stubKnowledgeBaseService) ListKnowledgeBases(context.Context) ([]*types
 	return nil, nil
 }
 
-func (s *stubKnowledgeBaseService) ListKnowledgeBasesByTenantID(context.Context, uint64) ([]*types.KnowledgeBase, error) {
+func (s *stubKnowledgeBaseService) ListKnowledgeBasesByTenantID(
+	context.Context,
+	uint64,
+) ([]*types.KnowledgeBase,
+	error,
+) {
 	return nil, nil
 }
 
@@ -71,7 +86,13 @@ func (s *stubKnowledgeBaseService) TogglePinKnowledgeBase(context.Context, strin
 	return nil, nil
 }
 
-func (s *stubKnowledgeBaseService) HybridSearch(context.Context, string, types.SearchParams) ([]*types.SearchResult, error) {
+func (s *stubKnowledgeBaseService) HybridSearch(
+	context.Context,
+	string,
+	types.SearchParams,
+) ([]*types.SearchResult,
+	error,
+) {
 	return s.results, s.err
 }
 
@@ -90,7 +111,10 @@ func (s *stubKnowledgeBaseService) GetQueryEmbedding(context.Context, string, st
 	return nil, nil
 }
 
-func (s *stubKnowledgeBaseService) ResolveEmbeddingModelKeys(context.Context, []*types.KnowledgeBase) map[string]string {
+func (s *stubKnowledgeBaseService) ResolveEmbeddingModelKeys(
+	context.Context,
+	[]*types.KnowledgeBase,
+) map[string]string {
 	return nil
 }
 

@@ -97,7 +97,7 @@ func (l *Lifecycle) Finish(
 			l.logf(ctx, "[Background] emit work_finished failed session=%s id=%s: %v", s.SessionID, n.ID, err)
 		}
 	}
-	return l.Registry.Remove(ctx, s, n.ID)
+	return l.Registry.Remove(context.WithoutCancel(ctx), s, n.ID)
 }
 
 // Discard removes the registration without a notice or event. Use it only when

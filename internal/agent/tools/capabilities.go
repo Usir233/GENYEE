@@ -20,6 +20,7 @@ import (
 // Values mirror the keys of `types.KBCapabilities`.
 type KBCapability string
 
+// Capability constants naming the knowledge-base index and feature flags.
 const (
 	CapVector  KBCapability = "vector"
 	CapKeyword KBCapability = "keyword"
@@ -240,6 +241,8 @@ func KBSatisfiesAgentRequirements(caps types.KBCapabilities, agentMode string, a
 // use user-provided file references. Used to gate the `@file` listing in
 // the chat input (and potentially SearchKnowledge defensively on the
 // backend). An empty allowed-tools list is treated as "unknown → permissive".
+//
+//nolint:revive // ToolsConsumeFiles mirrors the frontend tool-capabilities helper name.
 func ToolsConsumeFiles(allowedTools []string) bool {
 	if len(allowedTools) == 0 {
 		return true

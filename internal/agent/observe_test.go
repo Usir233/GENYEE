@@ -143,10 +143,13 @@ func TestAppendToolResults_PreservesReasoningContent(t *testing.T) {
 			Thought:          "I will call search.",
 			ReasoningContent: "Detailed chain of thought from MiMo/DeepSeek.",
 			ToolCalls: []types.ToolCall{{
-				ID:               "call_1",
-				Name:             "knowledge_search",
-				Args:             map[string]interface{}{"query": "hi"},
-				ProviderMetadata: types.ToolCallMetadata{"google": json.RawMessage(`{"thought_signature":"gemini-thought-signature"}`)},
+				ID:   "call_1",
+				Name: "knowledge_search",
+				Args: map[string]interface{}{"query": "hi"},
+				ProviderMetadata: types.ToolCallMetadata{
+					"google": json.RawMessage("{\"thought_signature\":\"gemini-thought-signature\"}"),
+				},
+
 				Result: &types.ToolResult{
 					Success: true,
 					Output:  "result text",

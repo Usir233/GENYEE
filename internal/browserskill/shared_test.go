@@ -162,11 +162,14 @@ func connectSharedFixture(
 	link = redeemTestPair(ctx, t, m, link)
 	parts := strings.Split(link, "#")
 	dialer := websocket.Dialer{Subprotocols: []string{AuthProtocol + parts[1]}}
-	ws, _, err := dialer.DialContext(
+	ws, hsResp, err := dialer.DialContext(
 		ctx,
 		parts[0],
 		http.Header{"Origin": []string{"chrome-extension://" + strings.Repeat("a", 32)}},
 	)
+	if hsResp != nil && hsResp.Body != nil {
+		_ = hsResp.Body.Close()
+	}
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ws.Close() })
 	require.NoError(

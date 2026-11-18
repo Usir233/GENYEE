@@ -21,6 +21,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
+// MCPInput represents decoded JSON object arguments passed to an MCP tool call.
 type MCPInput = map[string]any
 
 // decodeMCPInput retains JSON numbers until the transport serializes them.
@@ -405,7 +406,11 @@ func (t *MCPTool) Execute(ctx context.Context, args json.RawMessage) (*types.Too
 		}, nil
 	}
 	if skipped > 0 {
-		logger.GetLogger(ctx).Warnf("MCP tool %s: %d image(s) skipped (exceeded count/size/MIME limits)", t.mcpTool.Name, skipped)
+		logger.GetLogger(ctx).Warnf(
+			"MCP tool %s: %d image(s) skipped (exceeded count/size/MIME limits)",
+			t.mcpTool.Name,
+			skipped,
+		)
 	}
 
 	// Mitigate indirect prompt injection: prefix MCP output so the LLM treats it as

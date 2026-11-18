@@ -89,7 +89,8 @@ func renderIndexOverviewForAgent(resp *types.WikiIndexResponse) string {
 	if nonEmpty == 0 {
 		sb.WriteString("\n*No wiki pages yet. Upload documents to get started.*\n")
 	} else {
-		sb.WriteString("\n_To explore more pages under any category, use wiki_search with a query, or read a specific slug directly._\n")
+		sb.WriteString("\n_To explore more pages under any category, use wiki_search with a query, or read a " +
+			"specific slug directly._\n")
 	}
 	return sb.String()
 }
@@ -458,6 +459,7 @@ type wikiReadPageTool struct {
 	mu               sync.Mutex
 }
 
+// NewWikiReadPageTool constructs the wiki_read_page tool over the given wiki scopes.
 func NewWikiReadPageTool(
 	wikiService interfaces.WikiPageService,
 	knowledgeService interfaces.KnowledgeService,
@@ -472,7 +474,9 @@ func NewWikiReadPageTool(
 			ToolWikiReadPage,
 			`Read one or more wiki pages by their slugs. Returns the full markdown content, metadata, and links.
 Use this to read specific wiki pages when you know their slug (e.g. "entity/acme-corp", "concept/rag").
-Knowledge-base routing is automatic. Known link/search provenance is preferred; otherwise every wiki knowledge base in scope is checked and ambiguous matches are returned.`,
+`+
+				"Knowledge-base routing is automatic. Known link/search provenance is preferred; otherwise "+
+				"every wiki knowledge base in scope is checked and ambiguous matches are returned.",
 			json.RawMessage(`{
   "type": "object",
   "properties": {
@@ -566,7 +570,13 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 				descs = append(descs, fmt.Sprintf("[[%s]]", s))
 				continue
 			}
-			descs = append(descs, fmt.Sprintf("[[%s]] (%s)", s, truncateRunes(linkPage.Summary, wikiLinkSummaryMaxRunes)))
+			descs = append(
+				descs,
+				fmt.Sprintf("[[%s]] (%s)",
+					s,
+					truncateRunes(linkPage.Summary,
+						wikiLinkSummaryMaxRunes)),
+			)
 			inlined++
 			t.mu.Lock()
 			t.seenLinks[key] = true
@@ -597,7 +607,12 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 				continue
 			}
 			if title != "" {
-				resolved.sources = append(resolved.sources, fmt.Sprintf(`<source knowledge_id="%s">%s</source>`, kid, title))
+				resolved.sources = append(
+					resolved.sources,
+					fmt.Sprintf(`<source knowledge_id="%s">%s</source>`,
+						kid,
+						title),
+				)
 			} else {
 				resolved.sources = append(resolved.sources, fmt.Sprintf(`<source knowledge_id="%s"/>`, kid))
 			}
@@ -612,7 +627,14 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 		// without overflowing its context window — the explicit hint
 		// steers the model to wiki_search for deeper exploration.
 		if page.PageType == types.WikiPageTypeIndex {
-			if overview, err := t.wikiService.GetIndexView(ctx, kbID, nil, wikiIndexAgentTopK, ""); err == nil && overview != nil {
+			if overview, err := t.wikiService.GetIndexView(
+				ctx,
+				kbID,
+				nil,
+				wikiIndexAgentTopK,
+				"",
+			); err == nil &&
+				overview != nil {
 				resolved.body = renderIndexOverviewForAgent(overview)
 				for _, group := range overview.Groups {
 					for _, item := range group.Items {
@@ -674,7 +696,13 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 				// exposed to the model as a tool argument).
 				passesScope, scopeErr := pagePassesWikiScope(ctx, page, sc, fetchTags)
 				if scopeErr != nil {
-					errs = append(errs, fmt.Sprintf("Failed to validate wiki scope for '%s' in KB %s: %v", slug, actualKBID, scopeErr))
+					errs = append(
+						errs,
+						fmt.Sprintf("Failed to validate wiki scope for '%s' in KB %s: %v",
+							slug,
+							actualKBID,
+							scopeErr),
+					)
 					continue
 				}
 				if !passesScope {
@@ -703,7 +731,8 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 		if len(hits) == 0 {
 			if kbs := filteredOut[slug]; len(kbs) > 0 {
 				errs = append(errs, fmt.Sprintf(
-					"Wiki page '%s' exists in %v but none of its source documents are within the scope pinned by the user",
+					"Wiki page '%s' exists in %v but none of its source documents are within the "+
+						"scope pinned by the user",
 					slug, kbs,
 				))
 			} else if !lookupFailed[slug] {
@@ -769,6 +798,7 @@ type wikiSearchTool struct {
 	mu               sync.Mutex
 }
 
+// NewWikiSearchTool constructs the wiki_search tool over the given wiki scopes.
 func NewWikiSearchTool(
 	wikiService interfaces.WikiPageService,
 	knowledgeService interfaces.KnowledgeService,
@@ -1001,7 +1031,8 @@ func (t *wikiSearchTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 				summary = "(summary omitted, already seen in previous search)"
 			}
 			fmt.Fprintf(&sb,
-				"<page>\n<knowledge_base_id>%s</knowledge_base_id>\n<link>[[%s|%s]]</link>\n<type>%s</type>%s\n<summary>%s</summary>%s\n</page>\n",
+				"<page>\n<knowledge_base_id>%s</knowledge_base_id>\n<link>[[%s|%s]]</link>\n<type>%s</"+
+					"type>%s\n<summary>%s</summary>%s\n</page>\n",
 				h.kbID, p.Slug, p.Title, p.PageType, aliasesTag, summary, snippetTag,
 			)
 		}

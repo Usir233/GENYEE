@@ -72,7 +72,15 @@ func TestMalformedNonEmptyAccessLevelFailsClosed(t *testing.T) {
 	for _, malformed := range []types.AssistantAccessLevel{"readonly", "none", "bogus", "ADMIN"} {
 		for _, risk := range []Risk{RiskRead, RiskProbe, RiskWrite, RiskDestructive, "unknown"} {
 			assert.False(t, Offered(malformed, risk), "level=%q risk=%q must not be offered", malformed, risk)
-			assert.Equal(t, Deny, Decide(Action{Risk: risk}, Rules{Level: malformed}), "level=%q risk=%q must deny", malformed, risk)
+			assert.Equal(
+				t,
+				Deny,
+				Decide(Action{Risk: risk},
+					Rules{Level: malformed}),
+				"level=%q risk=%q must deny",
+				malformed,
+				risk,
+			)
 		}
 	}
 	// Zero-value "" remains the default confirm level for callers omitting Rules.Level.

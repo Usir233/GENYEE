@@ -34,15 +34,43 @@ func touchDeadline(g *Group, now time.Time) {
 	}
 }
 
+const (
+	defaultPollInterval  = 250 * time.Millisecond
+	defaultLeaseDuration = 30 * time.Second
+	defaultConcurrency   = 3
+)
+
+func (r *Runtime) pollInterval() time.Duration {
+	if r == nil || r.Poll <= 0 {
+		return defaultPollInterval
+	}
+	return r.Poll
+}
+
+func (r *Runtime) leaseDuration() time.Duration {
+	if r == nil || r.Lease <= 0 {
+		return defaultLeaseDuration
+	}
+	return r.Lease
+}
+
+func (r *Runtime) groupConcurrency() int {
+	if r == nil || r.Concurrency <= 0 {
+		return defaultConcurrency
+	}
+	return r.Concurrency
+}
+
 // heartbeatInterval is how often an owner checks for cancellation. Checks read
 // the aggregate; renewals write it only when renewalDue.
 func (r *Runtime) heartbeatInterval() time.Duration {
-	return min(max(r.Poll, time.Second), r.Lease/3)
+	lease := r.leaseDuration()
+	return max(min(max(r.pollInterval(), time.Second), lease/3), 10*time.Millisecond)
 }
 
 // renewalDue reports whether a lease has used a third of its duration.
 func (r *Runtime) renewalDue(lease, now time.Time) bool {
-	return lease.Sub(now) < r.Lease*2/3
+	return lease.Sub(now) < r.leaseDuration()*2/3
 }
 
 // promptClosedBeforeExecution reports a prompt that ended while the tool had
@@ -76,8 +104,10 @@ type Runtime struct {
 	// Prune bounds durable storage; it runs every PruneInterval.
 	Prune         func(context.Context) error
 	PruneInterval time.Duration
-	Poll          time.Duration
-	Lease         time.Duration
+	// OnStoreError observes non-fence persistence failures on background/cleanup paths.
+	OnStoreError func(ctx context.Context, scope Scope, op string, err error)
+	Poll         time.Duration
+	Lease        time.Duration
 	// Concurrency bounds running children per group; MaxRunning bounds the
 	// child executions this process runs across all groups.
 	Concurrency int
@@ -363,13 +393,19 @@ func (r *Runtime) Finish(ctx context.Context, s Scope, observed int64) (bool, er
 	return finished, err
 }
 
+func (r *Runtime) reportStoreError(ctx context.Context, scope Scope, op string, err error) {
+	if err == nil || isFenceError(err) {
+		return
+	}
+	logger.Warnf(ctx, "Collaboration %s %s failed: %v", scope.ID, op, err)
+	if r != nil && r.OnStoreError != nil {
+		r.OnStoreError(ctx, scope, op, err)
+	}
+}
+
 // Wait waits for an event newer than the supplied mailbox sequence.
 func (r *Runtime) Wait(ctx context.Context, s Scope, after int64, d time.Duration) (bool, error) {
-	deadline := time.NewTimer(d)
-	defer deadline.Stop()
-	tick := time.NewTicker(r.Poll)
-	defer tick.Stop()
-	for {
+	checkOnce := func() (bool, error) {
 		g, err := r.Store.Read(ctx, s)
 		if err != nil {
 			return false, err
@@ -382,12 +418,25 @@ func (r *Runtime) Wait(ctx context.Context, s Scope, after int64, d time.Duratio
 				return true, nil
 			}
 		}
+		return false, nil
+	}
+	if updated, err := checkOnce(); err != nil || updated || d <= 0 {
+		return updated, err
+	}
+	deadline := time.NewTimer(d)
+	defer deadline.Stop()
+	tick := time.NewTicker(r.pollInterval())
+	defer tick.Stop()
+	for {
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
 		case <-deadline.C:
-			return false, nil
+			return checkOnce()
 		case <-tick.C:
+			if updated, err := checkOnce(); err != nil || updated {
+				return updated, err
+			}
 		}
 	}
 }
@@ -450,10 +499,12 @@ func (r *Runtime) Start(ctx context.Context) {
 		return
 	}
 	ctx, r.cancel = context.WithCancel(ctx)
-	r.done = make(chan struct{})
+	done := make(chan struct{})
+	r.done = done
+	poll := r.pollInterval()
 	go func() {
-		defer close(r.done)
-		tick := time.NewTicker(r.Poll)
+		defer close(done)
+		tick := time.NewTicker(poll)
 		defer tick.Stop()
 		var lastPrune time.Time
 		for {
@@ -487,6 +538,12 @@ func (r *Runtime) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-done:
+		r.mu.Lock()
+		if r.done == done {
+			r.cancel = nil
+			r.done = nil
+		}
+		r.mu.Unlock()
 		return nil
 	}
 }
@@ -551,12 +608,12 @@ func (r *Runtime) Tick(ctx context.Context) {
 					publish(g, m, v)
 					continue
 				}
-				if running >= r.Concurrency || len(work) == capacity {
+				if running >= r.groupConcurrency() || len(work) == capacity {
 					continue
 				}
 				v.State = "running"
 				v.Owner = uuid.NewString()
-				v.Lease = now.Add(r.Lease)
+				v.Lease = now.Add(r.leaseDuration())
 				touchDeadline(g, now)
 				v.Attempt++
 				running++
@@ -615,7 +672,7 @@ func (r *Runtime) execute(serverCtx context.Context, w Work) {
 					}
 					now := time.Now()
 					if r.renewalDue(v.Lease, now) {
-						v.Lease = now.Add(r.Lease)
+						v.Lease = now.Add(r.leaseDuration())
 						touchDeadline(g, now)
 					}
 					lease = v.Lease

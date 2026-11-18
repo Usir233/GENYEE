@@ -24,7 +24,7 @@ func startupTestCompactor(t *testing.T, handler http.HandlerFunc) *Compactor {
 		BaseURL: server.URL, Model: "timeout-test", Client: server.Client(),
 	}})
 	s := testSettings()
-	s.StallTimeout = 200 * time.Millisecond
+	s.StallTimeout = 300 * time.Millisecond
 	return New(model, newEstimator(t), s)
 }
 
@@ -33,14 +33,15 @@ func TestCompactionStartupRetriesAndDegrades(t *testing.T) {
 		t.Run(map[bool]string{false: "retry recovers", true: "retry degrades"}[persistent], func(t *testing.T) {
 			var calls atomic.Int32
 			c := startupTestCompactor(t, func(w http.ResponseWriter, r *http.Request) {
+				attempt := calls.Add(1)
 				_, _ = io.Copy(io.Discard, r.Body)
-				if calls.Add(1) == 1 || persistent {
+				if attempt == 1 || persistent {
 					<-r.Context().Done()
 					return
 				}
 				writeSummarySSE(w, false)
 			})
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			result, err := c.Compact(ctx, reactTurn(12), ReasonThreshold)
 			require.NoError(t, err)

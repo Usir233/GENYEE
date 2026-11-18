@@ -37,6 +37,8 @@ const langfuseQueryPreview = 2000
 // (see service.LoadAgentHistory) and passed into Execute as llmContext. The
 // engine therefore does not maintain its own cache, system-prompt store, or
 // cross-turn buffer.
+//
+//nolint:revive // AgentEngine is the cross-package contract used across service and interfaces.
 type AgentEngine struct {
 	collaboration        *collaboration.Binding
 	config               *types.AgentConfig
@@ -474,7 +476,7 @@ func (e *AgentEngine) Execute(
 	_, err := e.executeLoop(ctx, state, query, messages, tools, sessionID, messageID)
 	if err != nil {
 		logger.Errorf(ctx, "[Agent] Execution failed: %v", err)
-		e.eventBus.Emit(ctx, event.Event{
+		_ = e.eventBus.Emit(ctx, event.Event{
 			ID:        generateEventID("error"),
 			Type:      event.EventError,
 			SessionID: sessionID,

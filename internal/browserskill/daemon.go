@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // RuntimeDirEnv is the optional environment override for the private
@@ -335,6 +337,7 @@ func (m *Manager) Close() {
 		return
 	}
 	m.closed = true
+	close(m.ensureStopChLocked())
 	for _, d := range m.devices {
 		d.mu.Lock()
 		disconnectDeviceLocked(d)
@@ -345,9 +348,12 @@ func (m *Manager) Close() {
 	runtime, pending := m.daemon, m.starting
 	m.daemon = nil
 	m.mu.Unlock()
+	m.bgWorkers.Wait()
 	if m.store != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = m.store.releaseOwner(ctx, m.nodeID)
+		if err := m.store.releaseOwner(ctx, m.nodeID); err != nil {
+			logger.Warnf(ctx, "[BrowserSkill] release owner %s failed: %v", m.nodeID, err)
+		}
 		cancel()
 	}
 	if runtime != nil {

@@ -376,7 +376,14 @@ func readFileMatchSnippet(line string, matchers []*regexp.Regexp) string {
 
 // renderFilePage is shared by workspace and skill resources. Content appears
 // only once, in Output, and pagination obeys the registry's output budget.
-func renderFilePage(ctx context.Context, input ReadFileInput, data []byte, sessionID, clean, rootDir string) *types.ToolResult {
+func renderFilePage(
+	ctx context.Context,
+	input ReadFileInput,
+	data []byte,
+	sessionID,
+	clean,
+	rootDir string,
+) *types.ToolResult {
 	total := int64(len(data))
 	// The file may have grown between Stat and Read.
 	if total > maxReadSandboxDownloadBytes {
@@ -416,7 +423,8 @@ func renderFileContent(
 	if binary {
 		fmt.Fprintf(&b, "size=%d bytes, returned=0 bytes\n", total)
 		if strings.HasPrefix(clean, "skill://") {
-			b.WriteString("binary skill resource — text suppressed. Use the skill's execution guidance to process bundled binary files; reading a resource does not create a downloadable artifact.\n")
+			b.WriteString("binary skill resource — text suppressed. Use the skill's execution guidance to process " +
+				"bundled binary files; reading a resource does not create a downloadable artifact.\n")
 		} else {
 			b.WriteString("binary file — content suppressed; use the artifact attachment to download it.\n")
 		}
@@ -457,7 +465,13 @@ func renderFileContent(
 	// retry would land on the same line and return the same nothing. Name the
 	// escape hatch instead of letting the model rediscover the wall.
 	if page.lineTooLarge && strings.HasPrefix(clean, "skill://") {
-		return &types.ToolResult{Success: false, Error: fmt.Sprintf("Line %d exceeds this read's output budget. Increase max_bytes up to 65536 if lower; otherwise use a smaller skill resource. A skill:// address is not a shell path.", page.startLine), Data: resultData}
+		return &types.ToolResult{
+			Success: false,
+			Error: fmt.Sprintf("Line %d exceeds this read's output budget. Increase max_bytes up to 65536 if lower; "+
+				"otherwise use a smaller skill resource. A skill:// address is not a shell path.",
+				page.startLine),
+			Data: resultData,
+		}
 	}
 	if page.lineTooLarge {
 		fmt.Fprintf(&b,
@@ -646,7 +660,8 @@ func oversizedSandboxFileResult(sessionID, filePath, rootDir string, size int64)
 		"=== Sandbox file too large to read: %s ===\n\n"+
 			"size=%d bytes, limit=%d bytes, returned=0 bytes\n\n"+
 			"The file was not downloaded. Use shell_exec with sed -n, head, tail, grep, or awk "+
-			"to inspect only the relevant text section. Binary files remain available through the artifact attachment.\n",
+			"to inspect only the relevant text section. Binary files remain available through the "+
+			"artifact attachment.\n",
 		filePath, size, maxReadSandboxDownloadBytes,
 	)
 	return &types.ToolResult{
@@ -667,6 +682,6 @@ func oversizedSandboxFileResult(sessionID, filePath, rootDir string, size int64)
 }
 
 // Cleanup releases any resources.
-func (t *workspaceFileReader) Cleanup(ctx context.Context) error {
+func (t *workspaceFileReader) Cleanup(_ context.Context) error {
 	return nil
 }

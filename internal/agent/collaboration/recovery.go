@@ -90,7 +90,7 @@ func (r *Runtime) wakeParent(ctx context.Context, scope Scope) {
 				}
 			}
 			wait = &ParentWait{}
-			g.ParentOwner, g.ParentLease = owner, now.Add(r.Lease)
+			g.ParentOwner, g.ParentLease = owner, now.Add(r.leaseDuration())
 			return nil
 		}
 		ready := !now.Before(g.ParentWait.Until) || (inputReady && g.ParentMessageID == inputMessage)
@@ -101,7 +101,7 @@ func (r *Runtime) wakeParent(ctx context.Context, scope Scope) {
 			return nil
 		}
 		wait = g.ParentWait
-		g.ParentOwner, g.ParentLease = owner, now.Add(r.Lease)
+		g.ParentOwner, g.ParentLease = owner, now.Add(r.leaseDuration())
 		return nil
 	})
 	if err != nil || wait == nil {
@@ -125,16 +125,18 @@ func (r *Runtime) wakeParent(ctx context.Context, scope Scope) {
 			if err == nil {
 				// A failed acknowledgement is safe to retry: only transcript/stream
 				// finalization can run for ParentClosePending, never the saved execution.
-				_ = r.Store.Change(b.Context(context.WithoutCancel(ctx)), scope, func(g *Group) error {
+				settleErr := r.Store.Change(b.Context(context.WithoutCancel(ctx)), scope, func(g *Group) error {
 					g.ParentClosePending = false
 					settle(g)
 					return nil
 				})
+				r.reportStoreError(ctx, scope, "wake_close_settle", settleErr)
 			}
 			return
 		}
 		if err != nil && ctx.Err() == nil {
-			_ = r.Cancel(b.Context(context.WithoutCancel(ctx)), scope)
+			cancelErr := r.Cancel(b.Context(context.WithoutCancel(ctx)), scope)
+			r.reportStoreError(ctx, scope, "wake_failure_cancel", cancelErr)
 		}
 	}()
 }

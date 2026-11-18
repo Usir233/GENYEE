@@ -92,6 +92,8 @@ func isReservedResolvedEnvName(name string) bool {
 	return reservedResolvedEnvNames[trimmed] || strings.HasPrefix(trimmed, reservedResolvedEnvPrefix)
 }
 
+// ApplyResolvedEnv merges non-reserved skill environment variables into env
+// without overriding keys already set by the caller.
 func ApplyResolvedEnv(env, resolved map[string]string) {
 	if env == nil {
 		return

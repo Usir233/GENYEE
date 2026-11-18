@@ -47,8 +47,10 @@ Each thought can build on, question, or revise previous insights as understandin
 - Generates a solution hypothesis
 - Verifies the hypothesis based on the Chain of Thought steps
 - Repeats the process until satisfied
-- When your thinking is complete, deliver your answer by writing it as your plain reply and stopping (no further tool calls). NEVER include the final answer directly in a thought.
-
+` +
+		"- When your thinking is complete, deliver your answer by writing it as your plain reply and " +
+		"stopping (no further tool calls). NEVER include the final answer directly in a thought.\n" +
+		`
 ## Parameters Explained
 
 - **thought**: Your current thinking step, which can include:
@@ -61,15 +63,19 @@ Each thought can build on, question, or revise previous insights as understandin
   * Hypothesis verification
   
   **CRITICAL - User-Friendly Thinking**: Write your thoughts in natural, user-friendly language.
-  NEVER mention tool names (like "search_knowledge", "read_document", "web_search", etc.) in your thinking process.
-  Instead, describe your actions in plain language:
+` +
+		"  NEVER mention tool names (like \"search_knowledge\", \"read_document\", \"web_search\", etc.) in " +
+		"your thinking process.\n" +
+		`  Instead, describe your actions in plain language:
   - ❌ BAD: "I'll use search_knowledge in keyword mode, then read_document for the details"
   - ✅ GOOD: "I'll start by searching for key terms in the knowledge base, then explore related concepts"
   - ❌ BAD: "After search_knowledge returns results, I'll call read_document"
   - ✅ GOOD: "After finding relevant documents, I'll search for semantically related content"
   
-  Write thinking as if explaining your reasoning to a user, not documenting technical steps. Focus on WHAT you're trying to find and WHY, not HOW (which tools you'll use).
-
+` +
+		"  Write thinking as if explaining your reasoning to a user, not documenting technical steps. Focus " +
+		"on WHAT you're trying to find and WHY, not HOW (which tools you'll use).\n" +
+		`
 - **next_thought_needed**: True if you need more thinking, even if at what seemed like the end
 - **thought_number**: Current number in sequence (can go beyond initial total if needed)
 - **total_thoughts**: Current estimate of thoughts needed (can be adjusted up/down)
@@ -91,7 +97,9 @@ Each thought can build on, question, or revise previous insights as understandin
 8. Verify the hypothesis based on the Chain of Thought steps
 9. Repeat the process until satisfied with the solution
 10. Only set next_thought_needed to false when truly done and a satisfactory answer is reached
-11. NEVER include the final answer in the thought content. When thinking is complete, deliver the final answer by writing it as your plain reply and stopping (no further tool calls)`,
+` +
+		"11. NEVER include the final answer in the thought content. When thinking is complete, deliver the " +
+		"final answer by writing it as your plain reply and stopping (no further tool calls)",
 	schema: json.RawMessage(`{
   "type": "object",
   "properties": {

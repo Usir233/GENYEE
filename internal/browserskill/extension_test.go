@@ -188,7 +188,8 @@ func TestRealExtension(t *testing.T) {
 		_, _ = io.WriteString(input, "close\n")
 		_ = input.Close()
 		select {
-		case <-browserDone:
+		case waitErr := <-browserDone:
+			_ = waitErr
 		case <-time.After(5 * time.Second):
 			_ = cmd.Process.Kill()
 		}
@@ -590,7 +591,8 @@ func TestRealExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 	select {
-	case <-helpDone:
+	case helpErr := <-helpDone:
+		_ = helpErr
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}

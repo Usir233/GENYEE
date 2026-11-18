@@ -22,7 +22,12 @@ func TestDatabaseQueryRejectsRenamedConfigColumnBeforeExecution(t *testing.T) {
 	tool := NewDatabaseQueryTool(db, types.SearchTargets{{
 		Type: types.SearchTargetTypeKnowledgeBase, KnowledgeBaseID: "own-kb", TenantID: 1,
 	}})
-	input, err := json.Marshal(DatabaseQueryInput{SQL: `SELECT kb.description FROM knowledge_bases AS kb (id,name,original_description,tenant_id,chunking_config,image_processing_config,embedding_model_id,summary_model_id,rerank_model_id,description,vlm_config,extract_config)`})
+	input, err := json.Marshal(DatabaseQueryInput{
+		SQL: "SELECT kb.description FROM knowledge_bases AS kb " +
+			"(id,name,original_description,tenant_id," +
+			"chunking_config,image_processing_config,embedding_model_id,summary_model_id,rerank_model_id," +
+			"description,vlm_config,extract_config)",
+	})
 	require.NoError(t, err)
 	result, err := tool.Execute(context.WithValue(context.Background(), types.TenantIDContextKey, uint64(1)), input)
 	require.ErrorContains(t, err, "Statement validation failed")

@@ -267,7 +267,13 @@ func (t *WebFetchTool) Execute(ctx context.Context, args json.RawMessage) (*type
 		var wrapped struct {
 			Items string `json:"items"`
 		}
-		if json.Unmarshal(args, &wrapped) != nil || json.Unmarshal([]byte(wrapped.Items), &input.Items) != nil || len(input.Items) == 0 {
+		if json.Unmarshal(
+			args,
+			&wrapped,
+		) != nil ||
+			json.Unmarshal([]byte(wrapped.Items),
+				&input.Items) != nil ||
+			len(input.Items) == 0 {
 			return &types.ToolResult{Success: false, Error: fmt.Sprintf("failed to parse args: %v", err)}, err
 		}
 		logger.Warnf(ctx, "[Tool][WebFetch] Unwrapped double-encoded items string (%d item(s))", len(input.Items))
@@ -470,7 +476,7 @@ func buildWebFetchToolResult(ctx context.Context, results []*webFetchItemResult)
 		if result == nil {
 			result = failedWebFetchResult("", false, "internal_error", "fetch item returned no result")
 		}
-		builder.WriteString(fmt.Sprintf("#%d:\n%s\n", index+1, result.output))
+		fmt.Fprintf(&builder, "#%d:\n%s\n", index+1, result.output)
 		aggregated = append(aggregated, result.data)
 		switch result.status {
 		case "success":
@@ -489,15 +495,23 @@ func buildWebFetchToolResult(ctx context.Context, results []*webFetchItemResult)
 		builder.WriteString("- All page fetches failed. Retry transient failures when useful, " +
 			"or use another relevant source. " +
 			"Answer only to the extent supported by available evidence.\n")
-		builder.WriteString("- Explicitly state that page content was not verified. Treat prices, inventory, and other dynamic facts as uncertain.\n")
+		builder.WriteString("- Explicitly state that page content was not verified. " +
+			"Treat prices, inventory, and other dynamic facts as uncertain.\n")
 	case failedCount > 0:
-		builder.WriteString("- Use successful page content together with existing search snippets; failed URLs do not invalidate successful evidence.\n")
+		builder.WriteString("- Use successful page content together with existing search snippets; " +
+			"failed URLs do not invalidate successful evidence.\n")
 		builder.WriteString("- Do not retry non-retryable failures. If evidence is sufficient, answer now.\n")
 	default:
 		builder.WriteString("- Synthesize the fetched evidence and answer when it is sufficient.\n")
 	}
 
-	logger.Infof(ctx, "[Tool][WebFetch] completed success=%d failed=%d skipped=%d", successCount, failedCount, skippedCount)
+	logger.Infof(
+		ctx,
+		"[Tool][WebFetch] completed success=%d failed=%d skipped=%d",
+		successCount,
+		failedCount,
+		skippedCount,
+	)
 	toolResult := &types.ToolResult{
 		Success: successCount > 0,
 		Output:  builder.String(),

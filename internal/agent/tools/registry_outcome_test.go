@@ -66,7 +66,8 @@ type panickingTool struct{ BaseTool }
 
 func (t *panickingTool) Execute(context.Context, json.RawMessage) (*types.ToolResult, error) {
 	var items []int
-	_ = items[len(items)] // index out of range: a runtime panic like a buggy tool would raise
+	idx := 0
+	_ = items[idx] // index out of range: a runtime panic like a buggy tool would raise
 	return nil, nil
 }
 

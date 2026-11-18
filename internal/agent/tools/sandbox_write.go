@@ -99,8 +99,11 @@ excluding /workspace/input.
 /workspace/output is collected for download, so it holds finished deliverables only; put drafts, scratch and
 intermediate files in any other directory under /workspace. Send both path and content (path first).
 Use edit_sandbox_file for small changes to an existing file. File content does not pass through shell quoting.
-Large files: first call uses mode=overwrite (default), subsequent calls use mode=append with only the next chunk. Keep calls in order and inspect the reported running byte count. A refused/truncated call wrote nothing; retry that chunk with complete JSON, never duplicate successful chunks.
-%s
+` +
+	"Large files: first call uses mode=overwrite (default), subsequent calls use mode=append with only the " +
+	"next chunk. Keep calls in order and inspect the reported running byte count. A refused/truncated call " +
+	"wrote nothing; retry that chunk with complete JSON, never duplicate successful chunks.\n" +
+	`%s
 Binary content is not accepted. The result reports the absolute path and total size without echoing content.`
 
 // WriteSandboxFileInput defines the input parameters for write_sandbox_file.
@@ -459,6 +462,6 @@ func (t *WriteSandboxFileTool) readForAppend(
 }
 
 // Cleanup releases any resources.
-func (t *WriteSandboxFileTool) Cleanup(ctx context.Context) error {
+func (t *WriteSandboxFileTool) Cleanup(_ context.Context) error {
 	return nil
 }

@@ -20,6 +20,9 @@ type wikiFlagIssueTool struct {
 	scopeEnforced    bool
 }
 
+// NewWikiFlagIssueTool creates a tool for flagging inaccurate or merged wiki pages.
+//
+//nolint:revive // Callers invoke unexported builder methods on wikiFlagIssueTool within package/service setup.
 func NewWikiFlagIssueTool(
 	wikiService interfaces.WikiPageService,
 	kbIDs []string,
@@ -29,8 +32,10 @@ func NewWikiFlagIssueTool(
 		BaseTool: NewBaseTool(
 			ToolWikiFlagIssue,
 			`Flag a wiki page that contains errors, mixed entities, or outdated information.
-Use this tool when you or the user identifies that a wiki page is factually incorrect or wrongly merged (e.g., a page contains information about two different products).
-This will log an issue for human review or automated maintenance.`,
+`+
+				"Use this tool when you or the user identifies that a wiki page is factually incorrect or "+
+				"wrongly merged (e.g., a page contains information about two different products).\n"+
+				`This will log an issue for human review or automated maintenance.`,
 			json.RawMessage(`{
   "type": "object",
   "properties": {
@@ -122,7 +127,13 @@ func (t *wikiFlagIssueTool) Execute(ctx context.Context, args json.RawMessage) (
 		return &types.ToolResult{Success: false, Error: err.Error()}, nil
 	}
 	if t.scopeEnforced {
-		if scopeErr := ensureWikiPageInSearchTargets(ctx, page, kbID, t.searchTargets, t.knowledgeService); scopeErr != nil {
+		if scopeErr := ensureWikiPageInSearchTargets(
+			ctx,
+			page,
+			kbID,
+			t.searchTargets,
+			t.knowledgeService,
+		); scopeErr != nil {
 			return &types.ToolResult{Success: false, Error: scopeErr.Error()}, nil
 		}
 	}
@@ -155,7 +166,10 @@ func (t *wikiFlagIssueTool) Execute(ctx context.Context, args json.RawMessage) (
 
 	return &types.ToolResult{
 		Success: true,
-		Output:  fmt.Sprintf("Successfully flagged issue for %s. A maintenance ticket has been created for review.", slug),
+		Output: fmt.Sprintf(
+			"Successfully flagged issue for %s. A maintenance ticket has been created for review.",
+			slug,
+		),
 	}, nil
 }
 

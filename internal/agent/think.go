@@ -345,7 +345,7 @@ func (e *AgentEngine) streamThinkingToEventBus(
 			return
 		}
 		emittedEventTypes["thought_chunk"]++
-		e.eventBus.Emit(ctx, event.Event{
+		_ = e.eventBus.Emit(ctx, event.Event{
 			ID:        thinkingID,
 			Type:      event.EventAgentThought,
 			SessionID: sessionID,
@@ -385,7 +385,7 @@ func (e *AgentEngine) streamThinkingToEventBus(
 		closeThinking()
 		answerStreamed = true
 		emittedEventTypes["final_answer_chunk"]++
-		e.eventBus.Emit(ctx, event.Event{
+		_ = e.eventBus.Emit(ctx, event.Event{
 			ID:        answerID,
 			Type:      event.EventAgentFinalAnswer,
 			SessionID: sessionID,
@@ -400,7 +400,7 @@ func (e *AgentEngine) streamThinkingToEventBus(
 		ctx,
 		messages,
 		opts,
-		func(chunk *types.StreamResponse, fullContent string) {
+		func(chunk *types.StreamResponse, _ string) {
 			if chunk.ResponseType == types.ResponseTypeToolCall && chunk.Data != nil {
 				toolCallID, _ := chunk.Data["tool_call_id"].(string)
 				toolName, _ := chunk.Data["tool_name"].(string)
@@ -409,7 +409,7 @@ func (e *AgentEngine) streamThinkingToEventBus(
 				if toolCallID != "" && toolName != "" && !pendingToolCalls[toolCallID] {
 					pendingToolCalls[toolCallID] = true
 					emittedEventTypes["tool_call_pending"]++
-					e.eventBus.Emit(ctx, event.Event{
+					_ = e.eventBus.Emit(ctx, event.Event{
 						ID:        fmt.Sprintf("%s-tool-call-pending", toolCallID),
 						Type:      event.EventAgentToolCall,
 						SessionID: sessionID,
@@ -446,7 +446,7 @@ func (e *AgentEngine) streamThinkingToEventBus(
 						thinkingToolIDs[toolCallID] = eventID
 					}
 					emittedEventTypes["thinking_tool_chunk"]++
-					e.eventBus.Emit(ctx, event.Event{
+					_ = e.eventBus.Emit(ctx, event.Event{
 						ID:        eventID,
 						Type:      event.EventAgentThought,
 						SessionID: sessionID,
@@ -592,17 +592,18 @@ func (e *AgentEngine) callLLMWithRetry(
 	}
 	for i := startIdx; i < len(messages); i++ {
 		msg := messages[i]
-		if msg.Role == "tool" {
+		switch {
+		case msg.Role == "tool":
 			logger.Debugf(ctx, "[Agent][Round-%d] msg[%d]: role=tool, name=%s, len=%d",
 				round, i, msg.Name, len(msg.Content))
-		} else if len(msg.ToolCalls) > 0 {
+		case len(msg.ToolCalls) > 0:
 			tcNames := make([]string, len(msg.ToolCalls))
 			for j, tc := range msg.ToolCalls {
 				tcNames[j] = tc.Function.Name
 			}
 			logger.Debugf(ctx, "[Agent][Round-%d] msg[%d]: role=%s, len=%d, tool_calls=%v",
 				round, i, msg.Role, len(msg.Content), tcNames)
-		} else {
+		default:
 			preview := cutDebugPreview(msg.Content, 100)
 			logger.Debugf(ctx, "[Agent][Round-%d] msg[%d]: role=%s, len=%d, content=%s",
 				round, i, msg.Role, len(msg.Content), preview)
@@ -674,9 +675,11 @@ func (e *AgentEngine) callLLMWithRetry(
 				round, retry, maxLLMRetries, retryDelay, err)
 			// A stop pressed during the backoff ends the turn now rather than
 			// after the delay and one more doomed request.
+			retryTimer := time.NewTimer(retryDelay)
 			select {
 			case <-ctx.Done():
-			case <-time.After(retryDelay):
+				retryTimer.Stop()
+			case <-retryTimer.C:
 			}
 			if ctx.Err() != nil {
 				break
@@ -740,7 +743,9 @@ func (e *AgentEngine) callLLMWithRetry(
 		// Early signal for natural-stop path: this round will be analyzed as a
 		// likely final answer (no tool call branch).
 		if isNaturalStopFinishReason(response.FinishReason) {
-			logger.Infof(ctx, "[Agent][Round-%d] Natural-stop candidate detected (finish=%s, tool_calls=0, content=%d chars)",
+			logger.Infof(ctx,
+				"[Agent][Round-%d] Natural-stop candidate detected (finish=%s, tool_calls=0, content=%d "+
+					"chars)",
 				round, response.FinishReason, len(response.Content))
 		}
 	}

@@ -55,10 +55,10 @@ func (e *AgentEngine) calibrateEstimator(
 	sent := e.lastSentMsgCount
 	toolTokens := e.rawEstimator.EstimateTools(tools)
 
-	comparable := c.prevPrompt > 0 && usage.PromptTokens > c.prevPrompt &&
+	canCompare := c.prevPrompt > 0 && usage.PromptTokens > c.prevPrompt &&
 		c.prevRewrites == e.contextRewrites && c.prevTools == toolTokens &&
 		c.prevSent > 0 && c.prevSent < sent && sent <= len(messages)
-	if comparable {
+	if canCompare {
 		appended := messages[c.prevSent:sent]
 		estimated := 0
 		for i := range appended {

@@ -442,7 +442,7 @@ func (t *QueryKnowledgeGraphTool) Execute(ctx context.Context, args json.RawMess
 	sort.SliceStable(textHits, func(i, j int) bool {
 		return textHits[i].Score > textHits[j].Score
 	})
-	allResults := append(graphHits, textHits...)
+	allResults := append(append([]*types.SearchResult(nil), graphHits...), textHits...)
 	relationData := make([]map[string]interface{}, 0, len(relations))
 	for _, rel := range relations {
 		relationData = append(relationData, map[string]interface{}{
@@ -484,13 +484,14 @@ func (t *QueryKnowledgeGraphTool) Execute(ctx context.Context, args json.RawMess
 	output := "=== Knowledge Graph Query ===\n\n"
 	output += fmt.Sprintf("📊 Query: %s\n", query)
 	output += fmt.Sprintf("🎯 Target Knowledge Bases: %v\n", input.KnowledgeBaseIDs)
-	if truncation.validationLimited {
+	switch {
+	case truncation.validationLimited:
 		output += fmt.Sprintf("✓ Found at least %d supported relations; showing %d relations and %d relevant chunks "+
 			"(deduplicated)\n\n", truncation.relationsTotal, len(relations), len(allResults))
-	} else if truncation.relationsTotal > truncation.relationsShown {
+	case truncation.relationsTotal > truncation.relationsShown:
 		output += fmt.Sprintf("✓ Found %d of %d relations and %d relevant chunks (deduplicated)\n\n",
 			len(relations), truncation.relationsTotal, len(allResults))
-	} else {
+	default:
 		output += fmt.Sprintf("✓ Found %d relations and %d relevant chunks (deduplicated)\n\n",
 			len(relations), len(allResults))
 	}

@@ -185,8 +185,9 @@ type KnowledgeBaseInfo struct {
 	Profile *types.KnowledgeBaseProfile
 }
 
-// PlaceholderDefinition defines a placeholder exposed to UI/configuration
-// Deprecated: Use types.PromptPlaceholder instead
+// PlaceholderDefinition defines a placeholder exposed to UI/configuration.
+//
+// Deprecated: Use types.PromptPlaceholder instead.
 type PlaceholderDefinition struct {
 	Name        string `json:"name"`
 	Label       string `json:"label"`
@@ -320,7 +321,7 @@ func renderPromptPlaceholders(template string, knowledgeBases []*KnowledgeBaseIn
 
 // formatSkillsMetadata formats skills metadata for the system prompt (Level 1 - Progressive Disclosure)
 // This is a lightweight representation that only includes skill name and description
-func formatSkillsMetadata(skillsMetadata []*skills.SkillMetadata, shellExecEnabled bool) string {
+func formatSkillsMetadata(skillsMetadata []*skills.SkillMetadata, _ bool) string {
 	if len(skillsMetadata) == 0 {
 		return ""
 	}
@@ -410,7 +411,8 @@ func formatToolGuidanceWithDesktop(
 			"read_file(path=skill://<name>/<file_path or SKILL.md>) and read_sandbox_file to read_file.\n")
 	}
 	if !skillInstallMode && (has("shell_exec") || has("write_sandbox_file")) {
-		if layout.IsHost() {
+		switch {
+		case layout.IsHost():
 			// A host root is a directory the user picked. PromptSafePath
 			// refuses names carrying newlines or markup rather than
 			// sanitizing them, so a forged instruction cannot reach the
@@ -427,7 +429,7 @@ func formatToolGuidanceWithDesktop(
 					"shell_exec may try a path outside the workspace; it is approved before it is opened. " +
 					"Deletes may need approval. Files persist on the user's machine.\n")
 			}
-		} else if layout.IsSharedRemote() {
+		case layout.IsSharedRemote():
 			root := sandbox.PromptSafePath(layout.Root)
 			input := sandbox.PromptSafePath(layout.InputDir)
 			output := sandbox.PromptSafePath(layout.OutputDir)
@@ -446,7 +448,7 @@ func formatToolGuidanceWithDesktop(
 				b.WriteString(" unless work_dir names a subdirectory.\n")
 				b.WriteString(sandboxArtifactReferenceGuidance())
 			}
-		} else {
+		default:
 			b.WriteString("Session workspace: /workspace. Preserve uploaded originals in /workspace/input. ")
 			b.WriteString(skills.ArtifactOutputDir())
 			b.WriteString(" is the only directory collected for download, " +
@@ -609,15 +611,16 @@ func BuildSystemPromptSections(
 	var template string
 
 	// Determine template to use
-	if len(systemPromptTemplate) > 0 && systemPromptTemplate[0] != "" {
+	switch {
+	case len(systemPromptTemplate) > 0 && systemPromptTemplate[0] != "":
 		template = systemPromptTemplate[0]
-	} else if len(knowledgeBases) == 0 {
+	case len(knowledgeBases) == 0:
 		var cfg *config.Config
 		if options != nil {
 			cfg = options.Config
 		}
 		template = GetPureAgentSystemPrompt(cfg)
-	} else {
+	default:
 		var cfg *config.Config
 		if options != nil {
 			cfg = options.Config
