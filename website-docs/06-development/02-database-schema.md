@@ -12,7 +12,7 @@ GENYEE 使用版本化迁移维护数据库结构，PostgreSQL 与 SQLite 分别
 | `sqlite` | Lite 模式。路径取 `DB_PATH`（默认 `./data/genyee.db`），DSN 附加 `_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on`，并加载 `sqlite-vec` 扩展（`sqlite_vec.Auto()`）做向量检索 |
 | 其他值 | 直接报错 `unsupported database driver` |
 
-**MySQL 不是主库选项**：`go.mod` 里的 `go-sql-driver/mysql` 是给 Doris 检索引擎（MySQL 协议、`database/sql`）注册协议驱动用的（见 `container.go` import 注释）。`migrations/mysql/00-init-db.sql` 是一份仅含 10 张核心表（tenants/models/knowledge_bases/knowledges/sessions/messages/message_suggestion_sets/message_suggestion_events/chunks/chunk_revisions）的一次性 MySQL 建表脚本，**没有任何 Go 代码或脚本引用它**，未接入应用启动流程，可视为遗留/外部初始化用途。
+**MySQL 不是主库选项**：`go.mod` 里的 `go-sql-driver/mysql` 是给 Doris 检索引擎（MySQL 协议、`database/sql`）注册协议驱动用的（见 `container.go` import 注释），主应用数据库不支持 MySQL。
 
 检索引擎（向量/关键词索引的存储）与主库解耦，由 `RETRIEVE_DRIVER` 控制（postgres / elasticsearch / qdrant / milvus / sqlite 等，详见《扩展点指南》）。当 `RETRIEVE_DRIVER` 不含 `postgres` 时，迁移 DSN 会带上 `options=-c app.skip_embedding=true`，`embeddings` 表相关迁移通过该 GUC 条件跳过。
 
@@ -22,8 +22,7 @@ GENYEE 使用版本化迁移维护数据库结构，PostgreSQL 与 SQLite 分别
 migrations/
 ├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000139 共 140 版（280 个 .up/.down.sql 文件）
 ├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000055 增量版本
-├── paradedb/      # ParadeDB 附加脚本：00-init-db.sql、01-migrate-to-paradedb.sql（存量库切换）
-└── mysql/         # 00-init-db.sql，遗留的一次性 MySQL 建表脚本（未接入代码）
+└── paradedb/      # ParadeDB 附加脚本：00-init-db.sql、01-migrate-to-paradedb.sql（存量库切换）
 ```
 
 - PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000139_im_session_mode_indexes`；

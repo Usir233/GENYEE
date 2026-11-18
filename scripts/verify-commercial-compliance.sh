@@ -744,17 +744,19 @@ test_t5_offline_bundle_manifest() {
 # TC-T5-02: scripts/export-source.sh succeeds and verifies excluded/included files
 test_t5_export_source_archive() {
     if ! grep -q "BRANCH_GUIDE.md export-ignore" .gitattributes || \
+       ! grep -q "ENGINEERING_STANDARDS.md export-ignore" .gitattributes || \
        ! grep -q "REBRAND_RESERVED.md export-ignore" .gitattributes || \
        ! grep -q "test-reports export-ignore" .gitattributes || \
        ! grep -q "tests/adversarial export-ignore" .gitattributes; then
-        echo ".gitattributes missing export-ignore rules for BRANCH_GUIDE.md, REBRAND_RESERVED.md, test-reports, or tests/adversarial" >&2
+        echo ".gitattributes missing export-ignore rules for BRANCH_GUIDE.md, ENGINEERING_STANDARDS.md, REBRAND_RESERVED.md, test-reports, or tests/adversarial" >&2
         return 1
     fi
     if ! grep -q "BRANCH_GUIDE" scripts/export-source.sh || \
+       ! grep -q "ENGINEERING_STANDARDS" scripts/export-source.sh || \
        ! grep -q "REBRAND_RESERVED" scripts/export-source.sh || \
        ! grep -q "test-reports" scripts/export-source.sh || \
        ! grep -q "tests/(adversarial|e2e|stress)" scripts/export-source.sh; then
-        echo "scripts/export-source.sh FORBIDDEN_PATTERNS missing BRANCH_GUIDE.md, REBRAND_RESERVED.md, test-reports, or tests/(adversarial|e2e|stress)" >&2
+        echo "scripts/export-source.sh FORBIDDEN_PATTERNS missing BRANCH_GUIDE.md, ENGINEERING_STANDARDS.md, REBRAND_RESERVED.md, test-reports, or tests/(adversarial|e2e|stress)" >&2
         return 1
     fi
 

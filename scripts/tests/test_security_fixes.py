@@ -45,42 +45,6 @@ def _load_module_with_stubs(module_name: str, file_path: Path, stubs: dict[str, 
                 sys.modules[k] = prev
 
 
-def _fastapi_pydantic_stubs() -> dict[str, types.ModuleType]:
-    fastapi_mod = types.ModuleType("fastapi")
-
-    class _HTTPException(Exception):
-        def __init__(self, status_code: int, detail: str = ""):
-            super().__init__(detail)
-            self.status_code = status_code
-            self.detail = detail
-
-    class _FastAPI:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def post(self, *args, **kwargs):
-            return lambda fn: fn
-
-        def get(self, *args, **kwargs):
-            return lambda fn: fn
-
-    fastapi_mod.Depends = lambda dep=None: dep
-    fastapi_mod.FastAPI = _FastAPI
-    fastapi_mod.Header = lambda default=None, **kwargs: default
-    fastapi_mod.HTTPException = _HTTPException
-
-    pydantic_mod = types.ModuleType("pydantic")
-
-    class _BaseModel:
-        def __init__(self, **kwargs):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-
-    pydantic_mod.BaseModel = _BaseModel
-    pydantic_mod.Field = lambda default=None, **kwargs: default
-    return {"fastapi": fastapi_mod, "pydantic": pydantic_mod}
-
-
 def _mcp_stubs() -> dict[str, types.ModuleType]:
     mcp_mod = types.ModuleType("mcp")
     server_mod = types.ModuleType("mcp.server")
@@ -247,71 +211,10 @@ class DockerAndOdlHybridSecurityTests(unittest.TestCase):
 
 
 class RootRuntimeSecurityTests(unittest.TestCase):
-    def test_rerank_server_demo_handles_empty_int_env_and_pins_trust_remote_code(self):
-        stubs = _fastapi_pydantic_stubs()
-        torch_mod = types.ModuleType("torch")
-        torch_mod.cuda = types.SimpleNamespace(is_available=lambda: False)
-        torch_mod.device = lambda name: name
-
-        recorded_calls: list[dict] = []
-
-        class _FakeAuto:
-            @classmethod
-            def from_pretrained(cls, path, **kwargs):
-                recorded_calls.append({"path": path, **kwargs})
-                m = types.SimpleNamespace(to=lambda dev: m, eval=lambda: None)
-                return m
-
-        transformers_mod = types.ModuleType("transformers")
-        transformers_mod.AutoModelForSequenceClassification = _FakeAuto
-        transformers_mod.AutoTokenizer = _FakeAuto
-        stubs["torch"] = torch_mod
-        stubs["transformers"] = transformers_mod
-
-        with mock.patch.dict(
-            os.environ,
-            {
-                "RERANK_MAX_DOCUMENTS": "",
-                "RERANK_MAX_QUERY_CHARS": "",
-                "RERANK_MAX_DOCUMENT_CHARS": "",
-            },
-            clear=False,
-        ):
-            mod = _load_module_with_stubs(
-                "rerank_demo_under_test", REPO_ROOT / "rerank_server_demo.py", stubs
-            )
-            self.assertEqual(mod.MAX_RERANK_DOCUMENTS, 128)
-
-            # Remote HF repo + trust_remote_code=true without 40-hex commit SHA must fail closed.
-            with mock.patch.dict(
-                os.environ,
-                {
-                    "RERANK_MODEL_PATH": "BAAI/bge-reranker-large",
-                    "RERANK_TRUST_REMOTE_CODE": "true",
-                    "RERANK_MODEL_REVISION": "main",
-                },
-                clear=False,
-            ), mock.patch.dict(sys.modules, stubs):
-                rt = mod._RerankRuntime()
-                with self.assertRaises(RuntimeError):
-                    rt.ensure_loaded()
-
-            # Local directory + trust_remote_code=true without SHA must force local_files_only=True.
-            with tempfile.TemporaryDirectory() as tmpdir:
-                recorded_calls.clear()
-                with mock.patch.dict(
-                    os.environ,
-                    {
-                        "RERANK_MODEL_PATH": tmpdir,
-                        "RERANK_TRUST_REMOTE_CODE": "true",
-                        "RERANK_MODEL_REVISION": "",
-                    },
-                    clear=False,
-                ), mock.patch.dict(sys.modules, stubs):
-                    rt2 = mod._RerankRuntime()
-                    rt2.ensure_loaded()
-                    self.assertEqual(len(recorded_calls), 2)
-                    self.assertTrue(all(c.get("local_files_only") is True for c in recorded_calls))
+    def test_makefile_quotes_get_version_env_eval_and_orphan_assets_removed(self):
+        self.assertFalse((REPO_ROOT / "rerank_server_demo.py").exists())
+        self.assertFalse((REPO_ROOT / "test_agent_config.sh").exists())
+        self.assertFalse((REPO_ROOT / "migrations/mysql").exists())
 
         makefile_text = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertNotIn("@eval $$(./scripts/get_version.sh env)", makefile_text)

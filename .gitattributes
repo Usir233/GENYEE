@@ -24,6 +24,7 @@ dataset/samples/*.parquet merge=ours
 # customer source archives via `git archive` (see scripts/export-source.sh).
 REBRAND_RESERVED.md export-ignore
 BRANCH_GUIDE.md export-ignore
+ENGINEERING_STANDARDS.md export-ignore
 test-reports export-ignore
 test-reports/** export-ignore
 tests/adversarial export-ignore
@@ -55,5 +56,3 @@ Formula export-ignore
 # as website-docs/deploy/nginx.conf needed to build the customer source archive.
 /deploy export-ignore
 cli/AGENTS.md export-ignore
-test_agent_config.sh export-ignore
-rerank_server_demo.py export-ignore

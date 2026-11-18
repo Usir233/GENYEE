@@ -707,11 +707,9 @@ return wrapChatConcurrency(c, config.MaxConcurrency, err)
 - 限额优先取模型自身 `parameters.max_concurrency`，为 0 时回落进程级默认 `model.max_concurrency`（可经系统设置在运行时通过 `SetGlobalLimit` 热更新）。
 - 运行时观测：`GET /system/admin/runtime/queues`（`internal/handler/system.go`）返回 `limiter.RuntimeStats()` 的每模型 `active / waiting / limit`（Redis 后端 active 为集群级，waiting 为进程本地）。
 
-### rerank_server_demo.py 的用途
+### 自托管 Rerank 服务协议兼容说明
 
-仓库根目录的 `rerank_server_demo.py` 是一个**自托管 Rerank 服务的最小参考实现**：FastAPI + HuggingFace `AutoModelForSequenceClassification`，暴露 `POST /rerank`，请求体 `{query, documents}`，返回 `{"results": [{index, document: {text}, score}]}`。
-
-示例服务返回 `score` 字段，可用于验证客户端兼容性。`cohererank` 协议（`internal/models/api/cohererank`）优先读取 `relevance_score`，缺失时读取 `score`；`document` 同时接受字符串和 `{text}` 对象。遵循此协议的私有重排服务可通过 `generic` provider 接入。
+自托管重排服务暴露 `POST /rerank`（请求体 `{query, documents}`）时，`cohererank` 协议（`internal/models/api/cohererank`）兼容 `{"results": [{index, document: {text}, relevance_score | score}]}` 响应格式：优先读取 `relevance_score`，缺失时读取 `score`；`document` 同时接受字符串和 `{text}` 对象。遵循此协议的私有重排服务可通过 `generic` provider 接入。
 
 ### 自建重排端点的分数标度
 

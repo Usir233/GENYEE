@@ -42,6 +42,7 @@ HISTORICAL_DOC_ALLOWLIST = {
     "cli/CHANGELOG.md",
     "mcp-server/CHANGELOG.md",
     "BRANCH_GUIDE.md",
+    "ENGINEERING_STANDARDS.md",
 }
 
 LICENSE_EXACT_ALLOWLIST = {
@@ -134,10 +135,14 @@ def git_ls_files(repo_root: Path) -> list[str]:
 
 
 def check_export_ignore(repo_root: Path, rel_path: str) -> str:
-    out = subprocess.check_output(
-        ["git", "check-attr", "export-ignore", "--", rel_path],
-        cwd=repo_root,
-    ).decode("utf-8").strip()
+    out = (
+        subprocess.check_output(
+            ["git", "check-attr", "export-ignore", "--", rel_path],
+            cwd=repo_root,
+        )
+        .decode("utf-8")
+        .strip()
+    )
     # Format: "<path>: export-ignore: <value>"
     parts = out.rsplit(": ", 1)
     return parts[-1] if len(parts) == 2 else "unspecified"
@@ -173,7 +178,9 @@ def validate_support_file(category: str, path: str) -> str | None:
         if path.startswith("frontend/public/tdesign-icons/"):
             return None
         if ext in FORBIDDEN_SUPPORT_EXTENSIONS or ext in {".py", ".js", ".md", ".json"}:
-            return f"executable/config/live-doc file leaked into static_binary_or_vendor_asset: {path}"
+            return (
+                f"executable/config/live-doc file leaked into static_binary_or_vendor_asset: {path}"
+            )
         if ext in BINARY_ASSET_EXTENSIONS or path in BINARY_ASSET_EXACT_ALLOWLIST:
             return None
         return f"unrecognized asset type in static_binary_or_vendor_asset: {path}"
@@ -234,7 +241,9 @@ def validate(
             continue
         missing_keys = required_unit_keys - set(unit.keys())
         if missing_keys:
-            errors.append(f"units[{idx}] ({unit.get('unit_id')}) missing keys: {sorted(missing_keys)}")
+            errors.append(
+                f"units[{idx}] ({unit.get('unit_id')}) missing keys: {sorted(missing_keys)}"
+            )
 
         uid = unit.get("unit_id")
         if not isinstance(uid, str) or not uid:
@@ -272,7 +281,8 @@ def validate(
             errors.append(f"unit {uid} tracked_files are not deterministically sorted")
         if unit.get("file_count") != len(tfiles):
             errors.append(
-                f"unit {uid} file_count ({unit.get('file_count')}) != len(tracked_files) ({len(tfiles)})"
+                f"unit {uid} file_count ({unit.get('file_count')}) "
+                f"!= len(tracked_files) ({len(tfiles)})"
             )
 
         for list_field in ("invariants_checked", "findings", "verification_commands"):
@@ -353,7 +363,9 @@ def validate(
         for key, exp_val in expected_summary.items():
             act_val = summary.get(key)
             if act_val != exp_val:
-                errors.append(f"summary[{key!r}] mismatch: actual={act_val!r} != expected={exp_val!r}")
+                errors.append(
+                    f"summary[{key!r}] mismatch: actual={act_val!r} != expected={exp_val!r}"
+                )
 
     export_attr_targets = (
         "test-reports/module-audit-v2/coverage.json",
@@ -365,20 +377,25 @@ def validate(
         attr_val = check_export_ignore(repo_root, rel)
         export_attrs[rel] = attr_val
         if attr_val != "set":
-            errors.append(f"git check-attr export-ignore {rel} returned {attr_val!r}, expected 'set'")
+            errors.append(
+                f"git check-attr export-ignore {rel} returned {attr_val!r}, expected 'set'"
+            )
 
     # Validate wave0-foundation.json
     if wave0.get("wave") != "W0":
         errors.append(f"wave0-foundation.json wave={wave0.get('wave')!r}, expected 'W0'")
     if wave0.get("status") != "verified_findings_fixed":
         errors.append(
-            f"wave0-foundation.json status={wave0.get('status')!r}, expected 'verified_findings_fixed'"
+            f"wave0-foundation.json status={wave0.get('status')!r}, "
+            "expected 'verified_findings_fixed'"
         )
     if not wave0.get("base_commit"):
         errors.append("wave0-foundation.json missing base_commit")
     commits = wave0.get("commits", [])
     if not isinstance(commits, list) or len(commits) != 2:
-        errors.append(f"wave0-foundation.json commits must have 2 Wave 0 commits, got {len(commits)}")
+        errors.append(
+            f"wave0-foundation.json commits must have 2 Wave 0 commits, got {len(commits)}"
+        )
     deleted_w0 = wave0.get("deleted_files", [])
     modified_w0 = wave0.get("modified_files", [])
     if len(deleted_w0) != 79:
@@ -435,15 +452,22 @@ def validate(
             else:
                 for ev_rel in (part.strip() for part in ev_field.split(",")):
                     if not ev_rel or not (repo_root / ev_rel).is_file():
-                        errors.append(f"--final unit {uid} missing evidence file on disk: {ev_rel!r}")
+                        errors.append(
+                            f"--final unit {uid} missing evidence file on disk: {ev_rel!r}"
+                        )
                     elif ev_rel not in live_set:
-                        errors.append(f"--final unit {uid} evidence file not git-tracked: {ev_rel!r}")
+                        errors.append(
+                            f"--final unit {uid} evidence file not git-tracked: {ev_rel!r}"
+                        )
             u_findings = unit.get("findings", [])
             if st == "verified_findings_fixed" and not u_findings:
-                errors.append(f"--final unit {uid} has status verified_findings_fixed but 0 findings")
+                errors.append(
+                    f"--final unit {uid} has status verified_findings_fixed but 0 findings"
+                )
             if st == "verified_no_findings" and u_findings:
                 errors.append(
-                    f"--final unit {uid} has status verified_no_findings but {len(u_findings)} finding(s)"
+                    f"--final unit {uid} has status verified_no_findings "
+                    f"but {len(u_findings)} finding(s)"
                 )
             for f_idx, finding in enumerate(u_findings):
                 if not isinstance(finding, dict):
@@ -457,16 +481,20 @@ def validate(
                     or any(ch not in "0123456789abcdef" for ch in f_commit)
                 ):
                     errors.append(
-                        f"--final unit {uid} finding {f_id} has invalid 40-char commit SHA: {f_commit!r}"
+                        f"--final unit {uid} finding {f_id} "
+                        f"has invalid 40-char commit SHA: {f_commit!r}"
                     )
                 elif f_commit not in rev_list_head:
                     errors.append(
-                        f"--final unit {uid} finding {f_id} commit {f_commit} not in git rev-list HEAD"
+                        f"--final unit {uid} finding {f_id} "
+                        f"commit {f_commit} not in git rev-list HEAD"
                     )
         for w0_c in commits:
             w0_sha = w0_c.get("sha") if isinstance(w0_c, dict) else None
             if not isinstance(w0_sha, str) or w0_sha not in rev_list_head:
-                errors.append(f"--final wave0-foundation.json commit {w0_sha!r} not in git rev-list HEAD")
+                errors.append(
+                    f"--final wave0-foundation.json commit {w0_sha!r} not in git rev-list HEAD"
+                )
 
     report = {
         "total_git_ls_files": len(live_files),
@@ -501,7 +529,10 @@ def main() -> int:
     parser.add_argument(
         "--final",
         action="store_true",
-        help="Enforce final release gates: 0 pending/pending_reaudit units and all finding commits in git rev-list HEAD.",
+        help=(
+            "Enforce final release gates: 0 pending/pending_reaudit units "
+            "and all finding commits in git rev-list HEAD."
+        ),
     )
     parser.add_argument(
         "--repo-root",

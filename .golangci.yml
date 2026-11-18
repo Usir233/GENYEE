@@ -1,9 +1,17 @@
 version: "2"
 linters:
   enable:
-    - lll           # 控制行宽
+    - bodyclose
+    - errcheck
+    - gocritic
     - govet
+    - ineffassign
+    - lll
+    - misspell
     - revive
+    - sqlclosecheck
+    - staticcheck
+    - unused
   settings:
     lll:
       line-length: 120
@@ -16,7 +24,8 @@ linters:
       # swag annotations and struct tags cannot wrap, so a parameter with its
       # enum list, a composed response type or a field's swag tags have to
       # stay on one line.
-      - linters: [lll]
+      - linters:
+          - lll
         source: '^\s*// @(Param|Success|Failure|x-)|(swaggertype|extensions):"'
 formatters:
   enable:

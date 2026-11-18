@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -32,7 +31,7 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO knowledge_bases (id, name, tenant_id, embedding_model_id, summary_model_id) "+
+		"INSERT INTO knowledge_bases (id, name, tenant_id, embedding_model_id, summary_model_id) " +
 			"VALUES ('kb-1', 'KB 1', 10000, 'emb-1', 'sum-1')",
 	)
 	require.NoError(t, err)
@@ -44,33 +43,33 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 	// 1. im_channel_sessions: same IM user or thread talking to different agents must coexist,
 	// while duplicate active rows for the SAME agent must be rejected (matches Postgres 000038).
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, session_id, tenant_id, agent_id) "+
+		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('ims-1', 'wecom', 'u1', 'c1', 'sess-a', 10000, 'agent-a')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, session_id, tenant_id, agent_id) "+
+		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('ims-2', 'wecom', 'u1', 'c1', 'sess-b', 10000, 'agent-b')",
 	)
 	require.NoError(t, err, "multi-agent IM user sessions must allow distinct agent_id rows")
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, session_id, tenant_id, agent_id) "+
+		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('ims-dup', 'wecom', 'u1', 'c1', 'sess-a', 10000, 'agent-a')",
 	)
 	require.Error(t, err, "duplicate active IM user session for the same agent_id must be rejected")
 
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) "+
+		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('imst-1', 'feishu', 'u2', 'c2', 'th-1', 'sess-ta', 10000, 'agent-a')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) "+
+		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('imst-2', 'feishu', 'u3', 'c2', 'th-1', 'sess-tb', 10000, 'agent-b')",
 	)
 	require.NoError(t, err, "multi-agent IM thread sessions must allow distinct agent_id rows")
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) "+
+		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('imst-dup', 'feishu', 'u4', 'c2', 'th-1', 'sess-ta', 10000, 'agent-a')",
 	)
 	require.Error(t, err, "duplicate active IM thread session for the same agent_id must be rejected")
@@ -78,76 +77,76 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 	// 2. tenant_members: soft-deleted member must be re-addable without UNIQUE constraint failure,
 	// while duplicate active memberships for the same (user_id, tenant_id) must be rejected (Postgres 000043).
 	_, err = db.Exec(
-		"INSERT INTO tenant_members (user_id, tenant_id, role, deleted_at) "+
+		"INSERT INTO tenant_members (user_id, tenant_id, role, deleted_at) " +
 			"VALUES ('user-rejoin', 10000, 'contributor', '2026-01-01 00:00:00')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO tenant_members (user_id, tenant_id, role, deleted_at) "+
+		"INSERT INTO tenant_members (user_id, tenant_id, role, deleted_at) " +
 			"VALUES ('user-rejoin', 10000, 'admin', NULL)",
 	)
 	require.NoError(t, err, "re-adding a previously soft-deleted workspace member must succeed")
 	_, err = db.Exec(
-		"INSERT INTO tenant_members (user_id, tenant_id, role, deleted_at) "+
+		"INSERT INTO tenant_members (user_id, tenant_id, role, deleted_at) " +
 			"VALUES ('user-rejoin', 10000, 'viewer', NULL)",
 	)
 	require.Error(t, err, "duplicate active workspace membership must be rejected")
 
 	// 3. organizations(invite_code), kb_shares, agent_shares, and resources content_hash index.
 	_, err = db.Exec(
-		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code) "+
+		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code) " +
 			"VALUES ('org-empty-1', 'Org E1', 'u1', 10000, ''), ('org-empty-2', 'Org E2', 'u1', 10000, '')",
 	)
 	require.NoError(t, err, "multiple organizations with empty invite_code must coexist")
 
 	_, err = db.Exec(
-		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code) "+
+		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code) " +
 			"VALUES ('org-1', 'Org 1', 'u1', 10000, 'INVITE123')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code) "+
+		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code) " +
 			"VALUES ('org-dup', 'Org Dup', 'u1', 10000, 'INVITE123')",
 	)
 	require.Error(t, err, "duplicate active organization invite_code must be rejected")
 	_, err = db.Exec(
-		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code, deleted_at) "+
+		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code, deleted_at) " +
 			"VALUES ('org-del', 'Org Del', 'u1', 10000, 'INVITE123', '2026-01-01 00:00:00')",
 	)
 	require.NoError(t, err, "soft-deleted organization must not collide with active invite_code")
 
 	_, err = db.Exec(
-		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id) "+
+		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id) " +
 			"VALUES ('kbs-1', 'kb-1', 'org-1', 'u1', 10000)",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id) "+
+		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id) " +
 			"VALUES ('kbs-dup', 'kb-1', 'org-1', 'u1', 10000)",
 	)
 	require.Error(t, err, "duplicate active kb_shares row must be rejected")
 	_, err = db.Exec("UPDATE kb_shares SET deleted_at = '2026-01-01 00:00:00' WHERE id = 'kbs-1'")
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id) "+
+		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id) " +
 			"VALUES ('kbs-2', 'kb-1', 'org-1', 'u1', 10000)",
 	)
 	require.NoError(t, err, "re-sharing KB after soft-delete must succeed")
 
 	_, err = db.Exec(
-		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id) "+
+		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id) " +
 			"VALUES ('ags-1', 'agent-1', 'org-1', 'u1', 10000)",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id) "+
+		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id) " +
 			"VALUES ('ags-dup', 'agent-1', 'org-1', 'u1', 10000)",
 	)
 	require.Error(t, err, "duplicate active agent_shares row must be rejected")
 	_, err = db.Exec("UPDATE agent_shares SET deleted_at = '2026-01-01 00:00:00' WHERE id = 'ags-1'")
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id) "+
+		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id) " +
 			"VALUES ('ags-2', 'agent-1', 'org-1', 'u1', 10000)",
 	)
 	require.NoError(t, err, "re-sharing custom agent after soft-delete must succeed")
@@ -179,7 +178,7 @@ func TestSQLiteUpgradeFromV53DedupesAndRollsBackCleanly(t *testing.T) {
 
 	db := openSQLiteDB(t, dbPath)
 	_, err := db.Exec(
-		"INSERT INTO knowledge_bases (id, name, tenant_id, embedding_model_id, summary_model_id) "+
+		"INSERT INTO knowledge_bases (id, name, tenant_id, embedding_model_id, summary_model_id) " +
 			"VALUES ('kb-u1', 'KB U1', 10000, 'e', 's')",
 	)
 	require.NoError(t, err)
@@ -187,20 +186,20 @@ func TestSQLiteUpgradeFromV53DedupesAndRollsBackCleanly(t *testing.T) {
 	require.NoError(t, err)
 	// Legacy v53 allowed duplicate active invite codes, KB shares, and agent shares.
 	_, err = db.Exec(
-		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code, created_at) VALUES "+
-			"('org-a', 'Org A', 'u1', 10000, 'DUPCODE', '2026-01-01 00:00:00'), "+
+		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id, invite_code, created_at) VALUES " +
+			"('org-a', 'Org A', 'u1', 10000, 'DUPCODE', '2026-01-01 00:00:00'), " +
 			"('org-b', 'Org B', 'u1', 10000, 'DUPCODE', '2026-01-02 00:00:00')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES "+
-			"('kbs-a', 'kb-u1', 'org-a', 'u1', 10000, '2026-01-01 00:00:00'), "+
+		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES " +
+			"('kbs-a', 'kb-u1', 'org-a', 'u1', 10000, '2026-01-01 00:00:00'), " +
 			"('kbs-b', 'kb-u1', 'org-a', 'u1', 10000, '2026-01-02 00:00:00')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES "+
-			"('ags-a', 'ag-u1', 'org-a', 'u1', 10000, '2026-01-01 00:00:00'), "+
+		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES " +
+			"('ags-a', 'ag-u1', 'org-a', 'u1', 10000, '2026-01-01 00:00:00'), " +
 			"('ags-b', 'ag-u1', 'org-a', 'u1', 10000, '2026-01-02 00:00:00')",
 	)
 	require.NoError(t, err)
@@ -306,33 +305,8 @@ func TestPostgresPrincipalWidthsAndOrgJoinRequestIndexMigration(t *testing.T) {
 func TestBootstrapSQLIdempotencyInvariants(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
 
-	mysqlBytes, err := os.ReadFile(filepath.Join(repoRoot, "migrations", "mysql", "00-init-db.sql"))
-	require.NoError(t, err)
-	mysqlSQL := string(mysqlBytes)
-
-	createTableRE := regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)\s*\(`)
-	dropTableRE := regexp.MustCompile(`(?i)DROP\s+TABLE\s+IF\s+EXISTS\s+([a-z0-9_]+)\s*;`)
-
-	var createdTables []string
-	for _, m := range createTableRE.FindAllStringSubmatch(mysqlSQL, -1) {
-		createdTables = append(createdTables, strings.ToLower(m[1]))
-	}
-	require.NotEmpty(t, createdTables)
-
-	droppedPos := map[string]int{}
-	for idx, m := range dropTableRE.FindAllStringSubmatch(mysqlSQL, -1) {
-		droppedPos[strings.ToLower(m[1])] = idx
-	}
-	for _, tbl := range createdTables {
-		_, ok := droppedPos[tbl]
-		require.Truef(t, ok, "migrations/mysql/00-init-db.sql must DROP TABLE IF EXISTS %s before recreating it", tbl)
-	}
-	require.Less(
-		t,
-		droppedPos["message_suggestion_events"],
-		droppedPos["message_suggestion_sets"],
-		"child FK table message_suggestion_events must be dropped before parent message_suggestion_sets",
-	)
+	_, statErr := os.Stat(filepath.Join(repoRoot, "migrations", "mysql"))
+	require.True(t, os.IsNotExist(statErr), "unwired migrations/mysql directory must remain removed")
 
 	paradeBytes, err := os.ReadFile(filepath.Join(repoRoot, "migrations", "paradedb", "00-init-db.sql"))
 	require.NoError(t, err)

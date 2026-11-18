@@ -6,7 +6,7 @@ Covers audit items:
 - GENYEE-HIGH-15: odl_hybrid_url request override block, engine override allowlist, Java heap/timeout bounds
 - GENYEE-HIGH-16: Streaming ZIP member read budget against spoofed ZipInfo.file_size & entry count cap
 - GENYEE-HIGH-17: XLSX merged-cell bounds/budget & DOCX gridSpan/gridBefore/clone caps
-- GENYEE-MED-13 / MED-20: rerank_server_demo.py & serve.py safe defaults
+- GENYEE-MED-20: serve.py safe defaults
 - GENYEE-MED-14: FQDN trailing root dot & empty DNS label SSRF bypass block
 - GENYEE-MED-15: ImageMagick disallowed vector formats & PIL.Image.MAX_IMAGE_PIXELS=40_000_000
 - GENYEE-LOW-05: Proxy credential masking in config/logs
@@ -15,7 +15,6 @@ Covers audit items:
 
 from __future__ import annotations
 
-import ast
 import asyncio
 import contextlib
 import importlib.util
@@ -797,21 +796,6 @@ def test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(tmp_path)
             resolve_safe_image_dest(str(tmp_path), unsafe_ref)
 
 
-def test_rerank_server_demo_static_security_invariants():
-    demo_path = REPO_ROOT / "rerank_server_demo.py"
-    if not demo_path.exists():
-        pytest.skip("rerank_server_demo.py is omitted in exported source archives")
-    source = demo_path.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    assert tree is not None
-    assert "RERANK_MODEL_PATH" in source
-    assert "RERANK_API_KEY" in source
-    assert "compare_digest" in source
-    assert " use_safetensors=True" in source or "use_safetensors=True" in source
-    assert '"127.0.0.1"' in source
-    assert "MAX_RERANK_DOCUMENTS" in source
-
-
 @contextlib.contextmanager
 def _temp_monkeypatch():
     env_snapshot = os.environ.copy()
@@ -902,9 +886,6 @@ class _SecurityAuditUnittestCases(unittest.TestCase):
     def test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(self):
         with tempfile.TemporaryDirectory() as td:
             test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(Path(td))
-
-    def test_rerank_server_demo_static_security_invariants(self):
-        test_rerank_server_demo_static_security_invariants()
 
 
 def load_tests(loader: unittest.TestLoader, _tests, _pattern):

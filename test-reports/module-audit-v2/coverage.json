@@ -11,16 +11,16 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": null,
   "summary": {
-    "total_tracked_files": 6691,
-    "unit_count": 301,
-    "unit_files_total": 6208,
-    "support_files_total": 483,
+    "total_tracked_files": 6690,
+    "unit_count": 300,
+    "unit_files_total": 6204,
+    "support_files_total": 486,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
     "units_by_wave": {
       "W1": 20,
-      "W2": 16,
+      "W2": 15,
       "W3": 15,
       "W4": 20,
       "W5": 40,
@@ -30,16 +30,16 @@
     },
     "files_by_wave": {
       "W1": 377,
-      "W2": 941,
+      "W2": 939,
       "W3": 1294,
       "W4": 188,
       "W5": 920,
       "W6": 1100,
-      "W7": 875,
+      "W7": 873,
       "W8": 513
     },
     "units_by_status": {
-      "verified_findings_fixed": 236,
+      "verified_findings_fixed": 235,
       "verified_no_findings": 65
     },
     "units_by_legacy_status": {
@@ -48,13 +48,13 @@
       "audited_fixed_validated": 2,
       "audited_no_actionable_findings": 47,
       "partially_audited": 32,
-      "pending": 142,
+      "pending": 141,
       "uncovered_in_v1": 21
     },
     "support_files_by_category": {
       "license_or_notice": 71,
-      "historical_changelog_or_spec": 4,
-      "audit_ledger_or_archived_report": 39,
+      "historical_changelog_or_spec": 5,
+      "audit_ledger_or_archived_report": 41,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -2215,38 +2215,6 @@
         "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/utils/... (exit 0)"
       ],
       "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
-    },
-    {
-      "unit_id": "migrations/mysql",
-      "wave": "W2",
-      "legacy_status": "pending",
-      "status": "verified_findings_fixed",
-      "file_count": 2,
-      "tracked_files": [
-        "migrations/mysql/00-init-db.sql",
-        "migrations/mysql/README.md"
-      ],
-      "invariants_checked": [
-        "MySQL bootstrap script drops all created tables (chunk_revisions, chunks, message_suggestion_events, message_suggestion_sets, messages, sessions, knowledges, knowledge_bases, models, tenants) in child-before-parent foreign-key order so re-execution succeeds cleanly.",
-        "Tenant-scoped tables define tenant_id columns and composite lookup/unique keys with AUTO_INCREMENT=10000 on tenants and zero weknora/knora/wk_ residues across SQL and README.",
-        "MySQL 00-init-db.sql virtual generated columns and unique indexes match partial IM session mode index semantics with zero brand residues."
-      ],
-      "findings": [
-        {
-          "id": "W2-DB-MIGRATIONS-05",
-          "severity": "P2",
-          "file": "migrations/mysql/00-init-db.sql:1-7",
-          "summary": "migrations/mysql/00-init-db.sql omitted DROP TABLE IF EXISTS for chunk_revisions, message_suggestion_events, and message_suggestion_sets (which holds an InnoDB FOREIGN KEY from message_suggestion_events), causing script re-execution to fail with Table already exists / FK errors.",
-          "regression_test": "TestBootstrapSQLIdempotencyInvariants",
-          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
-        }
-      ],
-      "verification_commands": [
-        "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
-      ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "migrations/paradedb",
@@ -12470,7 +12438,7 @@
       "wave": "W7",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 21,
+      "file_count": 19,
       "tracked_files": [
         ".air.toml",
         ".dockerignore",
@@ -12490,9 +12458,7 @@
         "deploy/genyee-lite.service",
         "go.mod",
         "go.sum",
-        "misc/dex-config.yaml",
-        "rerank_server_demo.py",
-        "test_agent_config.sh"
+        "misc/dex-config.yaml"
       ],
       "invariants_checked": [
         "Preserved all protected license/attribution/historical files and kept `README.md`, `README_CN.md`, `README_JA.md`, and `README_KO.md` 100% byte-identical; audited `go.mod`, `go.sum`, `Makefile`, `Formula/genyee-lite.rb`, `.env.example`, `.env.lite.example`, `rerank_server_demo.py`, `.dockerignore`, `.gitignore`, `.gitattributes`, `.golangci.yml`, `VERSION`, `docreader/pyproject.toml`, and `mcp-server/pyproject.toml`.",
@@ -16289,6 +16255,7 @@
     "historical_changelog_or_spec": [
       "BRANCH_GUIDE.md",
       "CHANGELOG.md",
+      "ENGINEERING_STANDARDS.md",
       "cli/CHANGELOG.md",
       "mcp-server/CHANGELOG.md"
     ],
@@ -16331,7 +16298,9 @@
       "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json",
       "test-reports/module-audit-v2/evidence/w8-models-reaudit.json",
       "test-reports/module-audit-v2/verify_ledger.py",
-      "test-reports/module-audit-v2/wave0-foundation.json"
+      "test-reports/module-audit-v2/wave0-foundation.json",
+      "test-reports/module-audit-v3/coverage.json",
+      "test-reports/module-audit-v3/verify_ledger.py"
     ],
     "static_binary_or_vendor_asset": [
       "cmd/desktop/build/appicon.png",

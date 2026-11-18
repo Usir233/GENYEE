@@ -195,7 +195,7 @@ sequenceDiagram
 | `cli/` | `genyee` 命令行工具：知识库、文档、检索、会话、智能体、模型、MCP、技能等资源操作，以及 `doctor` 诊断，见 [CLI](../05-clients/02-cli.md) |
 | `client/` | Go SDK：以 HTTP 客户端形式封装 GENYEE API，供二次开发集成 |
 | `mcp-server/` | Python 实现的 MCP Server（`genyee_mcp_server.py`），把 GENYEE API 暴露为 MCP 工具给 Claude 等 MCP 客户端 |
-| `migrations/` | golang-migrate 数据库迁移：`versioned/`（Postgres 主线 `NNNNNN_*.up/down.sql`）、`sqlite/`（Lite 模式）、`paradedb/`、`mysql/` |
+| `migrations/` | golang-migrate 数据库迁移：`versioned/`（Postgres 主线 `NNNNNN_*.up/down.sql`）、`sqlite/`（Lite 模式）、`paradedb/` |
 | `config/` | 运行配置：`config.yaml` 主配置、`builtin_agents.yaml` 内置 Agent、`agent_type_presets.yaml` Agent 预设、`builtin_models.yaml.example` 声明式内置模型、`models.json.example` 模型厂商目录叠加、`prompt_templates/` 提示词模板 |
 | `docker/` | 各镜像 Dockerfile（app/docreader/sandbox/odl-hybrid）与 searxng 配置 |
 | `deploy/` | 裸机部署资源（systemd 服务单元等） |
