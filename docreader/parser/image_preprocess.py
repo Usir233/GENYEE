@@ -27,6 +27,7 @@ Every failure mode is a verdict rather than an exception — the caller keeps it
 own bytes — so a page that cannot be corrected is read as the original
 photograph instead of something worse.
 """
+
 import logging
 import os
 import threading
@@ -84,11 +85,20 @@ def resolve_threshold(name: str, raw: "str | None") -> float:
     try:
         value = float(raw)
     except ValueError:
-        logger.warning("%s%s=%r is not a number; using the default %g", _ENV_PREFIX, name, raw, default)
+        logger.warning(
+            "%s%s=%r is not a number; using the default %g", _ENV_PREFIX, name, raw, default
+        )
         return default
     if not low <= value <= high:
-        logger.warning("%s%s=%g is outside [%g, %g]; using the default %g",
-                       _ENV_PREFIX, name, value, low, high, default)
+        logger.warning(
+            "%s%s=%g is outside [%g, %g]; using the default %g",
+            _ENV_PREFIX,
+            name,
+            value,
+            low,
+            high,
+            default,
+        )
         return default
     return value
 
@@ -115,6 +125,7 @@ def effective_thresholds() -> dict:
         "QUAD_TOL": QUAD_TOL,
     }
 
+
 # RapidOCR instances carry mutable state: parameters are written onto the
 # instance (update_params -> setattr), so calling ocr(img, use_cls=...) changes
 # what every later call sees. The gRPC server handles requests concurrently, so
@@ -125,10 +136,12 @@ _ocr_local = threading.local()
 def _engine() -> "RapidOCR":
     engine = getattr(_ocr_local, "engine", None)
     if engine is None:
-        engine = RapidOCR(params={
-            "EngineConfig.onnxruntime.intra_op_num_threads": CONFIG.preprocess_threads,
-            "EngineConfig.onnxruntime.inter_op_num_threads": 1,
-        })
+        engine = RapidOCR(
+            params={
+                "EngineConfig.onnxruntime.intra_op_num_threads": CONFIG.preprocess_threads,
+                "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+            }
+        )
         _ocr_local.engine = engine
     return engine
 
@@ -154,7 +167,15 @@ def detect(img):
     # with cls on -> 147 with cls off, losing exactly the long text lines that
     # carry the dominant angle).
     res = _engine()(img, use_cls=True)
-    return [(np.array(b, "float32"), float(s)) for b, s in zip(res.boxes, res.scores) if s >= MIN_SCORE]
+    boxes = getattr(res, "boxes", None)
+    scores = getattr(res, "scores", None)
+    if boxes is None or scores is None:
+        return []
+    return [
+        (np.array(b, "float32"), float(s))
+        for b, s in zip(boxes, scores, strict=False)
+        if s >= MIN_SCORE
+    ]
 
 
 def dominant_angle(items):
@@ -183,7 +204,9 @@ def dominant_angle(items):
         return wrap90(peak)
     a2 = np.radians(2.0 * ang[sel])
     sw = w[sel]
-    return wrap90(float(np.degrees(np.arctan2((sw * np.sin(a2)).sum(), (sw * np.cos(a2)).sum())) / 2.0))
+    return wrap90(
+        float(np.degrees(np.arctan2((sw * np.sin(a2)).sum(), (sw * np.cos(a2)).sum())) / 2.0)
+    )
 
 
 def filter_items(items, theta):
@@ -196,7 +219,7 @@ def filter_items(items, theta):
     keep = []
     for b, s in items:
         a, L = box_angle(b)
-        if abs(wrap90(a - theta)) <= ANG_TOL and L >= SIZE_MIN * med:
+        if abs(wrap90(a - theta)) <= ANG_TOL and SIZE_MIN * med <= L:
             keep.append((b, s))
     return keep
 
@@ -274,7 +297,7 @@ def _boundary_line(pts, axis, side, frac=0.10, max_slope=0.12):
     b0 = float(np.mean(sel[:, axis]) - m * np.mean(sel[:, 1 - axis]))
     r = pts[:, axis] - (m * pts[:, 1 - axis] + b0)
     b = b0 + (float(r.min()) if side == "min" else float(r.max()))
-    return (m, b)          # coord_axis = m * coord_other + b
+    return (m, b)  # coord_axis = m * coord_other + b
 
 
 def _intersect(line_h, line_v):
@@ -305,22 +328,27 @@ def fit_quad(pts):
     """
     quad = None
     for _ in range(3):
-        top = _boundary_line(pts, 1, "min")      # y = m*x + b, above all points
-        bot = _boundary_line(pts, 1, "max")      # y = m*x + b, below all points
-        lef = _boundary_line(pts, 0, "min")      # x = m*y + b, left of all points
-        rig = _boundary_line(pts, 0, "max")      # x = m*y + b, right of all points
+        top = _boundary_line(pts, 1, "min")  # y = m*x + b, above all points
+        bot = _boundary_line(pts, 1, "max")  # y = m*x + b, below all points
+        lef = _boundary_line(pts, 0, "min")  # x = m*y + b, left of all points
+        rig = _boundary_line(pts, 0, "max")  # x = m*y + b, right of all points
         if None in (top, bot, lef, rig):
             return None
-        corners = [_intersect(top, lef), _intersect(top, rig),
-                   _intersect(bot, rig), _intersect(bot, lef)]
+        corners = [
+            _intersect(top, lef),
+            _intersect(top, rig),
+            _intersect(bot, rig),
+            _intersect(bot, lef),
+        ]
         if None in corners:
             return None
         quad = np.array(corners, "float32")
         xr = quad[:, 0].max() - quad[:, 0].min()
         yr = quad[:, 1].max() - quad[:, 1].min()
         tol = QUAD_TOL * max(xr, yr)
-        inside = np.array([cv2.pointPolygonTest(quad, (float(p[0]), float(p[1])), True) >= tol
-                           for p in pts])
+        inside = np.array(
+            [cv2.pointPolygonTest(quad, (float(p[0]), float(p[1])), True) >= tol for p in pts]
+        )
         if inside.all():
             return quad
         pts = pts[inside]
@@ -339,8 +367,9 @@ def warp(img, quad, pad=PAD):
     hA, hB = np.linalg.norm(q[3] - q[0]), np.linalg.norm(q[2] - q[1])
     Wt, Ht = int(max(wA, wB)), int(max(hA, hB))
     dst = np.array([[0, 0], [Wt - 1, 0], [Wt - 1, Ht - 1], [0, Ht - 1]], "float32")
-    rect = cv2.warpPerspective(img, cv2.getPerspectiveTransform(q, dst), (Wt, Ht),
-                               borderValue=(255, 255, 255))
+    rect = cv2.warpPerspective(
+        img, cv2.getPerspectiveTransform(q, dst), (Wt, Ht), borderValue=(255, 255, 255)
+    )
     return rect, q
 
 
@@ -362,15 +391,17 @@ def warp_ordered(img, quad, pad=0.0):
     hA, hB = np.linalg.norm(q[3] - q[0]), np.linalg.norm(q[2] - q[1])
     Wt, Ht = int(max(wA, wB)), int(max(hA, hB))
     dst = np.array([[0, 0], [Wt - 1, 0], [Wt - 1, Ht - 1], [0, Ht - 1]], "float32")
-    return cv2.warpPerspective(img, cv2.getPerspectiveTransform(q, dst), (Wt, Ht),
-                               borderValue=(255, 255, 255))
+    return cv2.warpPerspective(
+        img, cv2.getPerspectiveTransform(q, dst), (Wt, Ht), borderValue=(255, 255, 255)
+    )
 
 
 def rec_score(img):
     """Mean recognition score with cls DISABLED (orientation-sensitive)."""
     try:
         res = _engine()(img, use_cls=False)
-        sc = np.asarray(res.scores if res.scores is not None else [], "float32").ravel()
+        raw_scores = getattr(res, "scores", None)
+        sc = np.asarray(raw_scores if raw_scores is not None else [], "float32").ravel()
         return (float(sc.mean()) if sc.size else 0.0), int(sc.size)
     except Exception as e:
         logger.warning("Recognition score unavailable, treating the image as unreadable: %s", e)
@@ -400,8 +431,15 @@ def preprocess(bgr: "np.ndarray") -> dict:
     pts = cv2.transform(np.concatenate([b for b, _ in kept]).reshape(-1, 1, 2), M).reshape(-1, 2)
     quad_r = fit_quad(pts)
     if quad_r is None:
-        return {"rect": None, "status": "low_quality", "theta": float(theta), "ang": float(ang),
-                "residual": float(residual), "n_boxes": len(items), "n_kept": len(kept)}
+        return {
+            "rect": None,
+            "status": "low_quality",
+            "theta": float(theta),
+            "ang": float(ang),
+            "residual": float(residual),
+            "n_boxes": len(items),
+            "n_kept": len(kept),
+        }
     rect, quad_pad = warp(rot, quad_r)
     s0, _ = rec_score(rect)
     s1, _ = rec_score(cv2.rotate(rect, cv2.ROTATE_180))

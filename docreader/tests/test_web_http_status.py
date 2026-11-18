@@ -1,4 +1,5 @@
 """HTTP errors must not become URL knowledge; browser/network are fakes."""
+
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -44,10 +45,15 @@ class NavigationStatusTest(unittest.TestCase):
         with (
             patch("docreader.parser.web_parser.is_ssrf_safe_url", return_value=(True, "")),
             patch("docreader.parser.web_parser.SSRFProxy", return_value=proxy),
-            patch("docreader.parser.web_parser.async_playwright", return_value=AsyncContext(driver)),
+            patch(
+                "docreader.parser.web_parser.async_playwright", return_value=AsyncContext(driver)
+            ),
             patch("docreader.parser.web_parser.install_ssrf_route_guard", new=AsyncMock()),
             patch("docreader.parser.web_parser.wait_for_rendered_content", new=AsyncMock()),
-            patch("docreader.parser.web_parser.read_visible_text", new=AsyncMock(return_value="" if empty else text)),
+            patch(
+                "docreader.parser.web_parser.read_visible_text",
+                new=AsyncMock(return_value="" if empty else text),
+            ),
         ):
             try:
                 return WebParser(title="test").parse_into_text(TEST_URL.encode())
@@ -103,15 +109,17 @@ class NavigationStatusTest(unittest.TestCase):
         self.browser.close.assert_awaited_once()
 
 
-class RPCFailurePropagationTest(unittest.TestCase):
-    run_parser = NavigationStatusTest.run_parser
-
+class RPCFailurePropagationTest(NavigationStatusTest):
     def test_http_failure_is_sent_as_unary_and_stream_error(self):
+        from typing import Any, cast
+
         from docreader.main import DocReaderServicer
         from docreader.proto.docreader_pb2 import ReadRequest
 
         servicer = DocReaderServicer.__new__(DocReaderServicer)
-        servicer.parser = SimpleNamespace(parse_url=lambda *args, **kwargs: self.run_parser(404))
+        servicer.parser = cast(
+            Any, SimpleNamespace(parse_url=lambda *args, **kwargs: self.run_parser(404))
+        )
         request = ReadRequest(url=TEST_URL, title="test")
         unary = servicer.Read(request, None)
         self.assertIn("HTTP 404", unary.error)

@@ -1,8 +1,8 @@
 """Recover reading order when EPUB navigation is broken but its spine is intact."""
-from io import BytesIO
+
 import unittest
-from unittest.mock import patch
 import zipfile
+from io import BytesIO
 
 from docreader.parser.epub_parser import EPUBParser
 from docreader.tests.test_epub_parser import _ordered_epub_bytes
@@ -17,7 +17,7 @@ def without_ncx(content, encoded_path=False):
                 name = info.filename
                 if encoded_path:
                     if name.endswith(".opf"):
-                        data = data.replace(b'text/one.xhtml', b'text/one%20chapter.xhtml')
+                        data = data.replace(b"text/one.xhtml", b"text/one%20chapter.xhtml")
                     if name.endswith("text/one.xhtml"):
                         name = name.replace("one.xhtml", "one chapter.xhtml")
                 target.writestr(name, data)
@@ -28,10 +28,13 @@ class EPUBFallbackOrderTests(unittest.TestCase):
     def test_real_navigation_failure_keeps_spine_order(self):
         for encoded_path in (False, True):
             with self.subTest(encoded_path=encoded_path):
-                content = without_ncx(_ordered_epub_bytes(
-                    manifest=["three", "title", "one", "two", "appendix"],
-                    spine=["title", "one", "two", "one", "three"],
-                ), encoded_path=encoded_path)
+                content = without_ncx(
+                    _ordered_epub_bytes(
+                        manifest=["three", "title", "one", "two", "appendix"],
+                        spine=["title", "one", "two", "one", "three"],
+                    ),
+                    encoded_path=encoded_path,
+                )
                 parser = EPUBParser(file_name="broken-navigation.epub")
                 document = parser.parse(content)
                 names = ["title", "one", "two", "three", "appendix"]

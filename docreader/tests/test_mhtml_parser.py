@@ -35,8 +35,7 @@ def _minimal_mhtml_bytes() -> bytes:
 
     ad = EmailMessage()
     ad.set_content(
-        "<html><body><h1>Advertisement</h1>"
-        "<p>Buy this unrelated thing.</p></body></html>",
+        "<html><body><h1>Advertisement</h1><p>Buy this unrelated thing.</p></body></html>",
         subtype="html",
     )
     ad["Content-Location"] = "https://googleads.example/frame.html"
@@ -89,19 +88,19 @@ def _mhtml_with_table_image_and_caption() -> bytes:
 
 def _mhtml_with_8bit_utf8_headers() -> bytes:
     """Browser-style MHTML: raw UTF-8 bytes in MIME headers, not RFC 2047."""
-    html_loc = "https://example.com/测试页面.html".encode("utf-8")
-    ad_loc = "https://googleads.example/广告.html".encode("utf-8")
-    image_loc = "https://example.com/图片.png".encode("utf-8")
-    content_id = "<图片@local>".encode("utf-8")
-    attachment_id = "图片".encode("utf-8")
+    html_loc = "https://example.com/测试页面.html".encode()
+    ad_loc = "https://googleads.example/广告.html".encode()
+    image_loc = "https://example.com/图片.png".encode()
+    content_id = "<图片@local>".encode()
+    attachment_id = "图片".encode()
     main_html = (
         "<html><body><h1>中文主文</h1>"
         '<img alt="绝对" src="https://example.com/图片.png">'
         '<img alt="相对" src="图片.png">'
         '<img alt="cid" src="cid:图片@local">'
         "</body></html>"
-    ).encode("utf-8")
-    ad_html = "<html><body><h1>广告正文</h1></body></html>".encode("utf-8")
+    ).encode()
+    ad_html = "<html><body><h1>广告正文</h1></body></html>".encode()
     png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
     return b"".join(
         [
@@ -143,9 +142,9 @@ def _mhtml_with_8bit_utf8_headers() -> bytes:
 
 class MHTMLParserTest(unittest.TestCase):
     def test_parse_selects_main_html_and_filters_noise(self):
-        document = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        ).parse_into_text(_minimal_mhtml_bytes())
+        document = MHTMLParser(file_name="article.mhtml", file_type="mhtml").parse_into_text(
+            _minimal_mhtml_bytes()
+        )
 
         self.assertIn("Main Article", document.content)
         self.assertIn("Hello MHTML world", document.content)
@@ -154,9 +153,9 @@ class MHTMLParserTest(unittest.TestCase):
         self.assertEqual(document.metadata["source_format"], "mhtml")
 
     def test_internal_links_are_unwrapped_but_external_links_remain(self):
-        document = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        ).parse_into_text(_minimal_mhtml_bytes())
+        document = MHTMLParser(file_name="article.mhtml", file_type="mhtml").parse_into_text(
+            _minimal_mhtml_bytes()
+        )
 
         self.assertIn("Chapter 3", document.content)
         self.assertIn("note", document.content)
@@ -180,15 +179,15 @@ class MHTMLParserTest(unittest.TestCase):
         self.assertEqual(without_images.images, {})
 
     def test_table_image_and_caption_keep_markdown_block_boundaries(self):
-        document = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        ).parse_into_text(_mhtml_with_table_image_and_caption())
+        document = MHTMLParser(file_name="article.mhtml", file_type="mhtml").parse_into_text(
+            _mhtml_with_table_image_and_caption()
+        )
 
         self.assertEqual(len(document.images), 1)
         image_ref = next(iter(document.images))
         self.assertIn(f'![图片]({image_ref} "图片")', document.content)
         self.assertIn(
-            f"| 赛季制建立 | BP、Rank |\n\n![图片]({image_ref} \"图片\")",
+            f'| 赛季制建立 | BP、Rank |\n\n![图片]({image_ref} "图片")',
             document.content,
         )
         self.assertIn(
@@ -197,9 +196,7 @@ class MHTMLParserTest(unittest.TestCase):
         )
 
     def test_html_to_markdown_preserves_indentation_and_code_block_blanks(self):
-        markdown = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        )._html_to_markdown(
+        markdown = MHTMLParser(file_name="article.mhtml", file_type="mhtml")._html_to_markdown(
             "<ul><li>parent<ul><li>child</li></ul></li></ul>"
             "<blockquote><p>quoted</p></blockquote>"
             "<pre><code>line1\n\n  indented\n</code></pre>"
@@ -210,23 +207,23 @@ class MHTMLParserTest(unittest.TestCase):
         self.assertIn("```\nline1\n\n  indented\n```", markdown)
 
     def test_html_to_markdown_preserves_nested_list_indentation(self):
-        markdown = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        )._html_to_markdown("<ul><li>parent<ul><li>child</li></ul></li></ul>")
+        markdown = MHTMLParser(file_name="article.mhtml", file_type="mhtml")._html_to_markdown(
+            "<ul><li>parent<ul><li>child</li></ul></li></ul>"
+        )
 
         self.assertIn("* parent\n  + child", markdown)
 
     def test_html_to_markdown_preserves_blockquote_boundaries(self):
-        markdown = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        )._html_to_markdown("<p>before</p><blockquote><p>quoted</p></blockquote><p>after</p>")
+        markdown = MHTMLParser(file_name="article.mhtml", file_type="mhtml")._html_to_markdown(
+            "<p>before</p><blockquote><p>quoted</p></blockquote><p>after</p>"
+        )
 
         self.assertIn("before\n\n> quoted\n\nafter", markdown)
 
     def test_html_to_markdown_preserves_fenced_code_blank_lines(self):
-        markdown = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        )._html_to_markdown("<pre><code>line1\n\n\nline2\n</code></pre>")
+        markdown = MHTMLParser(file_name="article.mhtml", file_type="mhtml")._html_to_markdown(
+            "<pre><code>line1\n\n\nline2\n</code></pre>"
+        )
 
         self.assertIn("```\nline1\n\n\nline2\n```", markdown)
 
@@ -237,9 +234,9 @@ class MHTMLParserTest(unittest.TestCase):
         self.assertNotIn("\n\n\n", markdown)
 
     def test_html_to_markdown_preserves_hard_break_spaces(self):
-        markdown = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        )._html_to_markdown("<p>alpha<br>beta</p>")
+        markdown = MHTMLParser(file_name="article.mhtml", file_type="mhtml")._html_to_markdown(
+            "<p>alpha<br>beta</p>"
+        )
 
         self.assertEqual(markdown, "alpha  \nbeta")
 
@@ -260,9 +257,7 @@ class MHTMLParserTest(unittest.TestCase):
                 self.assertEqual(parser._html_to_markdown(html_content), expected)
 
     def test_html_to_markdown_still_converts_inline_elements_with_content(self):
-        markdown = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        )._html_to_markdown(
+        markdown = MHTMLParser(file_name="article.mhtml", file_type="mhtml")._html_to_markdown(
             "<p><strong>bold</strong> <code>code</code> <em>em</em> "
             '<del>gone</del> <a href="https://example.com">link</a> '
             "keep<b></b>empty "
@@ -304,9 +299,9 @@ class MHTMLParserTest(unittest.TestCase):
         contract_path = fixture_dir / "titled-image-contract.json"
         contract = json.loads(contract_path.read_text(encoding="utf-8"))
 
-        document = MHTMLParser(
-            file_name="titled-image.mhtml", file_type="mhtml"
-        ).parse_into_text(fixture.read_bytes())
+        document = MHTMLParser(file_name="titled-image.mhtml", file_type="mhtml").parse_into_text(
+            fixture.read_bytes()
+        )
 
         self.assertEqual(len(document.images), 1)
         image_contract = contract["images"][0]
@@ -336,9 +331,7 @@ class MHTMLParserTest(unittest.TestCase):
     def test_header_str_recovers_unknown_8bit_utf8(self):
         raw = (
             b"Content-Type: text/plain\r\n"
-            b"Content-Location: https://example.com/"
-            + "图片.png".encode("utf-8")
-            + b"\r\n\r\nbody\r\n"
+            b"Content-Location: https://example.com/" + "图片.png".encode() + b"\r\n\r\nbody\r\n"
         )
         value = email.message_from_bytes(raw).get("Content-Location")
         self.assertIsInstance(value, Header)
@@ -348,9 +341,9 @@ class MHTMLParserTest(unittest.TestCase):
         self.assertEqual(_header_str("已是unicode"), "已是unicode")
 
     def test_parse_8bit_utf8_headers_rewrites_images_without_crashing(self):
-        document = MHTMLParser(
-            file_name="article.mhtml", file_type="mhtml"
-        ).parse_into_text(_mhtml_with_8bit_utf8_headers())
+        document = MHTMLParser(file_name="article.mhtml", file_type="mhtml").parse_into_text(
+            _mhtml_with_8bit_utf8_headers()
+        )
 
         encoded_ref = f"images/{quote('图片.png', safe='')}"
         self.assertIn("中文主文", document.content)
@@ -397,9 +390,9 @@ class MHTMLParserTest(unittest.TestCase):
         dup_part["Content-Location"] = "https://example.com/dup/foo (1).png"
         root.attach(dup_part)
 
-        document = MHTMLParser(
-            file_name="special.mhtml", file_type="mhtml"
-        ).parse_into_text(root.as_bytes())
+        document = MHTMLParser(file_name="special.mhtml", file_type="mhtml").parse_into_text(
+            root.as_bytes()
+        )
 
         expected_refs = {
             "images/foo%20bar.png",

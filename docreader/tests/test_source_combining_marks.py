@@ -1,14 +1,20 @@
 """Region provenance must survive composed/decomposed glyph text."""
+
 import unicodedata
 import unittest
+from typing import Literal
 
 from docreader.parser.source_locator import PageGeometry, locate_lines, page_blocks
 
 
 class SourceCombiningMarksTests(unittest.TestCase):
     def test_regions_match_composed_and_decomposed_text(self):
+        forms: tuple[tuple[Literal["NFC", "NFD"], Literal["NFC", "NFD"]], ...] = (
+            ("NFC", "NFD"),
+            ("NFD", "NFC"),
+        )
         for phrase in ("Café résumé", "한글 원문", "Ångström evidence", "Evidence ấ\u0323"):
-            for page_form, glyph_form in (("NFC", "NFD"), ("NFD", "NFC")):
+            for page_form, glyph_form in forms:
                 with self.subTest(phrase=phrase, page_form=page_form):
                     page = unicodedata.normalize(page_form, phrase)
                     glyph = unicodedata.normalize(glyph_form, phrase)

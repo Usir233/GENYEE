@@ -18,7 +18,8 @@ class LocateLinesTest(unittest.TestCase):
         text = "## 标题\n【版权声明】\n正文 第一行\n正文 第一行"
         hits = locate_lines(text, ["标题", "版权声明】", "正文第一行", "正文 第一行", "无此行"])
         self.assertEqual(hits[0], 0)
-        self.assertEqual(text[hits[1]:hits[1] + 2], "【版")
+        assert hits[1] is not None
+        self.assertEqual(text[hits[1] : hits[1] + 2], "【版")
         self.assertEqual(hits[2], text.index("正文"))
         self.assertEqual(hits[3], text.rindex("正文"))
         self.assertIsNone(hits[4])
@@ -45,7 +46,13 @@ class PageBlocksTest(unittest.TestCase):
         )
         lines = [
             _ln("8.14.11 索夹与吊索施工应符合下列规定：", 50, 700, 300, 712),
-            _ln("1 在满足施工需要的前提下，应减小猫道面层开孔面积，并应在开孔位置四周绑", 60, 684, 540, 696),
+            _ln(
+                "1 在满足施工需要的前提下，应减小猫道面层开孔面积，并应在开孔位置四周绑",
+                60,
+                684,
+                540,
+                696,
+            ),
             _ln("扎防滑木条，设立警示标志。", 50, 668, 200, 680),
             _ln("2 索夹在主缆上定位后，应紧固螺栓。", 60, 652, 400, 664),
         ]
@@ -53,8 +60,8 @@ class PageBlocksTest(unittest.TestCase):
         self.assertEqual(len(blocks), 3)
         self.assertEqual(blocks[0]["start"], 10)
         item1 = blocks[1]
-        self.assertEqual(page[item1["start"] - 10:item1["end"] - 10].split("\n")[0][:1], "1")
-        self.assertIn("设立警示标志。", page[item1["start"] - 10:item1["end"] - 10])
+        self.assertEqual(page[item1["start"] - 10 : item1["end"] - 10].split("\n")[0][:1], "1")
+        self.assertIn("设立警示标志。", page[item1["start"] - 10 : item1["end"] - 10])
         self.assertEqual(item1["locator"]["page"], 57)
         x0, y0, x1, y1 = item1["locator"]["bbox"]
         self.assertAlmostEqual(y0, 1 - 696 / 800, places=3)
@@ -63,7 +70,23 @@ class PageBlocksTest(unittest.TestCase):
 
     def test_page_without_lines_gets_page_block(self):
         blocks = page_blocks("文字", 5, 2, [], None)
-        self.assertEqual(blocks, [{"start": 5, "end": 7, "locator": {"type": "pdf", "page": 2, "mapping": "exact"}}])
+        self.assertEqual(
+            blocks,
+            [{"start": 5, "end": 7, "locator": {"type": "pdf", "page": 2, "mapping": "exact"}}],
+        )
+
+    def test_page_with_lines_but_none_geometry_gets_page_only_block(self):
+        blocks = page_blocks(
+            "Hello world",
+            5,
+            2,
+            [_ln("Hello world", 10, 70, 90, 80)],
+            None,
+        )
+        self.assertEqual(
+            blocks,
+            [{"start": 5, "end": 16, "locator": {"type": "pdf", "page": 2, "mapping": "exact"}}],
+        )
 
 
 class WireTest(unittest.TestCase):
@@ -118,8 +141,7 @@ class SplitLineAtGapsTest(unittest.TestCase):
     @staticmethod
     def _line(chars):
         glyphs = [
-            {"ch": ch, "x0": x, "x1": x + 5, "y0": 0.0, "y1": 10.0, "i": i}
-            for ch, x, i in chars
+            {"ch": ch, "x0": x, "x1": x + 5, "y0": 0.0, "y1": 10.0, "i": i} for ch, x, i in chars
         ]
         return {"text": "".join(c for c, _, _ in chars), "bbox": (0, 0, 0, 0), "chars": glyphs}
 
@@ -139,14 +161,17 @@ class SplitLineAtGapsTest(unittest.TestCase):
         self.assertEqual(len(_split_line_at_gaps(self._line(chars))), 1)
 
 
-
 class PrecisionRegressionTest(unittest.TestCase):
     def test_common_prefix_cannot_place_a_different_conclusion(self):
         prefix = "Common opening repeated before the important conclusion "
         self.assertEqual(locate_lines(prefix + "failed", [prefix + "passed"]), [None])
 
     def test_numeric_meaning_is_preserved(self):
-        for source, quote in [("limit 15 mm", "limit 1.5 mm"), ("temperature 5 C", "temperature -5 C"), ("rate 5", "rate 5%")]:
+        for source, quote in [
+            ("limit 15 mm", "limit 1.5 mm"),
+            ("temperature 5 C", "temperature -5 C"),
+            ("rate 5", "rate 5%"),
+        ]:
             self.assertEqual(locate_lines(source, [quote]), [None])
 
     def test_unaccounted_duplicate_does_not_take_first_region(self):
@@ -155,7 +180,10 @@ class PrecisionRegressionTest(unittest.TestCase):
 
     def test_unmatched_text_never_inherits_previous_geometry(self):
         page = "First matched line.\nUnmatched evidence in between.\nLast matched line."
-        lines = [_ln("First matched line.", 50, 700, 300, 712), _ln("Last matched line.", 50, 668, 300, 680)]
+        lines = [
+            _ln("First matched line.", 50, 700, 300, 712),
+            _ln("Last matched line.", 50, 668, 300, 680),
+        ]
         blocks = page_blocks(page, 0, 2, lines, PageGeometry((0, 0, 600, 800)))
         at = page.index("Unmatched")
         covering = [b for b in blocks if b["start"] <= at < b["end"]]
@@ -165,15 +193,31 @@ class PrecisionRegressionTest(unittest.TestCase):
 
     def test_trailing_unmatched_text_has_only_page_provenance(self):
         page = "Matched paragraph.\nUnrecognized trailing evidence."
-        blocks = page_blocks(page, 0, 7, [_ln("Matched paragraph.", 50, 700, 300, 712)], PageGeometry((0, 0, 600, 800)))
+        blocks = page_blocks(
+            page,
+            0,
+            7,
+            [_ln("Matched paragraph.", 50, 700, 300, 712)],
+            PageGeometry((0, 0, 600, 800)),
+        )
         self.assertEqual(blocks[0]["end"], page.index("Unrecognized"))
         self.assertNotIn("bbox", blocks[-1]["locator"])
 
     def test_wire_preserves_verified_geometry_and_identity(self):
         from docreader.source_wire import source_blocks_to_proto
-        locator = {"type": "pdf", "page": 501, "mapping": "exact", "source_id": "pdf:501:0:3", "bbox": [.1, .2, .8, .4]}
-        wire = source_blocks_to_proto(Document(content="abc", source_blocks=[{"start": 0, "end": 3, "locator": locator}]))
+
+        locator = {
+            "type": "pdf",
+            "page": 501,
+            "mapping": "exact",
+            "source_id": "pdf:501:0:3",
+            "bbox": [0.1, 0.2, 0.8, 0.4],
+        }
+        wire = source_blocks_to_proto(
+            Document(content="abc", source_blocks=[{"start": 0, "end": 3, "locator": locator}])
+        )
         self.assertEqual(json.loads(wire[0].locator_json), locator)
+
 
 if __name__ == "__main__":
     unittest.main()

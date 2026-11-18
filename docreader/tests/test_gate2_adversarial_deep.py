@@ -58,8 +58,7 @@ class TestCJKEncodingAdversarial(unittest.TestCase):
                 encoded = phrase.encode("gbk")
                 decoded = decode_bytes(encoded)
                 self.assertFalse(
-                    _has_hangul(decoded),
-                    f"Phrase '{phrase}' produced Hangul mojibake: '{decoded}'"
+                    _has_hangul(decoded), f"Phrase '{phrase}' produced Hangul mojibake: '{decoded}'"
                 )
                 self.assertEqual(decoded, phrase)
 
@@ -80,7 +79,7 @@ class TestCJKEncodingAdversarial(unittest.TestCase):
                     decoded = decode_bytes(encoded)
                     self.assertFalse(
                         _has_hangul(decoded),
-                        f"Sentence produced Hangul mojibake in {enc}: '{decoded}'"
+                        f"Sentence produced Hangul mojibake in {enc}: '{decoded}'",
                     )
                     self.assertEqual(decoded, s)
 
@@ -118,7 +117,7 @@ class TestCJKEncodingAdversarial(unittest.TestCase):
                 decoded = decode_bytes(encoded)
                 self.assertTrue(
                     _has_hangul(decoded),
-                    f"Korean text '{k}' failed to decode as Hangul: '{decoded}'"
+                    f"Korean text '{k}' failed to decode as Hangul: '{decoded}'",
                 )
                 self.assertEqual(decoded, k)
 
@@ -143,10 +142,10 @@ class TestCJKEncodingAdversarial(unittest.TestCase):
         """Verify GBK CSV parsing in Markitdown and Parser facade."""
         csv_text = (
             "员工编号,姓名,部门,职级,月薪,备注\n"
-            "EMP001,张伟,研发中心-架构组,T4,35000,\"核心架构师，负责分布式存储\"\n"
-            "EMP002,李娜,产品设计中心,P3,22000,\"高级产品经理，负责用户端\"\n"
-            "EMP003,王磊,财务部,M2,28000,\"财务合规与审计负责人\"\n"
-            "EMP004,赵强,运维支持,O2,16000,\"基础网络与K8s集群维护\"\n"
+            'EMP001,张伟,研发中心-架构组,T4,35000,"核心架构师，负责分布式存储"\n'
+            'EMP002,李娜,产品设计中心,P3,22000,"高级产品经理，负责用户端"\n'
+            'EMP003,王磊,财务部,M2,28000,"财务合规与审计负责人"\n'
+            'EMP004,赵强,运维支持,O2,16000,"基础网络与K8s集群维护"\n'
         )
         csv_bytes = csv_text.encode("gbk")
 
@@ -169,22 +168,28 @@ class TestCJKEncodingAdversarial(unittest.TestCase):
 class TestZipBombAdversarial(unittest.TestCase):
     """Stress test ZipBomb protections across all supported archive parsers."""
 
-    def _create_single_file_bomb(self, entry_name: str, uncompressed_size: int = 105 * 1024 * 1024) -> bytes:
+    def _create_single_file_bomb(
+        self, entry_name: str, uncompressed_size: int = 105 * 1024 * 1024
+    ) -> bytes:
         """Create a zip bomb where a single entry exceeds 100MB."""
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr(entry_name, b"\x00" * uncompressed_size)
         return buf.getvalue()
 
-    def _create_multi_file_bomb(self, prefix: str, file_count: int = 150, size_per_file: int = 800 * 1024) -> bytes:
-        """Create a zip bomb where cumulative uncompressed size exceeds 100MB (150 * 800KB = 120MB)."""
+    def _create_multi_file_bomb(
+        self, prefix: str, file_count: int = 150, size_per_file: int = 800 * 1024
+    ) -> bytes:
+        """Create a zip bomb whose cumulative uncompressed size exceeds 100MB."""
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for i in range(file_count):
                 z.writestr(f"{prefix}/part_{i}.xml", b"A" * size_per_file)
         return buf.getvalue()
 
-    def _create_high_ratio_bomb(self, entry_name: str, uncompressed_size: int = 15 * 1024 * 1024) -> bytes:
+    def _create_high_ratio_bomb(
+        self, entry_name: str, uncompressed_size: int = 15 * 1024 * 1024
+    ) -> bytes:
         """Create a bomb with compression ratio > 100:1 (15MB of zeros compresses to ~15KB)."""
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -196,14 +201,18 @@ class TestZipBombAdversarial(unittest.TestCase):
         parser = Docx2Parser(file_name="bomb.docx", file_type="docx")
         with self.assertRaises(ValueError) as ctx:
             parser.parse(bomb)
-        self.assertTrue(any(s in str(ctx.exception).lower() for s in ("exceeds limit", "limit", "zip")))
+        self.assertTrue(
+            any(s in str(ctx.exception).lower() for s in ("exceeds limit", "limit", "zip"))
+        )
 
     def test_docx2_parser_cumulative_bomb(self):
         bomb = self._create_multi_file_bomb("word")
         parser = Docx2Parser(file_name="bomb_cumulative.docx", file_type="docx")
         with self.assertRaises(ValueError) as ctx:
             parser.parse(bomb)
-        self.assertTrue(any(s in str(ctx.exception).lower() for s in ("cumulative", "exceeds limit", "limit")))
+        self.assertTrue(
+            any(s in str(ctx.exception).lower() for s in ("cumulative", "exceeds limit", "limit"))
+        )
 
     def test_docx_parser_direct_bomb(self):
         """DocxParser direct invocation must raise ValueError and not bypass."""

@@ -1,18 +1,26 @@
 import base64
-from html import escape
-from io import BytesIO
 import os
 import tempfile
 import unittest
+import zipfile
+from html import escape
+from io import BytesIO
 from unittest.mock import patch
 from urllib.parse import quote
-import zipfile
 
 from PIL import Image
 
 from docreader.parser.epub_parser import EPUBParser
 from docreader.parser.registry import registry
-from docreader.tests.epub_builder import NAV, NCX, Chapter, Item, TocLink, build_epub
+from docreader.tests.epub_builder import (
+    NAV,
+    NCX,
+    Chapter,
+    Entry,
+    Item,
+    TocLink,
+    build_epub,
+)
 
 
 def _minimal_epub_bytes() -> bytes:
@@ -49,14 +57,10 @@ def _minimal_epub_bytes() -> bytes:
 def _epub_with_colliding_image_names(
     image_src: str, *, root_image_first: bool = False
 ) -> tuple[bytes, dict[str, bytes]]:
-    image_data = {}
-    items = []
-    chapters = []
-    directories = (
-        ("root", "first", "second")
-        if root_image_first
-        else ("first", "second", "root")
-    )
+    image_data: dict[str, bytes] = {}
+    items: list[Entry] = []
+    chapters: list[Chapter] = []
+    directories = ("root", "first", "second") if root_image_first else ("first", "second", "root")
     for directory in directories:
         index = ("first", "second", "root").index(directory)
         image = BytesIO()
@@ -70,19 +74,13 @@ def _epub_with_colliding_image_names(
                 content=image_data[directory],
             )
         )
-        chapter_path = (
-            "root.xhtml" if directory == "root" else f"{directory}/chapter.xhtml"
-        )
-        src = (
-            "pic.png" if directory == "root" else image_src.format(directory=directory)
-        )
+        chapter_path = "root.xhtml" if directory == "root" else f"{directory}/chapter.xhtml"
+        src = "pic.png" if directory == "root" else image_src.format(directory=directory)
         chapter = Chapter(
             title=directory,
             file_name=chapter_path,
             content=(
-                f'<html><body><h1>{directory}</h1>'
-                f'<img alt="{directory}" src="{src}">'
-                "</body></html>"
+                f'<html><body><h1>{directory}</h1><img alt="{directory}" src="{src}"></body></html>'
             ),
         )
         items.append(chapter)
@@ -112,29 +110,29 @@ def _epub_with_literal_path_characters(
         '<package xmlns="http://www.idpf.org/2007/opf" version="3.0"'
         ' unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
         '<dc:identifier id="id">literal-paths</dc:identifier>'
-        '<dc:title>Literal paths</dc:title><dc:language>en</dc:language>'
+        "<dc:title>Literal paths</dc:title><dc:language>en</dc:language>"
         '<meta property="dcterms:modified">2026-01-01T00:00:00Z</meta>'
-        '</metadata><manifest>'
+        "</metadata><manifest>"
         f'<item id="chapter" href="{quote(chapter_path)}"'
         ' media-type="application/xhtml+xml"/>'
         f'<item id="expected" href="{quote(image_path)}" media-type="image/png"/>'
         f'<item id="decoy" href="{quote(decoy_path)}" media-type="image/png"/>'
         '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"'
         ' properties="nav"/></manifest><spine><itemref idref="chapter"/>'
-        '</spine></package>'
+        "</spine></package>"
     )
     chapter = (
         '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter</title>'
-        '</head><body><h1>Chapter</h1>'
+        "</head><body><h1>Chapter</h1>"
         f'<img alt="expected" src="{escape(image_src, quote=True)}"/>'
-        '</body></html>'
+        "</body></html>"
     )
     nav = (
         '<html xmlns="http://www.w3.org/1999/xhtml"'
         ' xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title>'
         '</head><body><nav epub:type="toc"><ol><li>'
         f'<a href="{quote(chapter_path)}">Chapter</a>'
-        '</li></ol></nav></body></html>'
+        "</li></ol></nav></body></html>"
     )
     expected = BytesIO()
     decoy = BytesIO()
@@ -155,34 +153,57 @@ def _epub_with_literal_path_characters(
 class EPUBParserTest(unittest.TestCase):
     def assert_literal_path_image_bytes(self, *, use_fallback: bool):
         cases = (
-            ("Text#1/chapter.xhtml", "../images/pic.png",
-             "images/pic.png", "Text#1/cover.png"),
-            ("Text?1/chapter.xhtml", "../images/pic.png",
-             "images/pic.png", "Text?1/cover.png"),
-            ("Text%231/chapter.xhtml", "pic.png",
-             "Text%231/pic.png", "Text#1/pic.png"),
-            ("Text/chapter.xhtml", "../images/pic%231.png?version=1#image",
-             "images/pic#1.png", "images/pic#2.png"),
-            ("Text/chapter.xhtml", "../images/pic%3F1.png?version=1#image",
-             "images/pic?1.png", "images/pic?2.png"),
-            ("Text/chapter.xhtml", "../images/pic%25231.png",
-             "images/pic%231.png", "images/pic#1.png"),
-            ("Text/chapter.xhtml", "../images/pic%231.png",
-             "images/pic#1.png", "images/pic%231.png"),
+            ("Text#1/chapter.xhtml", "../images/pic.png", "images/pic.png", "Text#1/cover.png"),
+            ("Text?1/chapter.xhtml", "../images/pic.png", "images/pic.png", "Text?1/cover.png"),
+            ("Text%231/chapter.xhtml", "pic.png", "Text%231/pic.png", "Text#1/pic.png"),
+            (
+                "Text/chapter.xhtml",
+                "../images/pic%231.png?version=1#image",
+                "images/pic#1.png",
+                "images/pic#2.png",
+            ),
+            (
+                "Text/chapter.xhtml",
+                "../images/pic%3F1.png?version=1#image",
+                "images/pic?1.png",
+                "images/pic?2.png",
+            ),
+            (
+                "Text/chapter.xhtml",
+                "../images/pic%25231.png",
+                "images/pic%231.png",
+                "images/pic#1.png",
+            ),
+            (
+                "Text/chapter.xhtml",
+                "../images/pic%231.png",
+                "images/pic#1.png",
+                "images/pic%231.png",
+            ),
             # Verbatim percent-looking names must beat decoded basename aliases.
-            ("chapter.xhtml", "images/my%20pic.png",
-             "images/my%20pic.png", "my pic.png"),
-            ("Text/chapter.xhtml", "../images/my%20pic.png?version=1#image",
-             "images/my%20pic.png", "my pic.png"),
+            ("chapter.xhtml", "images/my%20pic.png", "images/my%20pic.png", "my pic.png"),
+            (
+                "Text/chapter.xhtml",
+                "../images/my%20pic.png?version=1#image",
+                "images/my%20pic.png",
+                "my pic.png",
+            ),
             # A literal chapter-relative path also beats a decoded root path.
-            ("Text/chapter.xhtml", "images/my%20pic.png",
-             "Text/images/my%20pic.png", "images/my pic.png"),
+            (
+                "Text/chapter.xhtml",
+                "images/my%20pic.png",
+                "Text/images/my%20pic.png",
+                "images/my pic.png",
+            ),
             # When both exact paths exist, URI decoding still takes precedence.
-            ("Text/chapter.xhtml", "../images/my%20pic.png",
-             "images/my pic.png", "images/my%20pic.png"),
+            (
+                "Text/chapter.xhtml",
+                "../images/my%20pic.png",
+                "images/my pic.png",
+                "images/my%20pic.png",
+            ),
             # Normalize encoded separators before joining to the chapter path.
-            ("Text/chapter.xhtml", "%5Cimages/pic.png",
-             "images/pic.png", "Text/images/pic.png"),
+            ("Text/chapter.xhtml", "%5Cimages/pic.png", "images/pic.png", "Text/images/pic.png"),
         )
         for chapter_path, image_src, image_path, decoy_path in cases:
             with self.subTest(chapter_path=chapter_path, image_src=image_src):
@@ -202,7 +223,8 @@ class EPUBParserTest(unittest.TestCase):
                     fallback.assert_not_called()
                 self.assertEqual(len(document.images), 2)
                 image_ref = next(
-                    ref for ref, encoded in document.images.items()
+                    ref
+                    for ref, encoded in document.images.items()
                     if base64.b64decode(encoded) == expected
                 )
                 self.assertIn(f"![expected]({image_ref})", document.content)
@@ -247,15 +269,13 @@ class EPUBParserTest(unittest.TestCase):
                     "docreader.parser.epub_parser._read_package",
                     side_effect=ValueError("exercise ZIP fallback"),
                 ):
-                    document = EPUBParser(
-                        file_name="colliding.epub", file_type="epub"
-                    ).parse(content)
+                    document = EPUBParser(file_name="colliding.epub", file_type="epub").parse(
+                        content
+                    )
                 self.assert_chapter_image_bytes(document, image_data)
 
     def test_root_image_alias_is_not_overwritten_by_nested_image_basenames(self):
-        content, image_data = _epub_with_colliding_image_names(
-            "pic.png", root_image_first=True
-        )
+        content, image_data = _epub_with_colliding_image_names("pic.png", root_image_first=True)
         parser = EPUBParser(file_name="colliding.epub", file_type="epub")
         with patch.object(parser, "_parse_epub_fallback") as fallback:
             document = parser.parse(content)
@@ -263,9 +283,9 @@ class EPUBParserTest(unittest.TestCase):
         self.assert_chapter_image_bytes(document, image_data)
 
     def test_parse_minimal_epub(self):
-        document = EPUBParser(
-            file_name="tiny.epub", file_type="epub"
-        ).parse_into_text(_minimal_epub_bytes())
+        document = EPUBParser(file_name="tiny.epub", file_type="epub").parse_into_text(
+            _minimal_epub_bytes()
+        )
 
         self.assertIn("Hello EPUB world", document.content)
         self.assertEqual(document.metadata["source_format"], "epub")
@@ -276,9 +296,9 @@ class EPUBParserTest(unittest.TestCase):
         self.assertNotIn("../images/pic.png", document.content)
 
     def test_internal_links_are_unwrapped_but_external_links_remain(self):
-        document = EPUBParser(
-            file_name="tiny.epub", file_type="epub"
-        ).parse_into_text(_minimal_epub_bytes())
+        document = EPUBParser(file_name="tiny.epub", file_type="epub").parse_into_text(
+            _minimal_epub_bytes()
+        )
 
         self.assertIn("Chapter 2", document.content)
         self.assertIn("note", document.content)
@@ -297,9 +317,7 @@ class EPUBParserTest(unittest.TestCase):
         self.assertIs(registry.get_parser_class("", "epub"), EPUBParser)
 
     def test_chapters_follow_the_spine_not_the_manifest(self):
-        document = EPUBParser(
-            file_name="ordered.epub", file_type="epub"
-        ).parse_into_text(
+        document = EPUBParser(file_name="ordered.epub", file_type="epub").parse_into_text(
             _ordered_epub_bytes(
                 manifest=["three", "title", "one", "two"],
                 spine=["title", "one", "two", "three"],
@@ -308,17 +326,14 @@ class EPUBParserTest(unittest.TestCase):
         )
 
         positions = [
-            document.content.index(f"Body of {name}.")
-            for name in ("title", "one", "two", "three")
+            document.content.index(f"Body of {name}.") for name in ("title", "one", "two", "three")
         ]
         self.assertEqual(positions, sorted(positions))
         # An SVG in the spine is not a document and stays out, as before.
         self.assertNotIn("COVER ART", document.content)
 
     def test_documents_outside_the_spine_follow_it(self):
-        document = EPUBParser(
-            file_name="ordered.epub", file_type="epub"
-        ).parse_into_text(
+        document = EPUBParser(file_name="ordered.epub", file_type="epub").parse_into_text(
             _ordered_epub_bytes(
                 manifest=["appendix", "two", "one"],
                 spine=["one", "two"],
@@ -326,15 +341,12 @@ class EPUBParserTest(unittest.TestCase):
         )
 
         positions = [
-            document.content.index(f"Body of {name}.")
-            for name in ("one", "two", "appendix")
+            document.content.index(f"Body of {name}.") for name in ("one", "two", "appendix")
         ]
         self.assertEqual(positions, sorted(positions))
 
     def test_a_document_listed_twice_in_the_spine_is_read_once(self):
-        document = EPUBParser(
-            file_name="ordered.epub", file_type="epub"
-        ).parse_into_text(
+        document = EPUBParser(file_name="ordered.epub", file_type="epub").parse_into_text(
             _ordered_epub_bytes(manifest=["one", "two"], spine=["one", "two", "one"])
         )
 
@@ -402,9 +414,7 @@ class EPUBParserTest(unittest.TestCase):
 
     def test_namespace_less_package_is_read(self):
         content = _epub_with_package(
-            manifest=(
-                '<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'
-            ),
+            manifest=('<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'),
             spine='<itemref idref="one"/>',
             files={"OEBPS/one.xhtml": _xhtml("<h1>One</h1><p>Bare OPF.</p>")},
             namespaced=False,
@@ -440,20 +450,52 @@ class EPUBParserTest(unittest.TestCase):
             secret.write("TOP-SECRET")
         self.addCleanup(os.unlink, secret.name)
         content = _epub_with_package(
-            manifest=(
-                '<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'
-            ),
+            manifest=('<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'),
             spine='<itemref idref="one"/>',
             files={"OEBPS/one.xhtml": _xhtml("<h1>One</h1><p>Body.</p>")},
-            doctype=(
-                f'<!DOCTYPE package [<!ENTITY xxe SYSTEM "file://{secret.name}">]>'
-            ),
+            doctype=(f'<!DOCTYPE package [<!ENTITY xxe SYSTEM "file://{secret.name}">]>'),
             title="&xxe;",
         )
         document = self.parse_without_fallback(content)
 
         self.assertNotIn("TOP-SECRET", str(document.metadata))
         self.assertNotIn("TOP-SECRET", document.content)
+
+    def test_empty_dc_elements_do_not_store_none_or_shadow_subsequent_values(self):
+        from docreader.parser.epub_parser import _EpubPackage
+
+        pkg = _EpubPackage(
+            metadata={
+                "title": [None, "Actual Title"],
+                "publisher": [None],
+                "creator": [None, "Jane Doe"],
+            }
+        )
+        parser = EPUBParser(file_name="meta.epub", file_type="epub")
+        extracted = parser._extract_metadata(pkg)
+        self.assertEqual(extracted.get("title"), "Actual Title")
+        self.assertNotIn("publisher", extracted)
+        self.assertEqual(extracted.get("author"), "Jane Doe")
+
+    def test_epub_list_valued_bs4_attributes_do_not_crash(self):
+        from bs4 import BeautifulSoup
+        from bs4.element import AttributeValueList
+
+        soup = BeautifulSoup(
+            '<html><body><a href="x">ext</a><img src="y" alt="pic"></body></html>',
+            "lxml",
+        )
+        link = soup.find("a")
+        img = soup.find("img")
+        assert link is not None and img is not None
+        link["href"] = AttributeValueList(["https://example.com"])
+        img["src"] = AttributeValueList(["cover.png"])
+
+        EPUBParser._strip_internal_links(soup)
+        EPUBParser._rewrite_image_sources(soup, {"cover.png": "images/cover.png"})
+
+        self.assertIsNotNone(soup.find("a"))
+        self.assertEqual(img["src"], "images/cover.png")
 
 
 def _xhtml(body: str) -> str:
@@ -480,7 +522,7 @@ def _epub_with_package(
     package = (
         f'<?xml version="1.0" encoding="utf-8"?>{doctype}'
         f'<package{opf_ns} version="3.0" unique-identifier="id">'
-        f"<metadata{dc_ns}><{dc}identifier id=\"id\">pkg</{dc}identifier>"
+        f'<metadata{dc_ns}><{dc}identifier id="id">pkg</{dc}identifier>'
         f"<{dc}title>{title}</{dc}title><{dc}creator>Ann</{dc}creator>"
         f"<{dc}creator>Bo</{dc}creator><{dc}language>en</{dc}language></metadata>"
         f"<manifest>{manifest}</manifest><spine>{spine}</spine></package>"
@@ -529,17 +571,14 @@ def _ordered_epub_bytes(
         )
         for name in manifest
     }
-    items = list(chapters.values()) + [NCX, NAV]
-    reading_order = [NAV] + [chapters[name] for name in spine]
+    items: list[Entry] = [*chapters.values(), NCX, NAV]
+    reading_order: list[Entry] = [NAV, *(chapters[name] for name in spine)]
     if svg_cover_in_spine:
         cover = Item(
             uid="cover-svg",
             file_name="images/cover.svg",
             media_type="image/svg+xml",
-            content=(
-                b'<svg xmlns="http://www.w3.org/2000/svg">'
-                b"<text>COVER ART</text></svg>"
-            ),
+            content=(b'<svg xmlns="http://www.w3.org/2000/svg"><text>COVER ART</text></svg>'),
         )
         items.append(cover)
         reading_order.insert(1, cover)

@@ -15,11 +15,10 @@ import base64
 import bisect
 import io
 import logging
-import os
 import re
 import uuid
 import warnings
-from typing import Callable, Dict, List, Match, Optional, Tuple
+from collections.abc import Callable
 
 from PIL import Image, UnidentifiedImageError
 
@@ -39,7 +38,7 @@ MAX_INLINE_TOTAL_IMAGE_BYTES = 100 * 1024 * 1024  # 100 MiB cumulative per docum
 MAX_INLINE_IMAGES_PER_DOCUMENT = 1000
 MAX_INLINE_IMAGE_FRAMES = 256
 
-_ALLOWED_INLINE_RASTER_SUBTYPES: Dict[str, str] = {
+_ALLOWED_INLINE_RASTER_SUBTYPES: dict[str, str] = {
     "png": "png",
     "x-png": "png",
     "jpeg": "jpeg",
@@ -69,9 +68,9 @@ _CODE_FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)$")
 
 def _transform_outside_fences(content: str, transform: Callable[[str], str]) -> str:
     """Transform prose while leaving fenced code and its line endings intact."""
-    out: List[str] = []
-    pending: List[str] = []
-    fence: Optional[str] = None
+    out: list[str] = []
+    pending: list[str] = []
+    fence: str | None = None
 
     def flush_pending() -> None:
         if pending:
@@ -150,7 +149,7 @@ class MarkdownTableUtil:
     """
 
     @staticmethod
-    def _split_row_cells(row_line: str) -> List[str]:
+    def _split_row_cells(row_line: str) -> list[str]:
         """Split a markdown table row into cells, preserving empty cells.
 
         As in GFM, a pipe escaped as ``\\|`` is text inside its cell rather
@@ -159,11 +158,11 @@ class MarkdownTableUtil:
         inner = row_line.strip()
         if not inner.startswith("|"):
             return []
-        parts: List[str] = []
+        parts: list[str] = []
         start = 0
         for match in _ESCAPE_OR_PIPE.finditer(inner):
             if match.group() == "|":
-                parts.append(inner[start:match.start()])
+                parts.append(inner[start : match.start()])
                 start = match.end()
         parts.append(inner[start:])
         if parts and parts[0].strip() == "":
@@ -204,7 +203,7 @@ class MarkdownTableUtil:
         return "| " + " | ".join("---" for _ in cells) + " |"
 
     @classmethod
-    def _normalize_table_block(cls, block: List[str]) -> List[str]:
+    def _normalize_table_block(cls, block: list[str]) -> list[str]:
         """Fix MarkItDown-style tables: drop bogus prefix rows, ensure GFM delimiter."""
         while block and cls._is_empty_row(block[0]):
             block.pop(0)
@@ -220,7 +219,7 @@ class MarkdownTableUtil:
     def normalize_spurious_table_prefixes(self, content: str) -> str:
         """Remove bogus empty/separator prefix rows from MarkItDown table output."""
         lines = content.split("\n")
-        out: List[str] = []
+        out: list[str] = []
         i = 0
         while i < len(lines):
             line = lines[i]
@@ -228,7 +227,7 @@ class MarkdownTableUtil:
                 out.append(line)
                 i += 1
                 continue
-            block: List[str] = []
+            block: list[str] = []
             while i < len(lines) and self._is_table_row(lines[i]):
                 block.append(lines[i])
                 i += 1
@@ -256,7 +255,7 @@ class MarkdownTableUtil:
             Formatted Markdown text with standardized table formatting
         """
 
-        def format_alignment_row(prefix: str, columns: List[str]) -> str:
+        def format_alignment_row(prefix: str, columns: list[str]) -> str:
             """Standardize an alignment row, preserving ``:`` markers."""
             processed = []
             for col in columns:
@@ -267,7 +266,7 @@ class MarkdownTableUtil:
                 processed.append(left_colon + "---" + right_colon)
             return prefix + "| " + " | ".join(processed) + " |"
 
-        def format_data_row(prefix: str, columns: List[str]) -> str:
+        def format_data_row(prefix: str, columns: list[str]) -> str:
             """Standardize a header or data row."""
             return prefix + "| " + " | ".join(columns) + " |"
 
@@ -276,7 +275,7 @@ class MarkdownTableUtil:
         # emit mixed line endings. Trailing newlines are preserved.
         unified = content.replace("\r\n", "\n").replace("\r", "\n")
         lines = unified.split("\n")
-        out: List[str] = []
+        out: list[str] = []
         for line in lines:
             stripped = line.lstrip(" \t")
             # A row must both begin and end with a pipe to be a table row;
@@ -388,14 +387,14 @@ def _validate_raster_image_bytes(data: bytes) -> bool:
     return True
 
 
-def _parse_b64_title(prose: str, pos: int) -> Tuple[Optional[Tuple[str, int]], bool]:
+def _parse_b64_title(prose: str, pos: int) -> tuple[tuple[str, int] | None, bool]:
     """Parse an optional Markdown image title token at ``pos``.
 
     Returns ``((title_str, next_index), hit_eof)``.
     """
     n = len(prose)
     quote = prose[pos]
-    if quote in ("\"", "'"):
+    if quote in ('"', "'"):
         i = pos + 1
         while i < n:
             ch = prose[i]
@@ -434,7 +433,7 @@ def _sub_markdown_images(
     n = len(content)
     pos = 0
     last_emit = 0
-    out_parts: List[str] = []
+    out_parts: list[str] = []
 
     while pos < n:
         img_start = content.find("![", pos)
@@ -494,18 +493,20 @@ class MarkdownImageUtil:
     def __init__(self):
         # Retained for attribute compatibility; scanning uses linear O(N) parsers
         # to eliminate O(N^3) backtracking on unclosed Markdown image syntax.
-        self.b64_pattern = re.compile(r"!\[([^\]\r\n]*)\]\(data:image/([^;)\r\n]+);base64,([^)]+)\)")
+        self.b64_pattern = re.compile(
+            r"!\[([^\]\r\n]*)\]\(data:image/([^;)\r\n]+);base64,([^)]+)\)"
+        )
         self.image_pattern = re.compile(r"!\[([^\]\r\n]*)\]\(([^)\r\n]+)\)")
         self.replace_pattern = self.image_pattern
 
     def extract_image(
         self,
         content: str,
-        path_prefix: Optional[str] = None,
+        path_prefix: str | None = None,
         replace: bool = True,
-    ) -> Tuple[str, List[str]]:
+    ) -> tuple[str, list[str]]:
         """Extract image paths from Markdown content."""
-        images: List[str] = []
+        images: list[str] = []
 
         def repl(full_match: str, title: str, image_path: str) -> str:
             if path_prefix:
@@ -522,11 +523,11 @@ class MarkdownImageUtil:
     def extract_base64(
         self,
         content: str,
-        path_prefix: Optional[str] = None,
+        path_prefix: str | None = None,
         replace: bool = True,
-    ) -> Tuple[str, Dict[str, bytes]]:
+    ) -> tuple[str, dict[str, bytes]]:
         """Extract and decode base64 images outside fenced and inline code."""
-        images: Dict[str, bytes] = {}
+        images: dict[str, bytes] = {}
         total_decoded_bytes = 0
         max_b64_chars = ((MAX_INLINE_IMAGE_BYTES + 2) // 3) * 4 + 65536
 
@@ -541,7 +542,7 @@ class MarkdownImageUtil:
             img_ext: str,
             payload_start: int,
             payload_end: int,
-            image_title: Optional[str],
+            image_title: str | None,
         ) -> str:
             nonlocal total_decoded_bytes
             full_match = prose[full_start:full_end]
@@ -596,7 +597,8 @@ class MarkdownImageUtil:
 
             if not _validate_raster_image_bytes(image_byte):
                 logger.warning(
-                    "Skipping invalid, spoofed, or decompression-bomb inline image (declared=image/%s, bytes=%d)",
+                    "Skipping invalid, spoofed, or decompression-bomb inline image "
+                    "(declared=image/%s, bytes=%d)",
                     safe_ext,
                     len(image_byte),
                 )
@@ -618,7 +620,7 @@ class MarkdownImageUtil:
             spans = _inline_code_spans(prose)
             span_starts = [s[0] for s in spans]
 
-            def code_span_at(offset: int) -> Optional[Tuple[int, int]]:
+            def code_span_at(offset: int) -> tuple[int, int] | None:
                 idx = bisect.bisect_right(span_starts, offset) - 1
                 if idx >= 0 and spans[idx][0] <= offset < spans[idx][1]:
                     return spans[idx]
@@ -627,7 +629,7 @@ class MarkdownImageUtil:
             n = len(prose)
             pos = 0
             last_emit = 0
-            out_parts: List[str] = []
+            out_parts: list[str] = []
 
             while pos < n:
                 img_start = prose.find("![", pos)
@@ -689,7 +691,7 @@ class MarkdownImageUtil:
 
                 payload_end = -1
                 match_end = -1
-                image_title: Optional[str] = None
+                image_title: str | None = None
                 fallback_from = k
 
                 if k > b64_start and prose[k] == ")":
@@ -716,7 +718,11 @@ class MarkdownImageUtil:
                     r = fallback_from
                     while r < n:
                         ch = prose[r]
-                        if ch == ")" or ch in "\r\n" or (ch == "!" and r + 1 < n and prose[r + 1] == "["):
+                        if (
+                            ch == ")"
+                            or ch in "\r\n"
+                            or (ch == "!" and r + 1 < n and prose[r + 1] == "[")
+                        ):
                             break
                         r += 1
                     if r >= n:
@@ -756,7 +762,7 @@ class MarkdownImageUtil:
         logger.debug(f"Extracted {len(images)} base64 images from markdown")
         return text, images
 
-    def replace_path(self, content: str, images: Dict[str, str]) -> str:
+    def replace_path(self, content: str, images: dict[str, str]) -> str:
         """Replace image paths in Markdown with new URLs."""
         content_replace: set = set()
 
@@ -799,7 +805,7 @@ class MarkdownImageBase64(BaseParser):
         text = endecode.decode_bytes(content)
         text, img_b64 = self.image_helper.extract_base64(text, path_prefix="images")
 
-        images: Dict[str, str] = {}
+        images: dict[str, str] = {}
         for ipath, raw_bytes in img_b64.items():
             images[ipath] = base64.b64encode(raw_bytes).decode()
 

@@ -1,4 +1,5 @@
 """Decode archived HTML before converting it to Markdown."""
+
 import unittest
 from email.message import EmailMessage
 

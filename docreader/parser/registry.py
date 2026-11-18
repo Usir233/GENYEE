@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from collections.abc import Callable
 
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.doc_parser import DocParser
@@ -41,17 +41,17 @@ class ParserEngineRegistry:
     """
 
     def __init__(self):
-        self._engines: Dict[str, Dict[str, Type[BaseParser]]] = {}
-        self._descriptions: Dict[str, str] = {}
-        self._check_available: Dict[str, Callable[..., Tuple[bool, str]]] = {}
-        self._unavailable_hint: Dict[str, str] = {}
+        self._engines: dict[str, dict[str, type[BaseParser]]] = {}
+        self._descriptions: dict[str, str] = {}
+        self._check_available: dict[str, Callable[..., tuple[bool, str]]] = {}
+        self._unavailable_hint: dict[str, str] = {}
 
     def register(
         self,
         name: str,
-        file_types: Dict[str, Type[BaseParser]],
+        file_types: dict[str, type[BaseParser]],
         description: str = "",
-        check_available: Callable[..., Tuple[bool, str]] | None = None,
+        check_available: Callable[..., tuple[bool, str]] | None = None,
         unavailable_hint: str = "",
     ):
         self._engines[name] = file_types
@@ -65,7 +65,7 @@ class ParserEngineRegistry:
             ", ".join(file_types.keys()),
         )
 
-    def get_parser_class(self, engine: str, file_type: str) -> Type[BaseParser]:
+    def get_parser_class(self, engine: str, file_type: str) -> type[BaseParser]:
         """Resolve parser class for the given engine and file type.
 
         Fallback order when the requested engine is empty or does not
@@ -102,9 +102,7 @@ class ParserEngineRegistry:
         if cls:
             return cls
 
-        supported = sorted(
-            name for name, parsers in self._engines.items() if ft in parsers
-        )
+        supported = sorted(name for name, parsers in self._engines.items() if ft in parsers)
         engine_label = engine or BUILTIN_ENGINE
         if supported:
             raise ValueError(
@@ -113,7 +111,7 @@ class ParserEngineRegistry:
             )
         raise ValueError(f"Unsupported file type: {file_type}")
 
-    def list_engines(self, overrides: Optional[Dict[str, str]] = None) -> List[Dict]:
+    def list_engines(self, overrides: dict[str, str] | None = None) -> list[dict]:
         """Return metadata for all registered engines, including availability.
 
         Args:
@@ -144,7 +142,7 @@ class ParserEngineRegistry:
             )
         return result
 
-    def get_engine_names(self) -> List[str]:
+    def get_engine_names(self) -> list[str]:
         return list(self._engines.keys())
 
 
@@ -203,9 +201,7 @@ def _build_default_registry() -> ParserEngineRegistry:
         "opendataloader",
         {"pdf": OpenDataLoaderParser},
         description="OpenDataLoader PDF（版面分析，需 Java 11+）",
-        check_available=lambda overrides: opendataloader_available(
-            overrides, quick=True
-        ),
+        check_available=lambda overrides: opendataloader_available(overrides, quick=True),
         unavailable_hint="请安装 opendataloader-pdf 与 Java 11+",
     )
 

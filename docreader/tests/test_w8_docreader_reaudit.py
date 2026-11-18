@@ -13,11 +13,10 @@ import os
 import struct
 import tempfile
 import tracemalloc
-import unittest
-from unittest import mock
 import urllib.error
 import urllib.request
 import zipfile
+from unittest import mock
 
 import grpc
 import pytest
@@ -37,7 +36,6 @@ from docreader.parser.docx_parser import (
     Docx,
     DocxParser,
     _save_image_to_temp,
-    process_page_multiprocess,
 )
 from docreader.parser.epub_parser import EPUBParser
 from docreader.parser.opendataloader_parser import (
@@ -68,9 +66,7 @@ class _NoopPreprocessRunner:
         pass
 
 
-def _build_spoofed_lzma_zip(
-    entry_name: str, payload: bytes, spoofed_size: int = 16
-) -> bytes:
+def _build_spoofed_lzma_zip(entry_name: str, payload: bytes, spoofed_size: int = 16) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_LZMA) as zf:
         zf.writestr(entry_name, payload)
@@ -87,9 +83,7 @@ def _build_spoofed_lzma_zip(
 # ---------------------------------------------------------------------------
 
 
-def test_w8_doc_redacts_secrets_and_sanitizes_surrogates_in_rpc_and_wire(
-    monkeypatch, caplog
-):
+def test_w8_doc_redacts_secrets_and_sanitizes_surrogates_in_rpc_and_wire(monkeypatch, caplog):
     servicer = DocReaderServicer(preprocess_runner=_NoopPreprocessRunner())
     try:
         secret_err = RuntimeError(
@@ -214,9 +208,11 @@ def test_w8_parser_lzma_spoofed_zip_bomb_aborts_with_bounded_memory():
 
     tracemalloc.start()
     try:
-        with zipfile.ZipFile(io.BytesIO(spoofed_lzma)) as zf:
-            with pytest.raises(ArchiveLimitError):
-                verify_zip_stream_limits(zf, max_bytes=65536)
+        with (
+            zipfile.ZipFile(io.BytesIO(spoofed_lzma)) as zf,
+            pytest.raises(ArchiveLimitError),
+        ):
+            verify_zip_stream_limits(zf, max_bytes=65536)
         _, peak = tracemalloc.get_traced_memory()
     finally:
         tracemalloc.stop()
@@ -225,11 +221,8 @@ def test_w8_parser_lzma_spoofed_zip_bomb_aborts_with_bounded_memory():
     # decompressing all 24 MiB (~70 MiB peak in stdlib) or silently passing.
     assert peak < 10 * 1024 * 1024
 
-    with zipfile.ZipFile(io.BytesIO(spoofed_lzma)) as zf:
-        with pytest.raises(ArchiveLimitError):
-            safe_read_zip_member(
-                zf, "word/document.xml", max_member_bytes=65536, max_total_bytes=65536
-            )
+    with zipfile.ZipFile(io.BytesIO(spoofed_lzma)) as zf, pytest.raises(ArchiveLimitError):
+        safe_read_zip_member(zf, "word/document.xml", max_member_bytes=65536, max_total_bytes=65536)
 
     # Forged 512 MiB LZMA dictionary header bomb must be rejected BEFORE
     # liblzma allocates the dictionary buffer.
@@ -237,14 +230,16 @@ def test_w8_parser_lzma_spoofed_zip_bomb_aborts_with_bounded_memory():
     lfh = dict_bomb.index(b"PK\x03\x04")
     fname_len, extra_len = struct.unpack("<HH", dict_bomb[lfh + 26 : lfh + 30])
     data_off = lfh + 30 + fname_len + extra_len
-    # ZIP LZMA stream starts with 4-byte header (<BBH) + 5-byte LZMA1 props (1 byte lc/lp/pb + 4-byte dict_size)
+    # ZIP LZMA stream starts with 4-byte header (<BBH) + 5-byte LZMA1 props
     dict_bomb[data_off + 5 : data_off + 9] = struct.pack("<I", 512 * 1024 * 1024)
 
     tracemalloc.start()
     try:
-        with zipfile.ZipFile(io.BytesIO(bytes(dict_bomb))) as zf:
-            with pytest.raises(ArchiveLimitError, match="dictionary size"):
-                verify_zip_stream_limits(zf, max_bytes=65536)
+        with (
+            zipfile.ZipFile(io.BytesIO(bytes(dict_bomb))) as zf,
+            pytest.raises(ArchiveLimitError, match="dictionary size"),
+        ):
+            verify_zip_stream_limits(zf, max_bytes=65536)
         _, dict_peak = tracemalloc.get_traced_memory()
     finally:
         tracemalloc.stop()
@@ -255,18 +250,18 @@ def test_w8_parser_xmind_lzma_bomb_and_deep_topic_recursion_guarded():
     spoofed_xmind = _build_spoofed_lzma_zip(
         "content.json", b" " * (4 * 1024 * 1024), spoofed_size=32
     )
-    with mock.patch("docreader.parser.xmind_parser.MAX_CONTENT_BYTES", 65536):
-        with pytest.raises((ArchiveLimitError, ValueError)):
-            XMindParser().parse_into_text(spoofed_xmind)
+    with (
+        mock.patch("docreader.parser.xmind_parser.MAX_CONTENT_BYTES", 65536),
+        pytest.raises((ArchiveLimitError, ValueError)),
+    ):
+        XMindParser().parse_into_text(spoofed_xmind)
 
     # Deeply nested XML topics (>300 levels) must fail cleanly with ValueError
     # rather than crashing with RecursionError.
     nested_xml = ["<xmap-content><sheet><title>S</title>"]
     depth = 400
     for idx in range(depth):
-        nested_xml.append(
-            f"<topic><title>T{idx}</title><children><topics>"
-        )
+        nested_xml.append(f"<topic><title>T{idx}</title><children><topics>")
     nested_xml.append("<topic><title>Leaf</title></topic>")
     for _ in range(depth):
         nested_xml.append("</topics></children></topic>")
@@ -288,12 +283,14 @@ def test_w8_parser_docx_and_epub_propagate_cancellation_and_cleanup_tempfiles(
     fallback_spy = mock.Mock(return_value=Document(content="fallback"))
     monkeypatch.setattr(docx_parser, "_parse_using_simple_method", fallback_spy)
 
-    with mock.patch(
-        "docreader.parser.docx_parser.Docx.__call__",
-        side_effect=ParserCancelled("cancelled"),
+    with (
+        mock.patch(
+            "docreader.parser.docx_parser.Docx.__call__",
+            side_effect=ParserCancelled("cancelled"),
+        ),
+        pytest.raises(ParserCancelled),
     ):
-        with pytest.raises(ParserCancelled):
-            docx_parser.parse_into_text(b"not-pk")
+        docx_parser.parse_into_text(b"not-pk")
     fallback_spy.assert_not_called()
 
     # 2. EPUBParser must not swallow ParserCancelled into _parse_epub_fallback
@@ -347,9 +344,11 @@ def test_w8_parser_docx_and_epub_propagate_cancellation_and_cleanup_tempfiles(
 
         return _Wrap()
 
-    with mock.patch("docreader.parser.docx_parser.tempfile.NamedTemporaryFile", failing_ntf):
-        with pytest.raises(OSError):
-            Docx()._prepare_document_sharing(b"docx-bytes")
+    with (
+        mock.patch("docreader.parser.docx_parser.tempfile.NamedTemporaryFile", failing_ntf),
+        pytest.raises(OSError),
+    ):
+        Docx()._prepare_document_sharing(b"docx-bytes")
     assert len(created_files) == 1
     assert not os.path.exists(created_files[0])
 
@@ -369,8 +368,8 @@ def test_w8_parser_docx_and_epub_propagate_cancellation_and_cleanup_tempfiles(
 
 
 def test_w8_parser_odl_proxy_bounds_upstream_response_and_pins_dns(monkeypatch):
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     class _GiantResponseHandler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):  # noqa: A002
@@ -396,9 +395,7 @@ def test_w8_parser_odl_proxy_bounds_upstream_response_and_pins_dns(monkeypatch):
         with _local_hybrid_auth_proxy(
             upstream_url, "secret-token", timeout_sec=5.0, max_body_bytes=512
         ) as local_url:
-            req = urllib.request.Request(
-                f"{local_url}/v1/convert/file", data=b"hi", method="POST"
-            )
+            req = urllib.request.Request(f"{local_url}/v1/convert/file", data=b"hi", method="POST")
             with pytest.raises(urllib.error.HTTPError) as err:
                 urllib.request.urlopen(req, timeout=5)
             assert err.value.code == 502
@@ -416,13 +413,6 @@ def test_w8_parser_odl_proxy_bounds_upstream_response_and_pins_dns(monkeypatch):
         ok, msg = _ping_hybrid("http://rebind.example.com:8080", retries=1)
         assert ok is False
         assert "SSRF" in msg or "restricted" in msg
-
-        # Verify StdWebParser honors external_http_proxy fallback when https proxy is empty
-        fake_cfg = doc_config.replace(
-            doc_config.CONFIG,
-            external_https_proxy="",
-            external_http_proxy="http://proxy.example.com:8080",
-        ) if hasattr(doc_config, "replace") else None
     finally:
         srv.shutdown()
         srv.server_close()
@@ -454,7 +444,7 @@ def test_w8_splitter_guards_overlap_recursion_logging_header_state_and_restore(
 
     # 2. Single unsplittable multi-byte character exceeding byte-length chunk_size
     #    must not trigger infinite recursion, nor raise logging TypeError.
-    byte_splitter = TextSplitter(
+    byte_splitter: TextSplitter = TextSplitter(
         chunk_size=2,
         chunk_overlap=0,
         separators=[" "],
@@ -466,7 +456,7 @@ def test_w8_splitter_guards_overlap_recursion_logging_header_state_and_restore(
 
     # 3. Reusing a TextSplitter across two documents must not leak table headers
     #    from document 1 into document 2.
-    table_splitter = TextSplitter(
+    table_splitter: TextSplitter = TextSplitter(
         chunk_size=60, chunk_overlap=0, separators=["\n\n", "\n"]
     )
     doc1 = "| ColA | ColB |\n| --- | --- |\n| 1 | 2 |\n"
@@ -480,9 +470,7 @@ def test_w8_splitter_guards_overlap_recursion_logging_header_state_and_restore(
         assert "ColA" not in chunk_text
 
     # 4. restore_text must ignore duplicate/contained end_pos chunks cleanly
-    restored = table_splitter.restore_text(
-        [(0, 5, "hello"), (0, 5, "hello"), (5, 11, " world")]
-    )
+    restored = table_splitter.restore_text([(0, 5, "hello"), (0, 5, "hello"), (5, 11, " world")])
     assert restored == "hello world"
 
 
@@ -505,9 +493,7 @@ def test_w8_splitter_guards_overlap_recursion_logging_header_state_and_restore(
         "http://[fe80::1%25eth0]/",
     ],
 )
-def test_w8_utils_ssrf_blocks_backslash_userinfo_shorthand_ips_before_dns(
-    monkeypatch, unsafe_url
-):
+def test_w8_utils_ssrf_blocks_backslash_userinfo_shorthand_ips_before_dns(monkeypatch, unsafe_url):
     monkeypatch.setenv("SSRF_WHITELIST", "")
     monkeypatch.setenv("SSRF_WHITELIST_EXTRA", "")
     monkeypatch.setenv("SSRF_DNS_WHITELIST_ONLY", "")
@@ -581,9 +567,7 @@ def test_w8_utils_ssrf_proxy_handles_malformed_upstream_and_tempfile_request_hyg
     with TempFileContext(b"hello", "../../evil/report.doc") as path:
         assert os.path.exists(path)
         assert path.endswith("report.doc")
-        assert os.path.dirname(os.path.abspath(path)) == os.path.abspath(
-            tempfile.gettempdir()
-        )
+        assert os.path.dirname(os.path.abspath(path)) == os.path.abspath(tempfile.gettempdir())
     assert not os.path.exists(path)
 
     # request_id_context must scrub CR/LF log injection characters
@@ -592,5 +576,6 @@ def test_w8_utils_ssrf_proxy_handles_malformed_upstream_and_tempfile_request_hyg
         assert "\n" not in sanitized_id
         rec = logging.LogRecord("test", logging.INFO, __file__, 1, "msg", (), None)
         RequestIdFilter().filter(rec)
-        assert "\n" not in rec.request_id
-        assert "\r" not in rec.request_id
+        req_id = str(getattr(rec, "request_id", ""))
+        assert "\n" not in req_id
+        assert "\r" not in req_id

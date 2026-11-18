@@ -1,12 +1,13 @@
 import logging
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any, cast
 
 from docreader.models.document import Document
+from docreader.parser.archive import validate_zip_content
+from docreader.parser.concurrency import check_cancellation
 from docreader.parser.registry import registry
 from docreader.parser.stream import ParsedDocumentStream
 from docreader.parser.web_parser import WebParser
-from docreader.parser.archive import validate_zip_content
-from docreader.parser.concurrency import check_cancellation
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ FORBIDDEN_ENGINE_OVERRIDE_KEYS: frozenset[str] = frozenset(
 
 
 def sanitize_engine_overrides(
-    overrides: Optional[Mapping[str, Any]],
+    overrides: Mapping[str, Any] | None,
     *,
     reject_forbidden: bool = True,
 ) -> dict[str, Any]:
@@ -82,9 +83,7 @@ def detect_effective_file_type(file_type: str, content: bytes) -> str:
     """
     normalized = file_type.lower().lstrip(".")
     if normalized == "docx" and content.startswith(_OLE_COMPOUND_FILE_MAGIC):
-        logger.warning(
-            "Detected legacy DOC content with a DOCX extension; using DOC parser"
-        )
+        logger.warning("Detected legacy DOC content with a DOCX extension; using DOC parser")
         return "doc"
     return normalized
 
@@ -108,8 +107,8 @@ class Parser:
         file_name: str,
         file_type: str,
         content: bytes,
-        parser_engine: Optional[str] = None,
-        engine_overrides: Optional[dict[str, Any]] = None,
+        parser_engine: str | None = None,
+        engine_overrides: dict[str, Any] | None = None,
         context: Any = None,
     ) -> Document:
         """Parse file content to markdown."""
@@ -150,8 +149,8 @@ class Parser:
         file_name: str,
         file_type: str,
         content: bytes,
-        parser_engine: Optional[str] = None,
-        engine_overrides: Optional[dict[str, Any]] = None,
+        parser_engine: str | None = None,
+        engine_overrides: dict[str, Any] | None = None,
         context: Any = None,
     ) -> ParsedDocumentStream:
         """Parse a file for ReadStream, using a parser's lazy image path when available."""
@@ -169,7 +168,7 @@ class Parser:
 
         parse_stream = getattr(parser, "parse_stream", None)
         if callable(parse_stream):
-            return parse_stream(content)
+            return cast(ParsedDocumentStream, parse_stream(content))
 
         # Non-streaming parsers retain their established behavior. Their images
         # are still sent one at a time by ReadStream, but parsing itself may
@@ -184,8 +183,8 @@ class Parser:
         self,
         url: str,
         title: str,
-        parser_engine: Optional[str] = None,
-        engine_overrides: Optional[dict[str, Any]] = None,
+        parser_engine: str | None = None,
+        engine_overrides: dict[str, Any] | None = None,
         context: Any = None,
     ) -> Document:
         """Parse content from a URL to markdown."""

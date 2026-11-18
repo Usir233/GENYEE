@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import bz2
-from dataclasses import dataclass
+import contextlib
 import io
 import lzma
 import struct
 import weakref
 import zipfile
 import zlib
+from dataclasses import dataclass
+from typing import Any
 
 MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 100.0
@@ -33,7 +35,7 @@ class ZipReadBudget:
     total_bytes: int = 0
 
 
-_ARCHIVE_BUDGETS: "weakref.WeakKeyDictionary[zipfile.ZipFile, ZipReadBudget]" = (
+_ARCHIVE_BUDGETS: weakref.WeakKeyDictionary[zipfile.ZipFile, ZipReadBudget] = (
     weakref.WeakKeyDictionary()
 )
 
@@ -49,21 +51,15 @@ def _get_or_create_budget(
     if budget is None:
         budget = ZipReadBudget(
             max_total_bytes=(
-                MAX_UNCOMPRESSED_ARCHIVE_BYTES
-                if max_total_bytes is None
-                else max_total_bytes
+                MAX_UNCOMPRESSED_ARCHIVE_BYTES if max_total_bytes is None else max_total_bytes
             ),
             max_member_bytes=(
-                MAX_UNCOMPRESSED_ARCHIVE_BYTES
-                if max_member_bytes is None
-                else max_member_bytes
+                MAX_UNCOMPRESSED_ARCHIVE_BYTES if max_member_bytes is None else max_member_bytes
             ),
             max_ratio=MAX_COMPRESSION_RATIO if max_ratio is None else max_ratio,
         )
-        try:
+        with contextlib.suppress(TypeError):
             _ARCHIVE_BUDGETS[archive] = budget
-        except TypeError:
-            pass
     return budget
 
 
@@ -84,7 +80,8 @@ def validate_zip_archive(
     for info in entries:
         if info.file_size > max_bytes:
             raise ArchiveLimitError(
-                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
+                f"Archive entry {info.filename} uncompressed size "
+                f"({info.file_size}) exceeds limit ({max_bytes})"
             )
         if (
             info.compress_size > 0
@@ -124,7 +121,8 @@ def _stream_zip_entry_bounded(
     """Decompress a single ZIP member in bounded chunks without trusting ZipInfo.file_size."""
     if info.file_size > eff_max_member:
         raise ArchiveLimitError(
-            f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({eff_max_member})"
+            f"Archive entry {info.filename} uncompressed size "
+            f"({info.file_size}) exceeds limit ({eff_max_member})"
         )
     if (
         info.compress_size > 0
@@ -195,9 +193,7 @@ def _stream_zip_entry_bounded(
                     step_cap = min(read_step, comp_left, max(1, rem_budget + 1))
                     raw = raw_fileobj.read(step_cap)
                     if not raw:
-                        raise EOFError(
-                            f"Truncated stored ZIP entry: {info.filename!r}"
-                        )
+                        raise EOFError(f"Truncated stored ZIP entry: {info.filename!r}")
                     comp_left -= len(raw)
                     _record_chunk(raw)
             elif info.compress_type == zipfile.ZIP_DEFLATED:
@@ -210,15 +206,11 @@ def _stream_zip_entry_bounded(
                         )
                         step_cap = min(read_step, max(1, rem_budget + 1))
                         if decompressor.unconsumed_tail:
-                            out = decompressor.decompress(
-                                decompressor.unconsumed_tail, step_cap
-                            )
+                            out = decompressor.decompress(decompressor.unconsumed_tail, step_cap)
                         elif comp_left > 0:
                             raw = raw_fileobj.read(min(read_step, comp_left))
                             if not raw:
-                                raise EOFError(
-                                    f"Truncated deflated ZIP entry: {info.filename!r}"
-                                )
+                                raise EOFError(f"Truncated deflated ZIP entry: {info.filename!r}")
                             comp_left -= len(raw)
                             out = decompressor.decompress(raw, step_cap)
                         else:
@@ -243,9 +235,7 @@ def _stream_zip_entry_bounded(
                     elif comp_left > 0:
                         raw = raw_fileobj.read(min(read_step, comp_left))
                         if not raw:
-                            raise EOFError(
-                                f"Truncated bzip2 ZIP entry: {info.filename!r}"
-                            )
+                            raise EOFError(f"Truncated bzip2 ZIP entry: {info.filename!r}")
                         comp_left -= len(raw)
                         out = bz2_dec.decompress(raw, max_length=step_cap)
                     else:
@@ -253,14 +243,10 @@ def _stream_zip_entry_bounded(
                     _record_chunk(out)
             else:
                 if comp_left < 4:
-                    raise zipfile.BadZipFile(
-                        f"Truncated LZMA header for {info.filename!r}"
-                    )
+                    raise zipfile.BadZipFile(f"Truncated LZMA header for {info.filename!r}")
                 lzma_hdr = raw_fileobj.read(4)
                 if len(lzma_hdr) != 4:
-                    raise EOFError(
-                        f"Truncated LZMA header for {info.filename!r}"
-                    )
+                    raise EOFError(f"Truncated LZMA header for {info.filename!r}")
                 comp_left -= 4
                 _, _, props_size = struct.unpack("<BBH", lzma_hdr)
                 if props_size == 0 or props_size > 64 or comp_left < props_size:
@@ -269,23 +255,35 @@ def _stream_zip_entry_bounded(
                     )
                 props_raw = raw_fileobj.read(props_size)
                 if len(props_raw) != props_size:
-                    raise EOFError(
-                        f"Truncated LZMA properties for {info.filename!r}"
-                    )
+                    raise EOFError(f"Truncated LZMA properties for {info.filename!r}")
                 comp_left -= props_size
                 try:
-                    lzma_filter = lzma._decode_filter_properties(
-                        lzma.FILTER_LZMA1, props_raw
-                    )
+                    decode_props = getattr(lzma, "_decode_filter_properties", None)
+                    if callable(decode_props):
+                        lzma_filter: dict[str, Any] = dict(
+                            decode_props(lzma.FILTER_LZMA1, props_raw)
+                        )
+                    else:
+                        if props_size != 5 or props_raw[0] >= 9 * 5 * 5:
+                            raise zipfile.BadZipFile(
+                                f"Invalid LZMA1 properties for {info.filename!r}"
+                            )
+                        prop0 = props_raw[0]
+                        (dict_sz,) = struct.unpack("<I", props_raw[1:5])
+                        lzma_filter = {
+                            "id": lzma.FILTER_LZMA1,
+                            "dict_size": dict_sz,
+                            "lc": prop0 % 9,
+                            "lp": (prop0 // 9) % 5,
+                            "pb": (prop0 // 9) // 5,
+                        }
                     dict_size = int(lzma_filter.get("dict_size", 0))
                     if dict_size > MAX_LZMA_DICT_BYTES:
                         raise ArchiveLimitError(
                             f"Archive entry {info.filename} LZMA dictionary size "
                             f"({dict_size}) exceeds limit ({MAX_LZMA_DICT_BYTES})"
                         )
-                    lzma_dec = lzma.LZMADecompressor(
-                        lzma.FORMAT_RAW, filters=[lzma_filter]
-                    )
+                    lzma_dec = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[lzma_filter])
                     while not lzma_dec.eof:
                         rem_budget = min(
                             eff_max_member - member_bytes,
@@ -297,9 +295,7 @@ def _stream_zip_entry_bounded(
                         elif comp_left > 0:
                             raw = raw_fileobj.read(min(read_step, comp_left))
                             if not raw:
-                                raise EOFError(
-                                    f"Truncated LZMA ZIP entry: {info.filename!r}"
-                                )
+                                raise EOFError(f"Truncated LZMA ZIP entry: {info.filename!r}")
                             comp_left -= len(raw)
                             out = lzma_dec.decompress(raw, max_length=step_cap)
                         else:
@@ -311,9 +307,8 @@ def _stream_zip_entry_bounded(
                     ) from exc
 
             expected_crc = getattr(info, "CRC", None)
-            if (
-                expected_crc is not None
-                and (running_crc & 0xFFFFFFFF) != (expected_crc & 0xFFFFFFFF)
+            if expected_crc is not None and (running_crc & 0xFFFFFFFF) != (
+                expected_crc & 0xFFFFFFFF
             ):
                 raise zipfile.BadZipFile(f"Bad CRC-32 for file {info.filename!r}")
         else:
@@ -350,9 +345,7 @@ def safe_read_zip_member(
     exceeds the configured limit.
     """
     info = (
-        name_or_info
-        if isinstance(name_or_info, zipfile.ZipInfo)
-        else archive.getinfo(name_or_info)
+        name_or_info if isinstance(name_or_info, zipfile.ZipInfo) else archive.getinfo(name_or_info)
     )
     active_budget = budget or _get_or_create_budget(
         archive,
@@ -361,13 +354,9 @@ def safe_read_zip_member(
         max_ratio=max_ratio,
     )
     eff_max_member = (
-        active_budget.max_member_bytes
-        if max_member_bytes is None
-        else max_member_bytes
+        active_budget.max_member_bytes if max_member_bytes is None else max_member_bytes
     )
-    eff_max_total = (
-        active_budget.max_total_bytes if max_total_bytes is None else max_total_bytes
-    )
+    eff_max_total = active_budget.max_total_bytes if max_total_bytes is None else max_total_bytes
     eff_max_ratio = active_budget.max_ratio if max_ratio is None else max_ratio
 
     return _stream_zip_entry_bounded(
@@ -470,8 +459,7 @@ def detect_ooxml_package_type(archive: zipfile.ZipFile) -> str | None:
         normalized.setdefault(norm_name, info)
 
     if "xl/workbook.xml" in normalized or any(
-        name.startswith("xl/worksheets/") and name.endswith(".xml")
-        for name in normalized
+        name.startswith("xl/worksheets/") and name.endswith(".xml") for name in normalized
     ):
         return "xlsx"
 
@@ -503,10 +491,7 @@ def detect_ooxml_package_type(archive: zipfile.ZipFile) -> str | None:
 
     if "ppt/presentation.xml" in normalized or (
         content_types_xml
-        and any(
-            marker in content_types_xml
-            for marker in _OOXML_PRESENTATION_CONTENT_TYPES
-        )
+        and any(marker in content_types_xml for marker in _OOXML_PRESENTATION_CONTENT_TYPES)
     ):
         return "pptx"
 

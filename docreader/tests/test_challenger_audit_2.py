@@ -1,10 +1,13 @@
 """Adversarial stress tests for docreader pipeline (challenger_audit_2).
 
 Covers:
-- DOC-01: Multilingual character encoding edge cases (Shift-JIS, EUC-JP, Windows-1252, ISO-8859-1, GBK, Big5, Latin1)
-- DOC-03: Malicious ZipBomb archives (nested zip files, ratios >100:1, uncompressed bytes >100MB, fallback bypass)
+- DOC-01: Multilingual character encoding edge cases (Shift-JIS, EUC-JP,
+  Windows-1252, ISO-8859-1, GBK, Big5, Latin1)
+- DOC-03: Malicious ZipBomb archives (nested zip files, ratios >100:1,
+  uncompressed bytes >100MB, fallback bypass)
 - DOC-07: Fuzzing 0-byte, truncated, corrupt header, and randomly generated binary PDFs
-- DOC-10: CSV boundary cases (GBK with special characters, commas in quotes, non-standard delimiters)
+- DOC-10: CSV boundary cases (GBK with special characters, commas in quotes,
+  non-standard delimiters)
 """
 
 import io
@@ -16,7 +19,6 @@ from docreader.parser.docx2_parser import Docx2Parser
 from docreader.parser.docx_merge import fill_vertical_merged_cells_docx
 from docreader.parser.epub_parser import EPUBParser
 from docreader.parser.markitdown_parser import MarkitdownParser
-from docreader.parser.parser import Parser
 from docreader.parser.pdf_parser import PDFParser
 from docreader.parser.pptx_media import list_pptx_media
 from docreader.parser.xlsx_repair import _rewrite_zip
@@ -79,9 +81,8 @@ class TestAdversarialDoc03ZipBombs(unittest.TestCase):
 
     def test_xlsx_repair_zipbomb_size_guard(self):
         bomb = self._make_bomb("xl/workbook.xml")
-        with zipfile.ZipFile(io.BytesIO(bomb)) as zin:
-            with self.assertRaises(ValueError):
-                _rewrite_zip(zin, lambda f: f)
+        with zipfile.ZipFile(io.BytesIO(bomb)) as zin, self.assertRaises(ValueError):
+            _rewrite_zip(zin, lambda f: f)
 
     def test_epub_parser_zipbomb_size_guard(self):
         bomb = self._make_bomb("OEBPS/chapter1.xhtml")
@@ -120,7 +121,7 @@ class TestAdversarialDoc07PdfFuzzing(unittest.TestCase):
         self.assertIn("missing %PDF- signature", str(ctx.exception))
 
     def test_fuzzed_pdf_with_valid_header_raises_clean_value_error(self):
-        """Corrupt PDF with %PDF- header should raise clean ValueError rather than raw PdfiumError."""
+        """Corrupt PDF with %PDF- header raises clean ValueError rather than raw PdfiumError."""
         fuzzed = b"%PDF-1.4\n" + os.urandom(1024)
         with self.assertRaises(ValueError):
             PDFParser(file_name="fuzzed.pdf").parse_into_text(fuzzed)

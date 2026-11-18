@@ -11,10 +11,11 @@ the origin at its top-left corner, so viewers can draw it at any zoom.
 from __future__ import annotations
 
 import re
-from collections import Counter
 import statistics
 import unicodedata
-from typing import Iterable, List, Optional, Sequence, Tuple
+from collections import Counter
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 # How far past the cursor a line is searched for, in normalized characters.
 _SEARCH_WINDOW = 6000
@@ -44,14 +45,14 @@ def _fold(ch: str) -> str:
     return unicodedata.normalize("NFKD", ch).lower()
 
 
-def normalize_with_positions(text: str) -> Tuple[str, List[int]]:
+def normalize_with_positions(text: str) -> tuple[str, list[int]]:
     """Project text onto decomposed letters, digits and combining marks.
 
     Returns the projection and, for each of its characters, the offset in
     ``text`` of the character it came from.
     """
-    out: List[str] = []
-    pos: List[int] = []
+    out: list[str] = []
+    pos: list[int] = []
     for i, ch in enumerate(text):
         value = unicodedata.normalize("NFKC", ch)
         folded = _fold(ch)
@@ -63,10 +64,12 @@ def normalize_with_positions(text: str) -> Tuple[str, List[int]]:
                 after += 1
             prev = before >= 0 and text[before].isdigit()
             next_digit = after < len(text) and text[after].isdigit()
-            semantic = ((value in ".,/:" and prev and next_digit)
-                        or (value in "+-−" and next_digit)
-                        or (value in "%‰" and prev)
-                        or value in "<>=≤≥≠")
+            semantic = (
+                (value in ".,/:" and prev and next_digit)
+                or (value in "+-−" and next_digit)
+                or (value in "%‰" and prev)
+                or value in "<>=≤≥≠"
+            )
             if semantic:
                 folded = value.replace("−", "-")
         for f in folded:
@@ -83,7 +86,7 @@ def normalize_with_positions(text: str) -> Tuple[str, List[int]]:
         while stop < len(out) and unicodedata.combining(out[stop]):
             stop += 1
         ordered = sorted(
-            zip(out[start:stop], pos[start:stop]),
+            zip(out[start:stop], pos[start:stop], strict=False),
             key=lambda item: unicodedata.combining(item[0]),
         )
         out[start:stop] = [item[0] for item in ordered]
@@ -101,7 +104,11 @@ def _key_weight(key: str) -> int:
     return sum(4 if unicodedata.east_asian_width(ch) in ("W", "F") else 1 for ch in key)
 
 
-def _column_cursor(boxes, idx: int, ends: List[Optional[int]]) -> Optional[int]:
+def _column_cursor(
+    boxes: Sequence[tuple[float, float, float, float]],
+    idx: int,
+    ends: list[int | None],
+) -> int | None:
     """End of the nearest placed line above ``boxes[idx]`` in the same column."""
     x0, y0, x1, _ = boxes[idx]
     for j in range(idx - 1, max(-1, idx - 80), -1):
@@ -113,8 +120,8 @@ def _column_cursor(boxes, idx: int, ends: List[Optional[int]]) -> Optional[int]:
     return None
 
 
-def _numeric_safe_matches(text: str, key: str) -> List[int]:
-    out = []
+def _numeric_safe_matches(text: str, key: str) -> list[int]:
+    out: list[int] = []
     if not key:
         return out
     start = 0
@@ -133,8 +140,8 @@ def _numeric_safe_matches(text: str, key: str) -> List[int]:
 def locate_lines(
     page_text: str,
     line_texts: Sequence[str],
-    boxes: Optional[Sequence[Tuple[float, float, float, float]]] = None,
-) -> List[Optional[int]]:
+    boxes: Sequence[tuple[float, float, float, float]] | None = None,
+) -> list[int | None]:
     """Find where each visual line starts in the page text.
 
     Lines are searched in order after the previous hit so repeated phrases
@@ -146,15 +153,17 @@ def locate_lines(
     glyph grouping. Returns one offset (or None) per line.
     """
     norm, pos = normalize_with_positions(page_text)
-    hits: List[Optional[int]] = []
-    ends: List[Optional[int]] = []
+    hits: list[int | None] = []
+    ends: list[int | None] = []
     cursor = 0
     counts = Counter(normalize(line) for line in line_texts)
     occurrences = {key: _numeric_safe_matches(norm, key) for key in counts}
     for idx, line in enumerate(line_texts):
         key = normalize(line)
-        if len(unicodedata.normalize("NFC", key)) < _MIN_KEY_CHARS or len(occurrences[key]) != counts[key] or (
-            _key_weight(key) < _SHORT_KEY_WEIGHT and len(occurrences[key]) > 1
+        if (
+            len(unicodedata.normalize("NFC", key)) < _MIN_KEY_CHARS
+            or len(occurrences[key]) != counts[key]
+            or (_key_weight(key) < _SHORT_KEY_WEIGHT and len(occurrences[key]) > 1)
         ):
             hits.append(None)
             ends.append(None)
@@ -166,7 +175,10 @@ def locate_lines(
                 cursors.insert(0, column)
         at = -1
         for start_at in cursors:
-            at = next((hit for hit in occurrences[key] if start_at <= hit <= start_at + _SEARCH_WINDOW), -1)
+            at = next(
+                (hit for hit in occurrences[key] if start_at <= hit <= start_at + _SEARCH_WINDOW),
+                -1,
+            )
             if at >= 0:
                 break
         if at < 0:
@@ -190,14 +202,14 @@ def locate_lines(
 class PageGeometry:
     """Converts PDF user-space points to fractions of the displayed page."""
 
-    def __init__(self, cropbox: Tuple[float, float, float, float], rotation: int = 0):
+    def __init__(self, cropbox: tuple[float, float, float, float], rotation: int = 0) -> None:
         left, bottom, right, top = cropbox
         self.left, self.bottom = min(left, right), min(bottom, top)
         self.width = abs(right - left) or 1.0
         self.height = abs(top - bottom) or 1.0
         self.rotation = int(rotation or 0) % 360
 
-    def bbox(self, box: Tuple[float, float, float, float]) -> List[float]:
+    def bbox(self, box: tuple[float, float, float, float]) -> list[float]:
         x0, y0, x1, y1 = box
         # Unrotated, top-left origin.
         ux0 = (x0 - self.left) / self.width
@@ -214,7 +226,7 @@ class PageGeometry:
             round(_clamp(max(ys)), 4),
         ]
 
-    def _rotate(self, x: float, y: float) -> Tuple[float, float]:
+    def _rotate(self, x: float, y: float) -> tuple[float, float]:
         # Viewers display /Rotate clockwise.
         if self.rotation == 90:
             return 1.0 - y, x
@@ -229,27 +241,33 @@ def _clamp(v: float) -> float:
     return 0.0 if v < 0 else 1.0 if v > 1 else v
 
 
-def _union(boxes: Iterable[Tuple[float, float, float, float]]):
-    boxes = list(boxes)
+def _union(
+    boxes: Iterable[tuple[float, float, float, float]],
+) -> tuple[float, float, float, float]:
+    box_list = list(boxes)
     return (
-        min(b[0] for b in boxes),
-        min(b[1] for b in boxes),
-        max(b[2] for b in boxes),
-        max(b[3] for b in boxes),
+        min(b[0] for b in box_list),
+        min(b[1] for b in box_list),
+        max(b[2] for b in box_list),
+        max(b[3] for b in box_list),
     )
 
 
-def _line_gap(prev: dict, cur: dict) -> Optional[float]:
+def _line_gap(prev: dict[str, Any], cur: dict[str, Any]) -> float | None:
     """Vertical gap from ``prev`` down to ``cur`` when they share a column."""
     px0, py0, px1, _ = prev["bbox"]
     cx0, _, cx1, cy1 = cur["bbox"]
     if cx1 < px0 or cx0 > px1 or cy1 > py0:
         return None
-    return py0 - cy1
+    return float(py0 - cy1)
 
 
 def _starts_paragraph(
-    prev: dict, cur: dict, line_h: float, usual_gap: float, col_right: float
+    prev: dict[str, Any],
+    cur: dict[str, Any],
+    line_h: float,
+    usual_gap: float,
+    col_right: float,
 ) -> bool:
     """Whether ``cur`` opens a new visual paragraph after ``prev``.
 
@@ -265,20 +283,20 @@ def _starts_paragraph(
         return True  # went back up the page: a new column or region
     if py0 - cy1 > usual_gap * 1.5 + line_h * 0.3:
         return True  # vertical gap wider than the usual line spacing
-    if _LIST_START_RE.match(cur["text"]):
+    if _LIST_START_RE.match(str(cur["text"])):
         return True
-    ends_sentence = prev["text"].rstrip().endswith(_SENTENCE_END)
-    short = col_right - px1 > line_h * 2
-    return ends_sentence and short
+    ends_sentence = str(prev["text"]).rstrip().endswith(_SENTENCE_END)
+    short = bool(col_right - px1 > line_h * 2)
+    return bool(ends_sentence and short)
 
 
 def page_blocks(
     page_text: str,
     offset: int,
     page_number: int,
-    lines: Sequence[dict],
-    geometry: Optional[PageGeometry],
-) -> List[dict]:
+    lines: Sequence[dict[str, Any]],
+    geometry: PageGeometry | None,
+) -> list[dict[str, Any]]:
     """Source blocks for one text page placed at ``offset`` in the document.
 
     ``lines`` are visual lines ``{"text", "bbox"}`` (bbox in PDF points). Lines
@@ -288,22 +306,20 @@ def page_blocks(
     previous paragraph's geometry.
     """
     end = offset + len(page_text)
-    page_only = {"type": "pdf", "page": page_number, "mapping": "exact"}
+    page_only: dict[str, Any] = {
+        "type": "pdf",
+        "page": page_number,
+        "mapping": "exact",
+    }
     if not page_text:
         return []
-    placed = []
-    if lines and geometry is not None:
-        starts = locate_lines(
-            page_text, [ln["text"] for ln in lines], [ln["bbox"] for ln in lines]
-        )
-        placed = sorted(
-            (
-                (at, ln)
-                for at, ln in zip(starts, lines)
-                if at is not None
-            ),
-            key=lambda item: item[0],
-        )
+    if not lines or geometry is None:
+        return [{"start": offset, "end": end, "locator": dict(page_only)}]
+    starts = locate_lines(page_text, [ln["text"] for ln in lines], [ln["bbox"] for ln in lines])
+    placed = sorted(
+        ((at, ln) for at, ln in zip(starts, lines, strict=False) if at is not None),
+        key=lambda item: item[0],
+    )
     if not placed:
         return [{"start": offset, "end": end, "locator": dict(page_only)}]
 
@@ -311,26 +327,27 @@ def page_blocks(
     line_h = statistics.median(heights) if heights else 10.0
     gaps = [
         g
-        for g in (_line_gap(a[1], b[1]) for a, b in zip(placed, placed[1:]))
+        for g in (_line_gap(a[1], b[1]) for a, b in zip(placed, placed[1:], strict=False))
         if g is not None and g >= 0
     ]
     usual_gap = min(statistics.median(gaps), line_h * 1.5) if gaps else line_h * 0.5
 
     norm, positions = normalize_with_positions(page_text)
-    def line_end(at, line):
-        key = normalize(line["text"])
+
+    def line_end(at: int, line: dict[str, Any]) -> int:
+        key = normalize(str(line["text"]))
         norm_start = next((i for i, p in enumerate(positions) if p >= at), len(norm))
         hit = norm.find(key, norm_start)
         if hit < 0:
             return at
-        end_at = max(positions[hit:hit + len(key)]) + 1
+        end_at = max(positions[hit : hit + len(key)]) + 1
         while end_at < len(page_text) and not page_text[end_at].isalnum():
             if page_text[end_at] == "\n":
                 return end_at + 1
             end_at += 1
         return end_at
 
-    paragraphs: List[Tuple[int, List[dict]]] = []
+    paragraphs: list[tuple[int, list[dict[str, Any]]]] = []
     for at, ln in placed:
         ln = {**ln, "_source_end": line_end(at, ln)}
         if paragraphs:
@@ -344,14 +361,16 @@ def page_blocks(
                 continue
         paragraphs.append((at, [ln]))
 
-    blocks: List[dict] = []
+    blocks: list[dict[str, Any]] = []
     cursor = 0
     for at, members in paragraphs:
         stop = members[-1]["_source_end"]
         if stop <= at:
             continue
         if at > cursor and page_text[cursor:at].strip():
-            blocks.append({"start": offset + cursor, "end": offset + at, "locator": dict(page_only)})
+            blocks.append(
+                {"start": offset + cursor, "end": offset + at, "locator": dict(page_only)}
+            )
         locator = dict(page_only)
         locator["bbox"] = geometry.bbox(_union(m["bbox"] for m in members))
         locator["source_id"] = f"pdf:{page_number}:{at}:{stop}"

@@ -3,16 +3,18 @@
 Parses MIME HTML web archives into markdown text and optional embedded images.
 """
 
+from __future__ import annotations
+
 import base64
 import email
 import html
 import logging
 import os
+import uuid
 from email.header import decode_header
 from email.message import Message
+from typing import Any
 from urllib.parse import quote, unquote, urljoin, urlparse
-import uuid
-from typing import Dict
 
 from bs4 import BeautifulSoup, NavigableString, UnicodeDammit
 
@@ -50,7 +52,18 @@ _WHITESPACE_DROPPING_INLINE_TAGS = (
 )
 
 
-def _header_str(value) -> str:
+def _attr_str(value: object) -> str:
+    """Normalize a BeautifulSoup tag attribute value (str or list) to str."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return str(value[0]) if value else ""
+    return str(value)
+
+
+def _header_str(value: Any) -> str:
     """Normalize a MIME header to str, recovering 8-bit UTF-8 bytes.
 
     ``email.message_from_bytes`` uses compat32 by default. Browser-saved
@@ -86,9 +99,7 @@ def _header_str(value) -> str:
                 parts.append(chunk.decode("utf-8", errors="replace"))
         elif chunk:
             try:
-                parts.append(
-                    chunk.encode("ascii", "surrogateescape").decode("utf-8")
-                )
+                parts.append(chunk.encode("ascii", "surrogateescape").decode("utf-8"))
             except UnicodeError:
                 parts.append(chunk)
     return "".join(parts)
@@ -102,26 +113,24 @@ class MHTMLParser(BaseParser):
         self.extract_images = extract_images
 
     def parse_into_text(self, content: bytes) -> Document:
-        logger.info(
-            "Parsing MHTML file: %s, size: %d bytes", self.file_name, len(content)
-        )
+        logger.info("Parsing MHTML file: %s, size: %d bytes", self.file_name, len(content))
         msg = email.message_from_bytes(content)
         explicit_root = self._explicit_html_root(msg)
 
-        html_parts = []
-        images: Dict[str, str] = {}
-        image_aliases: Dict[str, str] = {}
-        metadata: Dict[str, object] = {}
+        html_parts: list[dict[str, Any]] = []
+        images: dict[str, str] = {}
+        image_aliases: dict[str, str] = {}
+        metadata: dict[str, Any] = {}
 
         for part in msg.walk():
             content_type = part.get_content_type()
             location = _header_str(part.get("Content-Location", ""))
 
             if content_type == "text/html":
-                payload = part.get_payload(decode=True)
+                raw_payload = part.get_payload(decode=True)
+                payload = raw_payload if isinstance(raw_payload, bytes) else b""
                 if not payload and part is not explicit_root:
                     continue
-                payload = payload or b""
                 charset = part.get_content_charset()
                 if charset:
                     try:
@@ -141,18 +150,16 @@ class MHTMLParser(BaseParser):
                     }
                 )
             elif content_type.startswith("image/") and self.extract_images:
-                image_data = part.get_payload(decode=True)
-                if image_data:
+                raw_img = part.get_payload(decode=True)
+                if isinstance(raw_img, bytes) and raw_img:
                     image_path = self._image_path_for_part(part, content_type, images)
-                    images[image_path] = base64.b64encode(image_data).decode("utf-8")
+                    images[image_path] = base64.b64encode(raw_img).decode("utf-8")
                     self._add_image_aliases(image_aliases, part, image_path)
 
         main_html = self._select_main_html(html_parts)
         if not main_html:
             logger.warning("No HTML content found in MHTML file")
-            return Document(
-                content="", images=images, metadata={"source_format": "mhtml"}
-            )
+            return Document(content="", images=images, metadata={"source_format": "mhtml"})
         html_content = main_html["content"]
 
         try:
@@ -170,7 +177,7 @@ class MHTMLParser(BaseParser):
         metadata["image_count"] = len(images)
         return Document(content=markdown_text, images=images, metadata=metadata)
 
-    def _select_main_html(self, html_parts) -> dict:
+    def _select_main_html(self, html_parts: list[dict[str, Any]]) -> dict[str, Any]:
         """Honor an explicit root before the largest non-ad HTML fallback."""
         if not html_parts:
             return {}
@@ -187,17 +194,15 @@ class MHTMLParser(BaseParser):
 
         non_ad = sorted(
             (part for part in html_parts if not is_ad(part.get("location", ""))),
-            key=lambda part: part["size"],
+            key=lambda part: int(part["size"]),
             reverse=True,
         )
         if non_ad:
             logger.info("Selected main HTML: %d bytes", non_ad[0]["size"])
             return non_ad[0]
 
-        largest = max(html_parts, key=lambda part: part["size"])
-        logger.warning(
-            "Only ad content found, using largest: %d bytes", largest["size"]
-        )
+        largest = max(html_parts, key=lambda part: int(part["size"]))
+        logger.warning("Only ad content found, using largest: %d bytes", largest["size"])
         return largest
 
     @staticmethod
@@ -209,12 +214,15 @@ class MHTMLParser(BaseParser):
         """
         if msg.get_content_type() != "multipart/related" or not msg.is_multipart():
             return None
-        parts = msg.get_payload()
-        if not parts:
+        raw_parts = msg.get_payload()
+        if not isinstance(raw_parts, list) or not raw_parts:
             return None
         start_param = msg.get_param("start", None)
         if start_param is None:
-            part = parts[0]
+            first_item = raw_parts[0]
+            if not isinstance(first_item, Message):
+                return None
+            part = first_item
             # A missing or mismatched type is malformed and keeps the fallback.
             declared_type = _header_str(msg.get_param("type", "")).lower()
             if not declared_type or declared_type != part.get_content_type():
@@ -223,28 +231,38 @@ class MHTMLParser(BaseParser):
             start = _header_str(start_param).strip().strip("<>")
             if not start:
                 return None
-            part = next(
-                (item for item in parts
-                 if _header_str(item.get("Content-ID", "")).strip().strip("<>") == start),
+            matched = next(
+                (
+                    item
+                    for item in raw_parts
+                    if isinstance(item, Message)
+                    and _header_str(item.get("Content-ID", "")).strip().strip("<>") == start
+                ),
                 None,
             )
-            if part is None:
+            if matched is None:
                 return None
+            part = matched
         if part.get_content_type() == "text/html":
             return part
         if part.get_content_type() == "multipart/alternative" and part.is_multipart():
+            alt_parts = part.get_payload()
+            if not isinstance(alt_parts, list):
+                return None
             # MIME alternatives are ordered from least to most faithful.
             return next(
-                (alternative for alternative in reversed(part.get_payload())
-                 if alternative.get_content_type() == "text/html"),
+                (
+                    alternative
+                    for alternative in reversed(alt_parts)
+                    if isinstance(alternative, Message)
+                    and alternative.get_content_type() == "text/html"
+                ),
                 None,
             )
         return None
 
     @staticmethod
-    def _add_image_aliases(
-        image_aliases: Dict[str, str], part, image_path: str
-    ) -> None:
+    def _add_image_aliases(image_aliases: dict[str, str], part: Any, image_path: str) -> None:
         """Register the refs an MHTML document may use for an image part."""
         for raw in (
             part.get("Content-Location", ""),
@@ -276,9 +294,7 @@ class MHTMLParser(BaseParser):
         }.get(content_type, ".png")
 
     @classmethod
-    def _image_path_for_part(
-        cls, part, content_type: str, images: Dict[str, str]
-    ) -> str:
+    def _image_path_for_part(cls, part: Any, content_type: str, images: dict[str, str]) -> str:
         """Choose a stable URL-encoded image path when the MHTML part exposes a filename."""
         ext = cls._image_extension(content_type)
         location = _header_str(part.get("Content-Location", "")).strip()
@@ -318,7 +334,7 @@ class MHTMLParser(BaseParser):
     def html_to_markdown(
         self,
         html_content: str,
-        image_aliases: Dict[str, str] | None = None,
+        image_aliases: dict[str, str] | None = None,
         base_location: str = "",
         *,
         strip_internal_links: bool = True,
@@ -363,7 +379,7 @@ class MHTMLParser(BaseParser):
     def _html_to_markdown(
         self,
         html_content: str,
-        image_aliases: Dict[str, str] | None = None,
+        image_aliases: dict[str, str] | None = None,
         base_location: str = "",
     ) -> str:
         """Backward-compatible wrapper for existing internal callers and tests."""
@@ -396,9 +412,7 @@ class MHTMLParser(BaseParser):
             table = tfoot.find_parent("table")
             if table is None:
                 continue
-            own_rows = [
-                row for row in table.find_all("tr") if row.find_parent("table") is table
-            ]
+            own_rows = [row for row in table.find_all("tr") if row.find_parent("table") is table]
             footer_rows = [row for row in own_rows if row.find_parent("tfoot") is tfoot]
             body_rows = [row for row in own_rows if row.find_parent("tfoot") is None]
             if not body_rows:
@@ -456,10 +470,7 @@ class MHTMLParser(BaseParser):
             pending_blank = False
 
             trailing_spaces = len(line) - len(line.rstrip(" "))
-            if trailing_spaces >= 2:
-                line = line.rstrip(" \t") + "  "
-            else:
-                line = line.rstrip(" \t")
+            line = line.rstrip(" \t") + "  " if trailing_spaces >= 2 else line.rstrip(" \t")
             output.append(line)
 
         return "\n".join(output).strip("\n")
@@ -492,18 +503,18 @@ class MHTMLParser(BaseParser):
         """Unwrap links that don't point to an external resource."""
         external = ("http://", "https://", "mailto:", "tel:")
         for link in soup.find_all("a"):
-            href = (link.get("href") or "").strip().lower()
+            href = _attr_str(link.get("href")).strip().lower()
             if not href or not href.startswith(external):
                 link.unwrap()
 
     @staticmethod
     def _rewrite_image_sources(
         soup: BeautifulSoup,
-        image_aliases: Dict[str, str],
+        image_aliases: dict[str, str],
         base_location: str = "",
     ) -> None:
         for img in soup.find_all("img"):
-            src = (img.get("src") or "").strip()
+            src = _attr_str(img.get("src")).strip()
             if not src:
                 continue
             candidates = [

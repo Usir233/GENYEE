@@ -53,9 +53,7 @@ class ParserConcurrencyTest(unittest.TestCase):
             append_images=pages[1:],
         )
 
-        document = PDFScannedParser(file_name="scan.pdf").parse_into_text(
-            pdf_bytes.getvalue()
-        )
+        document = PDFScannedParser(file_name="scan.pdf").parse_into_text(pdf_bytes.getvalue())
 
         image_ref = "images/scan_page_1.jpg"
         self.assertIn(f"![scan_page_1.jpg]({image_ref})", document.content)
@@ -70,9 +68,11 @@ class ParserConcurrencyTest(unittest.TestCase):
     def test_scanned_pdf_parser_logs_malformed_pdf_without_format_error(self):
         parser = PDFScannedParser(file_name="broken.pdf")
 
-        with self.assertLogs("docreader.parser.pdf_parser", level="ERROR") as logs:
-            with self.assertRaises(Exception):
-                parser.parse_into_text(b"not a pdf")
+        with (
+            self.assertLogs("docreader.parser.pdf_parser", level="ERROR") as logs,
+            self.assertRaises(ValueError),
+        ):
+            parser.parse_into_text(b"not a pdf")
 
         self.assertTrue(
             any("PDFScannedParser failed to parse PDF:" in line for line in logs.output)

@@ -6,9 +6,9 @@ from docreader.parser.html_parser import HTMLParser
 
 
 def _markdown(html: str) -> str:
-    return HTMLParser(file_name="footer.html", file_type="html").parse_into_text(
-        html.encode()
-    ).content
+    return (
+        HTMLParser(file_name="footer.html", file_type="html").parse_into_text(html.encode()).content
+    )
 
 
 class HTMLTableFooterTest(unittest.TestCase):
@@ -21,9 +21,7 @@ class HTMLTableFooterTest(unittest.TestCase):
             "<tfoot><tr><td>Total</td><td>2</td></tr></tfoot></table>"
         )
 
-        self.assertEqual(
-            markdown, "| Item | Qty |\n| --- | --- |\n| pen | 2 |\n| Total | 2 |"
-        )
+        self.assertEqual(markdown, "| Item | Qty |\n| --- | --- |\n| pen | 2 |\n| Total | 2 |")
 
     def test_a_footer_written_before_the_body_still_comes_last(self):
         markdown = _markdown(

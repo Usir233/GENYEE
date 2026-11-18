@@ -17,13 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MAIN_CONTENT_FIXTURES = REPO_ROOT / "docreader" / "testdata" / "html_main_content"
 
 
-def _parse_bytes(
-    content: bytes, *, main_content: bool, file_name: str = "page.html"
-) -> str:
+def _parse_bytes(content: bytes, *, main_content: bool, file_name: str = "page.html") -> str:
     """Parse HTML through the upload path with the switch forced."""
-    with patch.object(
-        html_parser, "CONFIG", replace(CONFIG, html_main_content=main_content)
-    ):
+    with patch.object(html_parser, "CONFIG", replace(CONFIG, html_main_content=main_content)):
         return HTMLParser(file_name=file_name, file_type="html").parse(content).content
 
 
@@ -54,8 +50,7 @@ class HTMLParserTest(unittest.TestCase):
 
     def test_parse_honors_declared_windows_1252_charset(self):
         html = (
-            '<meta charset="windows-1252">'
-            "<h1>R\u00e9sum\u00e9 \u201cquoted\u201d \u20ac</h1>"
+            '<meta charset="windows-1252"><h1>R\u00e9sum\u00e9 \u201cquoted\u201d \u20ac</h1>'
         ).encode("windows-1252")
 
         document = HTMLParser(file_name="legacy.html", file_type="html").parse(html)
@@ -71,9 +66,7 @@ class HTMLParserTest(unittest.TestCase):
         self.assertNotIn("\x00", document.content)
 
     def test_parse_script_only_html_returns_empty_document(self):
-        html = (
-            b"<html><body><script>alert('x')</script><style>p{}</style></body></html>"
-        )
+        html = b"<html><body><script>alert('x')</script><style>p{}</style></body></html>"
 
         document = HTMLParser(file_name="script.html", file_type="html").parse(html)
 
@@ -137,7 +130,7 @@ class HTMLMainContentTest(unittest.TestCase):
             "</article>",
             '<figure><img src="https://example.com/chart.png" alt="Recall comparison" /></figure>'
             '<figure><img src="images/local-chart.png" alt="Local comparison" /></figure>'
-            '</article>',
+            "</article>",
         )
         self.assertIn("https://example.com/chart.png", html)
         content = _parse_bytes(html.encode(), main_content=True)
@@ -148,7 +141,9 @@ class HTMLMainContentTest(unittest.TestCase):
 
     def test_short_article_does_not_index_duplicate_body_text(self):
         body = "正文说明知识库如何解析上传文件，以及如何把检索到的内容交给模型生成答案。" * 9
-        html = f"<html><body><article><h1>知识库解析说明</h1><p>{body}</p></article></body></html>".encode()
+        html = (
+            f"<html><body><article><h1>知识库解析说明</h1><p>{body}</p></article></body></html>"
+        ).encode()
         content = _parse_bytes(html, main_content=True)
         self.assertEqual(content.count(body), 1)
 
@@ -181,9 +176,7 @@ class HTMLMainContentTest(unittest.TestCase):
 
         # The length floor is passed here: what keeps the full conversion is the
         # ratio guard against "trafilatura kept only a fragment of a long page".
-        html = (MAIN_CONTENT_FIXTURES / "chrome_heavy_page.html").read_text(
-            encoding="utf-8"
-        )
+        html = (MAIN_CONTENT_FIXTURES / "chrome_heavy_page.html").read_text(encoding="utf-8")
         extracted = extract_main_content(html)
         self.assertGreaterEqual(len(extracted), _MIN_EXTRACTED_CHARS)
         self.assertLess(len(extracted), len(full) * _MIN_KEEP_RATIO)

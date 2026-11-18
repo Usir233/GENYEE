@@ -43,5 +43,7 @@ class MarkdownTableFenceTest(unittest.TestCase):
 
     def test_uploaded_markdown_preserves_fenced_table_source(self):
         raw = "```markdown\n|a|b|\n|---|---|\n|1|2|\n```\n"
-        document = MarkdownParser(file_name="example.md", file_type="md").parse_into_text(raw.encode())
+        document = MarkdownParser(file_name="example.md", file_type="md").parse_into_text(
+            raw.encode()
+        )
         self.assertIn(raw.rstrip(), document.content)

@@ -63,15 +63,18 @@ class HTMLToMarkdownParser(BaseParser):
 
     def _full_markdown(self, html: str) -> str:
         """Convert the whole page, the way this parser always did."""
-        return MHTMLParser(
-            file_name=self.file_name,
-            file_type=self.file_type,
-            extract_images=False,
-        ).html_to_markdown(
-            html,
-            strip_internal_links=False,
-            fallback_to_raw_html=False,
-        ) or ""
+        return (
+            MHTMLParser(
+                file_name=self.file_name,
+                file_type=self.file_type,
+                extract_images=False,
+            ).html_to_markdown(
+                html,
+                strip_internal_links=False,
+                fallback_to_raw_html=False,
+            )
+            or ""
+        )
 
     def parse_into_text(self, content: bytes) -> Document:
         if not content.strip():
@@ -94,13 +97,13 @@ class HTMLToMarkdownParser(BaseParser):
         for block, occurrences in blocks.items():
             if occurrences > 1 and len(block) >= 80 and 0 < full.count(block) < occurrences:
                 logger.info(
-                    "HTML main-content extraction duplicated a body block; keeping the full conversion"
+                    "HTML main-content extraction duplicated a body block; "
+                    "keeping the full conversion"
                 )
                 return Document(content=full)
         if len(extracted) < _MIN_EXTRACTED_CHARS:
             logger.info(
-                "HTML main-content extraction returned %d chars (<%d); "
-                "keeping the full conversion",
+                "HTML main-content extraction returned %d chars (<%d); keeping the full conversion",
                 len(extracted),
                 _MIN_EXTRACTED_CHARS,
             )
@@ -115,8 +118,7 @@ class HTMLToMarkdownParser(BaseParser):
             return Document(content=full)
 
         logger.info(
-            "HTML main-content extraction applied: kept %d chars, "
-            "full conversion would be %d",
+            "HTML main-content extraction applied: kept %d chars, full conversion would be %d",
             len(extracted),
             len(full),
         )

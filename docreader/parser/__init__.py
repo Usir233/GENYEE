@@ -15,8 +15,6 @@ meaningful chunks for further processing and indexing.
 
 from PIL import Image
 
-Image.MAX_IMAGE_PIXELS = 40_000_000
-
 from .doc_parser import DocParser
 from .docx2_parser import Docx2Parser
 from .excel_parser import ExcelParser
@@ -27,6 +25,8 @@ from .parser import Parser
 from .pdf_parser import PDFParser
 from .registry import ParserEngineRegistry, registry
 from .web_parser import WebParser
+
+Image.MAX_IMAGE_PIXELS = 40_000_000
 
 # Export public classes and modules
 __all__ = [

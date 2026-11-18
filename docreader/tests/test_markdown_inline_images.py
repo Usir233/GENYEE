@@ -1,7 +1,6 @@
 """Inline Markdown examples must not become extracted image resources."""
 
 import base64
-from pathlib import Path
 import shutil
 import struct
 import subprocess
@@ -9,8 +8,9 @@ import tarfile
 import tempfile
 import time
 import unittest
-from unittest import mock
 import zlib
+from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
@@ -21,8 +21,7 @@ from docreader.parser.parser import Parser
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 PNG_B64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4"
-    "z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
 )
 IMAGE = f"![example](data:image/png;base64,{PNG_B64})"
 
@@ -37,12 +36,7 @@ def _make_png_bomb_bytes(width: int = 10000, height: int = 10000) -> bytes:
     ihdr = struct.pack(">IIBBBBB", width, height, 1, 0, 0, 0, 0)
     row_bytes = 1 + (width + 7) // 8
     idat = zlib.compress(b"\x00" * (row_bytes * height), level=1)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", ihdr)
-        + chunk(b"IDAT", idat)
-        + chunk(b"IEND", b"")
-    )
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
 
 
 class MarkdownInlineImageTests(unittest.TestCase):
@@ -128,12 +122,14 @@ class MarkdownInlineImageTests(unittest.TestCase):
                     text, extracted = util.extract_image(malformed)
                     self.assertEqual(text, malformed)
                     self.assertEqual(extracted, [])
-                    replaced = util.replace_path(malformed, {"img.png": "https://cdn.example/a.png"})
+                    replaced = util.replace_path(
+                        malformed, {"img.png": "https://cdn.example/a.png"}
+                    )
                     self.assertEqual(replaced, malformed)
                 else:
-                    text, extracted = util.extract_base64(malformed)
+                    text, extracted_b64 = util.extract_base64(malformed)
                     self.assertEqual(text, malformed)
-                    self.assertEqual(extracted, {})
+                    self.assertEqual(extracted_b64, {})
                 elapsed = time.perf_counter() - t0
                 self.assertLess(elapsed, 0.25, f"{label} took {elapsed:.3f}s (ReDoS)")
 
@@ -173,9 +169,10 @@ class MarkdownInlineImageTests(unittest.TestCase):
         self.assertEqual(doc_bomb.content, "bomb")
         self.assertEqual(doc_bomb.images, {})
 
-        # 3. SVG / vector / path-traversal MIME subtypes and spoofed non-raster payloads must be rejected.
+        # 3. SVG / vector / path-traversal MIME subtypes and spoofed payloads must be rejected.
         svg_b64 = base64.b64encode(
-            b'<svg xmlns="http://www.w3.org/2000/svg"><image href="http://169.254.169.254/latest/meta-data/"/></svg>'
+            b'<svg xmlns="http://www.w3.org/2000/svg">'
+            b'<image href="http://169.254.169.254/latest/meta-data/"/></svg>'
         ).decode("ascii")
         for bad_md in (
             f"![svg](data:image/svg+xml;base64,{svg_b64})",
@@ -217,7 +214,9 @@ class MarkdownInlineImageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="genyee-anydoc-sec-") as tmp_dir:
             root = Path(tmp_dir)
             (root / "scripts").mkdir()
-            shutil.copy2(REPO_ROOT / "scripts/build-anydoc-lib.sh", root / "scripts/build-anydoc-lib.sh")
+            shutil.copy2(
+                REPO_ROOT / "scripts/build-anydoc-lib.sh", root / "scripts/build-anydoc-lib.sh"
+            )
             crate = root / "third_party/anydoc-go"
             crate.mkdir(parents=True)
             (crate / "Cargo.toml").write_text('anydoc = "=0.2.4"\n', encoding="utf-8")
@@ -226,8 +225,12 @@ class MarkdownInlineImageTests(unittest.TestCase):
             # Build a crate tarball containing a symlink to verify symlink rejection on unpack.
             src_pkg = root / "pkg-src/anydoc-0.2.4/src"
             src_pkg.mkdir(parents=True)
-            (src_pkg / "lib.rs").write_text("use render::markdown::document_to_markdown;\n", encoding="utf-8")
-            (src_pkg.parent / "Cargo.toml").write_text('[dependencies.zip]\nversion = "8.6.0"\n', encoding="utf-8")
+            (src_pkg / "lib.rs").write_text(
+                "use render::markdown::document_to_markdown;\n", encoding="utf-8"
+            )
+            (src_pkg.parent / "Cargo.toml").write_text(
+                '[dependencies.zip]\nversion = "8.6.0"\n', encoding="utf-8"
+            )
             os_symlink = src_pkg / "escape_link.rs"
             os_symlink.symlink_to("/etc/hosts")
             cache_dir = root / "cargo-home/registry/cache/index"
@@ -240,7 +243,9 @@ class MarkdownInlineImageTests(unittest.TestCase):
 
             tar_sha = hashlib.sha256(crate_tar.read_bytes()).hexdigest()
             (root / "licenses/sources").mkdir(parents=True)
-            (root / "licenses/sources/anydoc.tsv").write_text(f"0.2.4 {tar_sha}\n", encoding="utf-8")
+            (root / "licenses/sources/anydoc.tsv").write_text(
+                f"0.2.4 {tar_sha}\n", encoding="utf-8"
+            )
 
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -260,7 +265,9 @@ class MarkdownInlineImageTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
             )
-            self.assertNotEqual(res.returncode, 0, "Expected unpacked crate with symlink to be rejected")
+            self.assertNotEqual(
+                res.returncode, 0, "Expected unpacked crate with symlink to be rejected"
+            )
             self.assertFalse((crate / "patched-anydoc").exists())
 
             # Verify strip_llvm_lto_sections handles dotted `.llvm.lto` section names,
@@ -276,8 +283,9 @@ class MarkdownInlineImageTests(unittest.TestCase):
             rel_lib.write_bytes(b"ARCHIVE_BYTES_INTACT")
 
             (bin_dir / "go").write_text(
-                f"#!/bin/sh\nif [ \"$1\" = env ]; then echo linux; exit 0; fi\n"
-                f"for a in \"$@\"; do [ \"$a\" = --print-target-dir ] && echo '{target_out}' && exit 0; done\n",
+                '#!/bin/sh\nif [ "$1" = env ]; then echo linux; exit 0; fi\n'
+                f'for a in "$@"; do [ "$a" = --print-target-dir ] && '
+                f"echo '{target_out}' && exit 0; done\n",
                 encoding="utf-8",
             )
             (bin_dir / "go").chmod(0o755)
@@ -288,7 +296,7 @@ class MarkdownInlineImageTests(unittest.TestCase):
             (bin_dir / "readelf").chmod(0o755)
             # Simulate failing cross-arch objcopy that writes partial junk to output before failing.
             (bin_dir / "objcopy").write_text(
-                "#!/bin/sh\necho CORRUPT > \"$3\"\nexit 1\n",
+                '#!/bin/sh\necho CORRUPT > "$3"\nexit 1\n',
                 encoding="utf-8",
             )
             (bin_dir / "objcopy").chmod(0o755)

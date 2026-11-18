@@ -1,4 +1,5 @@
 """MIME related root selection for archives with no explicit start."""
+
 import unittest
 from email.message import EmailMessage
 from unittest.mock import patch
@@ -9,7 +10,9 @@ from docreader.parser.mhtml_parser import MHTMLParser
 def archive(*, root_kind="html", include_start=False, related=True):
     message = EmailMessage()
     message.make_related() if related else message.make_mixed()
-    message.set_param("type", "multipart/alternative" if root_kind == "alternative" else "text/html")
+    message.set_param(
+        "type", "multipart/alternative" if root_kind == "alternative" else "text/html"
+    )
     if include_start:
         message.set_param("start", "<frame>")
     root = EmailMessage()
@@ -44,7 +47,10 @@ class MHTMLImplicitRootTest(unittest.TestCase):
     def test_real_markdown_render_preserves_article_and_embedded_image(self):
         msg = archive()
         root = msg.get_payload()[0]
-        root.set_content('<h1>Actual article</h1><p>Root body</p><img src="figure.png" alt="Figure">', subtype="html")
+        root.set_content(
+            '<h1>Actual article</h1><p>Root body</p><img src="figure.png" alt="Figure">',
+            subtype="html",
+        )
         root["Content-Location"] = "https://example.test/docs/page.html"
         image = EmailMessage()
         image.set_content(b"image fixture", maintype="image", subtype="png")

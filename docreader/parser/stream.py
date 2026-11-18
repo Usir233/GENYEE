@@ -1,7 +1,7 @@
 """Common result types for incremental document parsing."""
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from typing import Callable, Iterator
 
 from docreader.models.document import Document
 

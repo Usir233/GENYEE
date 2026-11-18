@@ -12,10 +12,11 @@ The values that matter most are the ones a wrong answer would hide:
   * fit_quad must enclose every box it was given — a quad that cuts a line off
     is the failure the padding and the supporting lines exist to prevent.
 """
-from concurrent.futures import ThreadPoolExecutor
+
 import threading
-from types import SimpleNamespace
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import cv2
@@ -23,13 +24,15 @@ import numpy as np
 
 from docreader.parser import image_preprocess
 from docreader.parser.image_preprocess import (
+    _THRESHOLDS as THRESHOLDS,
+)
+from docreader.parser.image_preprocess import (
     ANG_TOL,
     DEFAULT_PAD,
     MIN_SCORE,
     PAD,
     QUAD_TOL,
     SIZE_MIN,
-    _THRESHOLDS as THRESHOLDS,
     _boundary_line,
     _intersect,
     _tls,
@@ -104,16 +107,18 @@ class EngineIsolationTest(unittest.TestCase):
             finally:
                 detection_finished.set()
 
-        with patch.object(image_preprocess, "RapidOCR", side_effect=MutableRecognizer):
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                scoring = pool.submit(score_page)
-                try:
-                    self.assertTrue(scoring_started.wait(timeout=5))
-                    detecting = pool.submit(detect_page)
-                    detection_engine, boxes = detecting.result(timeout=5)
-                    score_engine, reused_engine, score, count = scoring.result(timeout=5)
-                finally:
-                    detection_finished.set()
+        with (
+            patch.object(image_preprocess, "RapidOCR", side_effect=MutableRecognizer),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            scoring = pool.submit(score_page)
+            try:
+                self.assertTrue(scoring_started.wait(timeout=5))
+                detecting = pool.submit(detect_page)
+                detection_engine, boxes = detecting.result(timeout=5)
+                score_engine, reused_engine, score, count = scoring.result(timeout=5)
+            finally:
+                detection_finished.set()
 
         self.assertAlmostEqual(score, 0.9, places=6)
         self.assertEqual(count, 1)
@@ -125,12 +130,16 @@ class EngineIsolationTest(unittest.TestCase):
         def create():
             return image_preprocess._engine()
 
-        with patch.object(image_preprocess, "RapidOCR") as factory:
-            with ThreadPoolExecutor(max_workers=1) as pool:
-                pool.submit(create).result(timeout=5)
+        with (
+            patch.object(image_preprocess, "RapidOCR") as factory,
+            ThreadPoolExecutor(max_workers=1) as pool,
+        ):
+            pool.submit(create).result(timeout=5)
         params = factory.call_args.kwargs["params"]
-        self.assertEqual(params["EngineConfig.onnxruntime.intra_op_num_threads"],
-                         image_preprocess.CONFIG.preprocess_threads)
+        self.assertEqual(
+            params["EngineConfig.onnxruntime.intra_op_num_threads"],
+            image_preprocess.CONFIG.preprocess_threads,
+        )
         self.assertEqual(params["EngineConfig.onnxruntime.inter_op_num_threads"], 1)
 
 
@@ -207,8 +216,8 @@ class DominantAngleTest(unittest.TestCase):
 class FilterItemsTest(unittest.TestCase):
     def test_keeps_what_agrees_and_drops_the_rest(self):
         items = [line(10 * i, 50, 100, 0) for i in range(1, 4)]
-        items.append(line(500, 50, 100, 45))     # a background object's edge
-        items.append(line(600, 50, 10, 0))       # a speck, far below the median
+        items.append(line(500, 50, 100, 45))  # a background object's edge
+        items.append(line(600, 50, 10, 0))  # a speck, far below the median
         kept = filter_items(items, 0.0)
         self.assertEqual(len(kept), 3)
 
@@ -263,8 +272,9 @@ class BoundaryLineTest(unittest.TestCase):
     def test_sloped_sides_are_fitted_across_both_axes(self):
         # A perspective-distorted page narrows from 100 to 60 pixels. Its side
         # slopes are within the accepted range and span the full page height.
-        pts = np.array([(x, y) for y in range(0, 201, 5)
-                        for x in (0.1 * y, 100 - 0.1 * y)], "float32")
+        pts = np.array(
+            [(x, y) for y in range(0, 201, 5) for x in (0.1 * y, 100 - 0.1 * y)], "float32"
+        )
         for axis, points in ((0, pts), (1, pts[:, ::-1])):
             for side, expected_slope, expected_intercept in (("min", 0.1, 0), ("max", -0.1, 100)):
                 with self.subTest(axis=axis, side=side):
@@ -319,13 +329,16 @@ class OrderPointsTest(unittest.TestCase):
     def test_corners_come_back_in_a_known_order(self):
         corners = np.array([(100.0, 80.0), (0.0, 0.0), (0.0, 80.0), (100.0, 0.0)], "float32")
         ordered = order_pts(corners)
-        self.assertEqual([tuple(p) for p in ordered], [(0.0, 0.0), (100.0, 0.0), (100.0, 80.0), (0.0, 80.0)])
+        self.assertEqual(
+            [tuple(p) for p in ordered], [(0.0, 0.0), (100.0, 0.0), (100.0, 80.0), (0.0, 80.0)]
+        )
 
 
 class FitQuadTest(unittest.TestCase):
     def test_perspective_edges_produce_a_trapezoid_instead_of_a_bounding_box(self):
-        pts = np.array([(x, y) for y in range(0, 201, 5)
-                        for x in (0.1 * y, 100 - 0.1 * y)], "float32")
+        pts = np.array(
+            [(x, y) for y in range(0, 201, 5) for x in (0.1 * y, 100 - 0.1 * y)], "float32"
+        )
         quad = fit_quad(pts)
         self.assertIsNotNone(quad)
         np.testing.assert_allclose(quad, [[0, 0], [100, 0], [80, 200], [20, 200]], atol=1e-4)
@@ -359,10 +372,14 @@ class FitQuadTest(unittest.TestCase):
 
 class WarpTest(unittest.TestCase):
     def test_fitted_perspective_edges_become_straight_after_warp(self):
-        pts = np.array([(x + 50, y + 50) for y in range(0, 201, 5)
-                        for x in (0.1 * y, 100 - 0.1 * y)], "float32")
+        pts = np.array(
+            [(x + 50, y + 50) for y in range(0, 201, 5) for x in (0.1 * y, 100 - 0.1 * y)],
+            "float32",
+        )
         img = np.zeros((300, 200, 3), "uint8")
-        cv2.fillConvexPoly(img, np.array([[50, 50], [150, 50], [130, 250], [70, 250]]), (255, 255, 255))
+        cv2.fillConvexPoly(
+            img, np.array([[50, 50], [150, 50], [130, 250], [70, 250]]), (255, 255, 255)
+        )
         rect, _ = warp(img, fit_quad(pts), pad=0)
         # A bounding-box crop retains black wedges beside the narrower end.
         # Rectification must fill both sides throughout the page height.
@@ -432,6 +449,18 @@ class ThresholdsTest(unittest.TestCase):
         self.assertEqual(effective["ANG_TOL"], ANG_TOL)
         self.assertEqual(effective["SIZE_MIN"], SIZE_MIN)
         self.assertEqual(effective["QUAD_TOL"], QUAD_TOL)
+
+    def test_detect_handles_none_boxes_and_scores_on_blank_image(self):
+        class EmptyRecognizer:
+            def __call__(self, img, *, use_cls):
+                return SimpleNamespace(boxes=None, scores=None)
+
+        img = np.full((32, 32, 3), 255, dtype="uint8")
+        with patch.object(image_preprocess, "_engine", return_value=EmptyRecognizer()):
+            self.assertEqual(image_preprocess.detect(img), [])
+            verdict = image_preprocess.preprocess(img)
+            self.assertEqual(verdict["status"], "no_text")
+            self.assertIsNone(verdict["rect"])
 
 
 if __name__ == "__main__":

@@ -1,15 +1,13 @@
 import base64
-from html import escape
 import unittest
+from html import escape
 from unittest.mock import patch
 
 from docreader.parser.epub_parser import EPUBParser
 from docreader.tests.epub_builder import NAV, NCX, Chapter, Item, build_epub
 
-
 _LOCAL_PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a"
-    "c1kAAAAASUVORK5CYII="
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ac1kAAAAASUVORK5CYII="
 )
 
 

@@ -10,12 +10,11 @@ from PIL import Image
 import docreader.parser.pdf_parser as pdf_parser
 from docreader.parser.pdf_parser import (
     PDFParser,
+    _chars_to_layout_markdown,
     _classify_page,
     _encode_rendered_page_images,
     _filter_reading_columns,
     _group_lines,
-    _is_artifact_column,
-    _chars_to_layout_markdown,
     _join_line_glyphs,
     _looks_like_numeric_table_columns,
     _merge_orphan_punctuation_lines,
@@ -87,78 +86,74 @@ class PDFStreamTest(unittest.TestCase):
         content = _make_image_only_pdf(2)
         real_render = pdf_parser._render_page_to_jpeg
 
-        with patch.object(
-            pdf_parser,
-            "CONFIG",
-            replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                pdf_parser,
+                "CONFIG",
+                replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
+            ),
+            patch.object(
                 pdf_parser,
                 "_render_page_to_jpeg",
                 wraps=real_render,
-            ) as render:
-                stream = PDFParser(file_name="scan.pdf").parse_stream(content)
-                try:
-                    self.assertEqual(stream.image_count, 2)
-                    self.assertEqual(stream.document.images, {})
-                    self.assertEqual(
-                        stream.document.metadata["scanned_page_count"], 2
-                    )
-                    self.assertEqual(render.call_count, 0)
+            ) as render,
+        ):
+            stream = PDFParser(file_name="scan.pdf").parse_stream(content)
+            try:
+                self.assertEqual(stream.image_count, 2)
+                self.assertEqual(stream.document.images, {})
+                self.assertEqual(stream.document.metadata["scanned_page_count"], 2)
+                self.assertEqual(render.call_count, 0)
 
-                    image = next(stream.images)
-                    self.assertEqual(image.ref_path, "images/scan_page_1.jpg")
-                    self.assertEqual(render.call_count, 1)
-                finally:
-                    stream.close()
+                image = next(stream.images)
+                self.assertEqual(image.ref_path, "images/scan_page_1.jpg")
+                self.assertEqual(render.call_count, 1)
+            finally:
+                stream.close()
 
     def test_scanned_pages_are_rendered_lazily_in_bounded_batches(self):
         content = _make_image_only_pdf(40)
         real_render = pdf_parser._render_page_to_jpeg
 
-        with patch.object(
-            pdf_parser,
-            "CONFIG",
-            replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                pdf_parser,
+                "CONFIG",
+                replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
+            ),
+            patch.object(
                 pdf_parser,
                 "_render_page_to_jpeg",
                 wraps=real_render,
-            ) as render:
-                stream = PDFParser(
-                    file_name="scan.pdf", pdf_force_scanned=True
-                ).parse_stream(content)
-                try:
-                    self.assertEqual(stream.image_count, 40)
-                    self.assertEqual(stream.document.images, {})
-                    self.assertEqual(render.call_count, 0)
+            ) as render,
+        ):
+            stream = PDFParser(file_name="scan.pdf", pdf_force_scanned=True).parse_stream(content)
+            try:
+                self.assertEqual(stream.image_count, 40)
+                self.assertEqual(stream.document.images, {})
+                self.assertEqual(render.call_count, 0)
 
-                    first = next(stream.images)
-                    self.assertEqual(first.ref_path, "images/scan_page_1.jpg")
-                    self.assertTrue(first.image_data.startswith(b"\xff\xd8"))
-                    self.assertEqual(render.call_count, 1)
+                first = next(stream.images)
+                self.assertEqual(first.ref_path, "images/scan_page_1.jpg")
+                self.assertTrue(first.image_data.startswith(b"\xff\xd8"))
+                self.assertEqual(render.call_count, 1)
 
-                    for _ in range(pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES - 1):
-                        next(stream.images)
-                    self.assertEqual(
-                        render.call_count, pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES
-                    )
+                for _ in range(pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES - 1):
+                    next(stream.images)
+                self.assertEqual(render.call_count, pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES)
 
-                    next_batch = next(stream.images)
-                    expected_next_page = (
-                        pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES + 1
-                    )
-                    self.assertEqual(
-                        next_batch.ref_path,
-                        f"images/scan_page_{expected_next_page}.jpg",
-                    )
-                    self.assertEqual(
-                        render.call_count,
-                        pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES + 1,
-                    )
-                finally:
-                    stream.close()
+                next_batch = next(stream.images)
+                expected_next_page = pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES + 1
+                self.assertEqual(
+                    next_batch.ref_path,
+                    f"images/scan_page_{expected_next_page}.jpg",
+                )
+                self.assertEqual(
+                    render.call_count,
+                    pdf_parser.PDF_STREAM_RENDER_BATCH_PAGES + 1,
+                )
+            finally:
+                stream.close()
 
     def test_parallel_stream_bounds_in_flight_render_results(self):
         tracker = {
@@ -202,41 +197,41 @@ class PDFStreamTest(unittest.TestCase):
                 index = args[0]
                 tracker["submitted"] += 1
                 tracker["pending"] += 1
-                tracker["max_pending"] = max(
-                    tracker["max_pending"], tracker["pending"]
-                )
+                tracker["max_pending"] = max(tracker["max_pending"], tracker["pending"])
                 return Future((index, b"jpeg"))
 
             def shutdown(self, **kwargs):
                 tracker["shutdown"] = True
                 events.append("shutdown")
 
-        with patch.object(pdf_parser, "_select_mp_context", return_value=object()):
-            with patch("concurrent.futures.ProcessPoolExecutor", Executor):
-                with patch.object(
-                    pdf_parser, "parser_worker_limit", tracking_limit
-                ):
-                    images = pdf_parser._iter_scanned_pages_from_path(
-                        "unused.pdf",
-                        list(range(100)),
-                        "scan",
-                        1.0,
-                        85,
-                        0,
-                        4,
-                    )
-                    try:
-                        first = next(images)
-                        self.assertEqual(first.ref_path, "images/scan_page_1.jpg")
-                        self.assertEqual(tracker["submitted"], 9)
-                        self.assertEqual(tracker["pending"], 8)
-                        self.assertEqual(tracker["max_pending"], 8)
+        with (
+            patch.object(pdf_parser, "_select_mp_context", return_value=object()),
+            patch("concurrent.futures.ProcessPoolExecutor", Executor),
+            patch.object(pdf_parser, "parser_worker_limit", tracking_limit),
+        ):
+            images = pdf_parser._iter_scanned_pages_from_path(
+                "unused.pdf",
+                list(range(100)),
+                "scan",
+                1.0,
+                85,
+                0,
+                4,
+            )
+            try:
+                first = next(images)
+                self.assertEqual(first.ref_path, "images/scan_page_1.jpg")
+                self.assertEqual(tracker["submitted"], 9)
+                self.assertEqual(tracker["pending"], 8)
+                self.assertEqual(tracker["max_pending"], 8)
 
-                        second = next(images)
-                        self.assertEqual(second.ref_path, "images/scan_page_2.jpg")
-                        self.assertLessEqual(tracker["pending"], 8)
-                    finally:
-                        images.close()
+                second = next(images)
+                self.assertEqual(second.ref_path, "images/scan_page_2.jpg")
+                self.assertLessEqual(tracker["pending"], 8)
+            finally:
+                close_fn = getattr(images, "close", None)
+                if callable(close_fn):
+                    close_fn()
 
         self.assertEqual(tracker["pending"], 0)
         self.assertTrue(tracker["shutdown"])
@@ -252,25 +247,25 @@ class PDFStreamTest(unittest.TestCase):
             created_paths.append(path)
             return path
 
-        with patch.object(
-            pdf_parser,
-            "CONFIG",
-            replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                pdf_parser,
+                "CONFIG",
+                replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
+            ),
+            patch.object(
                 pdf_parser,
                 "_write_pdf_temp_file",
                 side_effect=record_temp_path,
-            ):
-                stream = PDFParser(
-                    file_name="scan.pdf", pdf_force_scanned=True
-                ).parse_stream(content)
-                temp_path = created_paths[0]
-                try:
-                    self.assertTrue(os.path.exists(temp_path))
-                finally:
-                    stream.close()
-                self.assertFalse(os.path.exists(temp_path))
+            ),
+        ):
+            stream = PDFParser(file_name="scan.pdf", pdf_force_scanned=True).parse_stream(content)
+            temp_path = created_paths[0]
+            try:
+                self.assertTrue(os.path.exists(temp_path))
+            finally:
+                stream.close()
+            self.assertFalse(os.path.exists(temp_path))
 
     def test_unary_pdf_parser_still_collects_scanned_images(self):
         content = _make_image_only_pdf(2)
@@ -279,9 +274,9 @@ class PDFStreamTest(unittest.TestCase):
             "CONFIG",
             replace(pdf_parser.CONFIG, pdf_render_parallelism=1),
         ):
-            document = PDFParser(
-                file_name="scan.pdf", pdf_force_scanned=True
-            ).parse_into_text(content)
+            document = PDFParser(file_name="scan.pdf", pdf_force_scanned=True).parse_into_text(
+                content
+            )
 
         self.assertEqual(len(document.images), 2)
         self.assertIn("images/scan_page_1.jpg", document.images)
@@ -441,7 +436,9 @@ class HiddenTextFilterTest(unittest.TestCase):
         self.assertEqual(len(chars), 1)
         self.assertFalse(filtered)
         textpage.count_chars = lambda: 0
-        self.assertEqual(_page_chars(textpage, page, raw, return_filter_info=True), ([], 0.0, False))
+        self.assertEqual(
+            _page_chars(textpage, page, raw, return_filter_info=True), ([], 0.0, False)
+        )
 
     def test_page_chars_reports_filtered_off_page_glyphs(self):
         class FakeTextPage:
@@ -496,10 +493,7 @@ class MarginColumnFilterTest(unittest.TestCase):
 
     def test_drops_narrow_vertical_margin_column(self):
         # Mimics arXiv sidebar: narrow x span, one glyph per line.
-        margin = [
-            _char(c, 20, 28, 500 - i * 14, 512 - i * 14)
-            for i, c in enumerate("0202luJ22")
-        ]
+        margin = [_char(c, 20, 28, 500 - i * 14, 512 - i * 14) for i, c in enumerate("0202luJ22")]
         body = [
             _char("L", 160, 170, 700, 712),
             _char("a", 170, 180, 700, 712),
@@ -527,15 +521,12 @@ class MarginColumnFilterTest(unittest.TestCase):
             y = 700 - i * 40
             for j, ch in enumerate(value):
                 chars.append(_char(ch, 500 + j * 8, 506 + j * 8, y, y + 10))
-        self.assertTrue(
-            _looks_like_numeric_table_columns(chars, scale=10.0, width=600.0)
-        )
+        self.assertTrue(_looks_like_numeric_table_columns(chars, scale=10.0, width=600.0))
 
     def test_numeric_table_keeps_rows_and_drops_unrelated_artifact_column(self):
         chars = self._table_chars([("Aster", "124"), ("Willow", "237")])
         chars.extend(
-            _char(c, 20, 28, 500 - i * 14, 512 - i * 14)
-            for i, c in enumerate("0202luJ22")
+            _char(c, 20, 28, 500 - i * 14, 512 - i * 14) for i, c in enumerate("0202luJ22")
         )
         text = _chars_to_layout_markdown(chars, scale=10.0, width=600.0)
         self.assertIn("Aster 124", text)
@@ -545,15 +536,11 @@ class MarginColumnFilterTest(unittest.TestCase):
     def test_numeric_table_hint_does_not_match_two_text_columns(self):
         left = [_char("L", 50, 150, 700 - i * 12, 712 - i * 12) for i in range(4)]
         right = [_char("R", 400, 500, 700 - i * 12, 712 - i * 12) for i in range(4)]
-        self.assertFalse(
-            _looks_like_numeric_table_columns(left + right, scale=12.0, width=600.0)
-        )
+        self.assertFalse(_looks_like_numeric_table_columns(left + right, scale=12.0, width=600.0))
 
     def test_layout_keeps_repeated_values_and_empty_cells_in_rows(self):
         repeated = _chars_to_layout_markdown(
-            self._table_chars(
-                [("Aster", "1"), ("Willow", "1")]
-            ),
+            self._table_chars([("Aster", "1"), ("Willow", "1")]),
             scale=10.0,
             width=600.0,
         )
@@ -561,9 +548,7 @@ class MarginColumnFilterTest(unittest.TestCase):
         self.assertIn("Willow 1", repeated)
 
         with_empty = _chars_to_layout_markdown(
-            self._table_chars(
-                [("Aster", None), ("Willow", "237")]
-            ),
+            self._table_chars([("Aster", None), ("Willow", "237")]),
             scale=10.0,
             width=600.0,
         )
@@ -659,7 +644,9 @@ class PdfTextSanitizeTest(unittest.TestCase):
             with self.subTest(rows=rows):
                 self.assertTrue(_tail_looks_like_numeric_table(rows + [""]))
                 self.assertFalse(_tail_looks_like_numeric_table(rows + ["identity"]))
-                out = _postprocess_pdf_text("\n".join(rows + ["identity", "Figure 1. Diagram", "After"]))
+                out = _postprocess_pdf_text(
+                    "\n".join(rows + ["identity", "Figure 1. Diagram", "After"])
+                )
                 self.assertNotIn("identity", out)
                 self.assertIn("\n".join(rows), out)
 
@@ -693,10 +680,7 @@ class PlainWellFormedTest(unittest.TestCase):
     def test_academic_plain_skips_layout(self):
         from docreader.parser.pdf_parser import _plain_is_well_formed
 
-        plain = (
-            "Recent work [DL15, MBXS17] shows progress on NLP tasks "
-            "with pre-trained models."
-        )
+        plain = "Recent work [DL15, MBXS17] shows progress on NLP tasks with pre-trained models."
         self.assertTrue(_plain_is_well_formed(plain))
 
     def test_glued_scan_plain_needs_layout(self):
@@ -729,9 +713,7 @@ class LayoutQualityFallbackTest(unittest.TestCase):
     def test_does_not_prefer_plain_numeric_rows_without_table_hint(self):
         plain = "Method 2020\nDataset 2021"
         layout = "Method\nDataset\n2020\n2021"
-        self.assertFalse(
-            _should_prefer_plain(plain, layout, allow_structured_rows=False)
-        )
+        self.assertFalse(_should_prefer_plain(plain, layout, allow_structured_rows=False))
 
 
 class ResNetPaperFigureTest(unittest.TestCase):
@@ -741,7 +723,9 @@ class ResNetPaperFigureTest(unittest.TestCase):
         import os
 
         from docreader.parser.pdf_parser import PDFParser
+        from docreader.tests.test_source_locator_pdf import pdf_fixture
 
+        content: bytes | None = None
         for path in (
             os.path.join(
                 os.path.dirname(__file__),
@@ -755,14 +739,41 @@ class ResNetPaperFigureTest(unittest.TestCase):
             "/tmp/resnet.pdf",
         ):
             if os.path.isfile(path):
+                with open(path, "rb") as f:
+                    content = f.read()
                 break
-        else:
-            self.skipTest("resnet.pdf not available")
-
-        with open(path, "rb") as f:
-            doc = PDFParser(file_name="resnet.pdf", file_type="pdf").parse_into_text(
-                f.read()
+        if content is None:
+            content = pdf_fixture(
+                [
+                    {
+                        "lines": [
+                            ("arXiv:1512.03385v1 [cs.CV] 10 Dec 2015", 80, 760),
+                            (
+                                "Deep residual networks reformulate layers as learning "
+                                "residual functions with reference to layer inputs.",
+                                80,
+                                700,
+                            ),
+                            (
+                                "Shortcut connections perform skip mapping and their "
+                                "outputs are added to the stacked layer outputs.",
+                                80,
+                                670,
+                            ),
+                            ("weight layer", 180, 490),
+                            ("relu", 210, 460),
+                            ("identity", 320, 430),
+                            (
+                                "Figure 2. Residual learning: a building block for deep nets.",
+                                80,
+                                360,
+                            ),
+                        ]
+                    }
+                ]
             )
+
+        doc = PDFParser(file_name="resnet.pdf", file_type="pdf").parse_into_text(content)
         self.assertGreater(doc.metadata.get("vector_figure_count", 0), 0)
         self.assertIn("![", doc.content)
         self.assertIn("Figure 2. Residual learning", doc.content)
@@ -783,6 +794,7 @@ class Gpt3PaperLayoutTest(unittest.TestCase):
         import pypdfium2.raw as pdfium_r
 
         from docreader.parser.pdf_parser import PDFParser, _extract_layout_text
+        from docreader.tests.test_source_locator_pdf import pdf_fixture
 
         pdf_path = os.path.join(
             os.path.dirname(__file__),
@@ -793,10 +805,41 @@ class Gpt3PaperLayoutTest(unittest.TestCase):
             "pdf_en",
             "gpt3.pdf",
         )
-        if not os.path.isfile(pdf_path):
-            self.skipTest("gpt3.pdf not in testdata")
-        with open(pdf_path, "rb") as f:
-            content = f.read()
+        if os.path.isfile(pdf_path):
+            with open(pdf_path, "rb") as f:
+                content = f.read()
+        else:
+            sidebar = [
+                (ch, 18, 560 - idx * 16)
+                for idx, ch in enumerate(("0", "2", "0", "2", "l", "u", "J", "2", "2"))
+            ]
+            content = pdf_fixture(
+                [
+                    {
+                        "lines": sidebar
+                        + [
+                            ("Language Models are Few-Shot Learners", 95, 720),
+                            ("Tom", 95.0, 685),
+                            ("B.", 126.9, 685),
+                            ("Brown", 144.0, 685),
+                        ]
+                    },
+                    {
+                        "lines": [
+                            (
+                                "Recent work [DL15, MBXS17, PNZtY18] demonstrates gains",
+                                60,
+                                700,
+                            ),
+                            (
+                                r"without \(task-specific architectures\), and more recently",
+                                60,
+                                675,
+                            ),
+                        ]
+                    },
+                ]
+            )
         with pdfium.PdfDocument(content) as pdf:
             page = pdf[0]
             try:
@@ -826,6 +869,7 @@ class ScanEnglishDictLayoutTest(unittest.TestCase):
         import pypdfium2.raw as pdfium_r
 
         from docreader.parser.pdf_parser import _extract_layout_text
+        from docreader.tests.test_source_locator_pdf import pdf_fixture
 
         pdf_path = os.path.join(
             os.path.dirname(__file__),
@@ -836,10 +880,27 @@ class ScanEnglishDictLayoutTest(unittest.TestCase):
             "pdf_scan",
             "scan_en_dict.pdf",
         )
-        if not os.path.isfile(pdf_path):
-            self.skipTest("scan_en_dict.pdf not in testdata")
-        with open(pdf_path, "rb") as f:
-            pdf = pdfium.PdfDocument(f.read())
+        if os.path.isfile(pdf_path):
+            with open(pdf_path, "rb") as f:
+                content = f.read()
+        else:
+            content = pdf_fixture(
+                [
+                    {
+                        "lines": [
+                            ("This", 60.0, 700),
+                            ("is", 92.0, 700),
+                            ("a", 108.0, 700),
+                            ("digital", 122.0, 700),
+                            ("copy", 168.0, 700),
+                            ("of", 204.0, 700),
+                            ("a", 222.0, 700),
+                            ("book", 236.0, 700),
+                        ]
+                    }
+                ]
+            )
+        pdf = pdfium.PdfDocument(content)
         try:
             text = _extract_layout_text(pdf[0], pdfium_r)
         finally:
@@ -919,9 +980,7 @@ class PDFRouterIntegrationTest(unittest.TestCase):
 
     def test_image_only_pdf_routes_to_scanned(self):
         pdf_bytes = _make_image_only_pdf(2)
-        doc = PDFParser(file_name="imgonly.pdf", file_type="pdf").parse_into_text(
-            pdf_bytes
-        )
+        doc = PDFParser(file_name="imgonly.pdf", file_type="pdf").parse_into_text(pdf_bytes)
 
         self.assertEqual(doc.metadata["image_source_type"], "scanned_pdf")
         self.assertEqual(doc.metadata["page_count"], 2)
@@ -933,18 +992,14 @@ class PDFRouterIntegrationTest(unittest.TestCase):
         import base64
 
         self.assertTrue(
-            base64.b64decode(doc.images["images/imgonly_page_1.jpg"]).startswith(
-                b"\xff\xd8"
-            )
+            base64.b64decode(doc.images["images/imgonly_page_1.jpg"]).startswith(b"\xff\xd8")
         )
 
     def test_malformed_pdf_raises_after_fallback(self):
         # Routing fails to open the PDF, falls back to full rendering which also
         # fails on garbage input; the error surfaces to the caller.
-        with self.assertRaises(Exception):
-            PDFParser(file_name="broken.pdf", file_type="pdf").parse_into_text(
-                b"not a pdf"
-            )
+        with self.assertRaises(ValueError):
+            PDFParser(file_name="broken.pdf", file_type="pdf").parse_into_text(b"not a pdf")
 
 
 class ForceScannedTest(unittest.TestCase):
@@ -957,16 +1012,12 @@ class ForceScannedTest(unittest.TestCase):
 
     def test_force_scanned_via_kwarg_true(self):
         """Per-upload override pdf_force_scanned=true enables scanned mode."""
-        parser = PDFParser(
-            file_name="test.pdf", file_type="pdf", pdf_force_scanned="true"
-        )
+        parser = PDFParser(file_name="test.pdf", file_type="pdf", pdf_force_scanned="true")
         self.assertTrue(parser._force_scanned)
 
     def test_force_scanned_via_kwarg_false(self):
         """Per-upload override pdf_force_scanned=false disables scanned mode."""
-        parser = PDFParser(
-            file_name="test.pdf", file_type="pdf", pdf_force_scanned="false"
-        )
+        parser = PDFParser(file_name="test.pdf", file_type="pdf", pdf_force_scanned="false")
         self.assertFalse(parser._force_scanned)
 
     def test_force_scanned_via_kwarg_overrides_env(self, monkeypatch=None):
@@ -977,9 +1028,7 @@ class ForceScannedTest(unittest.TestCase):
         try:
             pdf_mod.FORCE_SCANNED_PDF = True
             # Explicit false override should win over env=true
-            parser = PDFParser(
-                file_name="test.pdf", file_type="pdf", pdf_force_scanned="false"
-            )
+            parser = PDFParser(file_name="test.pdf", file_type="pdf", pdf_force_scanned="false")
             self.assertFalse(parser._force_scanned)
         finally:
             pdf_mod.FORCE_SCANNED_PDF = old
@@ -999,9 +1048,7 @@ class ForceScannedTest(unittest.TestCase):
     def test_force_scanned_output_is_scanned_pdf(self):
         """Force-scanned mode produces scanned_pdf metadata and image refs."""
         pdf_bytes = _make_image_only_pdf(2)
-        parser = PDFParser(
-            file_name="forced.pdf", file_type="pdf", pdf_force_scanned="true"
-        )
+        parser = PDFParser(file_name="forced.pdf", file_type="pdf", pdf_force_scanned="true")
         doc = parser.parse_into_text(pdf_bytes)
         self.assertEqual(doc.metadata.get("image_source_type"), "scanned_pdf")
         self.assertEqual(doc.metadata.get("page_count"), 2)
@@ -1012,6 +1059,28 @@ class ForceScannedTest(unittest.TestCase):
         self.assertIn("![forced_page_1.jpg]", doc.content)
         self.assertIn("![forced_page_2.jpg]", doc.content)
         self.assertEqual(len(doc.images), 2)
+
+    def test_route_handles_none_layout_data_without_falling_back_to_scanned(self):
+        import pypdf
+
+        writer = pypdf.PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        buf = io.BytesIO()
+        writer.write(buf)
+        pdf_bytes = buf.getvalue()
+
+        with (
+            patch.object(pdf_parser, "_extract_page_text", return_value="Short text"),
+            patch.object(pdf_parser, "_page_image_area_ratio", return_value=0.0),
+            patch.object(pdf_parser, "_plain_is_well_formed", return_value=False),
+            patch.object(pdf_parser, "_page_has_filtered_text", return_value=False),
+            patch.object(pdf_parser, "_extract_layout_text", return_value=None),
+        ):
+            doc = PDFParser(file_name="native.pdf", file_type="pdf").parse_into_text(pdf_bytes)
+
+        self.assertEqual(doc.metadata.get("text_page_count"), 1)
+        self.assertEqual(doc.metadata.get("scanned_page_count"), 0)
+        self.assertEqual(doc.content, "Short text")
 
 
 if __name__ == "__main__":

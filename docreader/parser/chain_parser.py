@@ -7,11 +7,10 @@ This module provides two chain-of-responsibility pattern implementations for doc
 """
 
 import logging
-from typing import Dict, List, Tuple, Type
 
 from docreader.models.document import Document
-from docreader.parser.base_parser import BaseParser
 from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.base_parser import BaseParser
 from docreader.parser.concurrency import ParserCancelled, check_cancellation
 from docreader.utils import endecode
 
@@ -35,14 +34,14 @@ class FirstParser(BaseParser):
     """
 
     # Tuple of parser classes to be instantiated
-    _parser_cls: Tuple[Type["BaseParser"], ...] = ()
+    _parser_cls: tuple[type["BaseParser"], ...] = ()
 
     def __init__(self, *args, **kwargs):
         """Initialize FirstParser with configured parser classes."""
         super().__init__(*args, **kwargs)
 
         # Instantiate all parser classes into parser instances
-        self._parsers: List[BaseParser] = []
+        self._parsers: list[BaseParser] = []
         for parser_cls in self._parser_cls:
             parser = parser_cls(*args, **kwargs)
             self._parsers.append(parser)
@@ -65,7 +64,10 @@ class FirstParser(BaseParser):
             except (ArchiveLimitError, ParserCancelled):
                 raise
             except ValueError as e:
-                if any(msg in str(e).lower() for msg in ("exceeds limit", "compression ratio", "suspicious compression")):
+                if any(
+                    msg in str(e).lower()
+                    for msg in ("exceeds limit", "compression ratio", "suspicious compression")
+                ):
                     raise
                 logger.exception(
                     "FirstParser: parser %s raised exception; trying next parser",
@@ -85,7 +87,7 @@ class FirstParser(BaseParser):
         return Document()
 
     @classmethod
-    def create(cls, *parser_classes: Type["BaseParser"]) -> Type["FirstParser"]:
+    def create(cls, *parser_classes: type["BaseParser"]) -> type["FirstParser"]:
         """Factory method to create a FirstParser subclass with specific parsers.
 
         Args:
@@ -120,14 +122,14 @@ class PipelineParser(BaseParser):
     """
 
     # Tuple of parser classes to be instantiated and chained
-    _parser_cls: Tuple[Type["BaseParser"], ...] = ()
+    _parser_cls: tuple[type["BaseParser"], ...] = ()
 
     def __init__(self, *args, **kwargs):
         """Initialize PipelineParser with configured parser classes."""
         super().__init__(*args, **kwargs)
 
         # Instantiate all parser classes into parser instances
-        self._parsers: List[BaseParser] = []
+        self._parsers: list[BaseParser] = []
         for parser_cls in self._parser_cls:
             parser = parser_cls(*args, **kwargs)
             self._parsers.append(parser)
@@ -146,8 +148,8 @@ class PipelineParser(BaseParser):
                      with accumulated images from all stages
         """
         # Accumulate images and metadata from all parsers
-        images: Dict[str, str] = {}
-        metadata: Dict = {}
+        images: dict[str, str] = {}
+        metadata: dict = {}
         document = Document()
         for p in self._parsers:
             check_cancellation(self.context)
@@ -165,7 +167,7 @@ class PipelineParser(BaseParser):
         return document
 
     @classmethod
-    def create(cls, *parser_classes: Type["BaseParser"]) -> Type["PipelineParser"]:
+    def create(cls, *parser_classes: type["BaseParser"]) -> type["PipelineParser"]:
         """Factory method to create a PipelineParser subclass with specific parsers.
 
         Args:

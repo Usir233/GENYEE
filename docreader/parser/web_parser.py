@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import logging
+import os
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
 
 from lxml.etree import XPath
 from playwright.async_api import Page, async_playwright
@@ -12,12 +16,27 @@ from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.chain_parser import PipelineParser
+from docreader.parser.concurrency import (
+    ParserCancelled,
+    check_cancellation,
+    parser_worker_limit,
+)
 from docreader.parser.markdown_parser import MarkdownParser
 from docreader.utils import endecode
 from docreader.utils.ssrf import is_ssrf_safe_url
 from docreader.utils.ssrf_proxy import SSRFProxy
 
 logger = logging.getLogger(__name__)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
 
 
 class WebParseError(RuntimeError):
@@ -35,6 +54,10 @@ _SPA_WAIT_TIMEOUT_MS = 15_000
 _SPA_MIN_TEXT_LEN = 80
 # Minimum visible characters for Playwright text fallback when trafilatura fails.
 _MIN_FALLBACK_TEXT_LEN = 50
+# Default concurrency cap for WebKit browser launches.
+WEB_MAX_WORKERS = _env_int("DOCREADER_WEB_MAX_WORKERS", 2)
+# Hard ceiling on scraped HTML bytes to prevent unbounded DOM memory blowup.
+MAX_WEB_HTML_BYTES = 10 * 1024 * 1024
 
 # Monkey-patch trafilatura internals to better support WeChat Official Account
 # articles, whose images live on `mmbiz.qpic.cn` without a standard file
@@ -56,9 +79,7 @@ try:
     if not any(str(x) == _wechat_xpath_str for x in xpaths.BODY_XPATH):
         xpaths.BODY_XPATH.insert(0, _WECHAT_BODY_XPATH)
 except (AttributeError, ImportError) as e:
-    logger.warning(
-        "Failed to patch trafilatura internals for WeChat support: %s", e
-    )
+    logger.warning("Failed to patch trafilatura internals for WeChat support: %s", e)
 
 
 @dataclass(frozen=True)
@@ -70,7 +91,7 @@ class _ScrapeResult:
     http_status: int | None = None
 
 
-def extract_markdown_from_html(html: str) -> Optional[str]:
+def extract_markdown_from_html(html: str) -> str | None:
     """Run trafilatura on HTML; return markdown or None if nothing extracted."""
     if not html or not html.strip():
         return None
@@ -87,7 +108,7 @@ def extract_markdown_from_html(html: str) -> Optional[str]:
     return md_text
 
 
-def build_visible_text_fallback(visible_text: str, page_title: str = "") -> Optional[str]:
+def build_visible_text_fallback(visible_text: str, page_title: str = "") -> str | None:
     """Build markdown from Playwright-visible text when trafilatura finds no article body."""
     text = (visible_text or "").strip()
     if len(text) < _MIN_FALLBACK_TEXT_LEN:
@@ -103,6 +124,8 @@ async def wait_for_rendered_content(page: Page) -> None:
     try:
         await page.wait_for_load_state("networkidle", timeout=_NETWORK_IDLE_TIMEOUT_MS)
         logger.info("Network idle after navigation")
+    except (ParserCancelled, asyncio.CancelledError):
+        raise
     except Exception:
         logger.info("Network idle wait timed out, continuing")
 
@@ -118,32 +141,33 @@ async def wait_for_rendered_content(page: Page) -> None:
             timeout=_SPA_WAIT_TIMEOUT_MS,
         )
         logger.info("SPA/root visible text reached minimum length")
+    except (ParserCancelled, asyncio.CancelledError):
+        raise
     except Exception:
         logger.info("SPA text wait timed out, using current DOM")
 
 
 async def read_visible_text(page: Page) -> str:
     """Prefer #app/main innerText, then fall back to body."""
-    return await page.evaluate(
+    result = await page.evaluate(
         """() => {
             const root = document.querySelector('#app')
                 || document.querySelector('main')
                 || document.querySelector('[role="main"]')
                 || document.body;
-            return (root?.innerText || '').trim();
+            return (root?.innerText || '').trim().slice(0, 2000000);
         }"""
     )
+    return str(result or "")
 
 
-async def install_ssrf_route_guard(page: Page) -> None:
+async def install_ssrf_route_guard(page: Any) -> None:
     """Reject initial URLs early; SSRFProxy enforces every actual connection."""
 
-    async def handle_route(route) -> None:
-        safe, reason = is_ssrf_safe_url(route.request.url)
+    async def handle_route(route: Any) -> None:
+        safe, reason = await asyncio.to_thread(is_ssrf_safe_url, route.request.url)
         if not safe:
-            logger.warning(
-                "SSRF guard blocked request to %s: %s", route.request.url, reason
-            )
+            logger.warning("SSRF guard blocked request to %s: %s", route.request.url, reason)
             await route.abort("blockedbyclient")
             return
         await route.continue_()
@@ -159,7 +183,7 @@ class StdWebParser(BaseParser):
     converts HTML content to markdown format.
     """
 
-    def __init__(self, title: str, **kwargs):
+    def __init__(self, title: str, **kwargs: Any) -> None:
         """Initialize the web parser.
 
         Args:
@@ -167,10 +191,9 @@ class StdWebParser(BaseParser):
             **kwargs: Additional arguments passed to BaseParser
         """
         self.title = title
-        # Get proxy configuration from config if available
         self.proxy = CONFIG.external_https_proxy or CONFIG.external_http_proxy
         super().__init__(file_name=title, **kwargs)
-        logger.info(f"Initialized WebParser with title: {title}")
+        logger.info("Initialized WebParser with title: %s", title)
 
     async def scrape(self, url: str) -> _ScrapeResult:
         """Scrape web page content using Playwright.
@@ -182,63 +205,85 @@ class StdWebParser(BaseParser):
             HTML, visible text, and document title. On hard failure the
             content fields are empty and ``error`` explains why.
         """
-        logger.info(f"Starting web page scraping for URL: {url}")
-        safe, reason = is_ssrf_safe_url(url)
+        check_cancellation(self.context)
+        logger.info("Starting web page scraping for URL: %s", url)
+        safe, reason = await asyncio.to_thread(is_ssrf_safe_url, url)
         if not safe:
             logger.error("URL blocked by SSRF guard before navigation: %s", reason)
             return _ScrapeResult(
-                html="", visible_text="", page_title="",
+                html="",
+                visible_text="",
+                page_title="",
                 error=f"URL blocked by SSRF guard: {reason}",
             )
         try:
             async with SSRFProxy(self.proxy) as proxy, async_playwright() as p:
-                kwargs = {"proxy": {"server": proxy.url, "bypass": ""}}
+                check_cancellation(self.context)
                 logger.info("Launching WebKit browser")
-                browser = await p.webkit.launch(**kwargs)
-                page = await browser.new_page(service_workers="block")
-                await install_ssrf_route_guard(page)
-
-                logger.info(f"Navigating to URL: {url}")
+                browser = await p.webkit.launch(proxy={"server": proxy.url, "bypass": ""})
                 try:
-                    response = await page.goto(
-                        url,
-                        timeout=_GOTO_TIMEOUT_MS,
-                        wait_until="domcontentloaded",
-                    )
-                    # Playwright does not raise for HTTP error responses.  Do
-                    # not turn the server's error page into indexable knowledge.
-                    # goto returns the final response after HTTP redirects.
-                    if response is not None and response.status >= 400:
-                        status = response.status
-                        logger.warning("URL navigation returned HTTP %d", status)
-                        await browser.close()
-                        return _ScrapeResult(
-                            html="", visible_text="", page_title="",
-                            http_status=status,
+                    page = await browser.new_page(service_workers="block")
+                    await install_ssrf_route_guard(page)
+
+                    check_cancellation(self.context)
+                    logger.info("Navigating to URL: %s", url)
+                    try:
+                        response = await page.goto(
+                            url,
+                            timeout=_GOTO_TIMEOUT_MS,
+                            wait_until="domcontentloaded",
                         )
-                    logger.info("Initial page load complete")
-                except Exception as e:
-                    logger.error(f"Error navigating to URL: {str(e)}")
-                    await browser.close()
-                    return _ScrapeResult(
-                        html="", visible_text="", page_title="",
-                        error=f"navigation failed: {e}",
+                        # Playwright does not raise for HTTP error responses. Do
+                        # not turn the server's error page into indexable knowledge.
+                        # goto returns the final response after HTTP redirects.
+                        if response is not None and response.status >= 400:
+                            status = response.status
+                            logger.warning("URL navigation returned HTTP %d", status)
+                            return _ScrapeResult(
+                                html="",
+                                visible_text="",
+                                page_title="",
+                                http_status=status,
+                            )
+                        logger.info("Initial page load complete")
+                    except (ParserCancelled, asyncio.CancelledError):
+                        raise
+                    except Exception as e:
+                        logger.error("Error navigating to URL: %s", e)
+                        return _ScrapeResult(
+                            html="",
+                            visible_text="",
+                            page_title="",
+                            error=f"navigation failed: {e}",
+                        )
+
+                    check_cancellation(self.context)
+                    await wait_for_rendered_content(page)
+                    check_cancellation(self.context)
+
+                    page_title = await page.title()
+                    visible_text = await read_visible_text(page)
+                    content = await page.content()
+                    html_bytes = len(content.encode("utf-8", errors="ignore"))
+                    if html_bytes > MAX_WEB_HTML_BYTES:
+                        return _ScrapeResult(
+                            html="",
+                            visible_text="",
+                            page_title="",
+                            error=(
+                                f"HTML payload ({html_bytes} bytes) exceeds "
+                                f"maximum ({MAX_WEB_HTML_BYTES} bytes)"
+                            ),
+                        )
+                    logger.info(
+                        "Retrieved %d bytes HTML, %d chars visible text, title=%r",
+                        len(content),
+                        len(visible_text),
+                        page_title[:80] if page_title else "",
                     )
-
-                await wait_for_rendered_content(page)
-
-                page_title = await page.title()
-                visible_text = await read_visible_text(page)
-                content = await page.content()
-                logger.info(
-                    "Retrieved %d bytes HTML, %d chars visible text, title=%r",
-                    len(content),
-                    len(visible_text),
-                    page_title[:80] if page_title else "",
-                )
-
-                await browser.close()
-                logger.info("Browser closed")
+                finally:
+                    await browser.close()
+                    logger.info("Browser closed")
 
             logger.info("Successfully retrieved HTML content")
             return _ScrapeResult(
@@ -246,13 +291,48 @@ class StdWebParser(BaseParser):
                 visible_text=visible_text,
                 page_title=page_title or "",
             )
-
+        except (ParserCancelled, asyncio.CancelledError):
+            raise
         except Exception as e:
-            logger.error(f"Failed to scrape web page: {str(e)}")
+            logger.error("Failed to scrape web page: %s", e)
             return _ScrapeResult(
-                html="", visible_text="", page_title="",
+                html="",
+                visible_text="",
+                page_title="",
                 error=f"scrape failed: {e}",
             )
+
+    async def _scrape_with_cancellation(self, url: str) -> _ScrapeResult:
+        """Run ``scrape`` while watching gRPC context cancellation concurrently."""
+        if self.context is None:
+            return await self.scrape(url)
+
+        check_cancellation(self.context)
+        scrape_task: asyncio.Task[_ScrapeResult] = asyncio.create_task(self.scrape(url))
+        cancel_exc: ParserCancelled | None = None
+
+        async def _watch_context() -> None:
+            nonlocal cancel_exc
+            while not scrape_task.done():
+                try:
+                    check_cancellation(self.context)
+                except ParserCancelled as exc:
+                    cancel_exc = exc
+                    scrape_task.cancel()
+                    return
+                await asyncio.sleep(0.05)
+
+        watcher = asyncio.create_task(_watch_context())
+        try:
+            return await scrape_task
+        except asyncio.CancelledError as exc:
+            if cancel_exc is not None:
+                raise cancel_exc from exc
+            raise
+        finally:
+            watcher.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watcher
 
     def parse_into_text(self, content: bytes) -> Document:
         """Parse web page content into a Document object.
@@ -268,16 +348,19 @@ class StdWebParser(BaseParser):
                 content. Callers must surface this as a parse failure rather
                 than indexing the error string as document body.
         """
+        check_cancellation(self.context)
         url = endecode.decode_bytes(content)
 
-        logger.info(f"Scraping web page: {url}")
-        scrape_result = asyncio.run(self.scrape(url))
+        logger.info("Scraping web page: %s", url)
+        max_workers = int(getattr(CONFIG, "web_max_workers", WEB_MAX_WORKERS))
+        with parser_worker_limit("web", max_workers, context=self.context):
+            scrape_result = asyncio.run(self._scrape_with_cancellation(url))
+        check_cancellation(self.context)
+
         if scrape_result.http_status is not None:
             # Only disclose the status, never the response body or URL.
             raise WebParseError(f"Web page returned HTTP {scrape_result.http_status}")
-        if scrape_result.error or (
-            not scrape_result.html and not scrape_result.visible_text
-        ):
+        if scrape_result.error or (not scrape_result.html and not scrape_result.visible_text):
             detail = scrape_result.error or "no HTML or visible text"
             logger.error("Failed to scrape web page %s: %s", url, detail)
             raise WebParseError(f"Failed to scrape web page: {url} ({detail})")
@@ -298,20 +381,16 @@ class StdWebParser(BaseParser):
             logger.error("Failed to parse web page: %s", url)
             raise WebParseError(f"Failed to parse web page: {url}")
 
-        metadata = {}
+        metadata: dict[str, Any] = {}
         title_match = re.search(r"^title:\s*(.+)", md_text, re.MULTILINE)
         if title_match:
             extracted_title = title_match.group(1).strip()
             if extracted_title:
                 metadata["title"] = extracted_title
-                logger.info(
-                    f"Extracted article title from trafilatura: {extracted_title}"
-                )
+                logger.info("Extracted article title from trafilatura: %s", extracted_title)
         elif scrape_result.page_title:
             metadata["title"] = scrape_result.page_title.strip()
-            logger.info(
-                "Using page title from Playwright: %s", metadata["title"]
-            )
+            logger.info("Using page title from Playwright: %s", metadata["title"])
         else:
             logger.info(
                 "No title found in trafilatura output, first 200 chars: %r",
@@ -337,15 +416,17 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
-    url = sys.argv[1] if len(sys.argv) > 1 else "https://cloud.tencent.com/document/product/457/6759"
-    print(f"\n{'='*60}")
-    print(f"URL: {url}")
-    print(f"{'='*60}\n")
+    cli_url = (
+        sys.argv[1] if len(sys.argv) > 1 else "https://cloud.tencent.com/document/product/457/6759"
+    )
+    print(f"\n{'=' * 60}")
+    print(f"URL: {cli_url}")
+    print(f"{'=' * 60}\n")
 
     parser = WebParser(title="")
-    doc = parser.parse_into_text(url.encode())
+    doc = parser.parse_into_text(cli_url.encode())
 
-    print(f"--- metadata ---")
+    print("--- metadata ---")
     for k, v in doc.metadata.items():
         print(f"  {k}: {v}")
 
@@ -361,6 +442,7 @@ if __name__ == "__main__":
     print(f"\n--- chunks ({len(doc.chunks)}) ---")
     for i, chunk in enumerate(doc.chunks[:5]):
         print(f"  [{i}] seq={chunk.seq} range=[{chunk.start}:{chunk.end}] len={len(chunk.content)}")
-        print(f"      {chunk.content[:120]}{'...' if len(chunk.content) > 120 else ''}")
+        suffix = "..." if len(chunk.content) > 120 else ""
+        print(f"      {chunk.content[:120]}{suffix}")
     if len(doc.chunks) > 5:
         print(f"  ... ({len(doc.chunks) - 5} more chunks)")

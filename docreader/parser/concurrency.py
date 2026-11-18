@@ -1,13 +1,14 @@
 import logging
 import threading
 import time
+from collections.abc import Iterator
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_LIMITERS: Dict[str, threading.BoundedSemaphore] = {}
+_LIMITERS: dict[str, threading.BoundedSemaphore] = {}
 _LIMITERS_LOCK = threading.Lock()
 
 
@@ -61,7 +62,7 @@ def _get_limiter(name: str, max_workers: int) -> threading.BoundedSemaphore:
 def parser_worker_limit(
     name: str,
     max_workers: int,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
     context: Any = None,
 ) -> Iterator[None]:
     """Limit concurrent access to heavy, process-wide parser operations.

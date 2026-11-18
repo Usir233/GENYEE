@@ -2,13 +2,12 @@ import unittest
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
-from docreader.parser.parser import Parser, detect_effective_file_type
-from docreader.parser.stream import ParsedDocumentStream, StreamedImage
 from docreader.parser.markitdown_parser import MarkitdownParser
+from docreader.parser.parser import Parser, detect_effective_file_type
 from docreader.parser.pdf_parser import PDFParser
 from docreader.parser.registry import BUILTIN_ENGINE, ParserEngineRegistry, registry
+from docreader.parser.stream import ParsedDocumentStream, StreamedImage
 from docreader.parser.xmind_parser import XMindParser
-
 
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
@@ -38,12 +37,13 @@ class _ImageRecordingParser(_RecordingParser):
         return Document(content="parsed", images={"images/page.jpg": "anBlZw=="})
 
 
-class _RecordingRegistry:
-    def __init__(self, parser_class=_RecordingParser):
+class _RecordingRegistry(ParserEngineRegistry):
+    def __init__(self, parser_class: type[BaseParser] = _RecordingParser) -> None:
+        super().__init__()
         self.requested_file_type = ""
         self.parser_class = parser_class
 
-    def get_parser_class(self, engine: str, file_type: str):
+    def get_parser_class(self, engine: str, file_type: str) -> type[BaseParser]:
         self.requested_file_type = file_type
         return self.parser_class
 

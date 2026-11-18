@@ -14,8 +14,7 @@ class TableCellPipeTest(unittest.TestCase):
 
         self.assertEqual(
             formatted,
-            "| Pattern | Matches |\n| --- | --- |\n"
-            "| `a\\|b` | a or b |\n| x \\| y | literal |",
+            "| Pattern | Matches |\n| --- | --- |\n| `a\\|b` | a or b |\n| x \\| y | literal |",
         )
 
     def test_format_table_ends_a_cell_at_a_pipe_after_an_escaped_backslash(self):
@@ -27,9 +26,9 @@ class TableCellPipeTest(unittest.TestCase):
     def test_markdown_upload_keeps_an_escaped_pipe(self):
         content = "| Type | Notes |\n| --- | --- |\n| int \\| None | optional |\n"
 
-        document = MarkdownParser(
-            file_name="types.md", file_type="md"
-        ).parse_into_text(content.encode())
+        document = MarkdownParser(file_name="types.md", file_type="md").parse_into_text(
+            content.encode()
+        )
 
         self.assertIn("| int \\| None | optional |", document.content)
 
@@ -39,22 +38,19 @@ class TableCellPipeTest(unittest.TestCase):
             "<tr><td>a|b</td><td>run <code>ls|wc</code></td></tr></table>"
         )
 
-        document = HTMLParser(
-            file_name="pipes.html", file_type="html"
-        ).parse_into_text(html.encode())
+        document = HTMLParser(file_name="pipes.html", file_type="html").parse_into_text(
+            html.encode()
+        )
 
         self.assertIn("| Expr | Means |", document.content)
         self.assertIn("| a\\|b | run `ls\\|wc` |", document.content)
 
     def test_html_comment_in_a_cell_stays_hidden(self):
-        html = (
-            "<table><tr><th>Name</th></tr>"
-            "<tr><td>pen<!-- sku|42 --></td></tr></table>"
-        )
+        html = "<table><tr><th>Name</th></tr><tr><td>pen<!-- sku|42 --></td></tr></table>"
 
-        document = HTMLParser(
-            file_name="comment.html", file_type="html"
-        ).parse_into_text(html.encode())
+        document = HTMLParser(file_name="comment.html", file_type="html").parse_into_text(
+            html.encode()
+        )
 
         self.assertIn("| pen |", document.content)
         self.assertNotIn("sku", document.content)

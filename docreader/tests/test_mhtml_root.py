@@ -43,9 +43,7 @@ def _archive(*, start="<root@local>", root_first=False, alternative=False):
 
 
 def _parse(archive):
-    return MHTMLParser(file_name="saved.mhtml", file_type="mhtml").parse(
-        archive.as_bytes()
-    )
+    return MHTMLParser(file_name="saved.mhtml", file_type="mhtml").parse(archive.as_bytes())
 
 
 class MHTMLRootTest(unittest.TestCase):
@@ -108,3 +106,31 @@ class MHTMLRootTest(unittest.TestCase):
         archive.get_payload()[1].set_payload("")
         document = _parse(archive)
         self.assertNotIn("Unrelated frame", document.content)
+
+    def test_malformed_string_payload_in_multipart_related_falls_back_cleanly(self):
+        from email.message import Message
+
+        msg = Message()
+        msg["Content-Type"] = 'multipart/related; type="text/html"'
+        msg.set_payload(["not-a-message-object"])
+        self.assertIsNone(MHTMLParser._explicit_html_root(msg))
+
+    def test_list_valued_bs4_attributes_do_not_crash(self):
+        from bs4 import BeautifulSoup
+        from bs4.element import AttributeValueList
+
+        soup = BeautifulSoup(
+            '<html><body><a href="x">keep</a><img src="y" alt="pic"></body></html>',
+            "lxml",
+        )
+        link = soup.find("a")
+        img = soup.find("img")
+        assert link is not None and img is not None
+        link["href"] = AttributeValueList(["https://example.com/doc"])
+        img["src"] = AttributeValueList(["figure.png"])
+
+        MHTMLParser._strip_internal_links(soup)
+        MHTMLParser._rewrite_image_sources(soup, {"figure.png": "images/figure.png"})
+
+        self.assertIsNotNone(soup.find("a"))
+        self.assertEqual(img["src"], "images/figure.png")

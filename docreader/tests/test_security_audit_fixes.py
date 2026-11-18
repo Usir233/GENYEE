@@ -2,9 +2,12 @@
 
 Covers audit items:
 - GENYEE-HIGH-13: docreader gRPC fail-closed auth & odl-hybrid auth/upload-cap/profile lockdown
-- GENYEE-HIGH-14: LibreOffice soffice sandbox env scrubbing, profile lockdown, bwrap & 127.0.0.1:1 proxy fix
-- GENYEE-HIGH-15: odl_hybrid_url request override block, engine override allowlist, Java heap/timeout bounds
-- GENYEE-HIGH-16: Streaming ZIP member read budget against spoofed ZipInfo.file_size & entry count cap
+- GENYEE-HIGH-14: LibreOffice soffice sandbox env scrubbing, profile lockdown,
+  bwrap & 127.0.0.1:1 proxy fix
+- GENYEE-HIGH-15: odl_hybrid_url request override block, engine override allowlist,
+  Java heap/timeout bounds
+- GENYEE-HIGH-16: Streaming ZIP member read budget against spoofed ZipInfo.file_size
+  & entry count cap
 - GENYEE-HIGH-17: XLSX merged-cell bounds/budget & DOCX gridSpan/gridBefore/clone caps
 - GENYEE-MED-20: serve.py safe defaults
 - GENYEE-MED-14: FQDN trailing root dot & empty DNS label SSRF bypass block
@@ -21,75 +24,19 @@ import importlib.util
 import io
 import json
 import os
-from pathlib import Path
 import re
 import struct
 import sys
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
+from typing import Any
 from unittest import mock
 
-from lxml import etree
 import openpyxl
+from lxml import etree
 from PIL import Image
-
-try:
-    import pytest  # type: ignore[import-not-found]
-except ImportError:
-    pytest = None  # type: ignore[assignment]
-
-
-class _FallbackRaisesContext:
-    def __init__(self, expected_exc, match: str | None = None):
-        self.expected_exc = expected_exc
-        self.match = match
-        self.value = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, _tb):
-        if exc_type is None:
-            raise AssertionError(f"DID NOT RAISE {self.expected_exc}")
-        if not issubclass(exc_type, self.expected_exc):
-            return False
-        self.value = exc_val
-        if self.match and not re.search(self.match, str(exc_val)):
-            raise AssertionError(
-                f"Regex pattern {self.match!r} does not match {str(exc_val)!r}"
-            )
-        return True
-
-
-class _FallbackMark:
-    @staticmethod
-    def parametrize(argnames: str, argvalues):
-        def _decorator(fn):
-            fn._parametrize_spec = (argnames, list(argvalues))
-            return fn
-
-        return _decorator
-
-
-class _FallbackPytest:
-    mark = _FallbackMark()
-
-    @staticmethod
-    def raises(expected_exc, match: str | None = None):
-        return _FallbackRaisesContext(expected_exc, match=match)
-
-    @staticmethod
-    def fail(msg: str = "test failed"):
-        raise AssertionError(msg)
-
-    @staticmethod
-    def skip(reason: str = "skipped"):
-        raise unittest.SkipTest(reason)
-
-
-if pytest is None:
-    pytest = _FallbackPytest()  # type: ignore[assignment]
 
 from docreader.auth import AuthConfigError, AuthInterceptor
 from docreader.config import dump_config, load_config, mask_proxy_url
@@ -131,6 +78,64 @@ from docreader.utils.ssrf import (
     reset_ssrf_whitelist_cache_for_test,
 )
 from docreader.utils.ssrf_proxy import checked_address
+
+pytest: Any
+try:
+    import pytest as _pytest_mod
+
+    pytest = _pytest_mod
+except ImportError:
+    pytest = None
+
+
+class _FallbackRaisesContext:
+    def __init__(self, expected_exc, match: str | None = None):
+        self.expected_exc = expected_exc
+        self.match = match
+        self.value = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, _tb):
+        if exc_type is None:
+            raise AssertionError(f"DID NOT RAISE {self.expected_exc}")
+        if not issubclass(exc_type, self.expected_exc):
+            return False
+        self.value = exc_val
+        if self.match and not re.search(self.match, str(exc_val)):
+            raise AssertionError(f"Regex pattern {self.match!r} does not match {str(exc_val)!r}")
+        return True
+
+
+class _FallbackMark:
+    @staticmethod
+    def parametrize(argnames: str, argvalues):
+        def _decorator(fn):
+            fn._parametrize_spec = (argnames, list(argvalues))
+            return fn
+
+        return _decorator
+
+
+class _FallbackPytest:
+    mark = _FallbackMark()
+
+    @staticmethod
+    def raises(expected_exc, match: str | None = None):
+        return _FallbackRaisesContext(expected_exc, match=match)
+
+    @staticmethod
+    def fail(msg: str = "test failed"):
+        raise AssertionError(msg)
+
+    @staticmethod
+    def skip(reason: str = "skipped"):
+        raise unittest.SkipTest(reason)
+
+
+if pytest is None:
+    pytest = _FallbackPytest()
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -262,9 +267,7 @@ def test_odl_hybrid_server_auth_size_limit_and_disabled_profile_endpoint(monkeyp
     # 2. Missing or invalid token -> 401; /health -> 200
     assert asyncio.run(invoke("/v1/convert/file", headers=[])) == 401
     assert (
-        asyncio.run(
-            invoke("/v1/convert/file", headers=[(b"authorization", b"Bearer wrong")])
-        )
+        asyncio.run(invoke("/v1/convert/file", headers=[(b"authorization", b"Bearer wrong")]))
         == 401
     )
     assert asyncio.run(invoke("/health", method="GET", headers=[])) == 200
@@ -305,9 +308,7 @@ def test_soffice_blocking_proxy_and_minimal_env_strip_secrets(tmp_path):
         "HTTP_PROXY": "http://user:pass@corp-proxy.internal:8080",
         "HTTPS_PROXY": "http://user:pass@corp-proxy.internal:8080",
     }
-    clean_env = build_minimal_sandbox_env(
-        profile_dir=str(tmp_path), base_env=host_env
-    )
+    clean_env = build_minimal_sandbox_env(profile_dir=str(tmp_path), base_env=host_env)
     for forbidden in (
         "GRPC_AUTH_TOKEN",
         "MINIO_SECRET_ACCESS_KEY",
@@ -381,9 +382,7 @@ def test_odl_hybrid_url_request_override_blocked_and_java_heap_bounded():
         "odl_runner_sec_test",
         REPO_ROOT / "docker" / "odl-hybrid" / "opendataloader_pdf" / "runner.py",
     )
-    java_cmd = runner_mod.build_java_command(
-        "/opt/odl/cli.jar", ["--help"], max_heap_mb=512
-    )
+    java_cmd = runner_mod.build_java_command("/opt/odl/cli.jar", ["--help"], max_heap_mb=512)
     assert "-Xmx512m" in java_cmd
     assert "-Dhttp.followRedirects=false" in java_cmd
 
@@ -391,11 +390,11 @@ def test_odl_hybrid_url_request_override_blocked_and_java_heap_bounded():
 def test_odl_run_convert_local_auth_forwarder_end_to_end(monkeypatch, tmp_path):
     import hmac
     import http.client
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     import threading
-    from urllib.parse import urlsplit
     import urllib.error
     import urllib.request
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import urlsplit
 
     secret_token = "odl-e2e-shared-bearer-secret-9876543210"
     upstream_hits: list[tuple[str, str, bytes]] = []
@@ -428,9 +427,7 @@ def test_odl_run_convert_local_auth_forwarder_end_to_end(monkeypatch, tmp_path):
                 self.wfile.write(err)
                 return
 
-            ok_body = json.dumps(
-                {"status": "success", "echo_len": len(raw_body)}
-            ).encode("utf-8")
+            ok_body = json.dumps({"status": "success", "echo_len": len(raw_body)}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(ok_body)))
@@ -462,9 +459,7 @@ def test_odl_run_convert_local_auth_forwarder_end_to_end(monkeypatch, tmp_path):
         reloaded_cfg = load_config()
         assert reloaded_cfg.odl_hybrid_auth_token == secret_token
         monkeypatch.setattr("docreader.config.CONFIG", reloaded_cfg)
-        monkeypatch.setattr(
-            "docreader.parser.opendataloader_parser.CONFIG", reloaded_cfg
-        )
+        monkeypatch.setattr("docreader.parser.opendataloader_parser.CONFIG", reloaded_cfg)
         assert secret_token not in json.dumps(dump_config(mask_secrets=True))
 
         # Allow the test upstream loopback endpoint through SSRF guard while
@@ -472,9 +467,7 @@ def test_odl_run_convert_local_auth_forwarder_end_to_end(monkeypatch, tmp_path):
         monkeypatch.setattr(
             "docreader.parser.opendataloader_parser.is_ssrf_safe_url",
             lambda u: (
-                (True, "")
-                if u.startswith(upstream_url)
-                else (False, f"blocked test target: {u}")
+                (True, "") if u.startswith(upstream_url) else (False, f"blocked test target: {u}")
             ),
         )
 
@@ -532,9 +525,7 @@ def test_odl_run_convert_local_auth_forwarder_end_to_end(monkeypatch, tmp_path):
             redir_err.value.close()
 
             # 4. Path traversal segment rejected locally with 400
-            trav_req = urllib.request.Request(
-                f"{local_url}/../admin", data=b"x", method="POST"
-            )
+            trav_req = urllib.request.Request(f"{local_url}/../admin", data=b"x", method="POST")
             with pytest.raises(urllib.error.HTTPError) as trav_err:
                 urllib.request.urlopen(trav_req, timeout=5)
             assert trav_err.value.code == 400
@@ -588,18 +579,18 @@ def test_safe_read_zip_member_aborts_on_spoofed_file_size_and_entry_cap():
         # Header-only check sees file_size == 16, so streaming read MUST catch it.
         validate_zip_archive(zf, max_bytes=4096)
         with pytest.raises(ArchiveLimitError):
-            safe_read_zip_member(
-                zf, "payload.xml", max_member_bytes=4096, max_total_bytes=4096
-            )
+            safe_read_zip_member(zf, "payload.xml", max_member_bytes=4096, max_total_bytes=4096)
 
     # Entry count cap
     many_buf = io.BytesIO()
     with zipfile.ZipFile(many_buf, "w") as zf:
         for idx in range(15):
             zf.writestr(f"f{idx}.txt", b"x")
-    with zipfile.ZipFile(io.BytesIO(many_buf.getvalue())) as zf:
-        with pytest.raises(ArchiveLimitError, match="entry count"):
-            validate_zip_archive(zf, max_entries=10)
+    with (
+        zipfile.ZipFile(io.BytesIO(many_buf.getvalue())) as zf,
+        pytest.raises(ArchiveLimitError, match="entry count"),
+    ):
+        validate_zip_archive(zf, max_entries=10)
 
 
 def test_xlsx_media_extractor_propagates_archive_limit_on_spoofed_member():
@@ -619,16 +610,15 @@ def test_xlsx_media_extractor_propagates_archive_limit_on_spoofed_member():
 def _inject_xlsx_merge_ref(xlsx_bytes: bytes, merge_ref: str) -> bytes:
     """Inject a raw ``<mergeCells><mergeCell ref=.../></mergeCells>`` into sheet1.xml."""
     out = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(xlsx_bytes), "r") as src, zipfile.ZipFile(
-        out, "w", compression=zipfile.ZIP_DEFLATED
-    ) as dst:
+    with (
+        zipfile.ZipFile(io.BytesIO(xlsx_bytes), "r") as src,
+        zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as dst,
+    ):
         for info in src.infolist():
             data = src.read(info.filename)
             if info.filename == "xl/worksheets/sheet1.xml":
                 text = data.decode("utf-8")
-                merge_block = (
-                    f'<mergeCells count="1"><mergeCell ref="{merge_ref}"/></mergeCells>'
-                )
+                merge_block = f'<mergeCells count="1"><mergeCell ref="{merge_ref}"/></mergeCells>'
                 text = text.replace("</sheetData>", f"</sheetData>{merge_block}", 1)
                 data = text.encode("utf-8")
             dst.writestr(info, data)
@@ -667,9 +657,7 @@ def test_xlsx_merge_clips_unpopulated_tail_and_enforces_cell_budget():
 
 def test_docx_merge_clamps_huge_grid_span(monkeypatch):
     w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    tc_pr = etree.fromstring(
-        f'<w:tcPr xmlns:w="{w_ns}"><w:gridSpan w:val="999999999"/></w:tcPr>'
-    )
+    tc_pr = etree.fromstring(f'<w:tcPr xmlns:w="{w_ns}"><w:gridSpan w:val="999999999"/></w:tcPr>')
     row_el = etree.fromstring(
         f'<w:tr xmlns:w="{w_ns}"><w:trPr><w:gridBefore w:val="999999999"/></w:trPr></w:tr>'
     )
@@ -702,7 +690,7 @@ def test_docx_merge_clamps_huge_grid_span(monkeypatch):
           </w:tr>
         </w:tbl>
       </w:body>
-    </w:document>""".encode("utf-8")
+    </w:document>""".encode()
 
     docx_buf = io.BytesIO()
     with zipfile.ZipFile(docx_buf, "w") as zf:
@@ -777,8 +765,8 @@ def test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(tmp_path)
     dtd_xml = (
         '<?xml version="1.0"?>'
         '<!DOCTYPE xmap [<!ENTITY xxe "blocked">]>'
-        '<xmap-content><sheet><title>&xxe;</title>'
-        '<topic><title>Root</title></topic></sheet></xmap-content>'
+        "<xmap-content><sheet><title>&xxe;</title>"
+        "<topic><title>Root</title></topic></sheet></xmap-content>"
     )
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:

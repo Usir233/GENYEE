@@ -1,11 +1,11 @@
 """Image references agree with the Go resolver's shared contract fixtures."""
 
 import base64
-from email.message import EmailMessage
 import io
 import json
-from pathlib import Path
 import unittest
+from email.message import EmailMessage
+from pathlib import Path
 from urllib.parse import quote
 
 from PIL import Image
@@ -16,10 +16,7 @@ from docreader.parser.pdf_parser import PDFParser, PDFScannedParser
 from docreader.tests.test_docreader_stream import _scanned_pdf
 from docreader.tests.test_pdf_image_sources import mixed_image_pdf
 
-
-CASES = json.loads(
-    (Path(__file__).parent / "fixtures/image_filename_refs.json").read_text()
-)
+CASES = json.loads((Path(__file__).parent / "fixtures/image_filename_refs.json").read_text())
 
 
 class ImageFilenameReferenceTest(unittest.TestCase):
@@ -52,9 +49,11 @@ class ImageFilenameReferenceTest(unittest.TestCase):
                         self.assertEqual(stream.document.metadata, doc.metadata)
                         self.assertEqual(stream.document.source_blocks, doc.source_blocks)
                     for block in doc.source_blocks:
-                        self.assertEqual(doc.content[block["start"]:block["end"]], doc.content)
+                        self.assertEqual(doc.content[block["start"] : block["end"]], doc.content)
                     if parser_class is PDFParser:
-                        self.assertEqual(set(json.loads(doc.metadata["image_source_types"])), expected)
+                        self.assertEqual(
+                            set(json.loads(doc.metadata["image_source_types"])), expected
+                        )
 
     def test_native_pdf_figure_metadata_uses_the_same_encoded_refs(self):
         parser = PDFParser(file_name="notes%) [报告].pdf", file_type="pdf")
@@ -102,12 +101,42 @@ class ImageFilenameReferenceTest(unittest.TestCase):
                 img_part["Content-Location"] = location
                 root.attach(img_part)
 
-                doc = MHTMLParser(
-                    file_name="contract.mhtml", file_type="mhtml"
-                ).parse_into_text(root.as_bytes())
+                doc = MHTMLParser(file_name="contract.mhtml", file_type="mhtml").parse_into_text(
+                    root.as_bytes()
+                )
                 self.assertEqual(set(doc.images), {case["image_ref"]})
                 self.assertEqual(doc.content, f"![pic]({case['image_ref']})")
                 self.assertEqual(base64.b64decode(doc.images[case["image_ref"]]), payload)
+
+    def test_image_parser_validates_headers_pixel_bounds_and_strips_dir_prefix(self):
+        from unittest.mock import patch
+
+        import docreader.parser.image_parser as image_parser_mod
+        from docreader.parser.image_parser import ImageParser
+
+        with self.assertRaises(ValueError):
+            ImageParser(file_name="empty.png", file_type="png").parse_into_text(b"")
+
+        with self.assertRaises(ValueError):
+            ImageParser(file_name="corrupt.png", file_type="png").parse_into_text(
+                b"not-a-valid-image-header"
+            )
+
+        buf = io.BytesIO()
+        Image.new("RGB", (32, 32), "green").save(buf, format="PNG")
+        valid_png = buf.getvalue()
+
+        with (
+            patch.object(image_parser_mod, "MAX_IMAGE_PIXELS", 100, create=True),
+            self.assertRaises(ValueError),
+        ):
+            ImageParser(file_name="bomb.png", file_type="png").parse_into_text(valid_png)
+
+        doc = ImageParser(
+            file_name="../../uploads/nested/diagram.png", file_type="png"
+        ).parse_into_text(valid_png)
+        self.assertEqual(set(doc.images), {"images/diagram.png"})
+        self.assertEqual(doc.content, "![diagram.png](images/diagram.png)")
 
 
 if __name__ == "__main__":

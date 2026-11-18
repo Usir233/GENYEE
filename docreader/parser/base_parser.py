@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from docreader.models.document import Document
 from docreader.parser.concurrency import check_cancellation
@@ -22,7 +20,7 @@ class BaseParser(ABC):
     def __init__(
         self,
         file_name: str = "",
-        file_type: Optional[str] = None,
+        file_type: str | None = None,
         **kwargs,
     ):
         self.file_name = file_name

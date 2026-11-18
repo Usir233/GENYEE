@@ -14,7 +14,6 @@ import base64
 import contextlib
 import html
 import http.client
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.resources as resources
 import ipaddress
 import json
@@ -30,14 +29,20 @@ import tempfile
 import threading
 import time
 import urllib.error
-from urllib.parse import urlsplit
 import urllib.request
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
+from collections.abc import Iterator, Mapping
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+from urllib.parse import urlsplit
 
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
-from docreader.parser.concurrency import check_cancellation, parser_worker_limit
+from docreader.parser.concurrency import (
+    ParserCancelled,
+    check_cancellation,
+    parser_worker_limit,
+)
 from docreader.parser.soffice_sandbox import build_minimal_sandbox_env
 from docreader.utils.ssrf import (
     _is_restricted_ip,
@@ -75,8 +80,8 @@ class _SSRFDeniedError(ValueError):
     """Raised when SSRF policy or DNS-rebinding check blocks an outbound URL."""
 
 
-def _resolve_and_pin_target_ip(target_url: str) -> Tuple[str, str]:
-    """Validate URL via SSRF policy, re-resolve and check all IPs, and return (pinned_ip, sni_host)."""
+def _resolve_and_pin_target_ip(target_url: str) -> tuple[str, str]:
+    """Validate URL via SSRF policy, re-resolve all IPs, and return (pinned_ip, sni_host)."""
     safe, reason = is_ssrf_safe_url(target_url)
     if not safe:
         raise _SSRFDeniedError(reason)
@@ -114,24 +119,22 @@ def _resolve_and_pin_target_ip(target_url: str) -> Tuple[str, str]:
 def _build_pinned_opener(pinned_ip: str, sni_host: str) -> urllib.request.OpenerDirector:
     class _PinnedHTTPConnection(http.client.HTTPConnection):
         def connect(self) -> None:
-            self.sock = socket.create_connection(
-                (pinned_ip, self.port), self.timeout, self.source_address
-            )
+            source_addr = getattr(self, "source_address", None)
+            self.sock = socket.create_connection((pinned_ip, self.port), self.timeout, source_addr)
 
     class _PinnedHTTPSConnection(http.client.HTTPSConnection):
         def connect(self) -> None:
-            raw_sock = socket.create_connection(
-                (pinned_ip, self.port), self.timeout, self.source_address
-            )
-            ctx = self._context or ssl.create_default_context()
+            source_addr = getattr(self, "source_address", None)
+            raw_sock = socket.create_connection((pinned_ip, self.port), self.timeout, source_addr)
+            ctx = getattr(self, "_context", None) or ssl.create_default_context()
             self.sock = ctx.wrap_socket(raw_sock, server_hostname=sni_host)
 
     class _PinnedHTTPHandler(urllib.request.HTTPHandler):
-        def http_open(self, req):
+        def http_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
             return self.do_open(_PinnedHTTPConnection, req)
 
     class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
-        def https_open(self, req):
+        def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
             return self.do_open(_PinnedHTTPSConnection, req)
 
     return urllib.request.build_opener(
@@ -142,7 +145,7 @@ def _build_pinned_opener(pinned_ip: str, sni_host: str) -> urllib.request.Opener
     )
 
 
-def _override_str(overrides: Optional[Mapping[str, Any]], key: str, default: str = "") -> str:
+def _override_str(overrides: Mapping[str, Any] | None, key: str, default: str = "") -> str:
     if overrides:
         v = overrides.get(key)
         if v is not None and str(v).strip() != "":
@@ -150,7 +153,7 @@ def _override_str(overrides: Optional[Mapping[str, Any]], key: str, default: str
     return default
 
 
-def _override_bool(overrides: Optional[Mapping[str, Any]], key: str, default: bool) -> bool:
+def _override_bool(overrides: Mapping[str, Any] | None, key: str, default: bool) -> bool:
     if overrides:
         v = overrides.get(key)
         if v is not None and str(v).strip() != "":
@@ -158,18 +161,35 @@ def _override_bool(overrides: Optional[Mapping[str, Any]], key: str, default: bo
     return default
 
 
-def _java_available() -> Tuple[bool, str]:
+def _java_available() -> tuple[bool, str]:
     if not shutil.which("java"):
         return False, "需要 Java 11+（JRE），请安装并在 PATH 中配置 java"
     return True, ""
 
 
-def _package_available() -> Tuple[bool, str]:
+def _package_available() -> tuple[bool, str]:
     try:
         import opendataloader_pdf  # noqa: F401
     except ImportError as e:
         return False, f"opendataloader-pdf 未安装: {e}"
     return True, ""
+
+
+def _cancellable_sleep(seconds: float, context: Any = None) -> None:
+    """Sleep up to ``seconds`` while polling ``context`` cancellation."""
+    if seconds <= 0:
+        check_cancellation(context)
+        return
+    if context is None:
+        time.sleep(seconds)
+        return
+    deadline = time.monotonic() + seconds
+    while True:
+        check_cancellation(context)
+        rem = deadline - time.monotonic()
+        if rem <= 0:
+            return
+        time.sleep(min(0.1, rem))
 
 
 def _ping_hybrid(
@@ -178,9 +198,9 @@ def _ping_hybrid(
     timeout_sec: float = 5.0,
     retries: int = 3,
     retry_delay_sec: float = 2.0,
-) -> Tuple[bool, str]:
-    import time
-
+    context: Any = None,
+) -> tuple[bool, str]:
+    check_cancellation(context)
     base = url.rstrip("/")
     health_url = f"{base}/health"
     try:
@@ -192,24 +212,36 @@ def _ping_hybrid(
 
     opener = _build_pinned_opener(pinned_ip, sni_host)
     last_err = ""
-    for attempt in range(max(1, retries)):
+    total_retries = max(1, retries)
+    for attempt in range(total_retries):
+        check_cancellation(context)
+        attempt_timeout = timeout_sec
+        if context is not None and hasattr(context, "time_remaining"):
+            rem = context.time_remaining()
+            if rem is not None:
+                if rem <= 0:
+                    raise ParserCancelled("gRPC call deadline exceeded")
+                attempt_timeout = min(timeout_sec, float(rem))
         try:
             if attempt > 0:
                 pinned_ip, sni_host = _resolve_and_pin_target_ip(health_url)
                 opener = _build_pinned_opener(pinned_ip, sni_host)
             req = urllib.request.Request(health_url, method="GET")
-            with opener.open(req, timeout=timeout_sec) as resp:
+            with opener.open(req, timeout=attempt_timeout) as resp:
                 if 200 <= resp.status < 300:
                     return True, ""
                 last_err = f"hybrid 健康检查 HTTP {resp.status}: {health_url}"
+        except ParserCancelled:
+            raise
         except _SSRFDeniedError as e:
             return False, f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {e}"
         except urllib.error.URLError as e:
             last_err = f"无法连接 OpenDataLoader hybrid 服务 ({health_url}): {e}"
         except Exception as e:
             last_err = f"hybrid 健康检查失败: {e}"
-        if attempt + 1 < retries:
-            time.sleep(retry_delay_sec)
+        check_cancellation(context)
+        if attempt + 1 < total_retries:
+            _cancellable_sleep(retry_delay_sec, context)
     hint = (
         "；若刚执行 make dev-start --odl-hybrid，请等待镜像构建/服务就绪"
         "（docker logs GENYEE-odl-hybrid）"
@@ -217,7 +249,7 @@ def _ping_hybrid(
     return False, last_err + hint
 
 
-def _has_hybrid_url_override(overrides: Optional[Mapping[str, Any]]) -> bool:
+def _has_hybrid_url_override(overrides: Mapping[str, Any] | None) -> bool:
     if not overrides:
         return False
     raw = overrides.get("odl_hybrid_url")
@@ -225,9 +257,10 @@ def _has_hybrid_url_override(overrides: Optional[Mapping[str, Any]]) -> bool:
 
 
 def opendataloader_available(
-    overrides: Optional[Mapping[str, Any]] = None,
+    overrides: Mapping[str, Any] | None = None,
     quick: bool = False,
-) -> Tuple[bool, str]:
+    context: Any = None,
+) -> tuple[bool, str]:
     """Registry / ListEngines availability probe.
 
     When ``quick`` is set the hybrid health check uses a single short-timeout
@@ -235,6 +268,7 @@ def opendataloader_available(
     blocking on long retry/backoff loops. Parsing keeps the patient retry
     behavior to tolerate a hybrid service that is still starting up.
     """
+    check_cancellation(context)
     if _has_hybrid_url_override(overrides):
         return (
             False,
@@ -253,16 +287,22 @@ def opendataloader_available(
         url = _resolve_hybrid_url(overrides)
         if url:
             if quick:
-                return _ping_hybrid(url, retries=1, timeout_sec=2.0)
-            return _ping_hybrid(url, retries=6, retry_delay_sec=5.0, timeout_sec=5.0)
+                return _ping_hybrid(url, retries=1, timeout_sec=2.0, context=context)
+            return _ping_hybrid(
+                url,
+                retries=6,
+                retry_delay_sec=5.0,
+                timeout_sec=5.0,
+                context=context,
+            )
     return True, ""
 
 
-def _resolve_hybrid(overrides: Optional[Mapping[str, Any]] = None) -> str:
+def _resolve_hybrid(overrides: Mapping[str, Any] | None = None) -> str:
     return _override_str(overrides, "odl_hybrid", CONFIG.odl_hybrid)
 
 
-def _resolve_hybrid_url(overrides: Optional[Mapping[str, Any]] = None) -> str:
+def _resolve_hybrid_url(overrides: Mapping[str, Any] | None = None) -> str:
     if _has_hybrid_url_override(overrides):
         raise RuntimeError(
             "OpenDataLoader hybrid URL override is disallowed by SSRF security policy"
@@ -298,7 +338,7 @@ _HOP_BY_HOP_HEADERS: frozenset[str] = frozenset(
 
 def _read_chunked_request_body(rfile: Any, max_bytes: int) -> bytes:
     """Decode an HTTP/1.1 Transfer-Encoding: chunked body with hard byte ceiling."""
-    chunks: List[bytes] = []
+    chunks: list[bytes] = []
     total = 0
     while True:
         size_line = rfile.readline(4096)
@@ -337,7 +377,7 @@ def _local_hybrid_auth_proxy(
     auth_token: str,
     *,
     timeout_sec: float = 60.0,
-    max_body_bytes: Optional[int] = None,
+    max_body_bytes: int | None = None,
 ) -> Iterator[str]:
     """Run an ephemeral 127.0.0.1:0 HTTP forwarder that injects Bearer auth upstream.
 
@@ -366,7 +406,7 @@ def _local_hybrid_auth_proxy(
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             logger.debug("odl-hybrid local auth proxy: " + format, *args)
 
-        def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
+        def _send_json(self, status: int, payload: dict[str, Any]) -> None:
             raw = json.dumps(payload).encode("utf-8")
             self.close_connection = True
             self.send_response(status)
@@ -413,14 +453,12 @@ def _local_hybrid_auth_proxy(
                 )
                 return
             except urllib.error.URLError:
-                self._send_json(
-                    502, {"error": "Failed to resolve OpenDataLoader hybrid service"}
-                )
+                self._send_json(502, {"error": "Failed to resolve OpenDataLoader hybrid service"})
                 return
 
             transfer_enc = (self.headers.get("Transfer-Encoding") or "").lower()
             content_len_hdr = self.headers.get("Content-Length")
-            body: Optional[bytes] = None
+            body: bytes | None = None
             try:
                 if "chunked" in transfer_enc:
                     body = _read_chunked_request_body(self.rfile, eff_max_body)
@@ -442,7 +480,7 @@ def _local_hybrid_auth_proxy(
                 self._send_json(400, {"error": f"Malformed request body: {exc}"})
                 return
 
-            out_headers: Dict[str, str] = {}
+            out_headers: dict[str, str] = {}
             for hdr_key, hdr_val in self.headers.items():
                 if hdr_key.lower() in _HOP_BY_HOP_HEADERS:
                     continue
@@ -464,9 +502,7 @@ def _local_hybrid_auth_proxy(
                 with opener.open(upstream_req, timeout=eff_timeout) as resp:
                     resp_body = resp.read(eff_max_body + 1)
                     if len(resp_body) > eff_max_body:
-                        self._send_json(
-                            502, {"error": "Upstream response exceeds maximum size"}
-                        )
+                        self._send_json(502, {"error": "Upstream response exceeds maximum size"})
                         return
                     resp_ct = resp.headers.get("Content-Type", "application/json")
                     self.send_response(resp.status)
@@ -484,11 +520,7 @@ def _local_hybrid_auth_proxy(
                             {"error": "Upstream redirect disallowed by SSRF security policy"},
                         )
                         return
-                    err_body = (
-                        exc.read(min(eff_max_body, 1 << 20))
-                        if exc.fp is not None
-                        else b""
-                    )
+                    err_body = exc.read(min(eff_max_body, 1 << 20)) if exc.fp is not None else b""
                     err_ct = (
                         exc.headers.get("Content-Type", "application/json")
                         if exc.headers is not None
@@ -570,9 +602,9 @@ def _canonical_image_ref(abs_path: str, output_dir: str) -> str:
     return f"images/{name}"
 
 
-def _collect_images_under_output(output_dir: str) -> Dict[str, str]:
+def _collect_images_under_output(output_dir: str) -> dict[str, str]:
     """Collect every extracted image under the convert output tree."""
-    images: Dict[str, str] = {}
+    images: dict[str, str] = {}
     for root, _, files in os.walk(output_dir):
         for name in files:
             if not name.lower().endswith(_IMAGE_SUFFIXES):
@@ -586,15 +618,15 @@ def _collect_images_under_output(output_dir: str) -> Dict[str, str]:
     return images
 
 
-def _register_image_alias(aliases: Dict[str, str], alias: str, canonical: str) -> None:
+def _register_image_alias(aliases: dict[str, str], alias: str, canonical: str) -> None:
     key = _normalize_odl_image_url(alias)
     if key:
         aliases[key] = canonical
 
 
-def _build_path_alias_map(images: Dict[str, str]) -> Dict[str, str]:
+def _build_path_alias_map(images: dict[str, str]) -> dict[str, str]:
     """Map ODL markdown spellings (angle brackets, entities, basenames) to dict keys."""
-    aliases: Dict[str, str] = {}
+    aliases: dict[str, str] = {}
     for ref in images:
         base = os.path.basename(ref)
         variants = [
@@ -611,7 +643,7 @@ def _build_path_alias_map(images: Dict[str, str]) -> Dict[str, str]:
     return aliases
 
 
-def _resolve_image_ref(url: str, aliases: Dict[str, str]) -> Optional[str]:
+def _resolve_image_ref(url: str, aliases: dict[str, str]) -> str | None:
     key = _normalize_odl_image_url(url)
     if not key or key.startswith("data:"):
         return None
@@ -638,9 +670,7 @@ def _resolve_image_ref(url: str, aliases: Dict[str, str]) -> Optional[str]:
     return None
 
 
-def _rewrite_markdown_image_refs(
-    markdown: str, images: Dict[str, str]
-) -> str:
+def _rewrite_markdown_image_refs(markdown: str, images: dict[str, str]) -> str:
     if not images:
         return markdown
     aliases = _build_path_alias_map(images)
@@ -656,18 +686,14 @@ def _rewrite_markdown_image_refs(
     return _MD_IMAGE_RE.sub(repl, markdown)
 
 
-def _kill_process_group(process: subprocess.Popen, pgid: Optional[int]) -> None:
+def _kill_process_group(process: subprocess.Popen[Any], pgid: int | None) -> None:
     if pgid is None:
-        try:
+        with contextlib.suppress(OSError):
             process.kill()
-        except OSError:
-            pass
     else:
         for sig, wait_sec in ((signal.SIGTERM, 0.5), (signal.SIGKILL, 0.0)):
-            try:
+            with contextlib.suppress(OSError):
                 os.killpg(pgid, sig)
-            except OSError:
-                pass
             if wait_sec > 0:
                 deadline = time.monotonic() + wait_sec
                 try:
@@ -680,25 +706,23 @@ def _kill_process_group(process: subprocess.Popen, pgid: Optional[int]) -> None:
     try:
         process.wait(timeout=1.0)
     except subprocess.TimeoutExpired:
-        try:
+        with contextlib.suppress(OSError):
             process.kill()
-        except OSError:
-            pass
+        with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+            process.wait(timeout=5.0)
     finally:
         for pipe in (process.stdout, process.stderr):
             if pipe is not None:
-                try:
+                with contextlib.suppress(OSError):
                     pipe.close()
-                except OSError:
-                    pass
 
 
 def _run_odl_jar_bounded(
-    args: List[str],
+    args: list[str],
     quiet: bool = True,
     *,
-    timeout_seconds: Optional[int] = None,
-    max_heap_mb: Optional[int] = None,
+    timeout_seconds: int | None = None,
+    max_heap_mb: int | None = None,
 ) -> str:
     """Execute opendataloader-pdf CLI JAR with -Xmx cap, hard timeout, and killpg."""
     effective_timeout = max(1, int(timeout_seconds or CONFIG.odl_timeout_seconds))
@@ -732,9 +756,7 @@ def _run_odl_jar_bounded(
             stdout, stderr = process.communicate(timeout=effective_timeout)
         except subprocess.TimeoutExpired as exc:
             _kill_process_group(process, pgid)
-            raise RuntimeError(
-                f"OpenDataLoader CLI timed out after {effective_timeout}s"
-            ) from exc
+            raise RuntimeError(f"OpenDataLoader CLI timed out after {effective_timeout}s") from exc
 
         if process.returncode != 0:
             raise subprocess.CalledProcessError(
@@ -746,32 +768,47 @@ def _run_odl_jar_bounded(
         return stdout
 
 
-@contextlib.contextmanager
-def _patched_odl_runner():
-    """Patch opendataloader_pdf's JAR runner when backed by the real package."""
-    targets = []
-    for mod_name in ("opendataloader_pdf.runner", "opendataloader_pdf.convert_generated"):
-        try:
-            mod = __import__(mod_name, fromlist=["run_jar"])
-        except Exception:
-            mod = None
-        if mod is not None and hasattr(mod, "run_jar"):
-            targets.append((mod, getattr(mod, "run_jar")))
+_ODL_RUNNER_PATCH_LOCK = threading.Lock()
+_ODL_RUNNER_PATCH_REFCOUNT = 0
+_ODL_RUNNER_ORIGINALS: list[tuple[Any, Any]] = []
 
-    for mod, _orig in targets:
-        setattr(mod, "run_jar", _run_odl_jar_bounded)
+
+@contextlib.contextmanager
+def _patched_odl_runner() -> Iterator[None]:
+    """Patch opendataloader_pdf's JAR runner safely across concurrent threads."""
+    global _ODL_RUNNER_PATCH_REFCOUNT
+    with _ODL_RUNNER_PATCH_LOCK:
+        if _ODL_RUNNER_PATCH_REFCOUNT == 0:
+            _ODL_RUNNER_ORIGINALS.clear()
+            for mod_name in (
+                "opendataloader_pdf.runner",
+                "opendataloader_pdf.convert_generated",
+            ):
+                mod: Any = None
+                with contextlib.suppress(Exception):
+                    mod = __import__(mod_name, fromlist=["run_jar"])
+                if mod is not None and hasattr(mod, "run_jar"):
+                    orig_fn = mod.run_jar
+                    _ODL_RUNNER_ORIGINALS.append((mod, orig_fn))
+                    mod.run_jar = _run_odl_jar_bounded
+        _ODL_RUNNER_PATCH_REFCOUNT += 1
+
     try:
         yield
     finally:
-        for mod, orig in targets:
-            setattr(mod, "run_jar", orig)
+        with _ODL_RUNNER_PATCH_LOCK:
+            _ODL_RUNNER_PATCH_REFCOUNT -= 1
+            if _ODL_RUNNER_PATCH_REFCOUNT == 0:
+                for mod, orig in _ODL_RUNNER_ORIGINALS:
+                    mod.run_jar = orig
+                _ODL_RUNNER_ORIGINALS.clear()
 
 
 def _run_convert(
     pdf_path: str,
     output_dir: str,
     image_dir: str,
-    overrides: Optional[Mapping[str, Any]] = None,
+    overrides: Mapping[str, Any] | None = None,
 ) -> None:
     if _has_hybrid_url_override(overrides):
         raise RuntimeError(
@@ -780,7 +817,7 @@ def _run_convert(
 
     import opendataloader_pdf
 
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "input_path": pdf_path,
         "output_dir": output_dir,
         "format": "markdown",
@@ -800,9 +837,7 @@ def _run_convert(
         if hybrid_url:
             safe, reason = is_ssrf_safe_url(hybrid_url)
             if not safe:
-                raise RuntimeError(
-                    f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {reason}"
-                )
+                raise RuntimeError(f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {reason}")
             kwargs["hybrid_url"] = hybrid_url
             upstream_hybrid_url = hybrid_url
         kwargs["hybrid_timeout"] = str(hybrid_timeout_ms)
@@ -832,17 +867,13 @@ class OpenDataLoaderParser(BaseParser):
 
     def __init__(self, *args: Any, **kwargs: Any):
         nested_overrides = (
-            kwargs.get("overrides")
-            if isinstance(kwargs.get("overrides"), Mapping)
-            else None
+            kwargs.get("overrides") if isinstance(kwargs.get("overrides"), Mapping) else None
         )
-        if _has_hybrid_url_override(kwargs) or _has_hybrid_url_override(
-            nested_overrides
-        ):
+        if _has_hybrid_url_override(kwargs) or _has_hybrid_url_override(nested_overrides):
             raise RuntimeError(
                 "OpenDataLoader hybrid URL override is disallowed by SSRF security policy"
             )
-        merged_overrides: Dict[str, Any] = {}
+        merged_overrides: dict[str, Any] = {}
         if nested_overrides:
             for k, v in nested_overrides.items():
                 if k in ALLOWED_ODL_OVERRIDE_KEYS:
@@ -854,7 +885,12 @@ class OpenDataLoaderParser(BaseParser):
         super().__init__(*args, **kwargs)
 
     def parse_into_text(self, content: bytes) -> Document:
-        ok, msg = opendataloader_available(self._engine_overrides)
+        check_cancellation(self.context)
+        ok, msg = (
+            opendataloader_available(self._engine_overrides, context=self.context)
+            if self.context is not None
+            else opendataloader_available(self._engine_overrides)
+        )
         if not ok:
             raise RuntimeError(msg)
 
@@ -864,27 +900,29 @@ class OpenDataLoaderParser(BaseParser):
         pdf_stem = os.path.splitext(safe_name)[0]
 
         max_workers = CONFIG.odl_max_workers
-        with parser_worker_limit("opendataloader", max_workers, context=self.context):
-            with tempfile.TemporaryDirectory(prefix="genyee-odl-") as tmp_dir:
-                pdf_path = os.path.join(tmp_dir, safe_name)
-                with open(pdf_path, "wb") as f:
-                    f.write(content)
-                image_dir = os.path.join(tmp_dir, "images")
-                os.makedirs(image_dir, exist_ok=True)
+        with (
+            parser_worker_limit("opendataloader", max_workers, context=self.context),
+            tempfile.TemporaryDirectory(prefix="genyee-odl-") as tmp_dir,
+        ):
+            pdf_path = os.path.join(tmp_dir, safe_name)
+            with open(pdf_path, "wb") as f:
+                f.write(content)
+            image_dir = os.path.join(tmp_dir, "images")
+            os.makedirs(image_dir, exist_ok=True)
 
-                _run_convert(
-                    pdf_path,
-                    tmp_dir,
-                    image_dir,
-                    overrides=self._engine_overrides,
-                )
+            _run_convert(
+                pdf_path,
+                tmp_dir,
+                image_dir,
+                overrides=self._engine_overrides,
+            )
 
-                md_path = _find_markdown_file(tmp_dir, pdf_stem)
-                with open(md_path, encoding="utf-8", errors="replace") as f:
-                    text = f.read()
+            md_path = _find_markdown_file(tmp_dir, pdf_stem)
+            with open(md_path, encoding="utf-8", errors="replace") as f:
+                text = f.read()
 
-                images = _collect_images_under_output(tmp_dir)
-                text = _rewrite_markdown_image_refs(text, images)
+            images = _collect_images_under_output(tmp_dir)
+            text = _rewrite_markdown_image_refs(text, images)
 
         check_cancellation(self.context)
         if len(text.strip()) < _MIN_CHARS_PER_PAGE:

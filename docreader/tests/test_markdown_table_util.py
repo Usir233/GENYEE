@@ -31,10 +31,41 @@ class TestMarkdownTableUtil(unittest.TestCase):
             / "en_tables.docx"
         )
         if not docx.is_file():
-            docx = Path(__file__).resolve().parents[2].parent / "testdata/rag_test/docx/en_tables.docx"
-        if not docx.is_file():
-            self.skipTest("en_tables.docx fixture not available")
-        raw = MarkItDown().convert(io.BytesIO(docx.read_bytes()), file_extension=".docx").text_content
+            docx = (
+                Path(__file__).resolve().parents[2].parent / "testdata/rag_test/docx/en_tables.docx"
+            )
+        if docx.is_file():
+            docx_bytes = docx.read_bytes()
+        else:
+            import docx as python_docx
+
+            doc = python_docx.Document()
+            t1 = doc.add_table(rows=2, cols=4)
+            for col_idx, header in enumerate(("Name", "Game", "Fame", "Blame")):
+                t1.rows[0].cells[col_idx].text = header
+            for col_idx, val in enumerate(("Lebron James", "Basketball", "High", "None")):
+                t1.rows[1].cells[col_idx].text = val
+            t2 = doc.add_table(rows=2, cols=2)
+            t2.rows[0].cells[0].text = "Sinple"
+            t2.rows[0].cells[1].text = "Table"
+            t2.rows[1].cells[0].text = "Without"
+            t2.rows[1].cells[1].text = "Header"
+            t3 = doc.add_table(rows=2, cols=2)
+            for row_idx, row_vals in enumerate(
+                (
+                    (("Simple", "Multiparagraph"), ("Table", "Full")),
+                    (("Of", "Paragraphs"), ("In each", "Cell.")),
+                )
+            ):
+                for col_idx, paras in enumerate(row_vals):
+                    cell = t3.rows[row_idx].cells[col_idx]
+                    cell.paragraphs[0].text = paras[0]
+                    for extra in paras[1:]:
+                        cell.add_paragraph(extra)
+            buf = io.BytesIO()
+            doc.save(buf)
+            docx_bytes = buf.getvalue()
+        raw = MarkItDown().convert(io.BytesIO(docx_bytes), file_extension=".docx").text_content
         normalized = MarkdownTableUtil().format_table(raw)
 
         self.assertNotIn("|  |  |  |  |", normalized)
@@ -45,9 +76,7 @@ class TestMarkdownTableUtil(unittest.TestCase):
         self.assertIn("| Lebron James | Basketball |", normalized)
 
         # Headerless 2-row tables: delimiter inserted so GFM renderers show a table
-        self.assertIn(
-            "| Sinple | Table |\n| --- | --- |\n| Without | Header |", normalized
-        )
+        self.assertIn("| Sinple | Table |\n| --- | --- |\n| Without | Header |", normalized)
         self.assertIn(
             "| Simple  Multiparagraph | Table  Full |\n| --- | --- |\n"
             "| Of  Paragraphs | In each  Cell. |",

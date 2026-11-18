@@ -5,10 +5,8 @@ import unittest
 
 from docreader.parser.markdown_parser import MarkdownImageUtil, MarkdownParser
 
-
 PNG_B64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4"
-    "z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
 )
 IMAGE = f"![example](data:image/png;base64,{PNG_B64})"
 

@@ -10,19 +10,19 @@ from unittest.mock import patch
 
 import grpc
 
+import docreader.parser.pdf_parser as pdf_parser
 from docreader.main import DocReaderServicer
 from docreader.parser.archive import ArchiveLimitError
 from docreader.parser.chain_parser import FirstParser
 from docreader.parser.concurrency import ParserCancelled, cancellable_result
-from docreader.parser.excel_parser import ExcelParser, _prepare_xlsx_bytes
 from docreader.parser.excel_convert import normalize_excel_bytes
+from docreader.parser.excel_parser import ExcelParser, _prepare_xlsx_bytes
 from docreader.parser.parser import Parser
 from docreader.parser.xlsx_media import XLSXImageExtractor
 from docreader.proto import docreader_pb2_grpc
 from docreader.proto.docreader_pb2 import ReadRequest
 from docreader.tests.test_docreader_stream import _NoopPreprocessRunner
 from docreader.tests.test_pdf_router import _make_image_only_pdf
-import docreader.parser.pdf_parser as pdf_parser
 
 
 class Context:
@@ -56,9 +56,12 @@ class ArchiveAdmissionTest(unittest.TestCase):
             lambda: Parser().parse_file_stream("drawing.xlsx", "xlsx", content),
         ]
         for index, parse in enumerate(paths):
-            with self.subTest(path=index), patch.object(
-                zipfile.ZipFile, "read", side_effect=AssertionError("entry decompressed")
-            ) as read:
+            with (
+                self.subTest(path=index),
+                patch.object(
+                    zipfile.ZipFile, "read", side_effect=AssertionError("entry decompressed")
+                ) as read,
+            ):
                 with self.assertRaises(ArchiveLimitError):
                     parse()
                 read.assert_not_called()
@@ -87,8 +90,9 @@ class PDFSafetyTest(unittest.TestCase):
             return result
 
         config = replace(pdf_parser.CONFIG, pdf_render_parallelism=1, pdf_render_max_workers=1)
-        with patch.object(pdf_parser, "CONFIG", config), patch.object(
-            pdf_parser, "_render_page_to_jpeg", side_effect=checked_render
+        with (
+            patch.object(pdf_parser, "CONFIG", config),
+            patch.object(pdf_parser, "_render_page_to_jpeg", side_effect=checked_render),
         ):
             for force in (False, True):
                 parser = pdf_parser.PDFParser(file_name="scan.pdf", pdf_force_scanned=force)
@@ -114,14 +118,19 @@ class PDFSafetyTest(unittest.TestCase):
             finally:
                 stream.close()
 
-        with patch.object(pdf_parser, "CONFIG", config), futures.ThreadPoolExecutor(max_workers=3) as pool:
+        with (
+            patch.object(pdf_parser, "CONFIG", config),
+            futures.ThreadPoolExecutor(max_workers=3) as pool,
+        ):
             jobs = [pool.submit(parse, mode) for mode in (0, 1, 2) * 3]
             self.assertEqual([job.result(timeout=15) for job in jobs], [2] * 9)
 
     def test_cancelled_stream_does_not_render_another_page(self):
         context = Context()
         parser = pdf_parser.PDFParser(file_name="scan.pdf", context=context, pdf_force_scanned=True)
-        with patch.object(pdf_parser, "CONFIG", replace(pdf_parser.CONFIG, pdf_render_parallelism=1)):
+        with patch.object(
+            pdf_parser, "CONFIG", replace(pdf_parser.CONFIG, pdf_render_parallelism=1)
+        ):
             stream = parser.parse_stream(_make_image_only_pdf(3))
             try:
                 self.assertTrue(next(stream.images).image_data)
@@ -136,9 +145,11 @@ class PDFSafetyTest(unittest.TestCase):
     def test_cancelled_router_does_not_fall_back_to_scanning(self):
         for method in ("parse_into_text", "parse_stream"):
             parser = pdf_parser.PDFParser(file_name="scan.pdf")
-            with self.subTest(method=method), patch.object(
-                parser, "_route_locked", side_effect=ParserCancelled("cancelled")
-            ), patch.object(pdf_parser.PDFScannedParser, method) as fallback:
+            with (
+                self.subTest(method=method),
+                patch.object(parser, "_route_locked", side_effect=ParserCancelled("cancelled")),
+                patch.object(pdf_parser.PDFScannedParser, method) as fallback,
+            ):
                 with self.assertRaises(ParserCancelled):
                     getattr(parser, method)(_make_image_only_pdf())
                 fallback.assert_not_called()
@@ -147,7 +158,7 @@ class PDFSafetyTest(unittest.TestCase):
 class RPCCancellationTest(unittest.TestCase):
     def test_cancel_while_waiting_for_render_future(self):
         context = Context()
-        pending = futures.Future()
+        pending: futures.Future[object] = futures.Future()
         timer = threading.Timer(0.02, lambda: setattr(context, "active", False))
         timer.start()
         try:
@@ -187,15 +198,22 @@ class RPCCancellationTest(unittest.TestCase):
         port = server.add_insecure_port("127.0.0.1:0")
         channel = grpc.insecure_channel(f"127.0.0.1:{port}")
         try:
-            with patch.object(pdf_parser, "_extract_page_text", side_effect=extract), patch.object(
-                pdf_parser.PDFScannedParser, "parse_into_text"
-            ) as fallback, patch.object(DocReaderServicer, "Read", read):
+            with (
+                patch.object(pdf_parser, "_extract_page_text", side_effect=extract),
+                patch.object(pdf_parser.PDFScannedParser, "parse_into_text") as fallback,
+                patch.object(DocReaderServicer, "Read", read),
+            ):
                 docreader_pb2_grpc.add_DocReaderServicer_to_server(service, server)
                 server.start()
                 stub = docreader_pb2_grpc.DocReaderStub(channel)
-                call = stub.Read.future(ReadRequest(
-                    file_name="cancel.pdf", file_type="pdf", file_content=_make_image_only_pdf(3)
-                ), timeout=10)
+                call = stub.Read.future(
+                    ReadRequest(
+                        file_name="cancel.pdf",
+                        file_type="pdf",
+                        file_content=_make_image_only_pdf(3),
+                    ),
+                    timeout=10,
+                )
                 self.assertTrue(entered.wait(10))
                 self.assertTrue(call.cancel())
                 self.assertTrue(cancelled.wait(10))

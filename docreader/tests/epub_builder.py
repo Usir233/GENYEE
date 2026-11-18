@@ -6,15 +6,17 @@ uncompressed as the first entry, ``META-INF/container.xml`` pointing at
 navigation document (``nav.xhtml``) and an EPUB 2 ``toc.ncx``.
 """
 
+from __future__ import annotations
+
+import zipfile
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import escape
 from io import BytesIO
-from typing import Iterable, Sequence, Union
-import zipfile
 
-from lxml import etree
 import lxml.html
+from lxml import etree
 
 NAV = "nav"
 NCX = "ncx"
@@ -54,16 +56,18 @@ class TocLink:
     uid: str
 
 
-Entry = Union[Chapter, Item, str]
+Entry = Chapter | Item | str
 
 
 def _serialize(root: etree._Element) -> bytes:
-    return etree.tostring(
-        root,
-        pretty_print=True,
-        xml_declaration=True,
-        encoding="utf-8",
-        doctype="<!DOCTYPE html>" if etree.QName(root).localname == "html" else None,
+    return bytes(
+        etree.tostring(
+            root,
+            pretty_print=True,
+            xml_declaration=True,
+            encoding="utf-8",
+            doctype=("<!DOCTYPE html>" if etree.QName(root).localname == "html" else None),
+        )
     )
 
 
@@ -151,10 +155,8 @@ def _package_document(
         nsmap={None: opf},
     )
     metadata = etree.SubElement(root, f"{{{opf}}}metadata", nsmap={"dc": dc})
-    modified = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    etree.SubElement(
-        metadata, f"{{{opf}}}meta", property="dcterms:modified"
-    ).text = modified
+    modified = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    etree.SubElement(metadata, f"{{{opf}}}meta", property="dcterms:modified").text = modified
     etree.SubElement(metadata, f"{{{dc}}}identifier", id="id").text = identifier
     etree.SubElement(metadata, f"{{{dc}}}title").text = title
     etree.SubElement(metadata, f"{{{dc}}}language").text = language
@@ -181,7 +183,7 @@ def build_epub(
     spine: Sequence[Entry],
     language: str = "en",
     authors: Iterable[str] = (),
-    toc: Sequence[Union[Chapter, TocLink]] = (),
+    toc: Sequence[Chapter | TocLink] = (),
 ) -> bytes:
     """Write an EPUB 3 archive and return its bytes.
 
@@ -212,9 +214,7 @@ def build_epub(
         return entry.uid
 
     toc_links = [
-        link
-        if isinstance(link, TocLink)
-        else TocLink(link.file_name, link.title, entry_id(link))
+        link if isinstance(link, TocLink) else TocLink(link.file_name, link.title, entry_id(link))
         for link in toc
     ]
 
@@ -237,7 +237,7 @@ def build_epub(
                 )
             )
             files.append((entry.file_name, _chapter_document(entry)))
-        else:
+        elif isinstance(entry, Item):
             manifest.append((entry.uid, entry.file_name, entry.media_type, ""))
             files.append((entry.file_name, entry.content))
 
@@ -259,9 +259,7 @@ def build_epub(
 
     output = BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr(
-            zipfile.ZipInfo("mimetype"), "application/epub+zip", zipfile.ZIP_STORED
-        )
+        archive.writestr(zipfile.ZipInfo("mimetype"), "application/epub+zip", zipfile.ZIP_STORED)
         archive.writestr("META-INF/container.xml", container)
         archive.writestr("EPUB/content.opf", package)
         for file_name, data in files:
