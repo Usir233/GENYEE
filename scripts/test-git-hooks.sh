@@ -12,6 +12,14 @@ if grep -rn -E -e "$forbidden_inc_flag" "$repo_root/scripts/git-hooks" "$repo_ro
   exit 1
 fi
 
+# Verify real shellcheck (both absolute-path multi-file and standalone single-file) when installed.
+real_shellcheck="$(command -v shellcheck || true)"
+if [[ -n "$real_shellcheck" ]]; then
+  "$real_shellcheck" "$repo_root/scripts/git-hooks/"* "$repo_root/scripts/test-git-hooks.sh"
+  "$real_shellcheck" "$repo_root/scripts/git-hooks/pre-commit"
+  "$real_shellcheck" "$repo_root/scripts/git-hooks/pre-push"
+fi
+
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/scripts/git-hooks" "$fixture/bin" "$fixture/cli"
@@ -127,7 +135,7 @@ fi
 printf '#!/usr/bin/env bash\necho ok\n' > "$fixture/sample.sh"
 bash -c 'source "$1"; run_shellcheck_if_available "$2" "$3"' \
   bash "$fixture/scripts/git-hooks/common.sh" "$fixture/sample.sh" "$fixture/missing.sh"
-printf '%s\n' "$fixture/sample.sh" > "$fixture/shellcheck-expected.log"
+printf -- '-x %s\n' "$fixture/sample.sh" > "$fixture/shellcheck-expected.log"
 diff -u "$fixture/shellcheck-expected.log" "$SHELLCHECK_TEST_LOG"
 
 if HOOK_TEST_FAIL=shellcheck bash -c 'source "$1"; run_shellcheck_if_available "$2"' \

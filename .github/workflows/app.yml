@@ -131,7 +131,7 @@ jobs:
         shell: bash
         run: |
           git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push |
-            xargs -0 -r shellcheck
+            xargs -0 -r shellcheck -x
 
       - name: Verify generated model catalog
         run: python3 scripts/model-catalog/generate.py --check

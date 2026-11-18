@@ -321,7 +321,7 @@ lint-python:
 
 lint-shell:
 	@echo ">> [lint-shell] Running shellcheck across tracked shell scripts and git hooks..."
-	@git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push | xargs -0 -r shellcheck
+	@git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push | xargs -0 -r shellcheck -x
 
 lint-frontend:
 	@echo ">> [lint-frontend] Running ESLint v9 and 6-locale / bare-CJK guards..."

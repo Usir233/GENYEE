@@ -4,7 +4,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-# shellcheck source=scripts/git-hooks/common.sh
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=common.sh disable=SC1091
 source "$ROOT/scripts/git-hooks/common.sh"
 
 if hook_skip; then

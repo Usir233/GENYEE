@@ -120,7 +120,7 @@ PYTHONDONTWRITEBYTECODE=1 uv run --project docreader --with mypy mypy --no-incre
 (cd frontend && npx tsx --test src/i18n/localeKeyAudit.test.ts src/i18n/bareCjkAudit.test.ts)
 
 # 5. 全仓 Shell 脚本 shellcheck（0 告警）与 Git Hooks 回归门禁
-git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push | xargs -0 -r shellcheck
+git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push | xargs -0 -r shellcheck -x
 bash scripts/test-git-hooks.sh
 
 # 6. 许可证包、34/34 项商业合规门禁与客户纯净源码导出校验（0 主机路径泄漏）

@@ -180,7 +180,7 @@ run_shellcheck_if_available() {
     return 0
   fi
   log_step "shellcheck (${#existing[@]} script(s))"
-  shellcheck "${existing[@]}"
+  shellcheck -x "${existing[@]}"
   log_ok "shellcheck"
 }
 
@@ -323,7 +323,7 @@ detect_touched_go_modules() {
         [[ "$p" == *.go || "$p" == "client/go.mod" || "$p" == "client/go.sum" ]] && client_touched=1
         ;;
       third_party/anydoc-go/*)
-        [[ "$p" == *.go || "$p" == "third_party/anydoc-go/go.mod" ]] && anydoc_touched=1
+        [[ "$p" == *.go || "$p" == "third_party/anydoc-go/go.mod" || "$p" == "third_party/anydoc-go/go.sum" ]] && anydoc_touched=1
         ;;
       docs/poc/docker-sandbox/*)
         [[ "$p" == *.go || "$p" == "docs/poc/docker-sandbox/go.mod" || "$p" == "docs/poc/docker-sandbox/go.sum" ]] && poc_touched=1
