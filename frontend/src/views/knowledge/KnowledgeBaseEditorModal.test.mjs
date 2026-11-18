@@ -2,7 +2,12 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-const source = readFileSync(new URL('./KnowledgeBaseEditorModal.vue', import.meta.url), 'utf8')
+const source = [
+  readFileSync(new URL('./KnowledgeBaseEditorModal.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./components/KBEditorBasicProfileSection.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./components/KBEditorSecondarySections.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./composables/useKBEditorForm.ts', import.meta.url), 'utf8'),
+].join('\n')
 
 test('editing a knowledge base closes the editor after a successful save', () => {
   assert.match(source, /emit\('success', kbId\)\s*handleClose\(\)/)
@@ -35,7 +40,7 @@ test('create mode seeds the full default image actions table', () => {
   // Regression: an empty imageActions in initFormData made the attribute panel
   // read `undefined.ocr.on` the moment the attribute switch was turned on in the
   // create dialog, crashing the modal.
-  const initBlock = source.match(/const initFormData[\s\S]*?imageActions: ([^,]+),/)?.[1]
+  const initBlock = source.match(/function createInitialKBFormData[\s\S]*?imageActions: ([^,]+),/)?.[1]
   assert.ok(initBlock, 'expected to find imageActions in initFormData')
   assert.match(initBlock, /mergeImageActions\(\)/)
 })

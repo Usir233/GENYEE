@@ -15,6 +15,13 @@ interface Tag {
   color?: string;
 }
 
+interface MoveTargetKB {
+  id: string;
+  name: string;
+  knowledge_count?: number;
+  embedding_model_id?: string;
+}
+
 interface KnowledgeItem {
   id: string;
   file_name: string;
@@ -60,7 +67,7 @@ const props = defineProps<{
   showFolderPath?: boolean;
   // Move sub-flow state
   moveMenuMode: 'normal' | 'targets' | 'confirm';
-  moveTargetKbs: any[];
+  moveTargetKbs: MoveTargetKB[];
   moveTargetsLoading: boolean;
   moveSelectedTargetName: string;
   moveMode: 'reuse_vectors' | 'reparse';
@@ -77,7 +84,7 @@ const emit = defineEmits<{
   (e: 'open-folder', path: string): void;
   (e: 'move-to-folder', item: KnowledgeItem, folderPath: string): void;
   // Move sub-flow emits
-  (e: 'move-select-target', kb: any): void;
+  (e: 'move-select-target', kb: MoveTargetKB): void;
   (e: 'move-back'): void;
   (e: 'move-confirm'): void;
   (e: 'update:moveMode', mode: 'reuse_vectors' | 'reparse'): void;
@@ -430,10 +437,10 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
 
               <!-- Move: target KB list -->
               <div v-else-if="moveMenuMode === 'targets'" class="card-menu move-menu">
-                <div class="move-menu-header" @click.stop="emit('move-back')">
+                <button type="button" class="move-menu-header" @click.stop="emit('move-back')">
                   <t-icon name="chevron-left" size="16px" />
                   <span>{{ $t('knowledgeBase.moveToKnowledgeBase') }}</span>
-                </div>
+                </button>
                 <div v-if="moveTargetsLoading" class="move-menu-loading">
                   <t-loading size="small" />
                 </div>
@@ -441,28 +448,31 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
                   {{ $t('knowledgeBase.moveNoTargets') }}
                 </div>
                 <template v-else>
-                  <div v-for="kb in moveTargetKbs" :key="kb.id" class="card-menu-item"
+                  <button v-for="kb in moveTargetKbs" :key="kb.id" type="button" class="card-menu-item"
                     @click.stop="emit('move-select-target', kb)">
                     <t-icon class="icon" name="root-list" />
                     <span class="move-target-name">{{ kb.name }}</span>
                     <span v-if="kb.knowledge_count !== undefined" class="move-target-count">{{ kb.knowledge_count }}</span>
-                  </div>
+                  </button>
                 </template>
               </div>
 
               <!-- Move: confirm with mode selection -->
               <div v-else-if="moveMenuMode === 'confirm'" class="card-menu move-menu">
-                <div class="move-menu-header" @click.stop="emit('move-back')">
+                <button type="button" class="move-menu-header" @click.stop="emit('move-back')">
                   <t-icon name="chevron-left" size="16px" />
                   <span>{{ $t('knowledgeBase.moveConfirmTitle') }}</span>
-                </div>
+                </button>
                 <div class="move-confirm-body">
                   <div class="move-target-info">
                     <t-icon name="arrow-right" size="14px" />
                     <span>{{ moveSelectedTargetName }}</span>
                   </div>
                   <div class="move-mode-item" :class="{ active: moveMode === 'reuse_vectors' }"
-                    @click.stop="emit('update:moveMode', 'reuse_vectors')">
+                    role="radio" tabindex="0" :aria-checked="moveMode === 'reuse_vectors'"
+                    @click.stop="emit('update:moveMode', 'reuse_vectors')"
+                    @keydown.enter.stop.prevent="emit('update:moveMode', 'reuse_vectors')"
+                    @keydown.space.stop.prevent="emit('update:moveMode', 'reuse_vectors')">
                     <t-radio :checked="moveMode === 'reuse_vectors'" />
                     <div class="move-mode-text">
                       <span class="move-mode-label">{{ $t('knowledgeBase.moveModeReuseVectors') }}</span>
@@ -470,7 +480,10 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
                     </div>
                   </div>
                   <div class="move-mode-item" :class="{ active: moveMode === 'reparse' }"
-                    @click.stop="emit('update:moveMode', 'reparse')">
+                    role="radio" tabindex="0" :aria-checked="moveMode === 'reparse'"
+                    @click.stop="emit('update:moveMode', 'reparse')"
+                    @keydown.enter.stop.prevent="emit('update:moveMode', 'reparse')"
+                    @keydown.space.stop.prevent="emit('update:moveMode', 'reparse')">
                     <t-radio :checked="moveMode === 'reparse'" />
                     <div class="move-mode-text">
                       <span class="move-mode-label">{{ $t('knowledgeBase.moveModeReparse') }}</span>
@@ -551,7 +564,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
 
   &.is-stuck {
     border-radius: 0;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--gy-shadow-sm);
   }
 }
 

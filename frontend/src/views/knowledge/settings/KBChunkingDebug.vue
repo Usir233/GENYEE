@@ -344,19 +344,22 @@ const runPreview = async () => {
       throw new Error('empty response')
     }
     if (resp.success !== true) {
-      throw new Error((resp as any).error || 'preview failed')
+      const respError = (resp as unknown as { error?: string | { message?: string } }).error
+      const errMessage = typeof respError === 'string' ? respError : respError?.message
+      throw new Error(errMessage || 'preview failed')
     }
     if (!resp.data) {
       throw new Error('response missing data')
     }
     previewInput.value = input
     result.value = resp.data
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (seq !== previewSeq) return
     // Pull a useful message out of the error shapes our request layer
     // produces: rejected interceptor sends { status, message, ... }.
+    const errObj = e as { message?: string } | null
     const msg =
-      e?.message ||
+      errObj?.message ||
       (typeof e === 'string' ? e : '') ||
       'unknown error'
     error.value = msg

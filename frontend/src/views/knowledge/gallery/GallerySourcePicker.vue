@@ -64,6 +64,18 @@ const loadedAllSelected = computed(
 )
 const loadedSomeSelected = computed(() => docs.value.some((d) => selectedSet.value.has(d.id)))
 
+interface SourceFileItem {
+  id: string | number
+  file_name?: string
+  title?: string
+  created_at?: string
+}
+
+interface SourceFileListResponse {
+  data?: SourceFileItem[]
+  total?: number
+}
+
 // Bumped by every keyword change, so a response for an older search state
 // (page fetch or select-all) is dropped.
 let fetchToken = 0
@@ -80,16 +92,16 @@ async function loadPage(reset: boolean) {
   const nextPage = page.value + 1
   loading.value = true
   try {
-    const res: any = await listKnowledgeFiles(props.kbId, {
+    const res = (await listKnowledgeFiles(props.kbId, {
       page: nextPage,
       page_size: PAGE_SIZE,
       keyword: keyword.value.trim() || undefined,
       sort_by: 'created_at',
       sort_order: 'desc',
-    })
+    })) as unknown as SourceFileListResponse
     if (token !== fetchToken) return
     const known = new Set(docs.value.map((d) => d.id))
-    const items: any[] = res?.data ?? []
+    const items: SourceFileItem[] = res?.data ?? []
     for (const it of items) {
       const id = String(it.id)
       if (known.has(id)) continue
@@ -168,15 +180,15 @@ async function onToggleAll() {
   const token = fetchToken
   bulkLoading.value = true
   try {
-    const res: any = await listKnowledgeFiles(props.kbId, {
+    const res = (await listKnowledgeFiles(props.kbId, {
       page: 1,
       page_size: SAFE_HITS,
       keyword: keyword.value.trim() || undefined,
       sort_by: 'created_at',
       sort_order: 'desc',
-    })
+    })) as unknown as SourceFileListResponse
     if (token !== fetchToken) return
-    const ids: string[] = (res?.data ?? []).map((it: any) => String(it.id))
+    const ids: string[] = (res?.data ?? []).map((it) => String(it.id))
     if (!ids.length) return
     const next = new Set(props.selected)
     if (ids.every((id) => next.has(id))) {
@@ -264,8 +276,13 @@ function formatTime(raw: string): string {
         :key="d.id"
         class="gsp-item"
         :class="{ 'is-selected': selectedSet.has(d.id) }"
+        role="checkbox"
+        tabindex="0"
+        :aria-checked="selectedSet.has(d.id)"
         :title="`${d.file_name}${d.created_at ? ' · ' + formatTime(d.created_at) : ''}`"
         @click="toggle(d.id, !selectedSet.has(d.id))"
+        @keydown.enter.prevent="toggle(d.id, !selectedSet.has(d.id))"
+        @keydown.space.prevent="toggle(d.id, !selectedSet.has(d.id))"
       >
         <span class="gsp-item__check" @click.stop>
           <t-checkbox

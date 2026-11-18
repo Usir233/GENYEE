@@ -10,117 +10,24 @@
           </button>
 
           <div class="upload-confirm-container">
-            <aside class="files-panel">
-              <div class="sidebar-header">
-                <div class="sidebar-header-row">
-                  <h2 class="sidebar-title">{{ dialogTitle }}</h2>
-                  <div v-if="mode === 'file'" class="sidebar-header-actions">
-                    <span class="files-count">{{ batchItemCount }}</span>
-                    <KbUploadSourceDropdown
-                      :accept-file-types="acceptFileTypes"
-                      :supported-file-types="supportedFileTypes"
-                      :tooltip="t('uploadConfirm.continueAdd')"
-                      placement="bottom-left"
-                      @files="appendFiles"
-                      @url="appendUrl"
-                    />
-                  </div>
-                </div>
-
-                <div v-if="mode === 'file'" class="destination-row">
-                  <t-popup
-                    v-model:visible="destinationPickerVisible"
-                    trigger="click"
-                    placement="bottom-left"
-                    attach="body"
-                    :z-index="3100"
-                    overlay-class-name="upload-destination-popup"
-                    destroy-on-close
-                  >
-                    <button
-                      type="button"
-                      class="destination-crumb"
-                      :title="destinationFullLabel"
-                      :aria-label="t('uploadConfirm.destinationChange')"
-                      :aria-expanded="destinationPickerVisible"
-                    >
-                      <span class="destination-crumb__label">{{ t('uploadConfirm.destinationLabel') }}</span>
-                      <span class="destination-crumb__path">{{ destinationBreadcrumb }}</span>
-                      <t-icon name="chevron-down" class="destination-crumb__caret" />
-                    </button>
-                    <template #content>
-                      <div class="card-menu" @click.stop>
-                        <FolderPickerMenu
-                          :options="pickerFolderOptions"
-                          :current-path="localTargetFolder"
-                          allow-reselect
-                          @create="onDestinationCreated"
-                          @confirm="onDestinationPicked"
-                        />
-                      </div>
-                    </template>
-                  </t-popup>
-                </div>
-              </div>
-
-              <div class="files-list-wrap">
-                <div v-if="mode === 'manual' && manualPreview" class="manual-source-panel">
-                  <p class="manual-source-title" :title="manualPreview.title">{{ manualPreview.title }}</p>
-                  <p class="manual-source-meta">
-                    {{ t('uploadConfirm.manualCharCount', { count: manualCharCount }) }}
-                  </p>
-                </div>
-                <div v-else-if="mode === 'reparse' && reparsePreview" class="manual-source-panel">
-                  <p class="manual-source-title" :title="reparsePreview.fileName">
-                    {{ reparsePreview.fileName || t('uploadConfirm.reparseSource') }}
-                  </p>
-                  <p class="manual-source-meta">{{ t('uploadConfirm.reparseHint') }}</p>
-                </div>
-                <ul v-else-if="mode === 'file' && batchItemCount > 0" class="files-list">
-                  <li v-for="(url, index) in localUrls" :key="`url-${url}-${index}`" class="file-item">
-                    <span class="file-icon-wrap">
-                      <t-icon name="link" class="file-icon" />
-                    </span>
-                    <div class="file-meta">
-                      <span class="file-name" :title="url">{{ url }}</span>
-                      <span class="file-size">{{ t('uploadConfirm.urlItemLabel') }}</span>
-                    </div>
-                    <button
-                      type="button"
-                      class="file-remove"
-                      :aria-label="t('common.remove')"
-                      @click="removeUrl(index)"
-                    >
-                      <t-icon name="close" />
-                    </button>
-                  </li>
-                  <li v-for="(file, index) in localFiles" :key="`${file.name}-${index}`" class="file-item">
-                    <span class="file-icon-wrap">
-                      <t-icon :name="getFileIcon(file.name)" class="file-icon" />
-                    </span>
-                    <div class="file-meta">
-                      <span class="file-name" :title="fileDisplayTitle(file)">{{ file.name }}</span>
-                      <span class="file-size">
-                        <template v-if="fileRelativeDir(file)">
-                          <span class="file-relative-dir" :title="fileRelativeDir(file)">{{ fileRelativeDir(file) }}</span>
-                          <span class="file-meta-sep">·</span>
-                        </template>
-                        {{ formatFileSize(file.size) }}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      class="file-remove"
-                      :aria-label="t('common.remove')"
-                      @click="removeFile(index)"
-                    >
-                      <t-icon name="close" />
-                    </button>
-                  </li>
-                </ul>
-                <div v-else-if="mode === 'file'" class="files-empty">{{ t('uploadConfirm.noItems') }}</div>
-              </div>
-            </aside>
+            <UploadSourceQueuePanel
+              :dialog-title="dialogTitle"
+              :mode="mode"
+              :files="localFiles"
+              :urls="localUrls"
+              :manual-preview="manualPreview"
+              :reparse-preview="reparsePreview"
+              :accept-file-types="acceptFileTypes"
+              :supported-file-types="supportedFileTypes"
+              :target-folder="localTargetFolder"
+              :folder-options="folderOptions"
+              :reset-counter="dialogSessionSeq"
+              @append-files="appendFiles"
+              @append-url="appendUrl"
+              @remove-file="removeFile"
+              @remove-url="removeUrl"
+              @update:target-folder="localTargetFolder = $event"
+            />
 
             <aside class="settings-sidebar">
               <div class="settings-sidebar-header">
@@ -158,495 +65,403 @@
 
             <div class="config-panel">
               <div class="content-wrapper upload-confirm-content">
-                  <div v-show="activeSection === 'tags'" class="section">
-                    <div class="section-content">
-                      <div class="section-header">
-                        <h2 class="section-title">{{ t('uploadConfirm.tabTags') }}</h2>
-                        <p class="section-desc">{{ t('uploadConfirm.tagsDescription') }}</p>
+                <UploadAdvancedOverridesSection
+                  :active-section="activeSection"
+                  :tag-ids="selectedTagIds"
+                  :tag-options="tagOptions"
+                  :tags-loading="tagsLoading"
+                  :tags-load-failed="tagsLoadFailed"
+                  :batch-file-exts="batchFileExts"
+                  :has-pdf="hasPdf"
+                  :ui-state="uiState"
+                  :is-graph-section-available="isGraphSectionAvailable"
+                  :llm-model-id="llmModelId"
+                  :all-models="allModels"
+                  @update:tag-ids="selectedTagIds = $event"
+                  @update:parser-engine-rules="handleParserEngineRulesUpdate"
+                  @update:pdf-force-scanned="uiState.pdfForceScanned = $event"
+                  @update:summary-enabled="uiState.summaryEnabled = $event"
+                  @update:question-generation="uiState.questionGenerationConfig = $event"
+                  @update:node-extract="handleNodeExtractUpdate"
+                />
+
+                <div v-show="activeSection === 'chunking'" class="section">
+                  <div class="section-content">
+                    <div class="section-header">
+                      <h2 class="section-title">{{ t('knowledgeEditor.chunking.title') }}</h2>
+                      <p class="section-desc">{{ t('knowledgeEditor.chunking.description') }}</p>
+                    </div>
+                    <div class="settings-group">
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.strategyLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.chunking.strategyDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-select
+                            v-model="uiState.chunkingConfig.strategy"
+                            :options="chunkingStrategyOptions"
+                            :clearable="false"
+                            :style="{ width: '280px' }"
+                          />
+                        </div>
                       </div>
-                      <div class="settings-group">
-                        <div class="setting-row setting-row-vertical">
-                          <div class="setting-info">
-                            <label>{{ t('uploadConfirm.tagsPlaceholder') }}</label>
-                          </div>
-                          <div class="setting-control setting-control-full">
-                            <t-select
-                              v-model="selectedTagIds"
-                              :options="tagOptions"
-                              :loading="tagsLoading"
-                              multiple
-                              filterable
-                              clearable
-                              :placeholder="t('uploadConfirm.tagsPlaceholder')"
-                            />
-                            <p v-if="tagsLoadFailed" class="field-hint field-hint--error">
-                              {{ t('uploadConfirm.tagsLoadFailed') }}
-                            </p>
-                            <p v-else-if="!tagsLoading && tagOptions.length === 0" class="field-hint">
-                              {{ t('uploadConfirm.tagsEmpty') }}
-                            </p>
-                          </div>
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.sizeLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.chunking.sizeDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-input-number
+                            v-model="uiState.chunkingConfig.chunkSize"
+                            :min="100"
+                            :max="4000"
+                            :step="50"
+                            theme="normal"
+                            :style="{ width: '200px' }"
+                          />
+                        </div>
+                      </div>
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.overlapLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.chunking.overlapDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-input-number
+                            v-model="uiState.chunkingConfig.chunkOverlap"
+                            :min="0"
+                            :max="500"
+                            :step="20"
+                            theme="normal"
+                            :style="{ width: '200px' }"
+                          />
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div v-show="activeSection === 'parser'" class="section">
-                    <KBParserSettings
-                      :relevant-extensions="batchFileExts"
-                      :parser-engine-rules="uiState.chunkingConfig.parserEngineRules"
-                      @update:parser-engine-rules="handleParserEngineRulesUpdate"
-                    />
-                    <div v-if="hasPdf" class="kb-settings-block">
-                      <div class="settings-group">
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('uploadConfirm.pdfForceScanned.label') }}</label>
-                            <p class="desc">{{ t('uploadConfirm.pdfForceScanned.description') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-switch v-model="uiState.pdfForceScanned" size="medium" />
-                          </div>
+                    <button
+                      type="button"
+                      class="more-options-toggle"
+                      :aria-expanded="chunkingMoreOpen"
+                      @click="chunkingMoreOpen = !chunkingMoreOpen"
+                    >
+                      <t-icon name="chevron-down" :class="{ 'is-open': chunkingMoreOpen }" />
+                      <span>{{ t('uploadConfirm.moreOptions') }}</span>
+                    </button>
+
+                    <div v-if="chunkingMoreOpen" class="settings-group settings-group--more">
+                      <div class="setting-row setting-row--separators">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.separatorsLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.chunking.separatorsDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-select
+                            v-model="uiState.chunkingConfig.separators"
+                            :options="separatorOptions"
+                            multiple
+                            creatable
+                            filterable
+                            :style="{ width: '280px' }"
+                          />
+                        </div>
+                      </div>
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.tokenLimitLabel') }}</label>
+                        </div>
+                        <div class="setting-control">
+                          <t-input-number
+                            v-model="uiState.chunkingConfig.tokenLimit"
+                            :min="0"
+                            :max="8192"
+                            :step="64"
+                            theme="normal"
+                            :style="{ width: '200px' }"
+                          />
+                        </div>
+                      </div>
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.languagesLabel') }}</label>
+                        </div>
+                        <div class="setting-control">
+                          <t-select
+                            v-model="uiState.chunkingConfig.languages"
+                            :options="languageOptions"
+                            multiple
+                            :style="{ width: '280px' }"
+                          />
+                        </div>
+                      </div>
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.parentChildLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.chunking.parentChildDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-switch v-model="uiState.chunkingConfig.enableParentChild" />
+                        </div>
+                      </div>
+                      <div v-if="uiState.chunkingConfig.enableParentChild" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.parentChunkSizeLabel') }}</label>
+                        </div>
+                        <div class="setting-control">
+                          <t-input-number
+                            v-model="uiState.chunkingConfig.parentChunkSize"
+                            :min="512"
+                            :max="8192"
+                            :step="64"
+                            theme="normal"
+                            :style="{ width: '200px' }"
+                          />
+                        </div>
+                      </div>
+                      <div v-if="uiState.chunkingConfig.enableParentChild" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.chunking.childChunkSizeLabel') }}</label>
+                        </div>
+                        <div class="setting-control">
+                          <t-input-number
+                            v-model="uiState.chunkingConfig.childChunkSize"
+                            :min="64"
+                            :max="2048"
+                            :step="32"
+                            theme="normal"
+                            :style="{ width: '200px' }"
+                          />
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div v-show="activeSection === 'chunking'" class="section">
-                    <div class="section-content">
-                      <div class="section-header">
-                        <h2 class="section-title">{{ t('knowledgeEditor.chunking.title') }}</h2>
-                        <p class="section-desc">{{ t('knowledgeEditor.chunking.description') }}</p>
-                      </div>
-                      <div class="settings-group">
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.strategyLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.chunking.strategyDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-select
-                              v-model="uiState.chunkingConfig.strategy"
-                              :options="chunkingStrategyOptions"
-                              :clearable="false"
-                              :style="{ width: '280px' }"
-                            />
-                          </div>
-                        </div>
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.sizeLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.chunking.sizeDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-input-number
-                              v-model="uiState.chunkingConfig.chunkSize"
-                              :min="100"
-                              :max="4000"
-                              :step="50"
-                              theme="normal"
-                              :style="{ width: '200px' }"
-                            />
-                          </div>
-                        </div>
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.overlapLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.chunking.overlapDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-input-number
-                              v-model="uiState.chunkingConfig.chunkOverlap"
-                              :min="0"
-                              :max="500"
-                              :step="20"
-                              theme="normal"
-                              :style="{ width: '200px' }"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        class="more-options-toggle"
-                        :aria-expanded="chunkingMoreOpen"
-                        @click="chunkingMoreOpen = !chunkingMoreOpen"
-                      >
-                        <t-icon name="chevron-down" :class="{ 'is-open': chunkingMoreOpen }" />
-                        <span>{{ t('uploadConfirm.moreOptions') }}</span>
-                      </button>
-
-                      <div v-if="chunkingMoreOpen" class="settings-group settings-group--more">
-                        <div class="setting-row setting-row--separators">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.separatorsLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.chunking.separatorsDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-select
-                              v-model="uiState.chunkingConfig.separators"
-                              :options="separatorOptions"
-                              multiple
-                              creatable
-                              filterable
-                              :style="{ width: '280px' }"
-                            />
-                          </div>
-                        </div>
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.tokenLimitLabel') }}</label>
-                          </div>
-                          <div class="setting-control">
-                            <t-input-number
-                              v-model="uiState.chunkingConfig.tokenLimit"
-                              :min="0"
-                              :max="8192"
-                              :step="64"
-                              theme="normal"
-                              :style="{ width: '200px' }"
-                            />
-                          </div>
-                        </div>
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.languagesLabel') }}</label>
-                          </div>
-                          <div class="setting-control">
-                            <t-select
-                              v-model="uiState.chunkingConfig.languages"
-                              :options="languageOptions"
-                              multiple
-                              :style="{ width: '280px' }"
-                            />
-                          </div>
-                        </div>
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.parentChildLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.chunking.parentChildDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-switch v-model="uiState.chunkingConfig.enableParentChild" />
-                          </div>
-                        </div>
-                        <div v-if="uiState.chunkingConfig.enableParentChild" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.parentChunkSizeLabel') }}</label>
-                          </div>
-                          <div class="setting-control">
-                            <t-input-number v-model="uiState.chunkingConfig.parentChunkSize" :min="512" :max="8192" :step="64" theme="normal" :style="{ width: '200px' }" />
-                          </div>
-                        </div>
-                        <div v-if="uiState.chunkingConfig.enableParentChild" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.chunking.childChunkSizeLabel') }}</label>
-                          </div>
-                          <div class="setting-control">
-                            <t-input-number v-model="uiState.chunkingConfig.childChunkSize" :min="64" :max="2048" :step="32" theme="normal" :style="{ width: '200px' }" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-show="activeSection === 'multimodal'" class="section" data-section="multimodal">
-                    <div class="kb-settings-block">
-                      <div class="section-header">
-                        <h2 class="section-title">{{ t('knowledgeEditor.multimodal.title') }}</h2>
-                        <p class="section-desc">{{ t('knowledgeEditor.multimodal.description') }}</p>
-                      </div>
-                      <div v-if="issueSectionKeys.has('multimodal')" class="section-notice">
-                        <t-icon name="info-circle-filled" />
-                        <span>{{ t('uploadConfirm.multimodalSetupHint') }}</span>
-                      </div>
-                      <div class="settings-group">
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.multimodal.label') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.description') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-switch v-model="uiState.multimodalConfig.enabled" size="medium" />
-                          </div>
-                        </div>
-                        <div v-if="uiState.multimodalConfig.enabled" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.multimodal.vllmLabel') }} <span class="required">*</span></label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.vllmDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <ModelSelector
-                              model-type="VLLM"
-                              :selected-model-id="uiState.multimodalConfig.vllmModelId"
-                              :all-models="allModels"
-                              :status="showMultimodalModelError ? 'error' : 'default'"
-                              :placeholder="t('knowledgeEditor.advanced.multimodal.vllmPlaceholder')"
-                              @update:selected-model-id="handleMultimodalVLLMChange"
-                              @add-model="handleAddVLLMModel"
-                            />
-                          </div>
-                        </div>
-                        <div v-if="uiState.multimodalConfig.enabled" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.multimodal.descriptionLanguageLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.descriptionLanguageDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-select
-                              v-model="uiState.multimodalConfig.descriptionLanguage"
-                              clearable
-                              :placeholder="t('knowledgeEditor.advanced.multimodal.descriptionLanguageAuto')"
-                              :style="{ width: '280px' }"
-                            >
-                              <t-option value="Chinese" :label="t('language.zhCN')" />
-                              <t-option value="English" :label="t('language.enUS')" />
-                              <t-option value="Korean" :label="t('language.koKR')" />
-                              <t-option value="Russian" :label="t('language.ruRU')" />
-                            </t-select>
-                          </div>
-                        </div>
-                        <div v-if="uiState.multimodalConfig.enabled" class="setting-row setting-row-vertical">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.multimodal.customInstructionsLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.customInstructionsDescription') }}</p>
-                          </div>
-                          <div class="setting-control setting-control-full">
-                            <t-textarea
-                              v-model="uiState.multimodalConfig.customInstructions"
-                              :placeholder="t('knowledgeEditor.advanced.multimodal.customInstructionsPlaceholder')"
-                              :maxlength="4000"
-                              :autosize="{ minRows: 3, maxRows: 8 }"
-                            />
-                          </div>
-                        </div>
-                        <div v-if="uiState.multimodalConfig.enabled" class="setting-row setting-row-vertical">
-                          <div class="setting-info">
-                            <label>{{ t('uploadConfirm.imageEmbeddingModel') }}</label>
-                            <p class="desc">{{ t('uploadConfirm.imageIndexInherited') }}</p>
-                            <p v-if="uiState.imageVectorEnabled && !embeddingTakesImages" class="warn">
-                              {{ t('knowledgeEditor.advanced.multimodal.imageVectorModelUnsupported') }}
-                            </p>
-                          </div>
-                          <div class="setting-control">
-                            <ModelSelector
-                              model-type="Embedding"
-                              :selected-model-id="kbInfo?.embedding_model_id || ''"
-                              :all-models="allModels"
-                              disabled
-                              :placeholder="t('uploadConfirm.notSet')"
-                            />
-                          </div>
-                        </div>
-                        <div v-if="uiState.multimodalConfig.enabled" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('uploadConfirm.imageVectorIndex') }}</label>
-                            <p class="desc">{{ t('uploadConfirm.imageVectorIndexHint') }}</p>
-                            <p v-if="!kbInfo?.indexing_strategy?.vector_enabled" class="warn">{{ t('uploadConfirm.imageVectorRequiresIndex') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-switch v-model="uiState.imageVectorEnabled" :disabled="!kbInfo?.indexing_strategy?.vector_enabled" size="medium" />
-                          </div>
-                        </div>
-
-                        <div v-if="uiState.multimodalConfig.enabled" class="setting-row setting-row-vertical image-panel-flush">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.multimodal.imagePipelineSectionLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.imagePipelineSectionDescription') }}</p>
-                          </div>
-                          <!-- 与知识库编辑器同款：方案与私有参数由注册表驱动，前端
-                               不写死任何方案名。选中智能模式时下方展开属性面板。 -->
-                          <ImagePipelineSettings
-                            v-model:params="uiState.imagePipelineParams"
-                            :pipeline-id="uiState.imagePipeline"
-                            @update:pipeline-id="uiState.imagePipeline = $event"
-                            @update:invalid="imagePipelineInvalid = $event"
-                          >
-                            <!-- 观察属性说明：收进面板的「附加说明」折叠区。属性字典来自后端注册表，
-                                 流水线声明不了它，所以由宿主通过插槽递进去；折叠交给面板统一负责，
-                                 这里不再套一层 details。 -->
-                            <template #notes>
-                              <div
-                                v-if="
-                                  uiState.multimodalConfig.enabled &&
-                                  uiState.imagePipeline === IMAGE_PIPELINE_SMARTOCR
-                                "
-                                class="image-attr-block"
-                              >
-                                <div class="image-attr-heading">
-                                  <label>{{ t('knowledgeEditor.advanced.multimodal.imageAttrsSchemaLabel') }}</label>
-                                  <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.imageAttrsSchemaDescription') }}</p>
-                                </div>
-                                <ul v-if="imageAttrDisplays.length" class="image-attr-list">
-                                  <li v-for="attr in imageAttrDisplays" :key="attr.name" class="image-attr-row">
-                                    <div class="image-attr-head">
-                                      <span class="image-attr-label">{{ attr.label }}</span>
-                                      <code class="image-attr-name">{{ attr.name }}</code>
-                                    </div>
-                                    <p v-if="attr.description" class="image-attr-desc">{{ attr.description }}</p>
-                                    <ul class="image-attr-value-list">
-                                      <li v-for="v in attr.values" :key="v.value" class="image-attr-value">
-                                        <code>{{ v.value }}</code>
-                                        <span class="image-attr-value-label">{{ v.label }}</span>
-                                      </li>
-                                    </ul>
-                                  </li>
-                                </ul>
-                                <div class="image-attr-section">
-                                  <div class="setting-info">
-                                    <label>{{ t('knowledgeEditor.advanced.multimodal.imageAttrsOcrConditions') }}</label>
-                                    <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.imageAttrsOcrConditionsDesc') }}</p>
-                                  </div>
-                                  <ul class="image-attr-condition-list">
-                                    <li v-for="(cond, i) in imageAttrConditionDisplays" :key="i" class="image-attr-condition">
-                                      <span class="image-attr-condition-label">{{ cond.label }}</span>
-                                      <code class="image-attr-condition-raw">{{ cond.raw }}</code>
-                                    </li>
-                                  </ul>
-                                </div>
-                              </div>
-                            </template>
-                          </ImagePipelineSettings>
-                        </div>
-                        <div
-                          v-if="uiState.multimodalConfig.enabled && uiState.imagePipeline === IMAGE_PIPELINE_SMARTOCR"
-                          class="image-pipeline-kb-note"
-                        >
-                          {{ t('knowledgeEditor.advanced.multimodal.imagePipelineKbNote') }}
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-show="activeSection === 'asr'" class="section" data-section="asr">
-                    <div class="kb-settings-block">
-                      <div class="section-header">
-                        <h2 class="section-title">{{ t('knowledgeEditor.asr.title') }}</h2>
-                        <p class="section-desc">{{ t('knowledgeEditor.asr.description') }}</p>
-                      </div>
-                      <div v-if="issueSectionKeys.has('asr')" class="section-notice">
-                        <t-icon name="info-circle-filled" />
-                        <span>{{ t('uploadConfirm.asrSetupHint') }}</span>
-                      </div>
-                      <div class="settings-group">
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.asr.label') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.asr.desc') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-switch v-model="uiState.asrConfig.enabled" size="medium" />
-                          </div>
-                        </div>
-                        <div v-if="uiState.asrConfig.enabled" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.asr.modelLabel') }} <span class="required">*</span></label>
-                            <p class="desc">{{ t('knowledgeEditor.asr.modelDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <ModelSelector
-                              model-type="ASR"
-                              :selected-model-id="uiState.asrConfig.modelId"
-                              :all-models="allModels"
-                              :status="showAsrModelError ? 'error' : 'default'"
-                              :placeholder="t('knowledgeEditor.asr.modelPlaceholder')"
-                              @update:selected-model-id="(val: string) => { uiState.asrConfig.modelId = val }"
-                              @add-model="handleAddASRModel"
-                            />
-                          </div>
-                        </div>
-                        <div v-if="uiState.asrConfig.enabled" class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.asr.languageLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.asr.languageDescription') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-input
-                              v-model="uiState.asrConfig.language"
-                              clearable
-                              :placeholder="t('knowledgeEditor.asr.languagePlaceholder')"
-                              :style="{ width: '280px' }"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-show="activeSection === 'summary'" class="section" data-section="summary">
-                    <div class="kb-settings-block">
-                      <div class="section-header">
-                        <h2 class="section-title">{{ t('uploadConfirm.documentSummary') }}</h2>
-                        <p class="section-desc">{{ t('uploadConfirm.documentSummaryDescription') }}</p>
-                      </div>
-                      <div class="settings-group">
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('uploadConfirm.generateSummary') }}</label>
-                            <p class="desc">{{ t('uploadConfirm.generateSummaryHint') }}</p>
-                          </div>
-                          <div class="setting-control">
-                            <t-switch v-model="uiState.summaryEnabled" size="medium" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-show="activeSection === 'question'" class="section">
-                    <div class="kb-settings-block">
-                      <div class="section-header">
-                        <h2 class="section-title">{{ t('knowledgeEditor.advanced.questionGeneration.label') }}</h2>
-                        <p class="section-desc">{{ t('knowledgeEditor.advanced.questionGeneration.description') }}</p>
-                      </div>
-                      <div class="settings-group">
-                        <div class="setting-row">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.questionGeneration.label') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.questionGeneration.countDescription') }}</p>
-                          </div>
-                          <div class="setting-control setting-control-inline">
-                            <t-input-number
-                              v-if="uiState.questionGenerationConfig.enabled"
-                              v-model="uiState.questionGenerationConfig.questionCount"
-                              :min="1"
-                              :max="10"
-                              :step="1"
-                              theme="normal"
-                              :style="{ width: '88px' }"
-                            />
-                            <t-switch v-model="uiState.questionGenerationConfig.enabled" size="medium" />
-                          </div>
-                        </div>
-                        <div v-if="uiState.questionGenerationConfig.enabled" class="setting-row setting-row-vertical">
-                          <div class="setting-info">
-                            <label>{{ t('knowledgeEditor.advanced.questionGeneration.instructionsLabel') }}</label>
-                            <p class="desc">{{ t('knowledgeEditor.advanced.questionGeneration.instructionsDescription') }}</p>
-                          </div>
-                          <div class="setting-control setting-control-full">
-                            <t-textarea
-                              v-model="uiState.questionGenerationConfig.customInstructions"
-                              :placeholder="t('knowledgeEditor.advanced.questionGeneration.instructionsPlaceholder')"
-                              :maxlength="4000"
-                              :autosize="{ minRows: 3, maxRows: 8 }"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="isGraphSectionAvailable" v-show="activeSection === 'graph'" class="section">
-                    <GraphSettings
-                      :graph-extract="uiState.nodeExtractConfig"
-                      :model-id="llmModelId"
-                      :all-models="allModels"
-                      @update:graphExtract="handleNodeExtractUpdate"
-                    />
                   </div>
                 </div>
+
+                <div v-show="activeSection === 'multimodal'" class="section" data-section="multimodal">
+                  <div class="kb-settings-block">
+                    <div class="section-header">
+                      <h2 class="section-title">{{ t('knowledgeEditor.multimodal.title') }}</h2>
+                      <p class="section-desc">{{ t('knowledgeEditor.multimodal.description') }}</p>
+                    </div>
+                    <div v-if="issueSectionKeys.has('multimodal')" class="section-notice">
+                      <t-icon name="info-circle-filled" />
+                      <span>{{ t('uploadConfirm.multimodalSetupHint') }}</span>
+                    </div>
+                    <div class="settings-group">
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.advanced.multimodal.label') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.description') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-switch v-model="uiState.multimodalConfig.enabled" size="medium" />
+                        </div>
+                      </div>
+                      <div v-if="uiState.multimodalConfig.enabled" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.advanced.multimodal.vllmLabel') }} <span class="required">*</span></label>
+                          <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.vllmDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <ModelSelector
+                            model-type="VLLM"
+                            :selected-model-id="uiState.multimodalConfig.vllmModelId"
+                            :all-models="allModels"
+                            :status="showMultimodalModelError ? 'error' : 'default'"
+                            :placeholder="t('knowledgeEditor.advanced.multimodal.vllmPlaceholder')"
+                            @update:selected-model-id="handleMultimodalVLLMChange"
+                            @add-model="handleAddVLLMModel"
+                          />
+                        </div>
+                      </div>
+                      <div v-if="uiState.multimodalConfig.enabled" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.advanced.multimodal.descriptionLanguageLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.descriptionLanguageDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-select
+                            v-model="uiState.multimodalConfig.descriptionLanguage"
+                            clearable
+                            :placeholder="t('knowledgeEditor.advanced.multimodal.descriptionLanguageAuto')"
+                            :style="{ width: '280px' }"
+                          >
+                            <t-option value="Chinese" :label="t('language.zhCN')" />
+                            <t-option value="English" :label="t('language.enUS')" />
+                            <t-option value="Korean" :label="t('language.koKR')" />
+                            <t-option value="Russian" :label="t('language.ruRU')" />
+                          </t-select>
+                        </div>
+                      </div>
+                      <div v-if="uiState.multimodalConfig.enabled" class="setting-row setting-row-vertical">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.advanced.multimodal.customInstructionsLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.customInstructionsDescription') }}</p>
+                        </div>
+                        <div class="setting-control setting-control-full">
+                          <t-textarea
+                            v-model="uiState.multimodalConfig.customInstructions"
+                            :placeholder="t('knowledgeEditor.advanced.multimodal.customInstructionsPlaceholder')"
+                            :maxlength="4000"
+                            :autosize="{ minRows: 3, maxRows: 8 }"
+                          />
+                        </div>
+                      </div>
+                      <div v-if="uiState.multimodalConfig.enabled" class="setting-row setting-row-vertical">
+                        <div class="setting-info">
+                          <label>{{ t('uploadConfirm.imageEmbeddingModel') }}</label>
+                          <p class="desc">{{ t('uploadConfirm.imageIndexInherited') }}</p>
+                          <p v-if="uiState.imageVectorEnabled && !embeddingTakesImages" class="warn">
+                            {{ t('knowledgeEditor.advanced.multimodal.imageVectorModelUnsupported') }}
+                          </p>
+                        </div>
+                        <div class="setting-control">
+                          <ModelSelector
+                            model-type="Embedding"
+                            :selected-model-id="kbInfo?.embedding_model_id || ''"
+                            :all-models="allModels"
+                            disabled
+                            :placeholder="t('uploadConfirm.notSet')"
+                          />
+                        </div>
+                      </div>
+                      <div v-if="uiState.multimodalConfig.enabled" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('uploadConfirm.imageVectorIndex') }}</label>
+                          <p class="desc">{{ t('uploadConfirm.imageVectorIndexHint') }}</p>
+                          <p v-if="!kbInfo?.indexing_strategy?.vector_enabled" class="warn">
+                            {{ t('uploadConfirm.imageVectorRequiresIndex') }}
+                          </p>
+                        </div>
+                        <div class="setting-control">
+                          <t-switch
+                            v-model="uiState.imageVectorEnabled"
+                            :disabled="!kbInfo?.indexing_strategy?.vector_enabled"
+                            size="medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div v-if="uiState.multimodalConfig.enabled" class="setting-row setting-row-vertical image-panel-flush">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.advanced.multimodal.imagePipelineSectionLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.imagePipelineSectionDescription') }}</p>
+                        </div>
+                        <ImagePipelineSettings
+                          v-model:params="uiState.imagePipelineParams"
+                          :pipeline-id="uiState.imagePipeline"
+                          @update:pipeline-id="uiState.imagePipeline = $event"
+                          @update:invalid="imagePipelineInvalid = $event"
+                        >
+                          <template #notes>
+                            <div
+                              v-if="
+                                uiState.multimodalConfig.enabled &&
+                                uiState.imagePipeline === IMAGE_PIPELINE_SMARTOCR
+                              "
+                              class="image-attr-block"
+                            >
+                              <div class="image-attr-heading">
+                                <label>{{ t('knowledgeEditor.advanced.multimodal.imageAttrsSchemaLabel') }}</label>
+                                <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.imageAttrsSchemaDescription') }}</p>
+                              </div>
+                              <ul v-if="imageAttrDisplays.length" class="image-attr-list">
+                                <li v-for="attr in imageAttrDisplays" :key="attr.name" class="image-attr-row">
+                                  <div class="image-attr-head">
+                                    <span class="image-attr-label">{{ attr.label }}</span>
+                                    <code class="image-attr-name">{{ attr.name }}</code>
+                                  </div>
+                                  <p v-if="attr.description" class="image-attr-desc">{{ attr.description }}</p>
+                                  <ul class="image-attr-value-list">
+                                    <li v-for="v in attr.values" :key="v.value" class="image-attr-value">
+                                      <code>{{ v.value }}</code>
+                                      <span class="image-attr-value-label">{{ v.label }}</span>
+                                    </li>
+                                  </ul>
+                                </li>
+                              </ul>
+                              <div class="image-attr-section">
+                                <div class="setting-info">
+                                  <label>{{ t('knowledgeEditor.advanced.multimodal.imageAttrsOcrConditions') }}</label>
+                                  <p class="desc">{{ t('knowledgeEditor.advanced.multimodal.imageAttrsOcrConditionsDesc') }}</p>
+                                </div>
+                                <ul class="image-attr-condition-list">
+                                  <li v-for="(cond, i) in imageAttrConditionDisplays" :key="i" class="image-attr-condition">
+                                    <span class="image-attr-condition-label">{{ cond.label }}</span>
+                                    <code class="image-attr-condition-raw">{{ cond.raw }}</code>
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </template>
+                        </ImagePipelineSettings>
+                      </div>
+                      <div
+                        v-if="uiState.multimodalConfig.enabled && uiState.imagePipeline === IMAGE_PIPELINE_SMARTOCR"
+                        class="image-pipeline-kb-note"
+                      >
+                        {{ t('knowledgeEditor.advanced.multimodal.imagePipelineKbNote') }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-show="activeSection === 'asr'" class="section" data-section="asr">
+                  <div class="kb-settings-block">
+                    <div class="section-header">
+                      <h2 class="section-title">{{ t('knowledgeEditor.asr.title') }}</h2>
+                      <p class="section-desc">{{ t('knowledgeEditor.asr.description') }}</p>
+                    </div>
+                    <div v-if="issueSectionKeys.has('asr')" class="section-notice">
+                      <t-icon name="info-circle-filled" />
+                      <span>{{ t('uploadConfirm.asrSetupHint') }}</span>
+                    </div>
+                    <div class="settings-group">
+                      <div class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.asr.label') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.asr.desc') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-switch v-model="uiState.asrConfig.enabled" size="medium" />
+                        </div>
+                      </div>
+                      <div v-if="uiState.asrConfig.enabled" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.asr.modelLabel') }} <span class="required">*</span></label>
+                          <p class="desc">{{ t('knowledgeEditor.asr.modelDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <ModelSelector
+                            model-type="ASR"
+                            :selected-model-id="uiState.asrConfig.modelId"
+                            :all-models="allModels"
+                            :status="showAsrModelError ? 'error' : 'default'"
+                            :placeholder="t('knowledgeEditor.asr.modelPlaceholder')"
+                            @update:selected-model-id="(val: string) => { uiState.asrConfig.modelId = val }"
+                            @add-model="handleAddASRModel"
+                          />
+                        </div>
+                      </div>
+                      <div v-if="uiState.asrConfig.enabled" class="setting-row">
+                        <div class="setting-info">
+                          <label>{{ t('knowledgeEditor.asr.languageLabel') }}</label>
+                          <p class="desc">{{ t('knowledgeEditor.asr.languageDescription') }}</p>
+                        </div>
+                        <div class="setting-control">
+                          <t-input
+                            v-model="uiState.asrConfig.language"
+                            clearable
+                            :placeholder="t('knowledgeEditor.asr.languagePlaceholder')"
+                            :style="{ width: '280px' }"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <footer class="modal-footer">
                 <t-button theme="default" variant="outline" @click="handleCancel">
@@ -669,16 +484,19 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import ModelSelector from '@/components/ModelSelector.vue'
-import KBParserSettings from '../settings/KBParserSettings.vue'
-import GraphSettings from '../settings/GraphSettings.vue'
 import { useChatResourcesStore } from '@/stores/chatResources'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useUIStore } from '@/stores/ui'
-import { formatFileSize, getFileIcon } from '@/utils/files'
 import { getUploadFileKey } from '../utils/uploadSources'
-import { listKnowledgeTags, mergeImageActions, fetchImageAttrSchema, FALLBACK_IMAGE_ATTR_SCHEMA, type ImageActionsConfig, type ImageAttrSchema } from '@/api/knowledge-base'
+import {
+  listKnowledgeTags,
+  mergeImageActions,
+  fetchImageAttrSchema,
+  FALLBACK_IMAGE_ATTR_SCHEMA,
+  type ImageAttrSchema,
+} from '@/api/knowledge-base'
+import type { ModelConfig } from '@/api/model'
 import { imageAttrDisplay, imageAttrConditionDisplay } from '@/utils/imageAttrDisplay'
-import KbUploadSourceDropdown from './KbUploadSourceDropdown.vue'
 import ImagePipelineSettings from '../ImagePipelineSettings.vue'
 import {
   buildPipelineFields,
@@ -687,86 +505,32 @@ import {
   IMAGE_PIPELINE_DEFAULT,
   IMAGE_PIPELINE_SMARTOCR,
 } from '@/utils/imageProcessingConfig'
-import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue'
-import { folderOptionFromPath, sortFolderOptions } from '../folderTree'
-import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess'
+import type { FolderOption } from './FolderPickerMenu.vue'
+import type { ParserEngineRule } from '@/types/knowledgeProcess'
 import type {
   UploadConfirmManualSource,
   UploadConfirmMode,
   UploadConfirmReparseSource,
   UploadConfirmResult,
 } from '@/stores/uploadConfirm'
+import UploadSourceQueuePanel from './upload/UploadSourceQueuePanel.vue'
+import UploadAdvancedOverridesSection from './upload/UploadAdvancedOverridesSection.vue'
+import {
+  useUploadProcessOverrides,
+  truncateUploadNavText,
+  type ConfigSectionKey,
+  type IssueSectionKey,
+  type UploadKBInfo,
+  type UploadNavItem,
+  type UploadNodeExtractConfig,
+} from '../composables/useUploadProcessOverrides'
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'flac', 'ogg']
 
-// The image-attribute registry, fetched from the backend (single source of
-// truth). Falls back to the static registry until the endpoint answers.
-const imageAttrSchema = ref<ImageAttrSchema | null>(null)
-const displaySchema = computed<ImageAttrSchema>(
-  () => imageAttrSchema.value ?? FALLBACK_IMAGE_ATTR_SCHEMA,
-)
-let schemaLoadSeq = 0
-async function loadImageAttrSchema(kbId: string) {
-  const seq = ++schemaLoadSeq
-  try {
-    const schema = await fetchImageAttrSchema(kbId)
-    if (seq !== schemaLoadSeq || props.kbInfo?.id !== kbId) return
-    imageAttrSchema.value = schema
-  } catch {
-    if (seq === schemaLoadSeq) imageAttrSchema.value = null
-  }
-}
-
-type ConfigSectionKey = 'tags' | 'parser' | 'chunking' | 'multimodal' | 'asr' | 'summary' | 'question' | 'graph'
-type IssueSectionKey = 'multimodal' | 'asr'
-
-interface ChunkingUIConfig {
-  chunkSize: number
-  chunkOverlap: number
-  separators: string[]
-  parserEngineRules?: Array<{
-    file_types: string[]
-    engine: string
-    xlsx_first_row_as_header?: boolean
-  }>
-  enableParentChild: boolean
-  parentChunkSize: number
-  childChunkSize: number
-  strategy?: string
-  tokenLimit?: number
-  languages?: string[]
-  tableMetadataInstructions?: string
-}
-
-interface UploadUIState {
-  summaryEnabled: boolean
-  chunkingConfig: ChunkingUIConfig
-  multimodalConfig: { enabled: boolean; vllmModelId: string; descriptionLanguage?: string; customInstructions?: string }
-  // The image pipeline pick and its private tunables. The pick decides the
-  // legacy image_attrs_enabled switch (only smartocr turns it on), which is
-  // derived at write time rather than stored.
-  imagePipeline: string
-  imagePipelineParams: Record<string, unknown>
-  imageVectorEnabled: boolean
-  imageActions: ImageActionsConfig
-  asrConfig: { enabled: boolean; modelId: string; language: string }
-  questionGenerationConfig: { enabled: boolean; questionCount: number; customInstructions?: string }
-  nodeExtractConfig: {
-    enabled: boolean
-    text: string
-    tags: string[]
-    nodes: Array<{ name: string; attributes: string[] }>
-    relations: Array<{ node1: string; node2: string; type: string }>
-    customInstructions?: string
-  }
-  graphEnabled: boolean
-  pdfForceScanned: boolean
-}
-
 const props = withDefaults(defineProps<{
   visible: boolean
-  kbInfo: any
+  kbInfo: UploadKBInfo | null | undefined
   mode?: UploadConfirmMode
   files?: File[]
   urls?: string[]
@@ -776,9 +540,7 @@ const props = withDefaults(defineProps<{
   tagId?: string
   acceptFileTypes?: string
   supportedFileTypes?: string[]
-  /** Folder the batch will be uploaded into; '' means the knowledge base root. */
   targetFolder?: string
-  /** Existing folders offered as upload destinations. */
   folderOptions?: FolderOption[]
 }>(), {
   mode: 'file',
@@ -800,28 +562,49 @@ const emit = defineEmits<{
 }>()
 
 const { t, te } = useI18n()
+const chatResources = useChatResourcesStore()
+const editorResources = useEditorResourcesStore()
+const uiStore = useUIStore()
 
-// The attribute panel and the OCR conditions are rendered from the registry in
-// the operator's language: the registry supplies the wording, the i18n overlay
-// translates it, so a new backend attribute needs no change here.
+const imageAttrSchema = ref<ImageAttrSchema | null>(null)
+const displaySchema = computed<ImageAttrSchema>(
+  () => imageAttrSchema.value ?? FALLBACK_IMAGE_ATTR_SCHEMA,
+)
+let schemaLoadSeq = 0
+async function loadImageAttrSchema(kbId: string) {
+  const seq = ++schemaLoadSeq
+  try {
+    const schema = await fetchImageAttrSchema(kbId)
+    if (seq !== schemaLoadSeq || props.kbInfo?.id !== kbId) return
+    imageAttrSchema.value = schema
+  } catch {
+    if (seq === schemaLoadSeq) imageAttrSchema.value = null
+  }
+}
+
+const { uiState, initFromKbInfo, buildProcessOverrides, applyOverridesToState } =
+  useUploadProcessOverrides({
+    mergeImageActions,
+    resolveImagePipelineFromKb,
+    buildPipelineFields,
+    normalizeImagePipelineId,
+    imagePipelineDefault: IMAGE_PIPELINE_DEFAULT,
+    imagePipelineSmartOcr: IMAGE_PIPELINE_SMARTOCR,
+    onLoadImageAttrSchema: loadImageAttrSchema,
+  })
+
 const imageAttrDisplays = computed(() =>
   displaySchema.value.attributes.map((attr) => imageAttrDisplay(attr, t, te)),
 )
-// The conditions this upload actually runs with: a list customised through the
-// API is shown as is, otherwise mergeImageActions filled in the default.
 const imageAttrConditionDisplays = computed(() =>
   uiState.value.imageActions.ocr.on.map((cond) =>
     imageAttrConditionDisplay(cond, displaySchema.value, t, te),
   ),
 )
-const chatResources = useChatResourcesStore()
-const editorResources = useEditorResourcesStore()
-const uiStore = useUIStore()
 
-const allModels = ref<any[]>([])
+const allModels = ref<ModelConfig[]>([])
 const embeddingTakesImages = computed(() => {
-  const model = allModels.value.find(m => m.id === props.kbInfo?.embedding_model_id)
-  // A shared model may be absent from the model list; the backend resolves it.
+  const model = allModels.value.find((m) => m.id === props.kbInfo?.embedding_model_id)
   return !model || !!model.capabilities?.input?.includes('image')
 })
 const localFiles = ref<File[]>([])
@@ -832,83 +615,27 @@ const tagsLoading = ref(false)
 const tagsLoadFailed = ref(false)
 const chunkingMoreOpen = ref(false)
 const activeSection = ref<ConfigSectionKey>('tags')
-const uiState = ref<UploadUIState>(createDefaultUIState())
-// Destination folder for this batch. Pre-filled from the sidebar tree, but
-// editable here so browsing a folder never silently decides where files land.
 const localTargetFolder = ref('')
-const destinationPickerVisible = ref(false)
-// Folders created in this dialog before upload; the server tree only gains them
-// once files land, so keep them here across picker open/close cycles.
-const pendingFolderPaths = ref<string[]>([])
-
-const pickerFolderOptions = computed(() => {
-  const byPath = new Map<string, FolderOption>()
-  ;(props.folderOptions || []).forEach((option) => byPath.set(option.path, option))
-  pendingFolderPaths.value.forEach((path) => {
-    if (!byPath.has(path)) byPath.set(path, folderOptionFromPath(path))
-  })
-  return sortFolderOptions([...byPath.values()])
-})
+const dialogSessionSeq = ref(0)
 
 const dialogVisible = computed({
   get: () => props.visible,
   set: (value: boolean) => emit('update:visible', value),
 })
 
-// Deep paths are shown as root / segment / segment in the picker row.
-const destinationBreadcrumb = computed(() => {
-  if (!localTargetFolder.value) return t('knowledgeBase.folderTree.rootRow')
-  const parts = localTargetFolder.value.split('/').filter(Boolean)
-  return [t('knowledgeBase.folderTree.rootRow'), ...parts].join(' / ')
-})
-
-const destinationFullLabel = computed(() =>
-  localTargetFolder.value || t('knowledgeBase.folderTree.rootRow'),
-)
-
-/**
- * Directory a folder-upload file came from, shown under its name so a batch of
- * same-named files (README.md in five folders) stays distinguishable and the
- * resulting structure is visible before confirming.
- */
-function fileRelativeDir(file: File): string {
-  const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath
-  if (!relativePath) return ''
-  return relativePath.split('/').filter(Boolean).slice(0, -1).join('/')
-}
-
-function fileDisplayTitle(file: File): string {
-  const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath
-  return relativePath || file.name
-}
-
-function onDestinationCreated(path: string) {
-  if (!path || pendingFolderPaths.value.includes(path)) return
-  pendingFolderPaths.value = [...pendingFolderPaths.value, path]
-}
-
-function onDestinationPicked(path: string) {
-  localTargetFolder.value = path
-  destinationPickerVisible.value = false
-}
-
 function getModelName(modelId: string): string {
   if (!modelId) return t('uploadConfirm.notSet')
-  const model = allModels.value.find((m: any) => m.id === modelId)
+  const model = allModels.value.find((m) => m.id === modelId)
   return model?.name || modelId
-}
-
-function truncateNavText(text: string, max = 18): string {
-  if (!text) return text
-  if (text.length <= max) return text
-  return `${text.slice(0, max - 1)}…`
 }
 
 function hasParserCustomization(): boolean {
   const rules = uiState.value.chunkingConfig.parserEngineRules
   if (!rules?.length) return false
-  return rules.some(rule => rule.engine && rule.engine !== 'builtin')
-    || rules.some(rule => rule.xlsx_first_row_as_header)
+  return (
+    rules.some((rule) => rule.engine && rule.engine !== 'builtin') ||
+    rules.some((rule) => rule.xlsx_first_row_as_header)
+  )
 }
 
 function getFileExt(file: File): string {
@@ -945,7 +672,6 @@ function inferMediaExtsFromMarkdown(content: string): string[] {
   return [...exts]
 }
 
-const manualCharCount = computed(() => props.manualPreview?.content?.length ?? 0)
 const batchItemCount = computed(() => localFiles.value.length + localUrls.value.length)
 
 const dialogTitle = computed(() => {
@@ -1008,41 +734,40 @@ const languageOptions = computed(() => [
   { label: t('knowledgeEditor.chunking.languageOptions.zh'), value: 'zh' },
 ])
 
-const tagOptions = computed(() => availableTags.value.map(tag => ({
-  label: tag.name,
-  value: tag.id,
-})))
+const tagOptions = computed(() =>
+  availableTags.value.map((tag) => ({
+    label: tag.name,
+    value: tag.id,
+  })),
+)
 
 const llmModelId = computed(() => props.kbInfo?.summary_model_id || '')
 
 const hasImages = computed(() => {
   if (props.mode === 'manual' && props.manualPreview?.content) {
-    const content = props.manualPreview.content
-    if (/data:image\/|!\[[^\]]*\]\([^)]+\)/i.test(content)) return true
+    if (/data:image\/|!\[[^\]]*\]\([^)]+\)/i.test(props.manualPreview.content)) return true
   }
-  return batchFileExts.value.some(ext => IMAGE_EXTENSIONS.includes(ext))
+  return batchFileExts.value.some((ext) => IMAGE_EXTENSIONS.includes(ext))
 })
 
-const hasAudio = computed(() => {
-  return batchFileExts.value.some(ext => AUDIO_EXTENSIONS.includes(ext))
-})
+const hasAudio = computed(() => batchFileExts.value.some((ext) => AUDIO_EXTENSIONS.includes(ext)))
 
 const isGraphDatabaseEnabled = computed(() => {
   const engine = editorResources.systemInfo?.graph_database_engine
   return !!engine && engine !== 'Not Enabled'
 })
 
-const isGraphSectionAvailable = computed(() => {
-  return isGraphDatabaseEnabled.value && uiState.value.graphEnabled
-})
+const isGraphSectionAvailable = computed(
+  () => isGraphDatabaseEnabled.value && uiState.value.graphEnabled,
+)
 
-const showMultimodalModelError = computed(() => {
-  return uiState.value.multimodalConfig.enabled && !uiState.value.multimodalConfig.vllmModelId
-})
+const showMultimodalModelError = computed(
+  () => uiState.value.multimodalConfig.enabled && !uiState.value.multimodalConfig.vllmModelId,
+)
 
-const showAsrModelError = computed(() => {
-  return uiState.value.asrConfig.enabled && !uiState.value.asrConfig.modelId
-})
+const showAsrModelError = computed(
+  () => uiState.value.asrConfig.enabled && !uiState.value.asrConfig.modelId,
+)
 
 const issueSectionKeys = computed(() => {
   const keys = new Set<IssueSectionKey>()
@@ -1063,105 +788,41 @@ const issueSectionKeys = computed(() => {
   return keys
 })
 
-const navItems = computed(() => {
-  const items: Array<{
-    key: ConfigSectionKey
-    icon: string
-    label: string
-    status: string
-    statusFull: string
-    statusTone?: 'warning' | 'error' | 'muted'
-    issue?: boolean
-  }> = []
-
-  const push = (key: ConfigSectionKey, icon: string, label: string, issue?: boolean) => {
-    const statusMeta = getSectionNavStatus(key, issue)
-    const full = statusMeta.status
-    items.push({
-      key,
-      icon,
-      label,
-      status: truncateNavText(full),
-      statusFull: full,
-      statusTone: statusMeta.statusTone,
-      issue,
-    })
-  }
-
-  if (props.mode !== 'reparse') {
-    push('tags', 'tag', t('uploadConfirm.tabTags'))
-  }
-  push('parser', 'file-search', t('settings.parserEngine'))
-  push('chunking', 'file-copy', t('knowledgeEditor.sidebar.chunking'))
-  push(
-    'multimodal',
-    'image',
-    t('knowledgeEditor.sidebar.multimodal'),
-    issueSectionKeys.value.has('multimodal'),
-  )
-  push(
-    'asr',
-    'sound',
-    t('knowledgeEditor.sidebar.asr'),
-    issueSectionKeys.value.has('asr'),
-  )
-  push('summary', 'file', t('uploadConfirm.documentSummary'))
-  push('question', 'chat', t('knowledgeEditor.advanced.questionGeneration.label'))
-  if (isGraphSectionAvailable.value) {
-    push('graph', 'chart-bubble', t('knowledgeEditor.sidebar.graph'))
-  }
-  return items
-})
-
 function getSectionNavStatus(
   key: ConfigSectionKey,
   issue?: boolean,
 ): { status: string; statusTone?: 'warning' | 'error' | 'muted' } {
   switch (key) {
     case 'tags':
-      if (selectedTagIds.value.length === 0) {
-        return { status: t('uploadConfirm.summaryNoTags'), statusTone: 'muted' }
-      }
-      return {
-        status: t('uploadConfirm.summaryTagsCount', { count: selectedTagIds.value.length }),
-      }
+      return selectedTagIds.value.length === 0
+        ? { status: t('uploadConfirm.summaryNoTags'), statusTone: 'muted' }
+        : { status: t('uploadConfirm.summaryTagsCount', { count: selectedTagIds.value.length }) }
     case 'parser':
       if (uiState.value.pdfForceScanned && hasPdf.value) {
         return { status: t('uploadConfirm.summaryParserForceScanned') }
       }
-      if (hasParserCustomization()) {
-        return { status: t('uploadConfirm.navParserCustomized') }
-      }
-      return { status: t('uploadConfirm.navParserDefault'), statusTone: 'muted' }
+      return hasParserCustomization()
+        ? { status: t('uploadConfirm.navParserCustomized') }
+        : { status: t('uploadConfirm.navParserDefault'), statusTone: 'muted' }
     case 'chunking': {
       const chunking = uiState.value.chunkingConfig
       const parts = [t('uploadConfirm.navChunkingSummary', { size: chunking.chunkSize })]
-      if (chunking.enableParentChild) {
-        parts.push(t('uploadConfirm.summaryParentChildShort'))
-      }
+      if (chunking.enableParentChild) parts.push(t('uploadConfirm.summaryParentChildShort'))
       return { status: parts.join(' · ') }
     }
     case 'multimodal': {
-      if (issue) {
-        return { status: t('uploadConfirm.statusNeedsSetup'), statusTone: 'error' }
-      }
+      if (issue) return { status: t('uploadConfirm.statusNeedsSetup'), statusTone: 'error' }
       const mm = uiState.value.multimodalConfig
-      if (!mm.enabled) {
-        return { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
-      }
+      if (!mm.enabled) return { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
       return {
         status: mm.vllmModelId ? getModelName(mm.vllmModelId) : t('uploadConfirm.notSet'),
         statusTone: mm.vllmModelId ? undefined : 'warning',
       }
     }
     case 'asr': {
-      if (issue) {
-        return { status: t('uploadConfirm.statusNeedsSetup'), statusTone: 'error' }
-      }
+      if (issue) return { status: t('uploadConfirm.statusNeedsSetup'), statusTone: 'error' }
       const asr = uiState.value.asrConfig
-      if (!asr.enabled) {
-        return { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
-      }
+      if (!asr.enabled) return { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
       return {
         status: asr.modelId ? getModelName(asr.modelId) : t('uploadConfirm.notSet'),
         statusTone: asr.modelId ? undefined : 'warning',
@@ -1173,44 +834,61 @@ function getSectionNavStatus(
         : { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
     case 'question': {
       const question = uiState.value.questionGenerationConfig
-      if (!question.enabled) {
-        return { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
-      }
-      return {
-        status: t('uploadConfirm.summaryQuestionCountValue', { count: question.questionCount }),
-      }
+      return !question.enabled
+        ? { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
+        : { status: t('uploadConfirm.summaryQuestionCountValue', { count: question.questionCount }) }
     }
     case 'graph': {
       if (!uiState.value.graphEnabled || !uiState.value.nodeExtractConfig.enabled) {
         return { status: t('uploadConfirm.statusOff'), statusTone: 'muted' }
       }
       const tagCount = uiState.value.nodeExtractConfig.tags?.length ?? 0
-      if (tagCount > 0) {
-        return { status: t('uploadConfirm.summaryGraphTagsValue', { count: tagCount }) }
-      }
-      return { status: t('uploadConfirm.statusOn') }
+      return tagCount > 0
+        ? { status: t('uploadConfirm.summaryGraphTagsValue', { count: tagCount }) }
+        : { status: t('uploadConfirm.statusOn') }
     }
     default:
       return { status: '' }
   }
 }
 
+const navItems = computed<UploadNavItem[]>(() => {
+  const items: UploadNavItem[] = []
+  const push = (key: ConfigSectionKey, icon: string, label: string, issue?: boolean) => {
+    const statusMeta = getSectionNavStatus(key, issue)
+    const full = statusMeta.status
+    items.push({
+      key,
+      icon,
+      label,
+      status: truncateUploadNavText(full),
+      statusFull: full,
+      statusTone: statusMeta.statusTone,
+      issue,
+    })
+  }
+
+  if (props.mode !== 'reparse') push('tags', 'tag', t('uploadConfirm.tabTags'))
+  push('parser', 'file-search', t('settings.parserEngine'))
+  push('chunking', 'file-copy', t('knowledgeEditor.sidebar.chunking'))
+  push('multimodal', 'image', t('knowledgeEditor.sidebar.multimodal'), issueSectionKeys.value.has('multimodal'))
+  push('asr', 'sound', t('knowledgeEditor.sidebar.asr'), issueSectionKeys.value.has('asr'))
+  push('summary', 'file', t('uploadConfirm.documentSummary'))
+  push('question', 'chat', t('knowledgeEditor.advanced.questionGeneration.label'))
+  if (isGraphSectionAvailable.value) push('graph', 'chart-bubble', t('knowledgeEditor.sidebar.graph'))
+  return items
+})
+
 const canConfirm = computed(() => {
   if (props.mode === 'file' && batchItemCount.value === 0) return false
   if (props.mode === 'manual' && !props.manualPreview?.content?.trim()) return false
-  if (hasImages.value) {
-    if (!uiState.value.multimodalConfig.enabled || !uiState.value.multimodalConfig.vllmModelId) {
-      return false
-    }
-  }
-  if (hasAudio.value) {
-    if (!uiState.value.asrConfig.enabled || !uiState.value.asrConfig.modelId) {
-      return false
-    }
-  }
-  if (showMultimodalModelError.value || showAsrModelError.value) {
+  if (hasImages.value && (!uiState.value.multimodalConfig.enabled || !uiState.value.multimodalConfig.vllmModelId)) {
     return false
   }
+  if (hasAudio.value && (!uiState.value.asrConfig.enabled || !uiState.value.asrConfig.modelId)) {
+    return false
+  }
+  if (showMultimodalModelError.value || showAsrModelError.value) return false
   return true
 })
 
@@ -1226,257 +904,6 @@ function goToSection(key: ConfigSectionKey) {
   nextTick(() => {
     document.querySelector(`[data-section="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
-}
-
-function createDefaultUIState(): UploadUIState {
-  return {
-    summaryEnabled: true,
-    chunkingConfig: {
-      chunkSize: 512,
-      chunkOverlap: 80,
-      separators: ['\n\n', '\n', '。', '！', '？', ';', '；'],
-      parserEngineRules: undefined,
-      enableParentChild: true,
-      parentChunkSize: 4096,
-      childChunkSize: 384,
-      strategy: 'auto',
-      tokenLimit: 0,
-      languages: [],
-      tableMetadataInstructions: '',
-    },
-    multimodalConfig: { enabled: false, vllmModelId: '', descriptionLanguage: '', customInstructions: '' },
-    imagePipeline: IMAGE_PIPELINE_DEFAULT,
-    imagePipelineParams: {},
-    imageVectorEnabled: false,
-    imageActions: mergeImageActions(),
-    asrConfig: { enabled: false, modelId: '', language: '' },
-    questionGenerationConfig: { enabled: true, questionCount: 3, customInstructions: '' },
-    nodeExtractConfig: {
-      enabled: false,
-      text: '',
-      tags: [],
-      nodes: [],
-      relations: [],
-      customInstructions: '',
-    },
-    graphEnabled: false,
-    pdfForceScanned: false,
-  }
-}
-
-function initFromKbInfo(kb: any) {
-  if (!kb) {
-    uiState.value = createDefaultUIState()
-    return
-  }
-
-  uiState.value = {
-    summaryEnabled: true,
-    chunkingConfig: {
-      chunkSize: kb.chunking_config?.chunk_size || 512,
-      chunkOverlap: kb.chunking_config?.chunk_overlap ?? 80,
-      separators: kb.chunking_config?.separators || ['\n\n', '\n', '。', '！', '？', ';', '；'],
-      parserEngineRules: kb.chunking_config?.parser_engine_rules || undefined,
-      enableParentChild: kb.chunking_config?.enable_parent_child ?? false,
-      parentChunkSize: kb.chunking_config?.parent_chunk_size || 4096,
-      childChunkSize: kb.chunking_config?.child_chunk_size || 384,
-      strategy: kb.chunking_config?.strategy || 'auto',
-      tokenLimit: kb.chunking_config?.token_limit || 0,
-      languages: kb.chunking_config?.languages || [],
-      tableMetadataInstructions: kb.chunking_config?.table_metadata_instructions || '',
-    },
-    multimodalConfig: {
-      enabled: !!kb.vlm_config?.enabled,
-      vllmModelId: kb.vlm_config?.model_id || '',
-      descriptionLanguage: kb.vlm_config?.description_language || '',
-      customInstructions: kb.vlm_config?.custom_instructions || '',
-    },
-    // 默认跟随知识库的图片解析方案；用户可对本次任务单独覆盖。旧库（没有
-    // image_pipeline 的）按与后端一致的规则解析出一个具体方案。方案的设置就
-    // 存在它自己的槽位里，原样带过来即可：面板读槽位，运行时也读槽位。
-    imagePipeline: resolveImagePipelineFromKb(kb),
-    imagePipelineParams:
-      (kb.image_processing_config?.image_pipeline_params as Record<string, unknown>) ?? {},
-    imageVectorEnabled: !!kb.image_processing_config?.image_vector_enabled,
-    imageActions: mergeImageActions(kb.image_processing_config?.image_actions),
-    asrConfig: {
-      enabled: !!kb.asr_config?.enabled,
-      modelId: kb.asr_config?.model_id || '',
-      language: kb.asr_config?.language || '',
-    },
-    questionGenerationConfig: {
-      enabled: kb.question_generation_config?.enabled ?? true,
-      questionCount: kb.question_generation_config?.question_count || 3,
-      customInstructions: kb.question_generation_config?.custom_instructions || '',
-    },
-    nodeExtractConfig: {
-      enabled: !!kb.extract_config?.enabled && !!kb.indexing_strategy?.graph_enabled,
-      text: kb.extract_config?.text || '',
-      tags: kb.extract_config?.tags || [],
-      nodes: (kb.extract_config?.nodes || []).map((node: any) => ({
-        name: node.name,
-        attributes: node.attributes || [],
-      })),
-      relations: kb.extract_config?.relations || [],
-      customInstructions: kb.extract_config?.custom_instructions || '',
-    },
-    graphEnabled: kb.indexing_strategy?.graph_enabled ?? false,
-    pdfForceScanned: false,
-  }
-  // 拉取后端属性注册表，驱动属性面板的动态渲染（已有 kbId）。
-  if (kb.id) loadImageAttrSchema(kb.id)
-}
-
-function buildProcessOverrides(): KnowledgeProcessOverrides {
-  const state = uiState.value
-  const chunking = state.chunkingConfig
-
-  const overrides: KnowledgeProcessOverrides = {
-    summary_enabled: state.summaryEnabled,
-    parser_engine_rules: chunking.parserEngineRules,
-    chunking_config: {
-      chunk_size: chunking.chunkSize,
-      chunk_overlap: chunking.chunkOverlap,
-      separators: chunking.separators,
-      enable_parent_child: chunking.enableParentChild,
-      parent_chunk_size: chunking.parentChunkSize,
-      child_chunk_size: chunking.childChunkSize,
-      strategy: chunking.strategy,
-      token_limit: chunking.tokenLimit,
-      languages: chunking.languages,
-      table_metadata_instructions: chunking.tableMetadataInstructions,
-    },
-    enable_multimodel: state.multimodalConfig.enabled,
-    // 旧观察开关跟随选中的方案（只有智能模式点亮它），与后端
-    // EffectiveProcessConfig 的派生规则一致；方案的显式选择随行下发。
-    image_attrs_enabled: state.imagePipeline === IMAGE_PIPELINE_SMARTOCR,
-    image_vector_enabled: state.imageVectorEnabled,
-    image_actions: {
-      ocr: {
-        // The KB's own conditions (mergeImageActions keeps a custom list), so
-        // an upload never swaps an API-customised table for the default one.
-        // The table is the conditions and nothing else: what to do about an
-        // unobserved image is a setting of the pipeline, and it travels in
-        // image_pipeline_params with the rest of that pipeline's settings.
-        on: state.imageActions.ocr.on,
-      },
-    },
-    vlm_config: {
-      enabled: state.multimodalConfig.enabled,
-      model_id: state.multimodalConfig.vllmModelId,
-      description_language: state.multimodalConfig.descriptionLanguage,
-      custom_instructions: state.multimodalConfig.customInstructions,
-    },
-    asr_config: {
-      enabled: state.asrConfig.enabled,
-      model_id: state.asrConfig.modelId,
-      language: state.asrConfig.language,
-    },
-    question_generation_config: {
-      enabled: state.questionGenerationConfig.enabled,
-      question_count: state.questionGenerationConfig.questionCount,
-      custom_instructions: state.questionGenerationConfig.customInstructions,
-    },
-    graph_enabled: state.nodeExtractConfig.enabled && state.graphEnabled,
-    extract_config: {
-      enabled: state.nodeExtractConfig.enabled,
-      text: state.nodeExtractConfig.text,
-      tags: state.nodeExtractConfig.tags,
-      nodes: state.nodeExtractConfig.nodes,
-      relations: state.nodeExtractConfig.relations,
-      custom_instructions: state.nodeExtractConfig.customInstructions,
-    },
-  }
-
-  // 方案的显式选择与私有参数由共享助手产出：没选方案、没有可调参数、或多模态
-  // 关着（此时本节的控件整个不显示，用户没得选）时整段不下发。
-  //
-  // 多模态关着时必须不下发：后端 EffectiveProcessConfig 一见到 image_pipeline
-  // 就会用方案 id 反推 ImageAttrsEnabled，那会把这里显式发的 false 顶回去，
-  // 于是「关掉多模态」对属性观察失去作用。这与知识库编辑器的写法规律一致。
-  Object.assign(
-    overrides,
-    buildPipelineFields(
-      state.multimodalConfig.enabled ? state.imagePipeline : '',
-      state.imagePipelineParams,
-    ),
-  )
-
-  if (state.pdfForceScanned) {
-    overrides.parser_engine_overrides = {
-      pdf_force_scanned: 'true',
-    }
-  }
-
-  return overrides
-}
-
-function applyOverridesToState(o?: KnowledgeProcessOverrides | null) {
-  if (!o) return
-  const s = uiState.value
-  if (o.summary_enabled != null) s.summaryEnabled = o.summary_enabled
-  const cc = o.chunking_config
-  if (cc) {
-    if (cc.chunk_size != null) s.chunkingConfig.chunkSize = cc.chunk_size
-    if (cc.chunk_overlap != null) s.chunkingConfig.chunkOverlap = cc.chunk_overlap
-    if (cc.separators) s.chunkingConfig.separators = cc.separators
-    if (cc.enable_parent_child != null) s.chunkingConfig.enableParentChild = cc.enable_parent_child
-    if (cc.parent_chunk_size != null) s.chunkingConfig.parentChunkSize = cc.parent_chunk_size
-    if (cc.child_chunk_size != null) s.chunkingConfig.childChunkSize = cc.child_chunk_size
-    if (cc.strategy != null) s.chunkingConfig.strategy = cc.strategy
-    if (cc.token_limit != null) s.chunkingConfig.tokenLimit = cc.token_limit
-    if (cc.languages) s.chunkingConfig.languages = cc.languages
-    if (cc.table_metadata_instructions != null) s.chunkingConfig.tableMetadataInstructions = cc.table_metadata_instructions
-    if (cc.parser_engine_rules) s.chunkingConfig.parserEngineRules = cc.parser_engine_rules
-  }
-  if (o.parser_engine_rules) s.chunkingConfig.parserEngineRules = o.parser_engine_rules
-  if (o.enable_multimodel != null) s.multimodalConfig.enabled = o.enable_multimodel
-  if (o.image_pipeline != null) {
-    // 存量覆盖里可能是更名前的 caption_ocr / ob_cap_ocr，交给共享助手归一。
-    s.imagePipeline = normalizeImagePipelineId(o.image_pipeline) || IMAGE_PIPELINE_DEFAULT
-    // 与后端 ResolveProcessConfig 一致：显式方案和参数整体替换，缺省参数使用方案默认值。
-    s.imagePipelineParams = o.image_pipeline_params ?? {}
-  } else if (o.image_attrs_enabled != null) {
-    // 旧版观察开关只在切换方案时丢弃原参数；同一方案继续继承知识库设置。
-    const pipeline = o.image_attrs_enabled ? IMAGE_PIPELINE_SMARTOCR : IMAGE_PIPELINE_DEFAULT
-    if (pipeline !== s.imagePipeline) s.imagePipelineParams = {}
-    s.imagePipeline = pipeline
-  }
-  if (o.image_vector_enabled != null) s.imageVectorEnabled = o.image_vector_enabled
-  if (o.image_actions) s.imageActions = mergeImageActions(o.image_actions)
-  if (o.vlm_config) {
-    if (o.vlm_config.enabled != null) s.multimodalConfig.enabled = o.vlm_config.enabled
-    if (o.vlm_config.model_id != null) s.multimodalConfig.vllmModelId = o.vlm_config.model_id
-    if (o.vlm_config.description_language != null) s.multimodalConfig.descriptionLanguage = o.vlm_config.description_language
-    if (o.vlm_config.custom_instructions != null) s.multimodalConfig.customInstructions = o.vlm_config.custom_instructions
-  }
-  if (o.asr_config) {
-    if (o.asr_config.enabled != null) s.asrConfig.enabled = o.asr_config.enabled
-    if (o.asr_config.model_id != null) s.asrConfig.modelId = o.asr_config.model_id
-    if (o.asr_config.language != null) s.asrConfig.language = o.asr_config.language
-  }
-  const qg = o.question_generation_config
-  if (qg) {
-    if (qg.enabled != null) s.questionGenerationConfig.enabled = qg.enabled
-    if (qg.question_count != null) s.questionGenerationConfig.questionCount = qg.question_count
-    if (qg.custom_instructions != null) s.questionGenerationConfig.customInstructions = qg.custom_instructions
-  }
-  const ec = o.extract_config
-  if (ec) {
-    if (ec.enabled != null) s.nodeExtractConfig.enabled = ec.enabled
-    if (ec.text != null) s.nodeExtractConfig.text = ec.text
-    if (ec.tags) s.nodeExtractConfig.tags = ec.tags
-    if (ec.nodes) s.nodeExtractConfig.nodes = ec.nodes.map(n => ({ name: n.name, attributes: n.attributes || [] }))
-    if (ec.relations) s.nodeExtractConfig.relations = ec.relations
-    if (ec.custom_instructions != null) s.nodeExtractConfig.customInstructions = ec.custom_instructions
-  }
-  if (o.graph_enabled != null) s.graphEnabled = o.graph_enabled
-  s.nodeExtractConfig.enabled = s.nodeExtractConfig.enabled && s.graphEnabled
-  if (o.parser_engine_overrides && o.parser_engine_overrides.pdf_force_scanned === 'true') {
-    s.pdfForceScanned = true
-  } else {
-    s.pdfForceScanned = false
-  }
 }
 
 async function loadModels() {
@@ -1496,8 +923,13 @@ async function loadSystemInfo() {
   }
 }
 
-let tagsLoadSeq = 0
+interface KnowledgeTagListResponse {
+  data?: {
+    data?: Array<{ id: string | number; name?: string }>
+  }
+}
 
+let tagsLoadSeq = 0
 async function loadTags() {
   const seq = ++tagsLoadSeq
   const kbId = props.kbInfo?.id
@@ -1510,10 +942,10 @@ async function loadTags() {
 
   tagsLoading.value = true
   try {
-    const response: any = await listKnowledgeTags(kbId, { page: 1, page_size: 1000 })
+    const response = (await listKnowledgeTags(kbId, { page: 1, page_size: 1000 })) as unknown as KnowledgeTagListResponse
     if (seq !== tagsLoadSeq || props.kbInfo?.id !== kbId) return
     const tags = response?.data?.data || []
-    availableTags.value = tags.map((tag: any) => ({
+    availableTags.value = tags.map((tag) => ({
       id: String(tag.id),
       name: String(tag.name || ''),
     }))
@@ -1528,12 +960,11 @@ watch(
   () => props.visible,
   (visible) => {
     if (!visible) return
+    dialogSessionSeq.value++
     localFiles.value = props.mode === 'file' ? [...(props.files || [])] : []
     localUrls.value = props.mode === 'file' ? [...(props.urls || [])] : []
     selectedTagIds.value = props.mode === 'reparse' ? [] : [...(props.tagIds || [])]
     localTargetFolder.value = props.mode === 'file' ? (props.targetFolder || '') : ''
-    pendingFolderPaths.value = []
-    destinationPickerVisible.value = false
     initFromKbInfo(props.kbInfo)
     if (props.mode === 'reparse') {
       applyOverridesToState(props.reparsePreview?.processOverrides)
@@ -1592,11 +1023,7 @@ const removeFile = (index: number) => {
   localFiles.value = localFiles.value.filter((_, i) => i !== index)
 }
 
-const handleParserEngineRulesUpdate = (rules: Array<{
-  file_types: string[]
-  engine: string
-  xlsx_first_row_as_header?: boolean
-}>) => {
+const handleParserEngineRulesUpdate = (rules: ParserEngineRule[]) => {
   uiState.value.chunkingConfig.parserEngineRules = rules
 }
 
@@ -1612,7 +1039,7 @@ const handleAddASRModel = () => {
   uiStore.openSettings('models', 'asr')
 }
 
-const handleNodeExtractUpdate = (config: UploadUIState['nodeExtractConfig']) => {
+const handleNodeExtractUpdate = (config: UploadNodeExtractConfig) => {
   uiState.value.nodeExtractConfig = { ...config }
   uiState.value.graphEnabled = config.enabled
 }
@@ -1651,7 +1078,6 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
-// 面板报上来的「选中的方案一个动作都没开」；多模态开启时阻止确认。
 const imagePipelineInvalid = ref(false)
 
 const handleConfirm = () => {
@@ -1690,912 +1116,10 @@ const handleConfirm = () => {
 </script>
 
 <style lang="less" scoped>
-// 图片属性面板（可观察属性 / OCR 触发条件 / 观察失败兜底）
-// 文案全部来自后端属性注册表（人话名 + 每个取值的含义），前端只做翻译覆盖，
-// 因此新增属性无需改这里。与知识库编辑器同款：铺在所在设置区里、不套独立底色块。
-// 第三段（观察属性说明）与上方开关区之间的分割线：分段之间才画线。
-// 属性字典与流水线自己的说明同处一个折叠区，只留间距不画线：分割线只用在
-// 段落之间（面板自己画），段内不画。
-.image-attr-block {
-  margin-top: 16px;
-}
-
-// .setting-row 自带下边框；图片流水线面板里分段之间才画线，段内不留线（与知识库
-// 编辑器同款）。② / ③ 之间的那条线就是上面 .image-attr-block 的上边框。
-.setting-row.image-panel-flush {
-  border-bottom: none;
-}
-// 折叠标题：收起时仍读得到这一段是什么。
-// 属性字典的小标题。它现在活在面板的「附加说明」折叠区里，自己不再折叠，
-// 所以没有指针与展开语义 —— 折叠由面板统一负责。
-.image-attr-heading {
-  label {
-    font-weight: 500;
-    color: var(--td-text-color-primary);
-  }
-
-  .desc {
-    margin: 2px 0 0;
-    font-size: var(--app-text-sm);
-    line-height: 20px;
-    color: var(--td-text-color-secondary);
-  }
-}
-.image-attr-list,
-.image-attr-value-list,
-.image-attr-condition-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-// 属性之间只留间距，不画线。
-.image-attr-row + .image-attr-row {
-  margin-top: 12px;
-}
-.image-attr-head {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.image-attr-label {
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-}
-// 原始属性名缩小并加括号，便于与处理轨迹里的字段对上，又不干扰阅读
-.image-attr-name {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: var(--app-text-xs);
-  color: var(--td-text-color-placeholder);
-
-  &::before {
-    content: '(';
-  }
-
-  &::after {
-    content: ')';
-  }
-}
-.image-attr-desc {
-  margin: 2px 0 0;
-  font-size: var(--app-text-sm);
-  line-height: 20px;
-  color: var(--td-text-color-secondary);
-}
-// 每个取值一行：值（等宽，左列对齐）+ 冒号 + 人话解释
-.image-attr-value-list {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  column-gap: 2px;
-  row-gap: 2px;
-  margin-top: 6px;
-  font-size: var(--app-text-sm);
-}
-// display: contents 让值与解释分别落进上面两列，取值因此左对齐成列
-.image-attr-value {
-  display: contents;
-
-  code {
-    font-family: ui-monospace, Menlo, Consolas, monospace;
-    color: var(--td-text-color-primary);
-
-    // 冒号紧跟取值，不留空隙：none: 没有文字
-    &::after {
-      content: ':';
-    }
-  }
-}
-.image-attr-value-label {
-  color: var(--td-text-color-secondary);
-}
-.image-attr-section {
-  margin-top: 14px;
-}
-// 一条 OCR 条件两行：人话在上，原始 property = value 在下
-.image-attr-condition-list {
-  margin-top: 6px;
-  font-size: var(--app-text-sm);
-}
-.image-attr-condition + .image-attr-condition {
-  margin-top: 6px;
-}
-.image-attr-condition-label {
-  display: block;
-  color: var(--td-text-color-primary);
-}
-.image-attr-condition-raw {
-  display: block;
-  margin-top: 1px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: var(--app-text-xs);
-  color: var(--td-text-color-placeholder);
-}
-
-.image-pipeline-kb-note {
-  margin-top: 4px;
-  font-size: var(--app-text-sm);
-  color: var(--td-text-color-placeholder);
-}
-
-.upload-confirm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
-.upload-confirm-modal {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 92vw;
-  max-width: 1160px;
-  height: 85vh;
-  max-height: 750px;
-  overflow: hidden;
-  border-radius: var(--app-radius-xl);
-  background: var(--td-bg-color-container);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-}
-
-.close-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: var(--td-bg-color-secondarycontainer);
-  color: var(--td-text-color-secondary);
-  cursor: pointer;
-
-  &:hover {
-    color: var(--td-text-color-primary);
-  }
-}
-
-.upload-confirm-container {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.files-panel {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: 220px;
-  background: var(--td-bg-color-settings-modal);
-  border-right: 1px solid var(--td-component-stroke);
-}
-
-.sidebar-header,
-.settings-sidebar-header {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  box-sizing: border-box;
-  min-height: 56px;
-  padding: 12px;
-  border-bottom: 1px solid var(--td-component-stroke);
-}
-
-.sidebar-header {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.sidebar-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-}
-
-.sidebar-title {
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-  padding-right: 0;
-  font-size: var(--app-text-xl);
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--td-text-color-primary);
-}
-
-.sidebar-header-actions {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 6px;
-}
-
-.files-count {
-  flex-shrink: 0;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--app-radius-lg);
-  font-size: var(--app-text-xs);
-  font-weight: 600;
-  line-height: 20px;
-  text-align: center;
-  background: var(--td-bg-color-component);
-  color: var(--td-text-color-secondary);
-}
-
-// Destination sits under the title inside the header block.
-.destination-row {
-  flex-shrink: 0;
-  padding: 0;
-}
-
-.destination-row :deep(.t-popup__reference) {
-  display: block;
-  max-width: 100%;
-}
-
-.destination-crumb {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-family: var(--app-font-family);
-  font-size: var(--app-text-sm);
-  line-height: 18px;
-  color: var(--td-text-color-secondary);
-  cursor: pointer;
-  transition: color var(--app-motion-fast) ease;
-
-  &:hover {
-    color: var(--td-brand-color);
-
-    .destination-crumb__path,
-    .destination-crumb__caret {
-      color: var(--td-brand-color);
-    }
-  }
-}
-
-.destination-crumb__label {
-  flex-shrink: 0;
-}
-
-.destination-crumb__path {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--td-text-color-primary);
-  font-weight: 500;
-}
-
-.destination-crumb__caret {
-  flex-shrink: 0;
-  font-size: var(--app-text-sm);
-  color: var(--td-text-color-placeholder);
-}
-
-.files-list-wrap {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  padding: 6px 8px 12px;
-  overflow: hidden;
-}
-
-.files-list {
-  flex: 1;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 2px;
-  padding: 6px 6px 6px 8px;
-  border-radius: var(--app-radius-sm);
-  transition: background-color var(--app-motion-fast) ease;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-
-  &:hover {
-    background: var(--td-bg-color-container-hover);
-  }
-}
-
-.file-icon-wrap {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.file-icon {
-  font-size: var(--app-text-xl);
-  color: var(--td-text-color-secondary);
-}
-
-.file-item:hover .file-icon {
-  color: var(--td-brand-color);
-}
-
-.file-meta {
-  flex: 1;
-  min-width: 0;
-}
-
-.file-name {
-  display: block;
-  overflow: hidden;
-  font-size: var(--app-text-sm);
-  font-weight: 500;
-  line-height: 1.35;
-  color: var(--td-text-color-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-size {
-  display: block;
-  margin-top: 1px;
-  font-size: var(--app-text-xs);
-  line-height: 1.3;
-  color: var(--td-text-color-placeholder);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-relative-dir {
-  color: var(--td-text-color-secondary);
-}
-
-.file-meta-sep {
-  margin: 0 4px;
-  color: var(--td-text-color-placeholder);
-}
-
-.file-remove {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: var(--app-radius-xs);
-  background: transparent;
-  color: var(--td-text-color-placeholder);
-  cursor: pointer;
-  transition: opacity var(--app-motion-fast) ease, color var(--app-motion-fast) ease, background-color var(--app-motion-fast) ease;
-  opacity: 0.45;
-
-  .file-item:hover &,
-  &:focus-visible {
-    opacity: 1;
-  }
-
-  &:hover {
-    color: var(--td-text-color-primary);
-    background: var(--td-bg-color-component);
-  }
-}
-
-.files-empty {
-  flex: 1;
-  padding: 16px 8px;
-  font-size: var(--app-text-sm);
-  color: var(--td-text-color-placeholder);
-  text-align: center;
-}
-
-.manual-source-panel {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-  overflow-y: auto;
-}
-
-.manual-source-title {
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: var(--app-radius-sm);
-  background: var(--td-bg-color-container-hover);
-  font-size: var(--app-text-md);
-  font-weight: 500;
-  line-height: 1.4;
-  color: var(--td-text-color-primary);
-  word-break: break-word;
-}
-
-.manual-source-meta {
-  margin: 6px 2px 0;
-  font-size: var(--app-text-xs);
-  color: var(--td-text-color-placeholder);
-}
-
-.config-panel {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.settings-sidebar {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: 216px;
-  min-height: 0;
-  background-color: var(--td-bg-color-settings-modal);
-  border-right: 1px solid var(--td-component-stroke);
-}
-
-.settings-sidebar-header {
-  width: 100%;
-}
-
-.settings-sidebar-title {
-  margin: 0;
-  font-size: var(--app-text-xl);
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--td-text-color-primary);
-}
-
-.settings-nav {
-  flex: 1;
-  padding: 10px 6px 12px;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.nav-group-title {
-  padding: 6px 14px 2px;
-  color: var(--td-text-color-placeholder);
-  font-size: var(--app-text-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-
-  .settings-nav > &:first-child {
-    padding-top: 2px;
-  }
-
-  .settings-nav > &:not(:first-child) {
-    padding-top: 8px;
-  }
-}
-
-.nav-item {
-  display: flex;
-  align-items: flex-start;
-  width: 100%;
-  margin-bottom: 2px;
-  padding: 9px 10px;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  font-size: var(--app-text-base);
-  color: var(--td-text-color-primary);
-  text-align: left;
-  cursor: pointer;
-  transition: all var(--app-motion-base) ease;
-  user-select: none;
-
-  &:hover {
-    background-color: var(--td-bg-color-container-hover);
-    color: var(--td-text-color-primary);
-  }
-
-  &.active {
-    background-color: var(--td-bg-color-secondarycontainer);
-    color: var(--td-brand-color);
-    font-weight: 500;
-
-    .nav-label {
-      color: var(--td-brand-color);
-    }
-
-    .nav-status {
-      color: var(--td-text-color-secondary);
-    }
-  }
-
-  &--issue .nav-label {
-    color: var(--td-error-color);
-  }
-}
-
-.nav-icon {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  margin-right: 8px;
-  margin-top: 2px;
-  font-size: var(--app-text-xl);
-  color: inherit;
-}
-
-.nav-label-wrap {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.nav-label {
-  overflow: hidden;
-  font-size: var(--app-text-md);
-  font-weight: 500;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav-status {
-  overflow: hidden;
-  font-size: var(--app-text-sm);
-  line-height: 1.35;
-  color: var(--td-text-color-placeholder);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  &--muted {
-    color: var(--td-text-color-placeholder);
-  }
-
-  &--warning {
-    color: var(--td-warning-color);
-  }
-
-  &--error {
-    color: var(--td-error-color);
-  }
-}
-
-.nav-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--td-error-color);
-}
-
-.content-wrapper {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  padding: 22px 32px 28px;
-  overflow-y: auto;
-  background: var(--td-bg-color-container);
-}
-
-.upload-confirm-content {
-  .setting-info {
-    flex: 0 0 40%;
-    max-width: 40%;
-  }
-
-  .setting-control {
-    flex: 1 1 56%;
-    max-width: 56%;
-    min-width: 280px;
-  }
-}
-
-.section-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 10px 12px;
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-md);
-  background: var(--td-bg-color-secondarycontainer);
-  font-size: var(--app-text-md);
-  line-height: 1.5;
-  color: var(--td-text-color-secondary);
-
-  .t-icon {
-    flex-shrink: 0;
-    margin-top: 1px;
-    font-size: var(--app-text-xl);
-    color: var(--td-brand-color);
-  }
-}
-
-.section {
-  margin-bottom: 32px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.section-content {
-  .section-header {
-    margin-bottom: 16px;
-  }
-
-  .section-title {
-    margin: 0 0 6px;
-    font-size: var(--app-text-3xl);
-    font-weight: 600;
-    color: var(--td-text-color-primary);
-  }
-
-  .section-desc {
-    margin: 0;
-    font-size: var(--app-text-base);
-    line-height: 22px;
-    color: var(--td-text-color-placeholder);
-  }
-}
-
-.kb-settings-block {
-  width: 100%;
-
-  .section-header {
-    margin-bottom: 20px;
-  }
-
-  .section-title {
-    margin: 0 0 6px;
-    font-size: var(--app-text-3xl);
-    font-weight: 600;
-    color: var(--td-text-color-primary);
-  }
-
-  .section-desc {
-    margin: 0;
-    font-size: var(--app-text-base);
-    line-height: 1.5;
-    color: var(--td-text-color-secondary);
-  }
-}
-
-.settings-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-
-  &--more {
-    margin-top: 4px;
-  }
-}
-
-.setting-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--td-component-stroke);
-
-  &:last-child {
-    border-bottom: none;
-  }
-}
-
-.setting-info {
-  flex: 0 0 40%;
-  max-width: 40%;
-  padding-right: 24px;
-
-  label {
-    display: block;
-    margin-bottom: 4px;
-    font-size: var(--app-text-lg);
-    font-weight: 500;
-    color: var(--td-text-color-primary);
-  }
-
-  .desc {
-    margin: 0;
-    font-size: var(--app-text-md);
-    line-height: 1.5;
-    color: var(--td-text-color-secondary);
-  }
-
-  .warn {
-    margin: 4px 0 0;
-    font-size: var(--app-text-sm);
-    line-height: 1.4;
-    color: var(--td-warning-color);
-  }
-}
-
-.setting-control {
-  display: flex;
-  flex: 0 0 55%;
-  max-width: 55%;
-  align-items: center;
-  justify-content: flex-end;
-
-  &-full {
-    flex: none;
-    width: 100%;
-    max-width: none;
-    justify-content: flex-start;
-  }
-
-  &-inline {
-    gap: 12px;
-    justify-content: flex-end;
-  }
-}
-
-.setting-row-vertical {
-  flex-direction: column;
-  // stretch 而非继承的 flex-start：竖排行的子块（如图片解析方案面板）必须
-  // 占满整行，内部控件才能与其它行的开关一样靠右对齐（与知识库编辑器一致）。
-  align-items: stretch;
-  gap: 12px;
-
-  .setting-info,
-  .setting-control {
-    flex: none;
-    width: 100%;
-    max-width: none;
-    padding-right: 0;
-  }
-
-  .setting-control {
-    display: block;
-  }
-}
-
-.required {
-  margin-left: 2px;
-  font-weight: 500;
-  color: var(--td-error-color);
-}
-
-.field-hint {
-  margin: 6px 0 0;
-  font-size: var(--app-text-sm);
-  line-height: 1.5;
-  color: var(--td-text-color-placeholder);
-
-  &--error {
-    color: var(--td-error-color);
-  }
-}
-
-.more-options-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 6px 0;
-  border: none;
-  background: transparent;
-  color: var(--td-brand-color);
-  font-size: var(--app-text-md);
-  cursor: pointer;
-
-  .t-icon {
-    transition: transform 0.18s ease;
-
-    &.is-open {
-      transform: rotate(180deg);
-    }
-  }
-}
-
-:deep(.t-input-number) {
-  width: 100%;
-}
-
-.modal-footer {
-  display: flex;
-  flex-shrink: 0;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--td-component-stroke);
-  background: var(--td-bg-color-container);
-}
-
-@media (max-width: 800px) {
-  .upload-confirm-container {
-    flex-direction: column;
-  }
-
-  .files-panel {
-    width: auto;
-    max-height: 140px;
-    border-right: none;
-    border-bottom: 1px solid var(--td-component-stroke);
-  }
-
-  .settings-sidebar {
-    width: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--td-component-stroke);
-  }
-
-  .settings-nav {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 4px;
-    flex: none;
-    padding: 8px;
-    overflow-x: auto;
-  }
-
-  .nav-group-title {
-    display: none;
-  }
-
-  .nav-item {
-    flex: 0 0 auto;
-    width: auto;
-    margin-bottom: 0;
-    white-space: nowrap;
-  }
-
-  .content-wrapper {
-    padding: 16px;
-  }
-
-  .setting-info,
-  .setting-control {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-
-  .setting-row {
-    flex-direction: column;
-    gap: 12px;
-  }
-}
-
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity var(--app-motion-base) ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
+@import './upload-confirm-dialog.less';
 </style>
 
 <style lang="less">
-// Must sit above the upload modal (z-index 3000). Do not reuse card-more-popup here —
-// its global z-index: 99 !important would hide the menu behind the modal overlay.
 .upload-destination-popup {
   z-index: 3100 !important;
 
@@ -2606,10 +1130,7 @@ const handleConfirm = () => {
     border-radius: var(--app-radius-lg) !important;
     background: var(--td-bg-color-container) !important;
     border: 0.5px solid var(--td-component-stroke) !important;
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: var(--gy-shadow-lg) !important;
   }
 }
 </style>

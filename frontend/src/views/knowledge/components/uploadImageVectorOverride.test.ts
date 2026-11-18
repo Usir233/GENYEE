@@ -31,6 +31,7 @@ function fixture(kbInfo: any) {
       if (name === '@/stores/ui') return { useUIStore: () => ({}) }
       if (name === '@/api/knowledge-base') return { mergeImageActions: () => ({ ocr: { on: [] } }) }
       if (name === '@/utils/imageProcessingConfig') return imageProcessingConfig
+      if (name.startsWith('../composables/')) return require(name)
       return { default: {} }
     },
   })

@@ -56,7 +56,7 @@
               {{ $t('kbSettings.parser.xlsxFirstRowAsHeader') }}
             </t-checkbox>
             <div v-if="!hasAvailableEngine(group.extensions)" class="no-engine-warning">
-              <a class="go-settings" @click.prevent="goToParserSettings">{{ $t('kbSettings.parser.goConfig') }}</a>
+              <button type="button" class="go-settings" @click="goToParserSettings">{{ $t('kbSettings.parser.goConfig') }}</button>
             </div>
           </div>
         </div>
@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type ParserEngineInfo } from '@/api/system'
 import { useEditorResourcesStore } from '@/stores/editorResources'
@@ -125,7 +125,7 @@ const loading = ref(true)
 const allFileTypes = computed(() => {
   const s = new Set<string>()
   for (const engine of parserEngines.value) {
-    for (const ft of engine.FileTypes || []) {
+    for (const ft of engine.file_types || []) {
       s.add(ft)
     }
   }
@@ -188,14 +188,14 @@ const fileTypeGroups = computed(() => {
 function getEngineOptions(extensions: string[]): EngineOption[] {
   const raw: { name: string; desc: string; fileTypes: string[]; available: boolean; reason: string }[] = []
   for (const engine of parserEngines.value) {
-    const supports = extensions.some(ext => (engine.FileTypes || []).includes(ext))
+    const supports = extensions.some(ext => (engine.file_types || []).includes(ext))
     if (supports) {
       raw.push({
-        name: engine.Name,
-        desc: engine.Description || engine.Name,
-        fileTypes: engine.FileTypes || [],
-        available: engine.Available !== false,
-        reason: engine.UnavailableReason || '',
+        name: engine.name,
+        desc: engine.description || engine.name,
+        fileTypes: engine.file_types || [],
+        available: engine.available !== false,
+        reason: engine.unavailable_reason || '',
       })
     }
   }
@@ -507,13 +507,24 @@ watch(() => props.parserEngineRules, (v) => {
   line-height: 1.4;
 
   .go-settings {
-    color: var(--td-brand-color);
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--gy-brand);
     cursor: pointer;
     white-space: nowrap;
     text-decoration: none;
 
     &:hover {
       text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--gy-border-focus);
+      outline-offset: 2px;
+      border-radius: var(--gy-radius-xs);
     }
   }
 }

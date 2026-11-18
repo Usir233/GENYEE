@@ -1,11 +1,11 @@
 <template>
   <div class="folder-picker">
-    <div v-if="showBack" class="folder-picker__header" @click.stop="emit('back')">
+    <button v-if="showBack" type="button" class="folder-picker__header" @click.stop="emit('back')">
       <t-icon name="chevron-left" size="16px" />
       <span>{{ t('knowledgeBase.moveToFolder.action') }}</span>
-    </div>
+    </button>
 
-    <div ref="listRef" class="folder-picker__list">
+    <div ref="listRef" class="folder-picker__list" role="listbox">
       <template v-for="row in renderRows" :key="row.key">
         <div
           v-if="row.kind === 'folder'"
@@ -14,7 +14,12 @@
           :class="{ current: effectiveCurrentPath === row.path }"
           :style="{ '--folder-picker-depth': row.depth }"
           :title="row.path || undefined"
+          role="option"
+          tabindex="0"
+          :aria-selected="effectiveCurrentPath === row.path"
           @click.stop="choose(row.path)"
+          @keydown.enter.self.prevent="choose(row.path)"
+          @keydown.space.self.prevent="choose(row.path)"
         >
           <t-icon :name="row.isRoot ? 'folder-open' : 'folder'" class="folder-picker__icon" />
           <span class="folder-picker__name">{{ row.label }}</span>
@@ -246,19 +251,28 @@ const commitNewFolder = async () => {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--gy-border-subtle);
+  background: transparent;
   padding: 6px 10px;
   margin-bottom: 2px;
-  border-bottom: 1px solid var(--td-component-stroke);
-  color: var(--td-text-color-primary);
-  font-family: var(--app-font-family);
-  font-size: var(--app-text-base);
+  color: var(--gy-text-primary);
+  font-family: var(--gy-font-sans);
+  font-size: var(--gy-text-base);
   font-weight: 400;
   line-height: 20px;
+  text-align: left;
   cursor: pointer;
 
   &:hover {
-    color: var(--td-text-color-primary);
-    background: var(--td-bg-color-container-hover);
+    color: var(--gy-text-primary);
+    background: var(--gy-surface-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gy-border-focus);
+    outline-offset: -2px;
   }
 }
 
@@ -266,14 +280,19 @@ const commitNewFolder = async () => {
   max-height: 260px;
   overflow-y: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-thumb {
-    border-radius: 2px;
-    background: var(--td-scrollbar-color);
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 2px;
+      background: var(--gy-scrollbar-thumb);
+    }
   }
 }
 

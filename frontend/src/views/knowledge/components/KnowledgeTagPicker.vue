@@ -81,8 +81,23 @@ const selectedTagIds = computed(() => new Set(props.selectedIds));
 const selectedTags = computed(() => tags.value.filter(tag => selectedTagIds.value.has(tag.id)));
 const unselectedTags = computed(() => tags.value.filter(tag => !selectedTagIds.value.has(tag.id)));
 const orderedTags = computed(() => [...selectedTags.value, ...unselectedTags.value]);
+interface TagListResponse {
+  data?: {
+    data?: Tag[];
+    total?: number;
+  };
+}
+
+interface TagCreateResponse {
+  id?: string | number;
+  data?: { id: string | number };
+}
+
 const isUsed = (tag: Tag) => !!(tag.knowledge_count || tag.chunk_count);
-const reportError = (error: any) => MessagePlugin.error(error?.message || t('common.operationFailed'));
+const reportError = (error: unknown) => {
+  const errObj = error as { message?: string } | null;
+  MessagePlugin.error(errObj?.message || t('common.operationFailed'));
+};
 watch(busy, value => emit('busy-change', value), { flush: 'sync' });
 
 async function load(reset = true) {
@@ -91,7 +106,7 @@ async function load(reset = true) {
   if (reset) { page.value = 1; tags.value = []; hasMore.value = false; }
   loading.value = true;
   try {
-    const res: any = await listKnowledgeTags(props.kbId, { page: page.value, page_size: 50, keyword: query.value.trim() || undefined });
+    const res = (await listKnowledgeTags(props.kbId, { page: page.value, page_size: 50, keyword: query.value.trim() || undefined })) as unknown as TagListResponse;
     if (version !== requestVersion) return;
     const rows = (res.data?.data || []).map((tag: Tag) => ({ ...tag, id: String(tag.id) }));
     tags.value = reset ? rows : [...tags.value, ...rows];
@@ -121,7 +136,7 @@ async function createTag() {
   if (!name || busy.value || loading.value) return;
   busy.value = true;
   try {
-    const res: any = await createKnowledgeBaseTag(props.kbId, { name });
+    const res = (await createKnowledgeBaseTag(props.kbId, { name })) as unknown as TagCreateResponse;
     const tag = res.data || res;
     emit('update:selectedIds', [...new Set([...props.selectedIds, String(tag.id)])]);
     emit('changed');

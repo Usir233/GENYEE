@@ -358,7 +358,7 @@ interface GraphExtractConfig {
 interface Props {
   graphExtract: GraphExtractConfig
   modelId: string
-  allModels?: any[]
+  allModels?: Record<string, unknown>[]
   embedded?: boolean
 }
 
@@ -493,7 +493,7 @@ const handleFabriTag = async () => {
     localGraphExtract.value.tags = response.tags || []
     handleTagsChange()
     MessagePlugin.success(t('graphSettings.tagsGenerated'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to generate tags:', error)
     MessagePlugin.error(t('graphSettings.tagsGenerateFailed'))
   } finally {
@@ -517,7 +517,7 @@ const handleFabriText = async () => {
     localGraphExtract.value.text = response.text || ''
     handleTextChange()
     MessagePlugin.success(t('graphSettings.textGenerated'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to generate text:', error)
     MessagePlugin.error(t('graphSettings.textGenerateFailed'))
   } finally {
@@ -548,7 +548,7 @@ const handleExtract = async () => {
     localGraphExtract.value.relations = response.relations || []
     handleNodesChange()
     MessagePlugin.success(t('graphSettings.extractSuccess'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to extract relations:', error)
     MessagePlugin.error(t('graphSettings.extractFailed'))
   } finally {
@@ -597,7 +597,7 @@ const loadSystemInfo = async (force = false) => {
     const engine = editorResources.systemInfo?.graph_database_engine
     const name = typeof engine === 'string' ? engine.trim() : ''
     graphAvailability.value = !name ? 'error' : name === 'Not Enabled' ? 'disabled' : 'enabled'
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (request !== systemInfoRequest) return
     graphAvailability.value = 'error'
     console.error('Failed to load system info:', error)

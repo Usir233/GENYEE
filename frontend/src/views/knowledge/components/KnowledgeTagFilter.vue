@@ -128,8 +128,12 @@ const manage = () => {
           <span
             v-if="selectedIds.length > 0 && hovered"
             class="t-input__suffix t-input__suffix-icon t-input__clear"
+            role="button"
+            tabindex="0"
             :aria-label="$t('common.clear')"
             @click.stop="clear"
+            @keydown.enter.stop.prevent="clear"
+            @keydown.space.stop.prevent="clear"
             @mousedown.stop
           >
             <t-icon name="close-circle-filled" class="t-input__suffix-clear" />
@@ -154,13 +158,10 @@ const manage = () => {
 
 .tag-filter-popup .t-popup__content {
   padding: 0 !important;
-  border-radius: var(--app-radius-md) !important;
-  background: var(--td-bg-color-container) !important;
-  border: 0.5px solid var(--td-component-stroke) !important;
-  box-shadow:
-    0 0 0 0.5px rgba(0, 0, 0, 0.03),
-    0 2px 4px rgba(0, 0, 0, 0.04),
-    0 8px 24px rgba(0, 0, 0, 0.1) !important;
+  border-radius: var(--gy-radius-md) !important;
+  background: var(--gy-surface) !important;
+  border: 0.5px solid var(--gy-border-subtle) !important;
+  box-shadow: var(--gy-shadow-md) !important;
 }
 </style>
 <style scoped lang="less">
@@ -374,13 +375,19 @@ const manage = () => {
 .tag-filter-panel--documents .tag-filter-panel__body {
   overflow-x: hidden;
   scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 }
-.tag-filter-panel--documents .tag-filter-panel__body::-webkit-scrollbar {
-  width: 4px;
-}
-.tag-filter-panel--documents .tag-filter-panel__body::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: var(--td-scrollbar-color);
+@supports not (scrollbar-color: auto) {
+  .tag-filter-panel--documents .tag-filter-panel__body {
+    scrollbar-width: auto;
+  }
+  .tag-filter-panel--documents .tag-filter-panel__body::-webkit-scrollbar {
+    width: 4px;
+  }
+  .tag-filter-panel--documents .tag-filter-panel__body::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: var(--gy-scrollbar-thumb);
+  }
 }
 .tag-filter-panel--documents .tag-filter-chips {
   align-items: flex-start;

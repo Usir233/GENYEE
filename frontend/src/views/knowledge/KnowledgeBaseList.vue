@@ -85,10 +85,10 @@
           <template v-for="(kb, index) in filteredKnowledgeBases" :key="kb.id">
             <!-- Lite 无需区分创建者；其他版本在第一张非置顶的我创建卡片前显示分组。 -->
             <div v-if="!authStore.isLiteMode && kb.isMine
-              && isMyKb(kb as KB)
+              && isMyKb(kb)
               && !kb.is_pinned
               && (index === 0
-                || (filteredKnowledgeBases[index - 1] as any).is_pinned)" class="kb-section-header" role="button"
+                || filteredKnowledgeBases[index - 1].is_pinned)" class="kb-section-header" role="button"
               tabindex="0" :aria-expanded="!isKbSectionCollapsed('mine')" @click="toggleKbSection('mine')"
               @keydown.enter.prevent="toggleKbSection('mine')"
               @keydown.space.prevent="toggleKbSection('mine')">
@@ -103,12 +103,12 @@
                  不存在、要么是「共享给我」、要么是我创建、要么是置顶卡片
                  （置顶→非置顶的过渡同样要打这个标题）。 -->
             <div v-if="kb.isMine
-              && !isMyKb(kb as KB)
+              && !isMyKb(kb)
               && !kb.is_pinned
               && (index === 0
                 || !filteredKnowledgeBases[index - 1].isMine
-                || isMyKb(filteredKnowledgeBases[index - 1] as KB)
-                || (filteredKnowledgeBases[index - 1] as any).is_pinned)" class="kb-section-header" role="button"
+                || isMyKb(filteredKnowledgeBases[index - 1])
+                || filteredKnowledgeBases[index - 1].is_pinned)" class="kb-section-header" role="button"
               tabindex="0" :aria-expanded="!isKbSectionCollapsed('tenantOthers')" @click="toggleKbSection('tenantOthers')"
               @keydown.enter.prevent="toggleKbSection('tenantOthers')"
               @keydown.space.prevent="toggleKbSection('tenantOthers')">
@@ -120,7 +120,7 @@
             </div>
             <!-- 共享给我 · 可编辑：从「我的（含同事）」首次过渡到共享 + 可编辑 -->
             <div v-if="!kb.isMine
-              && isSharedKbEditable((kb as any).permission)
+              && isSharedKbEditable(kb.permission)
               && (index === 0 || filteredKnowledgeBases[index - 1].isMine)" class="kb-section-header" role="button"
               tabindex="0" :aria-expanded="!isKbSectionCollapsed('sharedEditable')" @click="toggleKbSection('sharedEditable')"
               @keydown.enter.prevent="toggleKbSection('sharedEditable')"
@@ -134,10 +134,10 @@
             </div>
             <!-- 共享给我 · 仅查看：从「可编辑共享 / 我的」过渡到 viewer 共享 -->
             <div v-if="!kb.isMine
-              && !isSharedKbEditable((kb as any).permission)
+              && !isSharedKbEditable(kb.permission)
               && (index === 0
                 || filteredKnowledgeBases[index - 1].isMine
-                || isSharedKbEditable((filteredKnowledgeBases[index - 1] as any).permission))"
+                || isSharedKbEditable(filteredKnowledgeBases[index - 1].permission))"
               class="kb-section-header" role="button" tabindex="0" :aria-expanded="!isKbSectionCollapsed('sharedReadonly')" @click="toggleKbSection('sharedReadonly')"
               @keydown.enter.prevent="toggleKbSection('sharedReadonly')"
               @keydown.space.prevent="toggleKbSection('sharedReadonly')">
@@ -180,24 +180,24 @@
                   </button>
                   <template #content>
                     <div class="popup-menu" @click.stop>
-                      <div class="popup-menu-item" @click.stop="handleTogglePinById(kb.id)">
+                      <button type="button" class="popup-menu-item" @click.stop="handleTogglePinById(kb.id)">
                         <t-icon class="menu-icon" :name="kb.is_pinned ? 'pin-filled' : 'pin'" />
                         <span>{{ kb.is_pinned ? $t('knowledgeList.pin.unpin') : $t('knowledgeList.pin.pin') }}</span>
-                      </div>
-                      <div v-if="canDuplicateKBCard(kb)" class="popup-menu-item"
+                      </button>
+                      <button v-if="canDuplicateKBCard(kb)" type="button" class="popup-menu-item"
                         @click.stop="handleDuplicateById(kb.id)">
                         <t-icon class="menu-icon" name="file-copy" />
                         <span>{{ $t('knowledgeList.menu.duplicate') }}</span>
-                      </div>
+                      </button>
                       <template v-if="canManageKBCard(kb)">
-                        <div class="popup-menu-item" @click.stop="handleSettingsById(kb.id)">
+                        <button type="button" class="popup-menu-item" @click.stop="handleSettingsById(kb.id)">
                           <t-icon class="menu-icon" name="setting" />
                           <span>{{ $t('knowledgeBase.settings') }}</span>
-                        </div>
-                        <div class="popup-menu-item delete" @click.stop="handleDeleteById(kb.id)">
+                        </button>
+                        <button type="button" class="popup-menu-item delete" @click.stop="handleDeleteById(kb.id)">
                           <t-icon class="menu-icon" name="delete" />
                           <span>{{ $t('common.delete') }}</span>
-                        </div>
+                        </button>
                       </template>
                     </div>
                   </template>
@@ -412,23 +412,23 @@
                   </button>
                   <template #content>
                     <div class="popup-menu" @click.stop>
-                      <div class="popup-menu-item" @click.stop="handleTogglePin(kb)">
+                      <button type="button" class="popup-menu-item" @click.stop="handleTogglePin(kb)">
                         <t-icon class="menu-icon" :name="kb.is_pinned ? 'pin-filled' : 'pin'" />
                         <span>{{ kb.is_pinned ? $t('knowledgeList.pin.unpin') : $t('knowledgeList.pin.pin') }}</span>
-                      </div>
-                      <div v-if="canDuplicateKBCard(kb)" class="popup-menu-item" @click.stop="handleDuplicate(kb)">
+                      </button>
+                      <button v-if="canDuplicateKBCard(kb)" type="button" class="popup-menu-item" @click.stop="handleDuplicate(kb)">
                         <t-icon class="menu-icon" name="file-copy" />
                         <span>{{ $t('knowledgeList.menu.duplicate') }}</span>
-                      </div>
+                      </button>
                       <template v-if="canManageKBCard(kb)">
-                        <div class="popup-menu-item" @click.stop="handleSettings(kb)">
+                        <button type="button" class="popup-menu-item" @click.stop="handleSettings(kb)">
                           <t-icon class="menu-icon" name="setting" />
                           <span>{{ $t('knowledgeBase.settings') }}</span>
-                        </div>
-                        <div class="popup-menu-item delete" @click.stop="handleDelete(kb)">
+                        </button>
+                        <button type="button" class="popup-menu-item delete" @click.stop="handleDelete(kb)">
                           <t-icon class="menu-icon" name="delete" />
                           <span>{{ $t('common.delete') }}</span>
-                        </div>
+                        </button>
                       </template>
                     </div>
                   </template>
@@ -780,6 +780,12 @@ const { scope: spaceSelection, creator: creatorFilter, query: keyword } = useLis
 // inflate the count above a shorter list (upstream issue #5278).
 const pins = useResourcePins()
 
+interface KBIndexingStrategy {
+  vector_enabled?: boolean;
+  keyword_enabled?: boolean;
+  wiki_enabled?: boolean;
+}
+
 interface KB {
   id: string;
   name: string;
@@ -795,9 +801,11 @@ interface KB {
   storage_provider_config?: { provider?: string };
   storage_config?: { provider?: string; bucket_name?: string }; // legacy
   question_generation_config?: { enabled?: boolean; question_count?: number };
+  indexing_strategy?: KBIndexingStrategy;
   knowledge_count?: number;
   chunk_count?: number;
   isProcessing?: boolean;
+  is_processing?: boolean;
   processing_count?: number;
   share_count?: number;
   is_pinned?: boolean;
@@ -809,7 +817,34 @@ interface KB {
   creator_name?: string;
 }
 
-const flatKnowledgeBaseSortAccessors: ResourceSortAccessors<any> = {
+type OwnedFlatKBItem = KB & {
+  isMine: true;
+  permission?: undefined;
+  shared_at?: undefined;
+  share_id?: undefined;
+  org_name?: undefined;
+  _pinTs?: number;
+}
+
+type SharedFlatKBItem = KB & {
+  isMine: false;
+  permission: string;
+  shared_at: string;
+  share_id: string;
+  org_name?: string;
+  _pinTs?: number;
+}
+
+type FlatKBListItem = OwnedFlatKBItem | SharedFlatKBItem
+
+interface SortableKBRecord {
+  name?: string;
+  updated_at?: string;
+  created_at?: string;
+  shared_at?: string;
+}
+
+const flatKnowledgeBaseSortAccessors: ResourceSortAccessors<SortableKBRecord> = {
   getName: item => item?.name,
   getUpdatedAt: item => item?.updated_at ?? item?.shared_at,
   getCreatedAt: item => item?.created_at ?? item?.shared_at,
@@ -911,23 +946,27 @@ const effectiveSharedCountByOrg = computed<Record<string, number>>(() => {
 //   - favorites: most recently starred first (PinEntry.ts desc)
 //   - recents: most recently opened first (also ts desc, already sorted)
 const kbResourceIndex = computed(() => {
-  const map = new Map<string, { kb: any; isMine: boolean; shared?: SharedKnowledgeBase }>()
+  const map = new Map<string, { kb: KB; isMine: boolean; shared?: SharedKnowledgeBase }>()
   for (const kb of kbs.value) {
     map.set(kb.id, { kb, isMine: true })
   }
   for (const shared of sharedKbs.value) {
     if (!shared.knowledge_base) continue
     if (!map.has(shared.knowledge_base.id)) {
-      map.set(shared.knowledge_base.id, { kb: shared.knowledge_base, isMine: false, shared })
+      map.set(shared.knowledge_base.id, {
+        kb: shared.knowledge_base as unknown as KB,
+        isMine: false,
+        shared,
+      })
     }
   }
   return map
 })
 
-const favoritesList = computed(() => {
+const favoritesList = computed<FlatKBListItem[]>(() => {
   return pins.favorites.value
     .filter((e) => e.type === 'kb')
-    .map((e) => {
+    .map((e): FlatKBListItem | null => {
       const entry = kbResourceIndex.value.get(e.id)
       if (!entry) return null
       if (entry.isMine) {
@@ -942,15 +981,15 @@ const favoritesList = computed(() => {
         share_id: s.share_id,
         org_name: s.org_name,
         _pinTs: e.ts,
-      } as any
+      }
     })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .filter((x): x is FlatKBListItem => x !== null)
 })
 
-const recentsList = computed(() => {
+const recentsList = computed<FlatKBListItem[]>(() => {
   return pins.recents.value
     .filter((e) => e.type === 'kb')
-    .map((e) => {
+    .map((e): FlatKBListItem | null => {
       const entry = kbResourceIndex.value.get(e.id)
       if (!entry) return null
       if (entry.isMine) {
@@ -965,9 +1004,9 @@ const recentsList = computed(() => {
         share_id: s.share_id,
         org_name: s.org_name,
         _pinTs: e.ts,
-      } as any
+      }
     })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .filter((x): x is FlatKBListItem => x !== null)
 })
 
 // Tab counts are the lengths of the resolved lists above, not the raw pin
@@ -1032,20 +1071,32 @@ const toggleKbSection = (key: KbSectionKey) => {
 //   2. sortedMineKbs 的元素就是原始 KB，无 isMine、也无 permission 字段。
 // 跨空间共享条目一定带 `permission`，本空间条目永远没有，所以"无 permission"
 // 是本空间的安全标识。综合：先看 isMine，再回退到 permission 是否存在。
-const kbSectionOf = (kb: any): KbSectionKey => {
+type KbSectionCandidate = {
+  is_pinned?: boolean;
+  isMine?: boolean;
+  permission?: string;
+  creator_id?: string;
+}
+
+const kbSectionOf = (kb: KbSectionCandidate | null | undefined): KbSectionKey => {
   if (kb?.is_pinned) return 'pinned'
   const isOwnTenant = kb?.isMine === true || (kb?.isMine !== false && kb?.permission == null)
-  if (isOwnTenant) return isMyKb(kb) ? 'mine' : 'tenantOthers'
+  if (isOwnTenant) return isMyKb(kb ?? {}) ? 'mine' : 'tenantOthers'
   return isSharedKbEditable(kb?.permission) ? 'sharedEditable' : 'sharedReadonly'
 }
 
 // 空间筛选视图（sortedSpaceKbsList）的条目结构与上面不同：is_mine 直接标识
 // 「我共享出来的」，其余按 permission 走 sharedEditable / sharedReadonly。
-const spaceKbSectionOf = (shared: any): KbSectionKey => {
+type SpaceKbSectionCandidate = {
+  is_mine?: boolean;
+  permission?: string;
+}
+
+const spaceKbSectionOf = (shared: SpaceKbSectionCandidate | null | undefined): KbSectionKey => {
   if (shared?.is_mine) return 'sharedByMe'
   return isSharedKbEditable(shared?.permission) ? 'sharedEditable' : 'sharedReadonly'
 }
-const isSpaceKbCollapsed = (shared: any): boolean => isKbSectionCollapsed(spaceKbSectionOf(shared))
+const isSpaceKbCollapsed = (shared: SpaceKbSectionCandidate | null | undefined): boolean => isKbSectionCollapsed(spaceKbSectionOf(shared))
 
 // 每个分组里实际有多少张卡片——直接把分组判定函数复用一遍。组标题上展示
 // "(N)" 让用户一眼知道折叠后会藏掉多少，也方便核对筛选结果。
@@ -1105,7 +1156,7 @@ const unsearchedFilteredKnowledgeBases = computed(() => {
     kbs.value as unknown as OwnedKnowledgeBase[],
     sharedKbs.value as unknown as SharedKnowledgeBaseLike[],
     authStore.user?.id,
-  ) as unknown as Array<(KB & { isMine: true }) | (SharedKnowledgeBase['knowledge_base'] & { isMine: false; permission: string; shared_at: string; share_id: string } & any)>
+  ) as unknown as FlatKBListItem[]
   return sortResourcesWithinGroups(
     merged,
     selectedResourceSort.value,
@@ -1128,8 +1179,8 @@ const showKbListContextualGuide = computed(
   () => showKbListEmpty.value && !uiStore.showKBEditorModal,
 )
 
-const applyKbListData = (data: any[]) => {
-  kbs.value = data.map((kb: any) => ({
+const applyKbListData = (data: unknown[]) => {
+  kbs.value = (data as KB[]).map((kb) => ({
     ...kb,
     updated_at: kb.updated_at ? formatStringDate(new Date(kb.updated_at)) : '',
     isProcessing: kb.is_processing || false,
@@ -1282,25 +1333,25 @@ const handleSettings = (kb: KB) => {
 // Legacy KBs created before PR 5 have an empty creator_id; treat
 // those as tenant-owned (Admin+ may manage) so existing KBs aren't
 // suddenly unmanageable for everyone.
-function canManageKBCard(kb: KB): boolean {
+function canManageKBCard(kb: KB & { permission?: string; isMine?: boolean }): boolean {
   // Shared-space cards carry the org-share permission; when it exists it is
   // the only signal that counts. A read-only (viewer) or editor share must
   // not surface Settings/Delete even when the browsing user is an admin of
   // their own personal workspace — the backend 3-D permission cap would 403
   // the call anyway (#3098).
-  const sharePermission = (kb as any).permission as string | undefined
+  const sharePermission = kb.permission
   if (sharePermission) return permissionCanManageKB(sharePermission)
   // Shared-card shapes that lost their permission field (pin/recents merges)
   // are marked isMine === false; they must not fall through to the local
   // admin/creator fallbacks either.
-  if ((kb as any).isMine === false) return false
+  if (kb.isMine === false) return false
   const userId = authStore.user?.id || ''
   // A creator demoted to Viewer no longer manages it (access.CreatorRoleFloor).
   if (kb.creator_id && userId && kb.creator_id === userId && authStore.hasRole('contributor')) return true
   return authStore.hasRole('admin')
 }
 
-function canDuplicateKBCard(kb: any): boolean {
+function canDuplicateKBCard(kb: { isMine?: boolean }): boolean {
   return authStore.hasRole('contributor') && kb.isMine !== false
 }
 
@@ -1346,13 +1397,36 @@ const handleDeleteById = (id: string) => {
   if (kb) requestDelete(kb)
 }
 
+interface PinToggleResponse {
+  success?: boolean;
+  data?: { is_pinned?: boolean };
+}
+
+interface DuplicateKBResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    target_id?: string;
+    knowledge_base?: { id?: string };
+  };
+}
+
+interface DeleteKBResponse {
+  success?: boolean;
+  message?: string;
+}
+
+function errorMessageOf(err: unknown): string | undefined {
+  return (err as { message?: string } | null | undefined)?.message
+}
+
 const handleTogglePin = async (kb: KB) => {
   openKbMenuId.value = null
   try {
-    const res: any = await togglePinKnowledgeBase(kb.id)
+    const res = (await togglePinKnowledgeBase(kb.id)) as unknown as PinToggleResponse
     if (res.success) {
       MessagePlugin.success(
-        res.data.is_pinned ? t('knowledgeList.pin.pinSuccess') : t('knowledgeList.pin.unpinSuccess')
+        res.data?.is_pinned ? t('knowledgeList.pin.pinSuccess') : t('knowledgeList.pin.unpinSuccess')
       )
       fetchList(true)
     }
@@ -1364,10 +1438,10 @@ const handleTogglePin = async (kb: KB) => {
 const handleTogglePinById = async (id: string) => {
   openKbMenuId.value = null
   try {
-    const res: any = await togglePinKnowledgeBase(id)
+    const res = (await togglePinKnowledgeBase(id)) as unknown as PinToggleResponse
     if (res.success) {
       MessagePlugin.success(
-        res.data.is_pinned ? t('knowledgeList.pin.pinSuccess') : t('knowledgeList.pin.unpinSuccess')
+        res.data?.is_pinned ? t('knowledgeList.pin.pinSuccess') : t('knowledgeList.pin.unpinSuccess')
       )
       fetchList(true)
     }
@@ -1388,7 +1462,7 @@ const handleDuplicateById = async (id: string) => {
 
 const duplicateKB = async (id: string) => {
   try {
-    const res: any = await duplicateKnowledgeBase(id)
+    const res = (await duplicateKnowledgeBase(id)) as unknown as DuplicateKBResponse
     if (res?.success) {
       const newKbId = res.data?.target_id || res.data?.knowledge_base?.id
       MessagePlugin.success(t('knowledgeList.messages.duplicateSuccess'))
@@ -1399,8 +1473,8 @@ const duplicateKB = async (id: string) => {
     } else {
       MessagePlugin.error(res?.message || t('knowledgeList.messages.duplicateFailed'))
     }
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('knowledgeList.messages.duplicateFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(errorMessageOf(e) || t('knowledgeList.messages.duplicateFailed'))
   }
 }
 
@@ -1411,7 +1485,7 @@ const handleSharedKbClick = (sharedKb: SharedKnowledgeBase) => {
 }
 
 // 处理"全部"Tab 中的共享知识库卡片点击（直接进入知识库）
-const handleSharedKbClickFromAll = (kb: any) => {
+const handleSharedKbClickFromAll = (kb: { id: string }) => {
   pins.touchRecent('kb', kb.id)
   router.push(`/platform/knowledge-bases/${kb.id}`)
 }
@@ -1427,7 +1501,7 @@ const closeSharedDetailPanel = () => {
 }
 
 // 打开右侧详情面板（全部 Tab 共享卡片）
-const openSharedDetailFromAll = (kb: any) => {
+const openSharedDetailFromAll = (kb: { id: string }) => {
   const sharedKb = sharedKbs.value.find(s => s.knowledge_base.id === kb.id)
   if (sharedKb) {
     currentSharedKbForDetail.value = sharedKb
@@ -1468,15 +1542,15 @@ const requestDelete = (kb: KB) => {
     body: t('knowledgeList.delete.confirmMessage', { name: kb.name }),
     onConfirm: async () => {
       try {
-        const res: any = await deleteKnowledgeBase(kb.id)
+        const res = (await deleteKnowledgeBase(kb.id)) as unknown as DeleteKBResponse
         if (res.success) {
           MessagePlugin.success(t('knowledgeList.messages.deleted'))
           fetchList(true)
         } else {
           MessagePlugin.error(res.message || t('knowledgeList.messages.deleteFailed'))
         }
-      } catch (e: any) {
-        MessagePlugin.error(e?.message || t('knowledgeList.messages.deleteFailed'))
+      } catch (e: unknown) {
+        MessagePlugin.error(errorMessageOf(e) || t('knowledgeList.messages.deleteFailed'))
       }
     },
   })
@@ -1486,7 +1560,7 @@ const isInitialized = (kb: KB) => {
   // LLM (summary) model is always required
   if (!kb.summary_model_id || kb.summary_model_id === '') return false
   // Embedding model only required when RAG indexing is enabled (vector or keyword)
-  const strategy = (kb as any).indexing_strategy
+  const strategy = kb.indexing_strategy
   const needsEmbedding = !strategy || strategy.vector_enabled || strategy.keyword_enabled
   if (needsEmbedding && (!kb.embedding_model_id || kb.embedding_model_id === '')) return false
   return true
@@ -1964,6 +2038,17 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
 
 <style lang="less">
 /* 下拉菜单样式已统一至 @/assets/dropdown-menu.less */
+button.popup-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid var(--gy-focus-ring);
+    outline-offset: -2px;
+  }
+}
 
 // 共享知识库卡片：详情触发（替代三点，用「查看详情」链接样式）
 .shared-detail-trigger {
@@ -1997,7 +2082,7 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: color-mix(in oklab, var(--td-gray-color-14) 45%, transparent);
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
@@ -2008,7 +2093,7 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
   max-width: 90vw;
   height: 100%;
   background: var(--td-bg-color-container);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--gy-shadow-lg);
   display: flex;
   flex-direction: column;
   font-family: var(--app-font-family);

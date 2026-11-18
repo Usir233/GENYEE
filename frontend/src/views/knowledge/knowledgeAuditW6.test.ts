@@ -6,7 +6,6 @@ import * as marked from 'marked'
 import * as vue from 'vue'
 import * as literalTilde from '../../utils/markedLiteralTilde.ts'
 import * as stall from '../../utils/knowledgeProcessingStall.ts'
-import * as sorting from '../../utils/resourceSorting.ts'
 import { fixture, flush } from '../../test-utils/vueFixture.ts'
 
 function nodes(node: any): any[] {
@@ -39,7 +38,6 @@ test('FAQEntryManager blocks unsafe failed_entries_url schemes, aligns shared-KB
   ;(globalThis as any).window = f.window
   t.after(() => { (globalThis as any).window = origGlobalOpen })
 
-  let progressResolver: ((val: any) => void) | null = null
   const page = f.component(new URL('./components/FAQEntryManager.vue', import.meta.url), {
     'vue-router': { useRouter: () => ({ push() {}, replace() {} }) },
     'vue-i18n': { useI18n: () => ({ t: (k: string) => k }) },
@@ -70,7 +68,7 @@ test('FAQEntryManager blocks unsafe failed_entries_url schemes, aligns shared-KB
       getKnowledgeBaseById: async (id: string) => ({
         data: { id, type: 'faq', my_permission: 'viewer' },
       }),
-      getFAQImportProgress: () => new Promise((resolve) => { progressResolver = resolve }),
+      getFAQImportProgress: () => new Promise(() => {}),
     },
     xlsx: {},
     papaparse: {},

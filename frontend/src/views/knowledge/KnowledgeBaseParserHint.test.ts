@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 
-const source = readFileSync(new URL('./KnowledgeBase.vue', import.meta.url), 'utf8')
+const source = [
+  readFileSync(new URL('./KnowledgeBase.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./components/KBDocumentHeader.vue', import.meta.url), 'utf8'),
+].join('\n')
 const condition = source.match(/<p v-if="([^"]+)" class="parser-hint"/)?.[1]
 
 function shouldShowParserHint(canEdit: boolean, unsupportedFileTypes: string[]): boolean {

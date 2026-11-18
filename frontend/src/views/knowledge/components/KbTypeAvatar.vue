@@ -76,13 +76,13 @@ const isFaq = computed(() => props.type === 'faq')
   border-radius: var(--app-radius-md);
 
   &.is-document {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--td-brand-color) 15%, transparent) 0%, color-mix(in srgb, var(--td-brand-color) 8%, transparent) 100%);
-    color: var(--td-brand-color-active);
+    background: linear-gradient(135deg, color-mix(in oklab, var(--gy-brand) 15%, transparent) 0%, color-mix(in oklab, var(--gy-brand) 8%, transparent) 100%);
+    color: var(--gy-brand-active);
   }
 
   &.is-faq {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--genyee-faq-color, #0052d9) 15%, transparent) 0%, color-mix(in srgb, var(--genyee-faq-color, #0052d9) 8%, transparent) 100%);
-    color: var(--genyee-faq-color, #0052d9);
+    background: linear-gradient(135deg, color-mix(in oklab, var(--gy-accent-blue) 15%, transparent) 0%, color-mix(in oklab, var(--gy-accent-blue) 8%, transparent) 100%);
+    color: var(--gy-accent-blue);
   }
 }
 </style>

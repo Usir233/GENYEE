@@ -131,6 +131,7 @@ async function fixture({
         }
       }
       if (name === '@/api/datasource') return api
+      if (name.startsWith('./composables/')) return require(name)
       return { default: {} }
     },
     URL, console: vmConsole,

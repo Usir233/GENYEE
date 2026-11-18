@@ -79,7 +79,7 @@ function loadView(file: URL, extraDependencies: Record<string, unknown> = {}): a
     './DocumentFileIcon.vue': noopComponent,
     './DocumentActionMenu.vue': noopComponent,
     './FolderPickerMenu.vue': noopComponent,
-    '@/components/knowledge-processing-timeline.vue': noopComponent,
+    '@/components/KnowledgeProcessingTimeline.vue': noopComponent,
     ...extraDependencies,
   })
   componentCache.set(key, module.default)

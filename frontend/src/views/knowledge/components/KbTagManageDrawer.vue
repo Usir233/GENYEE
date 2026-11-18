@@ -109,7 +109,7 @@
                     <t-icon name="discount" size="15px" />
                   </span>
                   <t-input
-                    :ref="(el: any) => setEditingTagInputRef(el, tag.id)"
+                    :ref="(el: unknown) => setEditingTagInputRef(el as TagInputInstance | null, tag.id)"
                     v-model="editingTagName"
                     size="small"
                     :maxlength="40"
@@ -345,13 +345,13 @@ const loadTags = async (reset = false) => {
   loadingMore.value = currentPage > 1;
 
   try {
-    const res: any = await listKnowledgeTags(kbId, {
+    const res = (await listKnowledgeTags(kbId, {
       page: currentPage,
       page_size: TAG_PAGE_SIZE,
       keyword,
-    });
+    })) as unknown as { data?: { data?: TagRow[]; total?: number } };
     if (!isCurrent()) return;
-    const pageData = (res?.data || {}) as { data?: TagRow[]; total?: number };
+    const pageData = res?.data || {};
     const pageTags = (pageData.data || []).map((tag) => ({
       ...tag,
       id: String(tag.id),
@@ -434,8 +434,9 @@ const submitCreateTag = async () => {
       cancelCreateTag();
     }
     refreshAfterTagChange(context);
-  } catch (error: any) {
-    if (isCurrent()) MessagePlugin.error(error?.message || t('common.operationFailed'));
+  } catch (error: unknown) {
+    const errObj = error as { message?: string } | null;
+    if (isCurrent()) MessagePlugin.error(errObj?.message || t('common.operationFailed'));
   } finally {
     if (isCurrent()) creatingTagLoading.value = false;
   }
@@ -483,8 +484,9 @@ const submitEditTag = async () => {
       cancelEditTag();
     }
     refreshAfterTagChange(context);
-  } catch (error: any) {
-    if (isCurrent()) MessagePlugin.error(error?.message || t('common.operationFailed'));
+  } catch (error: unknown) {
+    const errObj = error as { message?: string } | null;
+    if (isCurrent()) MessagePlugin.error(errObj?.message || t('common.operationFailed'));
   } finally {
     if (isCurrent()) editingTagSubmitting.value = false;
   }
@@ -511,8 +513,9 @@ const deleteTag = async (tag: TagRow) => {
       if (isCurrentContext(context)) emit('changed', { deletedTagId: tagId });
     }, TAG_DELETE_REFRESH_DELAY_MS);
     deleteRefreshTimers.add(timer);
-  } catch (error: any) {
-    if (isCurrentDrawer(drawer)) MessagePlugin.error(error?.message || t('common.operationFailed'));
+  } catch (error: unknown) {
+    const errObj = error as { message?: string } | null;
+    if (isCurrentDrawer(drawer)) MessagePlugin.error(errObj?.message || t('common.operationFailed'));
   }
 };
 

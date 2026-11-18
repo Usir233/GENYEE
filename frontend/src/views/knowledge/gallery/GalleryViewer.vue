@@ -250,14 +250,33 @@ function triggerBlobDownload(blob: Blob, img: ImageAsset): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+let actionFetchController: AbortController | null = null
+
+function createActionFetchSignal(timeoutMs = 30_000): { controller: AbortController; signal: AbortSignal } {
+  actionFetchController?.abort()
+  const controller = new AbortController()
+  actionFetchController = controller
+  const signal = typeof AbortSignal.timeout === 'function' && typeof AbortSignal.any === 'function'
+    ? AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)])
+    : controller.signal
+  return { controller, signal }
+}
+
 async function download(): Promise<void> {
   const img = current.value
   if (!img || !src.value) return
+  const { controller, signal } = createActionFetchSignal()
   try {
-    const blob = await (await fetch(src.value)).blob()
+    const resp = await fetch(src.value, { signal })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const blob = await resp.blob()
+    if (controller.signal.aborted) return
     triggerBlobDownload(blob, img)
-  } catch {
-    // A cross-origin image the browser may not read back: let it open if safe.
+  } catch (err: unknown) {
+    if (controller.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+      return
+    }
+    // A cross-origin image (or timed-out fetch) the browser may not read back: let it open if safe.
     await openOriginal()
   }
 }
@@ -267,15 +286,19 @@ async function openOriginal(): Promise<void> {
   const img = current.value
   if (!rawUrl) return
   if (rawUrl.startsWith('blob:')) {
+    const { controller, signal } = createActionFetchSignal(10_000)
     try {
-      const blob = await (await fetch(rawUrl)).blob()
+      const resp = await fetch(rawUrl, { signal })
+      if (!resp.ok) return
+      const blob = await resp.blob()
+      if (controller.signal.aborted) return
       if (!SAFE_RASTER_IMAGE_TYPES.has(blob.type.toLowerCase())) {
         if (img) triggerBlobDownload(blob, img)
         return
       }
       window.open(rawUrl, '_blank', 'noopener,noreferrer')
     } catch {
-      // Refuse top-level navigation to unreadable blob: URLs.
+      // Refuse top-level navigation to unreadable or aborted blob: URLs.
     }
     return
   }
@@ -375,7 +398,11 @@ function onKey(e: KeyboardEvent): void {
 }
 
 onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  actionFetchController?.abort()
+  actionFetchController = null
+})
 </script>
 
 <template>
@@ -615,10 +642,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 // The stage is always dark, whatever the app theme: images read best on a
 // neutral dark ground, and the controls over it are sized for that.
 .igv {
-  --igv-stage-bg: #111214;
-  --igv-chrome-fg: rgb(255 255 255 / 86%);
-  --igv-chrome-muted: rgb(255 255 255 / 55%);
-  --igv-chrome-hover: rgb(255 255 255 / 12%);
+  --igv-stage-bg: var(--td-gray-color-14);
+  --igv-chrome-fg: color-mix(in oklab, var(--gy-text-inverse) 86%, transparent);
+  --igv-chrome-muted: color-mix(in oklab, var(--gy-text-inverse) 55%, transparent);
+  --igv-chrome-hover: color-mix(in oklab, var(--gy-text-inverse) 12%, transparent);
 
   position: fixed;
   inset: 0;
@@ -682,7 +709,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     width: 1px;
     height: 18px;
     margin: 0 6px;
-    background: rgb(255 255 255 / 16%);
+    background: color-mix(in oklab, var(--gy-text-inverse) 16%, transparent);
   }
 }
 
@@ -777,7 +804,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   margin-top: -22px;
   border: 0;
   border-radius: var(--app-radius-pill);
-  background: rgb(255 255 255 / 10%);
+  background: color-mix(in oklab, var(--gy-text-inverse) 10%, transparent);
   color: var(--igv-chrome-fg);
   cursor: pointer;
   transition: background-color var(--app-motion-fast) ease, opacity var(--app-motion-fast) ease;
@@ -785,7 +812,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   &--prev { left: 16px; }
   &--next { right: 16px; }
 
-  &:hover:not(:disabled) { background: rgb(255 255 255 / 20%); }
+  &:hover:not(:disabled) { background: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent); }
   &:disabled { opacity: 0.2; cursor: default; }
   &:focus-visible { outline: 2px solid var(--app-focus-border); outline-offset: 2px; }
 }
@@ -797,7 +824,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   padding: 10px 20px 14px;
   overflow-x: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 20%) transparent;
+  scrollbar-color: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent) transparent;
 
   &__item {
     flex: 0 0 auto;
@@ -807,7 +834,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     border: 2px solid transparent;
     border-radius: var(--app-radius-xs);
     overflow: hidden;
-    background: rgb(255 255 255 / 8%);
+    background: color-mix(in oklab, var(--gy-text-inverse) 8%, transparent);
     opacity: 0.5;
     cursor: pointer;
     transition: opacity var(--app-motion-fast) ease, border-color var(--app-motion-fast) ease;

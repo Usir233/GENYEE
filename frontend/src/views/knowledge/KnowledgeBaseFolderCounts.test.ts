@@ -13,7 +13,11 @@ import koKR from '../../i18n/locales/ko-KR'
 import ruRU from '../../i18n/locales/ru-RU'
 import { pluralRules } from '../../i18n/pluralizationRules'
 
-const source = readFileSync(new URL('./KnowledgeBase.vue', import.meta.url), 'utf8')
+const source = [
+  readFileSync(new URL('./KnowledgeBase.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./components/KBDocumentToolbar.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./components/KBDocumentListPane.vue', import.meta.url), 'utf8'),
+].join('\n')
 
 // Mirrors the deployed DingTalk sync, which produces multi-level folders:
 // 售后 holds 2 documents of its own plus a video sub-folder with 1 more, so its

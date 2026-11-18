@@ -196,6 +196,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import type { ModelConfig } from '@/api/model'
 import ModelSelector from '@/components/ModelSelector.vue'
 
 interface QuestionGenerationConfig {
@@ -223,7 +224,7 @@ interface Props {
   autoTag?: AutoTagConfig
   profileConfig?: ProfileConfig
   ragEnabled?: boolean
-  allModels?: any[]
+  allModels?: ModelConfig[]
   embedded?: boolean
   tableMetadataInstructions?: string
 }

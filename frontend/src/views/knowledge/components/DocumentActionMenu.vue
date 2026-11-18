@@ -42,32 +42,33 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
 
 <template>
   <!-- 下载原始文档 -->
-  <div
+  <button
     v-if="canDownload && (item.type === 'file' || item.type === 'manual')"
+    type="button"
     class="doc-action-menu-item"
     @click.stop="emit('download')"
   >
     <t-icon class="icon" name="download" />
     <span>{{ $t('common.download') }}</span>
-  </div>
+  </button>
 
   <!-- 编辑文档 -->
-  <div v-if="item.type === 'manual'" class="doc-action-menu-item" @click.stop="emit('edit')">
+  <button v-if="item.type === 'manual'" type="button" class="doc-action-menu-item" @click.stop="emit('edit')">
     <t-icon class="icon" name="edit" />
     <span>{{ $t('knowledgeBase.editDocument') }}</span>
-  </div>
+  </button>
 
   <!-- 查看处理过程 -->
-  <div v-if="traceVisible" class="doc-action-menu-item" @click.stop="emit('view-trace')">
+  <button v-if="traceVisible" type="button" class="doc-action-menu-item" @click.stop="emit('view-trace')">
     <t-icon class="icon" name="chart-bar" />
     <span>{{ $t('knowledgeStages.viewTrace') }}</span>
-  </div>
+  </button>
 
   <!-- 重建知识 (in-flight: no popconfirm, just emits) -->
-  <div v-if="isParseInFlight" class="doc-action-menu-item" @click.stop="emit('reparse')">
+  <button v-if="isParseInFlight" type="button" class="doc-action-menu-item" @click.stop="emit('reparse')">
     <t-icon class="icon" name="refresh" />
     <span>{{ $t('knowledgeBase.rebuildDocument') }}</span>
-  </div>
+  </button>
 
   <!-- 重建知识 (normal: with popconfirm) -->
   <t-popconfirm v-else theme="warning"
@@ -75,10 +76,10 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
     :confirm-btn="{ content: $t('common.confirm'), theme: 'primary' }"
     :cancel-btn="{ content: $t('common.cancel') }" placement="left"
     @confirm="emit('reparse')">
-    <div class="doc-action-menu-item" @click.stop>
+    <button type="button" class="doc-action-menu-item" @click.stop>
       <t-icon class="icon" name="refresh" />
       <span>{{ $t('knowledgeBase.rebuildDocument') }}</span>
-    </div>
+    </button>
   </t-popconfirm>
 
   <!-- 取消解析 -->
@@ -87,29 +88,29 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
     :confirm-btn="{ content: $t('knowledgeBase.cancelParse'), theme: 'danger' }"
     :cancel-btn="{ content: $t('common.cancel') }" placement="left"
     @confirm="emit('cancel-parse')">
-    <div class="doc-action-menu-item danger" @click.stop>
+    <button type="button" class="doc-action-menu-item danger" @click.stop>
       <t-icon class="icon" name="close-circle" />
       <span>{{ $t('knowledgeBase.cancelParse') }}</span>
-    </div>
+    </button>
   </t-popconfirm>
 
   <!-- 移动到目录 -->
-  <div v-if="canMutateKnowledge" class="doc-action-menu-item" @click.stop="emit('move-folder')">
+  <button v-if="canMutateKnowledge" type="button" class="doc-action-menu-item" @click.stop="emit('move-folder')">
     <t-icon class="icon" name="folder" />
     <span>{{ $t('knowledgeBase.moveToFolder.action') }}</span>
-  </div>
+  </button>
 
   <!-- 移动到其他知识库 -->
-  <div v-if="canMutateKnowledge" class="doc-action-menu-item" @click.stop="emit('move')">
+  <button v-if="canMutateKnowledge" type="button" class="doc-action-menu-item" @click.stop="emit('move')">
     <t-icon class="icon" name="swap" />
     <span>{{ $t('knowledgeBase.moveDocument') }}</span>
-  </div>
+  </button>
 
   <!-- 批量管理 -->
-  <div v-if="canMutateKnowledge || canDownload" class="doc-action-menu-item" @click.stop="emit('batch-manage')">
+  <button v-if="canMutateKnowledge || canDownload" type="button" class="doc-action-menu-item" @click.stop="emit('batch-manage')">
     <t-icon class="icon" name="queue" />
     <span>{{ $t('menu.batchManage') }}</span>
-  </div>
+  </button>
 
   <!-- 删除文档 -->
   <t-popconfirm theme="warning"
@@ -117,10 +118,10 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
     :confirm-btn="{ content: $t('knowledgeBase.confirmDelete'), theme: 'danger' }"
     :cancel-btn="{ content: $t('common.cancel') }" placement="left"
     @confirm="emit('delete')">
-    <div class="doc-action-menu-item danger" @click.stop>
+    <button type="button" class="doc-action-menu-item danger" @click.stop>
       <t-icon class="icon" name="delete" />
       <span>{{ $t('knowledgeBase.deleteDocument') }}</span>
-    </div>
+    </button>
   </t-popconfirm>
 </template>
 
@@ -129,15 +130,24 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
   padding: 6px 10px;
-  font-family: var(--app-font-family);
-  font-size: var(--app-text-base);
+  font-family: var(--gy-font-sans);
+  font-size: var(--gy-text-base);
   font-weight: 400;
   line-height: 20px;
-  color: var(--td-text-color-primary);
+  text-align: left;
+  color: var(--gy-text-primary);
   cursor: pointer;
-  border-radius: var(--app-radius-xs);
-  transition: background-color var(--app-motion-fast) cubic-bezier(0.2, 0, 0, 1);
+  border-radius: var(--gy-radius-xs);
+  transition: background-color var(--gy-motion-fast) cubic-bezier(0.2, 0, 0, 1);
+
+  &:focus-visible {
+    outline: 2px solid var(--gy-border-focus);
+    outline-offset: -2px;
+  }
 
   &:hover {
     background: var(--td-bg-color-container-hover);

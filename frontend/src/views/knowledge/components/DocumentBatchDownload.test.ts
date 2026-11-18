@@ -2,7 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 
-const knowledgeBase = readFileSync(new URL('../KnowledgeBase.vue', import.meta.url), 'utf8')
+const knowledgeBase = [
+  readFileSync(new URL('../KnowledgeBase.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./KBDocumentListPane.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useKBBatchAndMoveActions.ts', import.meta.url), 'utf8'),
+].join('\n')
 const batchBar = readFileSync(new URL('./DocumentBatchBar.vue', import.meta.url), 'utf8')
 const listView = readFileSync(new URL('./DocumentListView.vue', import.meta.url), 'utf8')
 const knowledgeApi = readFileSync(new URL('../../../api/knowledge-base/index.ts', import.meta.url), 'utf8')

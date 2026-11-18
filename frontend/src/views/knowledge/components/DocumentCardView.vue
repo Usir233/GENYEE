@@ -7,9 +7,16 @@ import KnowledgeTagPopover from './KnowledgeTagPopover.vue';
 import DocumentFileIcon from './DocumentFileIcon.vue';
 import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
-import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
+import KnowledgeProcessingTimeline from '@/components/KnowledgeProcessingTimeline.vue';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
 import type { FolderEntry } from '../folderTree';
+
+interface MoveTargetKB {
+  id: string;
+  name: string;
+  knowledge_count?: number;
+  embedding_model_id?: string;
+}
 
 interface KnowledgeCard {
   id: string;
@@ -26,7 +33,7 @@ interface KnowledgeCard {
   updated_at?: string;
   file_type?: string;
   isMore?: boolean;
-  metadata?: any;
+  metadata?: Record<string, unknown> | string;
   error_message?: string;
   tags?: Array<{ id: string; name: string; color?: string }>;
   stalled_minutes?: number;
@@ -61,7 +68,7 @@ const props = defineProps<{
   showFolderPath?: boolean;
   // Move sub-flow state
   moveMenuMode: 'normal' | 'targets' | 'confirm';
-  moveTargetKbs: any[];
+  moveTargetKbs: MoveTargetKB[];
   moveTargetsLoading: boolean;
   moveSelectedTargetName: string;
   moveMode: 'reuse_vectors' | 'reparse';
@@ -77,7 +84,7 @@ const emit = defineEmits<{
   (e: 'open-folder', path: string): void;
   (e: 'move-to-folder', item: KnowledgeCard, folderPath: string): void;
   // Move sub-flow emits
-  (e: 'move-select-target', kb: any): void;
+  (e: 'move-select-target', kb: MoveTargetKB): void;
   (e: 'move-back'): void;
   (e: 'move-confirm'): void;
   (e: 'update:moveMode', mode: 'reuse_vectors' | 'reparse'): void;
@@ -449,10 +456,10 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 
               <!-- Move: target KB list -->
               <div v-else-if="moveMenuMode === 'targets'" class="card-menu move-menu">
-                <div class="move-menu-header" @click.stop="emit('move-back')">
+                <button type="button" class="move-menu-header" @click.stop="emit('move-back')">
                   <t-icon name="chevron-left" size="16px" />
                   <span>{{ $t('knowledgeBase.moveToKnowledgeBase') }}</span>
-                </div>
+                </button>
                 <div v-if="moveTargetsLoading" class="move-menu-loading">
                   <t-loading size="small" />
                 </div>
@@ -460,25 +467,26 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
                   {{ $t('knowledgeBase.moveNoTargets') }}
                 </div>
                 <template v-else>
-                  <div
+                  <button
                     v-for="kb in moveTargetKbs"
                     :key="kb.id"
+                    type="button"
                     class="card-menu-item"
                     @click.stop="emit('move-select-target', kb)"
                   >
                     <t-icon class="icon" name="root-list" />
                     <span class="move-target-name">{{ kb.name }}</span>
                     <span v-if="kb.knowledge_count !== undefined" class="move-target-count">{{ kb.knowledge_count }}</span>
-                  </div>
+                  </button>
                 </template>
               </div>
 
               <!-- Move: confirm -->
               <div v-else-if="moveMenuMode === 'confirm'" class="card-menu move-menu">
-                <div class="move-menu-header" @click.stop="emit('move-back')">
+                <button type="button" class="move-menu-header" @click.stop="emit('move-back')">
                   <t-icon name="chevron-left" size="16px" />
                   <span>{{ $t('knowledgeBase.moveConfirmTitle') }}</span>
-                </div>
+                </button>
                 <div class="move-confirm-body">
                   <div class="move-target-info">
                     <t-icon name="arrow-right" size="14px" />
@@ -487,7 +495,12 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
                   <div
                     class="move-mode-item"
                     :class="{ active: moveMode === 'reuse_vectors' }"
+                    role="radio"
+                    tabindex="0"
+                    :aria-checked="moveMode === 'reuse_vectors'"
                     @click.stop="emit('update:moveMode', 'reuse_vectors')"
+                    @keydown.enter.stop.prevent="emit('update:moveMode', 'reuse_vectors')"
+                    @keydown.space.stop.prevent="emit('update:moveMode', 'reuse_vectors')"
                   >
                     <t-radio :checked="moveMode === 'reuse_vectors'" />
                     <div class="move-mode-text">
@@ -498,7 +511,12 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
                   <div
                     class="move-mode-item"
                     :class="{ active: moveMode === 'reparse' }"
+                    role="radio"
+                    tabindex="0"
+                    :aria-checked="moveMode === 'reparse'"
                     @click.stop="emit('update:moveMode', 'reparse')"
+                    @keydown.enter.stop.prevent="emit('update:moveMode', 'reparse')"
+                    @keydown.space.stop.prevent="emit('update:moveMode', 'reparse')"
                   >
                     <t-radio :checked="moveMode === 'reparse'" />
                     <div class="move-mode-text">
@@ -526,18 +544,15 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
           :class="shownStall(item.stall_state, item.stalled_minutes)">
           <t-icon :name="shownStall(item.stall_state, item.stalled_minutes) ? 'time' : 'loading'"
             class="card-analyze-loading"></t-icon>
-          <span
+          <button
+            type="button"
             class="card-analyze-txt card-analyze-trace-link"
-            role="button"
-            tabindex="0"
             :title="shownStall(item.stall_state, item.stalled_minutes)
               ? $t(shownStall(item.stall_state, item.stalled_minutes) === 'queued'
                 ? 'knowledgeBase.queuedHint' : 'knowledgeBase.stalledHint', { minutes: item.stalled_minutes })
               : $t('knowledgeStages.viewTrace')"
             @click.stop="handleAction('view-trace', item)"
-            @keydown.enter.stop="handleAction('view-trace', item)"
-            @keydown.space.prevent.stop="handleAction('view-trace', item)"
-          >{{ inFlightCardStatusText(item) }}</span>
+          >{{ inFlightCardStatusText(item) }}</button>
           <button
             type="button"
             class="card-analyze-trace-btn"
@@ -550,15 +565,12 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
         </div>
         <div v-else-if="item.parse_status === 'failed'" class="card-analyze failure card-analyze-trace">
           <t-icon name="close-circle" class="card-analyze-loading failure"></t-icon>
-          <span
+          <button
+            type="button"
             class="card-analyze-txt failure card-analyze-trace-link"
-            role="button"
-            tabindex="0"
             :title="$t('knowledgeStages.viewTrace')"
             @click.stop="handleAction('view-trace', item)"
-            @keydown.enter.stop="handleAction('view-trace', item)"
-            @keydown.space.prevent.stop="handleAction('view-trace', item)"
-          >{{ $t('knowledgeBase.parsingFailed') }}</span>
+          >{{ $t('knowledgeBase.parsingFailed') }}</button>
           <button
             type="button"
             class="card-analyze-trace-btn"
@@ -651,27 +663,27 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
         </div>
         <template v-else>
           <div v-if="cardSummaries.get(hoveredCardItem.id)" class="card-popover-desc">{{ cardSummaries.get(hoveredCardItem.id) }}</div>
-          <div v-if="(hoveredCardItem as any).source" class="card-popover-source" :title="(hoveredCardItem as any).source">
-            <t-icon name="link" size="12px" /> {{ (hoveredCardItem as any).source }}
+          <div v-if="hoveredCardItem.source" class="card-popover-source" :title="hoveredCardItem.source">
+            <t-icon name="link" size="12px" /> {{ hoveredCardItem.source }}
           </div>
           <div class="card-popover-extra">
-            <span v-if="(hoveredCardItem as any).created_at" class="card-popover-created">
-              {{ $t('knowledgeBase.createdAt') }}：{{ formatDocTime((hoveredCardItem as any).created_at) }}
+            <span v-if="hoveredCardItem.created_at" class="card-popover-created">
+              {{ $t('knowledgeBase.createdAt') }}：{{ formatDocTime(hoveredCardItem.created_at) }}
             </span>
-            <span v-if="formatFileSize((hoveredCardItem as any).file_size)" class="card-popover-size">
-              {{ formatFileSize((hoveredCardItem as any).file_size) }}
+            <span v-if="formatFileSize(Number(hoveredCardItem.file_size))" class="card-popover-size">
+              {{ formatFileSize(Number(hoveredCardItem.file_size)) }}
             </span>
           </div>
         </template>
         <div class="card-popover-meta">
           <span class="card-popover-time">{{ $t('knowledgeBase.updatedAt') }}：{{ formatDocTime(hoveredCardItem.updated_at) }}</span>
           <span
-            v-if="(hoveredCardItem as any).channel && (hoveredCardItem as any).channel !== 'web'"
+            v-if="hoveredCardItem.channel && hoveredCardItem.channel !== 'web'"
             class="card-popover-channel"
-          >{{ getChannelLabel((hoveredCardItem as any).channel) }}</span>
-          <div v-if="(hoveredCardItem as any).tags && (hoveredCardItem as any).tags.length > 0" class="card-popover-tags">
+          >{{ getChannelLabel(hoveredCardItem.channel) }}</span>
+          <div v-if="hoveredCardItem.tags && hoveredCardItem.tags.length > 0" class="card-popover-tags">
             <t-tag
-              v-for="tag in (hoveredCardItem as any).tags"
+              v-for="tag in hoveredCardItem.tags"
               :key="tag.id"
               size="small"
               variant="light-outline"
@@ -975,7 +987,16 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
   font-size: var(--app-text-sm);
 }
 .card-analyze-loading { flex-shrink: 0; }
-.card-analyze-trace-link { cursor: pointer; &:hover { text-decoration: underline; } }
+.card-analyze-trace-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
 .card-analyze-trace-btn {
   display: inline-flex;
   align-items: center;
@@ -1009,10 +1030,10 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
   min-width: 220px;
   max-width: 360px;
   padding: 12px 14px;
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: var(--gy-surface);
+  border: 1px solid var(--gy-border-subtle);
+  border-radius: var(--gy-radius-md);
+  box-shadow: var(--gy-shadow-md);
   font-family: var(--app-font-family);
   transition: opacity var(--app-motion-fast) ease;
   will-change: transform;

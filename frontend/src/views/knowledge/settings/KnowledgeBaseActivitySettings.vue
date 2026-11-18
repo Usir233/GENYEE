@@ -736,9 +736,10 @@ async function fetchPage(reset = false) {
     cursor.value = response.next_cursor || 0
     hasMore.value = !!response.next_cursor && page.length > 0
     loadedOnce.value = true
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (seq !== fetchSeq || targetKbId !== props.kbId) return
-    error.value = err?.message || t('knowledgeEditor.activity.loadFailed')
+    const errObj = err as { message?: string } | null
+    error.value = errObj?.message || t('knowledgeEditor.activity.loadFailed')
   } finally {
     if (seq === fetchSeq) loading.value = false
   }

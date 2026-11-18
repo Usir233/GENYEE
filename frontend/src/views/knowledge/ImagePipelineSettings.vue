@@ -454,16 +454,16 @@ watch(() => props.pipelineId, () => {
     &--error {
       margin: 0;
       opacity: 1;
-      color: var(--error-color, #d54941);
+      color: var(--gy-danger);
     }
   }
 
   .image-pipeline-hint {
     opacity: 0.75;
-    font-size: var(--app-text-md);
+    font-size: var(--gy-text-md);
 
     &--error {
-      color: var(--error-color, #d54941);
+      color: var(--gy-danger);
     }
   }
 

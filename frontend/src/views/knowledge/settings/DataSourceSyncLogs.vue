@@ -93,17 +93,6 @@ const stats = computed(() => {
 })
 
 // --- Helpers ---
-function statusIcon(status: string) {
-  switch (status) {
-    case 'success': return 'check-circle-filled'
-    case 'running': return 'loading'
-    case 'failed': return 'close-circle-filled'
-    case 'partial': return 'error-circle-filled'
-    case 'canceled': return 'minus-circle-filled'
-    default: return 'info-circle-filled'
-  }
-}
-
 function statusColor(status: string) {
   switch (status) {
     case 'success': return 'var(--td-success-color)'
@@ -261,7 +250,12 @@ const groupedLogs = computed(() => {
             v-for="log in group.logs"
             :key="log.id"
             class="timeline-item"
+            role="button"
+            tabindex="0"
+            :aria-expanded="expandedId === log.id"
             @click="toggleExpand(log.id)"
+            @keydown.enter.prevent="toggleExpand(log.id)"
+            @keydown.space.prevent="toggleExpand(log.id)"
           >
             <!-- Dot -->
             <div class="tl-dot-col">
@@ -392,9 +386,9 @@ const groupedLogs = computed(() => {
   text-align: center;
   padding: 16px 8px;
   border-radius: var(--app-radius-xl);
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-border-level-1-color);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  background: var(--gy-surface);
+  border: 1px solid var(--gy-border-subtle);
+  box-shadow: var(--gy-shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 4px;

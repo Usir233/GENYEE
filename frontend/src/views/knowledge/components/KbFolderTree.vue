@@ -117,10 +117,10 @@
                 </button>
                 <template #content>
                   <div class="popup-menu kb-folder-row__menu" @click.stop>
-                    <div class="popup-menu-item" @click="onFolderMenuRename(row)">
+                    <button type="button" class="popup-menu-item" @click="onFolderMenuRename(row)">
                       <t-icon name="edit" class="menu-icon" />
                       <span>{{ t('knowledgeBase.folderTree.rename') }}</span>
-                    </div>
+                    </button>
                   </div>
                 </template>
               </t-popup>
@@ -331,14 +331,19 @@ watch(
   overflow-x: hidden;
   padding: 8px 0 12px;
   scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-thumb {
-    border-radius: 2px;
-    background: var(--td-scrollbar-color);
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 2px;
+      background: var(--gy-scrollbar-thumb);
+    }
   }
 }
 

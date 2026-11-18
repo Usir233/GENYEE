@@ -278,7 +278,7 @@ export function folderOptionFromPath(path: string): { path: string; name: string
 
 /** Sort folder picker rows in tree order (parent before child, siblings lexicographic). */
 export function sortFolderOptions<T extends { path: string }>(options: T[]): T[] {
-  return [...options].sort((a, b) => {
+  return options.toSorted((a, b) => {
     const aParts = a.path.split('/').filter(Boolean)
     const bParts = b.path.split('/').filter(Boolean)
     const max = Math.max(aParts.length, bParts.length)

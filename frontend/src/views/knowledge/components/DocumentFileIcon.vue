@@ -24,8 +24,8 @@ defineProps<{ sourceType?: string; fileName: string }>();
   flex: 0 0 32px;
   width: 32px;
   height: 38px;
-  color: #7885ad;
-  &--url { color: #53978e; }
+  color: var(--gy-accent-blue);
+  &--url { color: var(--gy-accent-teal); }
   > svg { .artifact-file-icon-style(); color: inherit; }
   &__badge {
     position: absolute;
@@ -36,9 +36,9 @@ defineProps<{ sourceType?: string; fileName: string }>();
     justify-content: center;
     width: 24px;
     height: 16px;
-    border-radius: var(--app-radius-xs);
+    border-radius: var(--gy-radius-xs);
     background: currentColor;
-    .t-icon { color: #fff; }
+    .t-icon { color: var(--gy-text-inverse); }
   }
 }
 </style>

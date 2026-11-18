@@ -57,8 +57,9 @@ async function save() {
     MessagePlugin.success(t('knowledgeBase.tagUpdateSuccess'));
     emit('update:visible', false);
     emit('changed');
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('common.operationFailed'));
+  } catch (error: unknown) {
+    const errObj = error as { message?: string } | null;
+    MessagePlugin.error(errObj?.message || t('common.operationFailed'));
   } finally { saving.value = false; }
 }
 </script>

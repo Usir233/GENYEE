@@ -565,9 +565,8 @@ function closeViewer() {
   // the card it stopped on into view so the grid picks up where it left off.
   const index = viewerIndex.value
   void nextTick(() => {
-    scrollEl.value
-      ?.querySelectorAll<HTMLElement>('.ig-card')
-      [index]?.scrollIntoView({ block: 'nearest' })
+    const cards = scrollEl.value?.querySelectorAll<HTMLElement>('.ig-card')
+    cards?.[index]?.scrollIntoView({ block: 'nearest' })
   })
 }
 
@@ -993,9 +992,9 @@ watch(
 /* Popups render outside the component, so their shell is styled unscoped;
    same frame as the documents tab's filter popup. */
 .gallery-toolbar-popup .t-popup__content {
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-xl);
-  box-shadow: 0 8px 32px rgb(0 0 0 / 10%);
+  border: 1px solid var(--gy-border-subtle);
+  border-radius: var(--gy-radius-xl);
+  box-shadow: var(--gy-shadow-lg);
 }
 </style>
 
@@ -1241,9 +1240,9 @@ watch(
     &:hover { color: var(--td-text-color-primary); }
 
     &.active {
-      background: var(--td-bg-color-container);
-      color: var(--td-text-color-primary);
-      box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+      background: var(--gy-surface);
+      color: var(--gy-text-primary);
+      box-shadow: var(--gy-shadow-sm);
     }
 
     &.is-off.active { color: var(--td-error-color); }
@@ -1349,19 +1348,19 @@ watch(
   min-width: 0;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--td-component-border);
-  border-radius: var(--app-radius-md);
-  background: var(--td-bg-color-container);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  border: 1px solid var(--gy-border);
+  border-radius: var(--gy-radius-md);
+  background: var(--gy-surface);
+  box-shadow: var(--gy-shadow-sm);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color var(--app-motion-base) ease, box-shadow var(--app-motion-base) ease;
+  transition: border-color var(--gy-motion-base) ease, box-shadow var(--gy-motion-base) ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--td-component-stroke) 55%, var(--td-brand-color));
-    box-shadow: 0 4px 14px rgb(0 0 0 / 7%);
+    border-color: color-mix(in oklab, var(--gy-border-subtle) 55%, var(--gy-brand));
+    box-shadow: var(--gy-shadow-md);
 
     .ig-card__thumb img { transform: scale(1.03); }
   }
@@ -1406,10 +1405,10 @@ watch(
     left: 8px;
     bottom: 8px;
     padding: 2px 6px;
-    border-radius: 4px;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.6);
-    font-size: var(--app-text-sm);
+    border-radius: var(--gy-radius-xs);
+    color: var(--gy-text-inverse);
+    background: color-mix(in oklab, var(--td-gray-color-14) 68%, transparent);
+    font-size: var(--gy-text-sm);
     pointer-events: none;
   }
 
@@ -1418,10 +1417,10 @@ watch(
     top: 8px;
     left: 8px;
     padding: 0 6px;
-    border-radius: var(--app-radius-xs);
-    background: rgb(0 0 0 / 55%);
-    color: #fff;
-    font-size: var(--app-text-xs);
+    border-radius: var(--gy-radius-xs);
+    background: color-mix(in oklab, var(--td-gray-color-14) 62%, transparent);
+    color: var(--gy-text-inverse);
+    font-size: var(--gy-text-xs);
     line-height: 18px;
   }
 

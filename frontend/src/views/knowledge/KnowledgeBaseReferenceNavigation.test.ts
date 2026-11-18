@@ -16,5 +16,5 @@ test('referenced documents navigate to their containing folder before opening de
 
 test('a newer referenced-document navigation supersedes an older request', () => {
   assert.match(source, /const request = \+\+autoOpenRequest/)
-  assert.match(source, /if \(request !== autoOpenRequest\) return;/)
+  assert.match(source, /if \(request !== autoOpenRequest\) return/)
 })

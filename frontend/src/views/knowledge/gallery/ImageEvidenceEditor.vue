@@ -5,6 +5,30 @@ import { get } from '@/utils/request'
 import { getChunkByIdOnly, updateDocumentChunk } from '@/api/knowledge-base'
 import type { ImageAsset } from '@/api/image-gallery'
 
+interface EvidenceImageInfo {
+  url?: string
+  original_url?: string
+}
+
+interface EvidenceChunkRow {
+  id: string
+  knowledge_id: string
+  chunk_type: string
+  content: string
+  content_revision?: number
+  image_info?: string
+  index_status?: string
+}
+
+interface EvidenceChunkListResponse {
+  data?: EvidenceChunkRow[]
+  total?: number
+}
+
+interface EvidenceChunkSingleResponse {
+  data?: EvidenceChunkRow
+}
+
 const props = defineProps<{ image: ImageAsset; field: 'caption' | 'ocr_text' }>()
 const emit = defineEmits<{ (e: 'saved'): void }>()
 const { t } = useI18n()
@@ -13,7 +37,7 @@ const loading = ref(false)
 const saving = ref(false)
 const draft = ref('')
 const error = ref('')
-const chunk = ref<any>(null)
+const chunk = ref<EvidenceChunkRow | null>(null)
 let sequence = 0
 
 function reset() {
@@ -28,10 +52,10 @@ function reset() {
 watch(() => [props.image.id, props.field], reset)
 onBeforeUnmount(reset)
 
-function matchesImage(row: any, image: ImageAsset): boolean {
+function matchesImage(row: Pick<EvidenceChunkRow, 'image_info'> | null | undefined, image: ImageAsset): boolean {
   try {
-    const images = JSON.parse(row.image_info || '[]')
-    return Array.isArray(images) && images.some(info => (info?.url || info?.original_url) === image.url)
+    const images: unknown = JSON.parse(row?.image_info || '[]')
+    return Array.isArray(images) && images.some((info: EvidenceImageInfo | null | undefined) => (info?.url || info?.original_url) === image.url)
   } catch {
     return false
   }
@@ -50,12 +74,12 @@ async function beginEdit() {
     // can itself be a source-text or visual-vector chunk and is not editable.
     for (let page = 1; ; page++) {
       const query = new URLSearchParams({ chunk_type: kind, page: String(page), page_size: '100' })
-      const result: any = await get(`/api/v1/chunks/${encodeURIComponent(image.knowledge_id)}?${query}`)
+      const result = (await get(`/api/v1/chunks/${encodeURIComponent(image.knowledge_id)}?${query}`)) as unknown as EvidenceChunkListResponse
       if (token !== sequence) return
       const rows = Array.isArray(result.data) ? result.data : []
-      const found = rows.find((row: any) => matchesImage(row, image))
+      const found = rows.find((row) => matchesImage(row, image))
       if (found) {
-        const response: any = await getChunkByIdOnly(found.id)
+        const response = (await getChunkByIdOnly(found.id)) as unknown as EvidenceChunkSingleResponse
         if (token !== sequence) return
         const current = response.data
         if (current?.knowledge_id !== image.knowledge_id || current.chunk_type !== kind || !matchesImage(current, image)) {
@@ -65,10 +89,11 @@ async function beginEdit() {
         draft.value = current.content
         return
       }
-      if (!rows.length || page * 100 >= result.total) throw new Error(t('common.noData'))
+      if (!rows.length || page * 100 >= (result.total ?? 0)) throw new Error(t('common.noData'))
     }
-  } catch (e: any) {
-    if (token === sequence) error.value = e?.message || t('common.error')
+  } catch (e: unknown) {
+    const errObj = e as { message?: string } | null
+    if (token === sequence) error.value = errObj?.message || t('common.error')
   } finally {
     if (token === sequence) loading.value = false
   }
@@ -85,21 +110,22 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    const result: any = await updateDocumentChunk(current.knowledge_id, current.id, {
+    const result = (await updateDocumentChunk(current.knowledge_id, current.id, {
       content: draft.value, expected_revision: current.content_revision,
-    })
+    })) as unknown as EvidenceChunkSingleResponse
     if (token !== sequence) return
-    chunk.value = result.data
+    chunk.value = result.data ?? null
     if (result.data?.index_status === 'failed') {
       error.value = t('knowledgeBase.chunkSavedIndexFailed')
       return
     }
     editing.value = false
     emit('saved')
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (token !== sequence) return
-    error.value = e?.message || t('common.saveFailed')
-    if (e?.status === 409) chunk.value = null
+    const errObj = e as { message?: string; status?: number } | null
+    error.value = errObj?.message || t('common.saveFailed')
+    if (errObj?.status === 409) chunk.value = null
   } finally {
     if (token === sequence) saving.value = false
   }

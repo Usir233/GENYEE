@@ -55,6 +55,11 @@ function schedulePolling() {
   }, 3000) as unknown as number
 }
 
+function extractErrMsg(err: unknown, fallback: string): string {
+  const obj = err as { message?: string; error?: string } | null
+  return obj?.message || obj?.error || fallback
+}
+
 async function loadList(silent = false) {
   const targetKbId = props.kbId
   if (!targetKbId || isUnmounted) return
@@ -72,7 +77,7 @@ async function loadList(silent = false) {
     } else {
       stopPolling()
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (!isUnmounted && seq === loadSeq) console.error(e)
   } finally {
     if (!silent && seq === loadSeq) loading.value = false
@@ -100,8 +105,8 @@ async function removeDataSource(ds: DataSource) {
     await deleteDataSource(ds.id)
     MessagePlugin.success(t('datasource.deleteSuccess'))
     await loadList()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || e?.error || t('datasource.deleteFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(extractErrMsg(e, t('datasource.deleteFailed')))
   }
 }
 
@@ -110,8 +115,8 @@ async function handleSync(ds: DataSource) {
     await triggerSync(ds.id)
     MessagePlugin.success(t('datasource.syncTriggered'))
     await loadList(true)
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || e?.error || t('datasource.syncFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(extractErrMsg(e, t('datasource.syncFailed')))
   }
 }
 
@@ -120,8 +125,8 @@ async function handlePause(ds: DataSource) {
     await pauseDataSource(ds.id)
     MessagePlugin.success(t('datasource.paused'))
     loadList()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || e?.error || t('datasource.pauseFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(extractErrMsg(e, t('datasource.pauseFailed')))
   }
 }
 
@@ -130,8 +135,8 @@ async function handleResume(ds: DataSource) {
     await resumeDataSource(ds.id)
     MessagePlugin.success(t('datasource.resumed'))
     loadList()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || e?.error || t('datasource.resumeFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(extractErrMsg(e, t('datasource.resumeFailed')))
   }
 }
 

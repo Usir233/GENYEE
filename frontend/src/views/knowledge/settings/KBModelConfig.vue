@@ -83,9 +83,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { ModelConfig as CatalogModelConfig } from '@/api/model'
 import { useUIStore } from '@/stores/ui'
 import ModelSelector from '@/components/ModelSelector.vue'
-import { useI18n } from 'vue-i18n'
 
 interface ModelConfig {
   llmModelId?: string
@@ -99,7 +99,7 @@ interface Props {
   hasFiles: boolean
   wikiEnabled?: boolean
   ragEnabled?: boolean
-  allModels?: any[]
+  allModels?: CatalogModelConfig[]
 }
 
 const props = defineProps<Props>()
@@ -109,7 +109,6 @@ const emit = defineEmits<{
 }>()
 
 const uiStore = useUIStore()
-const { t } = useI18n()
 
 const llmSelectorRef = ref<InstanceType<typeof ModelSelector>>()
 const embeddingSelectorRef = ref<InstanceType<typeof ModelSelector>>()

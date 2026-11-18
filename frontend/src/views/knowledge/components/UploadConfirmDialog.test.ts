@@ -2,10 +2,22 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 
-const dialog = readFileSync(new URL('./UploadConfirmDialog.vue', import.meta.url), 'utf8')
-const editor = readFileSync(new URL('../KnowledgeBaseEditorModal.vue', import.meta.url), 'utf8')
+const dialog = [
+  readFileSync(new URL('./UploadConfirmDialog.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./upload/UploadSourceQueuePanel.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./upload/UploadAdvancedOverridesSection.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useUploadProcessOverrides.ts', import.meta.url), 'utf8'),
+].join('\n')
+const editor = [
+  readFileSync(new URL('../KnowledgeBaseEditorModal.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useKBEditorForm.ts', import.meta.url), 'utf8'),
+].join('\n')
 const host = readFileSync(new URL('../../../components/UploadConfirmHost.vue', import.meta.url), 'utf8')
-const knowledgeBase = readFileSync(new URL('../KnowledgeBase.vue', import.meta.url), 'utf8')
+const knowledgeBase = [
+  readFileSync(new URL('../KnowledgeBase.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('./KBDocumentToolbar.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../composables/useKBDocumentOperations.ts', import.meta.url), 'utf8'),
+].join('\n')
 const platform = readFileSync(new URL('../../platform/index.vue', import.meta.url), 'utf8')
 
 test('selects multiple document tags and returns them with the confirmation result', () => {

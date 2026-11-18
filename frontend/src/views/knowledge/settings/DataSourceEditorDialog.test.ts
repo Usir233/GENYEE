@@ -91,6 +91,7 @@ async function fixture({
       if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key }) }
       if (name === 'tdesign-vue-next') return { MessagePlugin: { warning(msg: string) { warnings.push(msg) }, success() {}, error() {} } }
       if (name === '@/api/datasource') return api
+      if (name.startsWith('./composables/')) return require(name)
       return { default: {} }
     },
     URL, console,
