@@ -134,12 +134,15 @@ const applyStats = (data: ChatHistoryKBStats) => {
   modelLocked.value = data.has_indexed_messages === true
 }
 
+const getErrMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string' ? (error as { message: string }).message : '')
+
 // Load tenant config
 const loadConfig = async () => {
   try {
     const response = await getTenantChatHistoryConfig()
     if (mounted && response.data) applyConfig(response.data)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to load chat history config:', error)
     if (mounted) MessagePlugin.error(t('chatHistorySettings.toasts.loadFailed'))
   }
@@ -150,7 +153,7 @@ const loadStats = async () => {
   try {
     const response = await getChatHistoryKBStats()
     if (mounted && response.data) applyStats(response.data)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to load chat history stats:', error)
     // A failed count must not be interpreted as an empty index.
     if (mounted) {
@@ -197,9 +200,9 @@ const saveConfig = async () => {
     saved = true
     MessagePlugin.success(t('chatHistorySettings.toasts.saveSuccess'))
     await loadStats()
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to save chat history config:', error)
-    const errorMessage = error?.message || 'Unknown error'
+    const errorMessage = getErrMessage(error) || 'Unknown error'
     if (mounted) MessagePlugin.error(t('chatHistorySettings.toasts.saveFailed', { message: errorMessage }))
   } finally {
     isSaving.value = false
@@ -252,9 +255,9 @@ const clearIndex = async () => {
     })
     clearDialogVisible.value = false
     MessagePlugin.success(t('chatHistorySettings.toasts.clearSuccess'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (!mounted) return
-    MessagePlugin.error(t('chatHistorySettings.toasts.clearFailed', { message: error?.message || '' }))
+    MessagePlugin.error(t('chatHistorySettings.toasts.clearFailed', { message: getErrMessage(error) }))
     // Cleanup may have paused indexing or removed some entries before failing.
     // Refresh that persisted state instead of restoring a stale enabled draft.
     await Promise.all([loadConfig(), loadStats()])

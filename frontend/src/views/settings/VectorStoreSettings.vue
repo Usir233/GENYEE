@@ -36,6 +36,7 @@
             :tabindex="isStoreCardClickable(store) ? 0 : undefined"
             @click="onStoreCardClick($event, store)"
             @keydown.enter="onStoreCardClick($event, store)"
+            @keydown.space="onStoreCardClick($event, store)"
           >
             <div class="store-card__main">
               <div
@@ -72,9 +73,15 @@
                       placement="bottom-right"
                       attach="body"
                       trigger="click"
-                      @click="(action: any) => handleAction(action, store)"
+                      @click="(action: { value?: unknown }) => handleAction({ value: String(action.value ?? '') }, store)"
                     >
-                      <t-button variant="text" shape="square" size="small" class="store-card__more">
+                      <t-button
+                        variant="text"
+                        shape="square"
+                        size="small"
+                        class="store-card__more"
+                        :aria-label="t('modelCatalog.more')"
+                      >
                         <t-icon name="ellipsis" />
                       </t-button>
                     </t-dropdown>
@@ -173,7 +180,7 @@
           视觉与其他抽屉的提示一致。
         -->
         <section v-if="editingStore" class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ t('vectorStoreSettings.basicSection', '基本信息') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ t('vectorStoreSettings.basicSection') }}</h4>
 
           <div class="inline-alert inline-alert--info">
             <t-icon name="info-circle-filled" class="inline-alert__icon" />
@@ -216,7 +223,7 @@
         <template v-else>
           <!-- Section 1 — 基本信息：engine 类型 + 名称 -->
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ t('vectorStoreSettings.basicSection', '基本信息') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ t('vectorStoreSettings.basicSection') }}</h4>
 
             <div class="form-item">
               <label class="form-label required">{{ t('vectorStoreSettings.engineTypeLabel') }}</label>
@@ -253,7 +260,10 @@
               <!-- boolean 字段：switch + 行内描述 / TLS 警告 -->
               <template v-if="field.type === 'boolean'">
                 <div class="vision-toggle">
-                  <t-switch v-model="form.connection_config[field.name]" />
+                  <t-switch
+                    :model-value="Boolean(form.connection_config[field.name])"
+                    @update:model-value="(val: string | number | boolean) => { form.connection_config[field.name] = Boolean(val) }"
+                  />
                 </div>
                 <p
                   v-if="field.name === 'insecure_skip_verify' && form.connection_config[field.name]"
@@ -266,9 +276,10 @@
               <!-- 敏感字段（password / api key 等）：lock prefix + password -->
               <t-input
                 v-else-if="field.type === 'string' && field.sensitive"
-                v-model="form.connection_config[field.name]"
+                :model-value="String(form.connection_config[field.name] ?? '')"
                 type="password"
                 placeholder="********"
+                @update:model-value="(val: string | number) => { form.connection_config[field.name] = String(val) }"
               >
                 <template #prefix-icon><t-icon name="lock-on" /></template>
               </t-input>
@@ -285,8 +296,9 @@
               <!-- 普通字符串 -->
               <t-input
                 v-else
-                v-model="form.connection_config[field.name]"
+                :model-value="String(form.connection_config[field.name] ?? '')"
                 :placeholder="field.default?.toString() || ''"
+                @update:model-value="(val: string | number) => { form.connection_config[field.name] = String(val) }"
               />
             </div>
           </section>
@@ -302,7 +314,7 @@
               @click="showAdvanced = !showAdvanced"
             >
               <t-icon :name="showAdvanced ? 'chevron-down' : 'chevron-right'" />
-              <span>{{ showAdvanced ? t('common.collapse', '收起') : t('common.expand', '展开') }}</span>
+              <span>{{ showAdvanced ? t('common.collapse') : t('common.expand') }}</span>
             </button>
 
             <template v-if="showAdvanced">
@@ -316,8 +328,9 @@
                 <!-- 枚举 → 下拉 -->
                 <t-select
                   v-if="field.enum && field.enum.length"
-                  v-model="form.index_config[field.name]"
+                  :model-value="String(form.index_config[field.name] ?? '')"
                   :placeholder="field.default?.toString() || ''"
+                  @update:model-value="(val: unknown) => { form.index_config[field.name] = String(val ?? '') }"
                 >
                   <t-option v-for="opt in field.enum" :key="opt" :value="opt" :label="opt" />
                 </t-select>
@@ -336,9 +349,10 @@
                 <!-- 字符串 -->
                 <t-input
                   v-else
-                  v-model="form.index_config[field.name]"
+                  :model-value="String(form.index_config[field.name] ?? '')"
                   :placeholder="field.default?.toString() || ''"
                   :maxlength="128"
+                  @update:model-value="(val: string | number) => { form.index_config[field.name] = String(val) }"
                 />
               </div>
             </template>
@@ -351,7 +365,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, type WritableComputedRef } from 'vue'
-import { MessagePlugin, DialogPlugin } from 'tdesign-vue-next'
+import { MessagePlugin, DialogPlugin, type FormInstanceFunctions, type FormRule } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { AddIcon } from 'tdesign-icons-vue-next'
 import {
@@ -380,13 +394,15 @@ const editingStore = ref<VectorStoreEntity | null>(null)
 const testing = ref(false)
 const saving = ref(false)
 const showAdvanced = ref(false)
-const formRef = ref<any>()
+const formRef = ref<FormInstanceFunctions>()
+
+type VectorStoreFieldMap = Record<string, unknown>
 
 const form = ref<{
   name: string
   engine_type: string
-  connection_config: Record<string, any>
-  index_config: Record<string, any>
+  connection_config: VectorStoreFieldMap
+  index_config: VectorStoreFieldMap
 }>({
   name: '',
   engine_type: '',
@@ -457,7 +473,7 @@ const storeActionsFor = (store: VectorStoreEntity) => {
 }
 
 const formRules = computed(() => {
-  const rules: Record<string, any[]> = {
+  const rules: Record<string, FormRule[]> = {
     name: [{ required: true, message: t('vectorStoreSettings.validation.nameRequired') }],
   }
   if (!editingStore.value) {
@@ -503,8 +519,8 @@ const replicaFieldNames = ['number_of_replicas', 'replication_factor', 'replica_
 const isReplicaField = (name: string): boolean => replicaFieldNames.includes(name)
 
 const getStoreEndpoint = (store: VectorStoreEntity): string => {
-  const cc = store.connection_config || {}
-  return cc.addr || cc.host || ''
+  const cc = (store.connection_config || {}) as Record<string, unknown>
+  return String(cc.addr || cc.host || '')
 }
 
 // 卡片徽章首字母。engine_type 都是英文 ASCII，直接 charAt。
@@ -551,7 +567,7 @@ const indexNumberText: Record<string, WritableComputedRef<string>> = {}
 
 function ensureNumberProxy(
   bag: Record<string, WritableComputedRef<string>>,
-  store: Record<string, any>,
+  store: VectorStoreFieldMap,
   key: string,
 ): WritableComputedRef<string> {
   if (bag[key]) return bag[key]
@@ -647,6 +663,14 @@ const editStore = (store: VectorStoreEntity) => {
   showDialog.value = true
 }
 
+const getVectorStoreErrMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message?: unknown }).message || '')
+  }
+  return ''
+}
+
 // SettingDrawer 的"保存"按钮触发：手动校验后写后端。
 // edit 模式只能改 name；create 模式提交完整 connection / index 配置。
 const onDrawerConfirm = async () => {
@@ -655,7 +679,13 @@ const onDrawerConfirm = async () => {
     // 取第一条错误展示
     const firstError =
       typeof result === 'object'
-        ? Object.values(result).map((errs: any) => Array.isArray(errs) ? errs[0]?.message : '').find(Boolean)
+        ? Object.values(result)
+            .map((errs: unknown) =>
+              Array.isArray(errs) && errs[0] && typeof errs[0] === 'object' && 'message' in errs[0]
+                ? String((errs[0] as { message?: unknown }).message || '')
+                : '',
+            )
+            .find(Boolean)
         : ''
     MessagePlugin.warning(firstError || (t('vectorStoreSettings.toasts.errorGeneric') as string))
     return
@@ -678,8 +708,8 @@ const onDrawerConfirm = async () => {
     }
     showDialog.value = false
     await loadStores()
-  } catch (error: any) {
-    const msg = error?.message || t('vectorStoreSettings.toasts.errorGeneric')
+  } catch (error: unknown) {
+    const msg = getVectorStoreErrMessage(error) || t('vectorStoreSettings.toasts.errorGeneric')
     if (msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('duplicate')) {
       MessagePlugin.error(t('vectorStoreSettings.toasts.duplicateName'))
     } else {
@@ -710,8 +740,8 @@ const confirmDelete = (store: VectorStoreEntity) => {
         await deleteVectorStoreAPI(store.id!)
         MessagePlugin.success(t('vectorStoreSettings.toasts.storeDeleted'))
         await loadStores()
-      } catch (error: any) {
-        MessagePlugin.error(error?.message || t('vectorStoreSettings.toasts.errorGeneric'))
+      } catch (error: unknown) {
+        MessagePlugin.error(getVectorStoreErrMessage(error) || t('vectorStoreSettings.toasts.errorGeneric'))
       }
       dialog.destroy()
     },
@@ -728,16 +758,16 @@ const onDrawerTest = async () => {
       engine_type: form.value.engine_type,
       connection_config: { ...form.value.connection_config },
     }
-    const res = await testVectorStoreRaw(data)
+    const res = (await testVectorStoreRaw(data)) as { success?: boolean; error?: string }
     lastTestOk.value = !!res.success
     if (res.success) {
       MessagePlugin.success(t('vectorStoreSettings.toasts.testSuccess'))
     } else {
       MessagePlugin.error(res.error || t('vectorStoreSettings.toasts.testFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     lastTestOk.value = false
-    MessagePlugin.error(error?.message || t('vectorStoreSettings.toasts.testFailed'))
+    MessagePlugin.error(getVectorStoreErrMessage(error) || t('vectorStoreSettings.toasts.testFailed'))
   } finally {
     testing.value = false
   }
@@ -860,7 +890,7 @@ onMounted(async () => {
 
 .store-card__badge {
   .provider-card-badge();
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 
 // 真实品牌 logo 的渲染：保留每个 engine 类的 color 作为品牌色，
@@ -873,35 +903,35 @@ onMounted(async () => {
 
 // 各 vector engine 配色（覆盖 11 类常见后端，未列出的回落到默认蓝）
 .store-card--qdrant .store-card__badge {
-  .provider-card-badge-color(#e12626);
+  .provider-card-badge-color(var(--gy-danger));
 }
 .store-card--milvus .store-card__badge {
-  .provider-card-badge-color(#0089ff);
+  .provider-card-badge-color(var(--gy-accent-teal));
 }
 .store-card--weaviate .store-card__badge {
-  .provider-card-badge-color(#07a050);
+  .provider-card-badge-color(var(--gy-success));
 }
 .store-card--elasticsearch .store-card__badge,
 .store-card--elasticfaiss .store-card__badge {
-  .provider-card-badge-color(#d97706);
+  .provider-card-badge-color(var(--gy-highlight));
 }
 .store-card--postgres .store-card__badge {
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 .store-card--opensearch .store-card__badge {
-  .provider-card-badge-color(#6235bb);
+  .provider-card-badge-color(var(--gy-accent-purple));
 }
 .store-card--infinity .store-card__badge {
-  .provider-card-badge-color(#6235bb);
+  .provider-card-badge-color(var(--gy-accent-purple));
 }
 .store-card--tencent_vectordb .store-card__badge {
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 .store-card--doris .store-card__badge {
-  .provider-card-badge-color(#e55a00);
+  .provider-card-badge-color(var(--gy-warning));
 }
 .store-card--sqlite .store-card__badge {
-  .provider-card-badge-color(#464646);
+  .provider-card-badge-color(var(--gy-text-secondary));
 }
 
 .store-card__body {
@@ -1171,49 +1201,43 @@ onMounted(async () => {
 <style lang="less">
 // 彩色 logo 时给 header-icon 容器一个白底 + 1px 边
 .vectorstore-drawer .setting-drawer__header-icon:has(.header-icon__img) {
-  background: var(--td-bg-color-container);
-  box-shadow: inset 0 0 0 1px var(--td-component-stroke);
+  background: var(--gy-surface);
+  box-shadow: inset 0 0 0 1px var(--gy-border-subtle);
 }
 
 .vectorstore-drawer--qdrant .setting-drawer__header-icon {
-  background: rgba(225, 38, 38, 0.12);
-  color: #E12626;
+  background: color-mix(in oklab, var(--gy-danger) 12%, transparent);
+  color: var(--gy-danger);
 }
 .vectorstore-drawer--milvus .setting-drawer__header-icon {
-  background: rgba(0, 137, 255, 0.12);
-  color: #0089FF;
+  background: color-mix(in oklab, var(--gy-accent-teal) 12%, transparent);
+  color: var(--gy-accent-teal);
 }
 .vectorstore-drawer--weaviate .setting-drawer__header-icon {
-  background: color-mix(in srgb, var(--td-brand-color) 12%, transparent);
-  color: #07A050;
+  background: color-mix(in oklab, var(--gy-success) 12%, transparent);
+  color: var(--gy-success);
 }
 .vectorstore-drawer--elasticsearch .setting-drawer__header-icon,
 .vectorstore-drawer--elasticfaiss .setting-drawer__header-icon {
-  background: rgba(255, 153, 0, 0.12);
-  color: #D97706;
+  background: color-mix(in oklab, var(--gy-highlight) 12%, transparent);
+  color: var(--gy-highlight);
 }
-.vectorstore-drawer--postgres .setting-drawer__header-icon {
-  background: rgba(0, 82, 217, 0.1);
-  color: #0052D9;
-}
-.vectorstore-drawer--opensearch .setting-drawer__header-icon {
-  background: rgba(98, 53, 187, 0.12);
-  color: #6235BB;
-}
-.vectorstore-drawer--infinity .setting-drawer__header-icon {
-  background: rgba(98, 53, 187, 0.12);
-  color: #6235BB;
-}
+.vectorstore-drawer--postgres .setting-drawer__header-icon,
 .vectorstore-drawer--tencent_vectordb .setting-drawer__header-icon {
-  background: rgba(0, 82, 217, 0.1);
-  color: #0052D9;
+  background: color-mix(in oklab, var(--gy-accent-blue) 12%, transparent);
+  color: var(--gy-accent-blue);
+}
+.vectorstore-drawer--opensearch .setting-drawer__header-icon,
+.vectorstore-drawer--infinity .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-accent-purple) 12%, transparent);
+  color: var(--gy-accent-purple);
 }
 .vectorstore-drawer--doris .setting-drawer__header-icon {
-  background: rgba(255, 90, 0, 0.12);
-  color: #E55A00;
+  background: color-mix(in oklab, var(--gy-warning) 12%, transparent);
+  color: var(--gy-warning);
 }
 .vectorstore-drawer--sqlite .setting-drawer__header-icon {
-  background: rgba(70, 70, 70, 0.1);
-  color: #464646;
+  background: color-mix(in oklab, var(--gy-text-secondary) 12%, transparent);
+  color: var(--gy-text-secondary);
 }
 </style>

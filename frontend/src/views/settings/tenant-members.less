@@ -1,0 +1,94 @@
+@import (reference) '@/components/css/settings-section.less';
+@import (reference) '@/components/css/settings-table.less';
+
+.member-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px 0;
+
+  .member-name {
+    font-weight: 500;
+    font-size: var(--gy-text-base);
+    color: var(--gy-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .member-email {
+    font-size: var(--gy-text-sm);
+    line-height: 1.35;
+    color: var(--gy-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.loading-inline,
+.error-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 0 8px;
+}
+
+.empty-state {
+  padding: 40px 0 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.data-table-shell {
+  .settings-data-table();
+
+  :deep(thead th) {
+    background: var(--gy-surface-subtle);
+    color: var(--gy-text-secondary);
+    font-weight: 500;
+  }
+  :deep(.t-table tbody tr:last-child td) {
+    border-bottom: 0;
+  }
+  :deep(.t-table__content > table) {
+    min-width: 640px;
+  }
+
+  &:deep(.role-cell) {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}
+
+.data-table-shell.data-table-shell--with-footer {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  > .data-table-shell__scroll {
+    overflow-x: auto;
+    min-width: 0;
+  }
+
+  > .data-table-shell__pager {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--gy-border-subtle);
+    background-color: var(--gy-surface);
+
+    :deep(.t-pagination) {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      row-gap: 8px;
+    }
+  }
+}

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin, NotifyPlugin } from 'tdesign-vue-next'
 import ProtectedResourcePreview from '@/components/ProtectedResourcePreview.vue'
-import ManualKnowledgeEditor from '@/components/manual-knowledge-editor.vue'
+import ManualKnowledgeEditor from '@/components/ManualKnowledgeEditor.vue'
 import UploadConfirmHost from '@/components/UploadConfirmHost.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
@@ -39,12 +39,29 @@ const tdLocaleMap: Record<string, object> = {
 
 const tdGlobalConfig = computed(() => tdLocaleMap[locale.value] || enUSConfig)
 
-const decodeOIDCResult = (encoded: string) => {
+type OIDCCallbackPayload = Parameters<typeof notifyLoginSuccess>[0] & {
+  success?: boolean
+  token?: string
+  refresh_token?: string
+  message?: string
+}
+
+interface WailsDesktopWindow extends Window {
+  go?: {
+    main?: {
+      App?: {
+        AutoCheckForUpdates?: () => void
+      }
+    }
+  }
+}
+
+const decodeOIDCResult = (encoded: string): OIDCCallbackPayload => {
   const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4)
   const binary = window.atob(padded)
   const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
-  return JSON.parse(new TextDecoder().decode(bytes))
+  return JSON.parse(new TextDecoder().decode(bytes)) as OIDCCallbackPayload
 }
 
 const clearOIDCCallbackState = (path = '/') => {
@@ -98,7 +115,7 @@ const syncOIDCUserContext = async () => {
   }
 }
 
-const persistOIDCLoginResponse = async (response: any) => {
+const persistOIDCLoginResponse = async (response: OIDCCallbackPayload) => {
   if (!response.token) {
     throw new Error(response.message || 'OIDC login failed')
   }
@@ -164,12 +181,12 @@ const handleGlobalOIDCCallback = async () => {
     clearOIDCCallbackState('/login')
     await router.replace('/login')
     MessagePlugin.error(response.message || 'OIDC login failed')
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Global OIDC callback handling failed:', error)
     authStore.logout()
     clearOIDCCallbackState('/login')
     await router.replace('/login')
-    MessagePlugin.error(error.message || 'OIDC login failed')
+    MessagePlugin.error(error instanceof Error ? error.message : 'OIDC login failed')
   }
 }
 
@@ -240,31 +257,20 @@ const showPendingTenantSwitchToast = () => {
   })
 }
 
+const triggerAutoUpdateCheck = () => {
+  if (!settingsStore.isAutoCheckUpdateEnabled) return
+  ;(window as WailsDesktopWindow).go?.main?.App?.AutoCheckForUpdates?.()
+}
+
 onMounted(() => {
   handleGlobalOIDCCallback()
   showPendingTenantSwitchToast()
 
   // Auto check for updates on startup
-  setTimeout(() => {
-    if (settingsStore.isAutoCheckUpdateEnabled) {
-      // @ts-ignore
-      if (window.go && window.go.main && window.go.main.App && window.go.main.App.AutoCheckForUpdates) {
-        // @ts-ignore
-        window.go.main.App.AutoCheckForUpdates()
-      }
-    }
-  }, 2000)
+  setTimeout(triggerAutoUpdateCheck, 2000)
 
   // Periodically check for updates (every 4 hours)
-  updateCheckTimer = setInterval(() => {
-    if (settingsStore.isAutoCheckUpdateEnabled) {
-      // @ts-ignore
-      if (window.go && window.go.main && window.go.main.App && window.go.main.App.AutoCheckForUpdates) {
-        // @ts-ignore
-        window.go.main.App.AutoCheckForUpdates()
-      }
-    }
-  }, 4 * 60 * 60 * 1000)
+  updateCheckTimer = setInterval(triggerAutoUpdateCheck, 4 * 60 * 60 * 1000)
 })
 
 onUnmounted(() => {
@@ -298,12 +304,12 @@ html,
   height: 100%;
   margin: 0;
   padding: 0;
-  font-size: 14px;
-  font-family: var(--app-font-family);
+  font-size: var(--gy-text-base);
+  font-family: var(--gy-font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--td-bg-color-page);
-  color: var(--td-text-color-primary);
+  background: var(--gy-surface-page);
+  color: var(--gy-text-primary);
 }
 
 #app {

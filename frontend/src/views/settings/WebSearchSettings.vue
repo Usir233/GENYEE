@@ -21,6 +21,7 @@
         :tabindex="isProviderCardClickable() ? 0 : undefined"
         @click="onProviderCardClick($event, entity)"
         @keydown.enter="onProviderCardClick($event, entity)"
+        @keydown.space="onProviderCardClick($event, entity)"
       >
         <div
           class="provider-card__badge"
@@ -51,9 +52,15 @@
                 placement="bottom-right"
                 attach="body"
                 trigger="click"
-                @click="(data: any) => handleMenuAction({ value: data.value }, entity)"
+                @click="(data: { value?: unknown }) => handleMenuAction({ value: String(data.value ?? '') }, entity)"
               >
-                <t-button variant="text" shape="square" size="small" class="provider-card__more">
+                <t-button
+                  variant="text"
+                  shape="square"
+                  size="small"
+                  class="provider-card__more"
+                  :aria-label="t('modelCatalog.more')"
+                >
                   <t-icon name="ellipsis" />
                 </t-button>
               </t-dropdown>
@@ -173,7 +180,7 @@
       <t-form ref="formRef" :data="providerForm" label-align="top" class="provider-form">
         <!-- Section 1 — 基本信息 -->
         <section class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ t('webSearchSettings.basicSection', '基本信息') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ t('webSearchSettings.basicSection') }}</h4>
 
           <!-- providerType 选择器：仅在新建时可改 -->
           <div class="form-item">
@@ -230,7 +237,7 @@
           v-if="selectedProviderType?.requires_api_key || selectedProviderType?.supports_optional_api_key || selectedProviderType?.requires_engine_id || selectedProviderType?.requires_base_url || selectedProviderType?.config_fields?.length"
           class="setting-drawer__section"
         >
-          <h4 class="setting-drawer__section-title">{{ t('webSearchSettings.credentialsSection', '连接配置') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ t('webSearchSettings.credentialsSection') }}</h4>
 
           <div v-if="selectedProviderType?.requires_base_url" class="form-item">
             <label class="form-label required">{{ t('webSearchSettings.baseUrlLabel') }}</label>
@@ -248,7 +255,7 @@
           <div v-if="selectedProviderType?.requires_api_key || selectedProviderType?.supports_optional_api_key" class="form-item">
             <label class="form-label" :class="{ required: selectedProviderType?.requires_api_key }">
               {{ selectedProviderType?.supports_optional_api_key && !selectedProviderType?.requires_api_key
-                ? t('webSearchSettings.apiKeyOptionalLabel', 'API Key（可选）')
+                ? t('webSearchSettings.apiKeyOptionalLabel')
                 : t('webSearchSettings.apiKeyLabel') }}
             </label>
             <CredentialResource
@@ -305,7 +312,7 @@
           v-if="selectedProviderType?.supports_proxy || selectedProviderType"
           class="setting-drawer__section"
         >
-          <h4 class="setting-drawer__section-title">{{ t('webSearchSettings.optionsSection', '选项') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ t('webSearchSettings.optionsSection') }}</h4>
 
           <div v-if="selectedProviderType?.supports_proxy" class="form-item">
             <label class="form-label">{{ t('webSearchSettings.proxyUrlLabel') }}</label>
@@ -332,7 +339,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAssistantDataChange } from '@/utils/assistantDataChange'
-import { MessagePlugin } from 'tdesign-vue-next'
+import { MessagePlugin, type FormInstanceFunctions } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { AddIcon } from 'tdesign-icons-vue-next'
 import {
@@ -369,7 +376,15 @@ const showAddProviderDialog = ref(false)
 const editingProvider = ref<WebSearchProviderEntity | null>(null)
 const testing = ref(false)
 const saving = ref(false)
-const formRef = ref<any>()
+const formRef = ref<FormInstanceFunctions>()
+
+const getWebSearchErrMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message?: unknown }).message || '')
+  }
+  return ''
+}
 
 // Tri-state hint icon next to the test button: null=neutral, true=just
 // succeeded, false=just failed. Cleared whenever the user changes the
@@ -644,7 +659,7 @@ const saveProvider = async () => {
 
     const data: Partial<WebSearchProviderEntity> = {
       name: providerForm.value.name.trim() || selectedProviderType.value?.name || providerForm.value.provider,
-      provider: providerForm.value.provider as any,
+      provider: providerForm.value.provider as WebSearchProviderEntity['provider'],
       description: providerForm.value.description,
       parameters: paramsOut,
       is_default: providerForm.value.is_default,
@@ -659,8 +674,8 @@ const saveProvider = async () => {
     }
     showAddProviderDialog.value = false
     await loadProviderEntities()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || 'Failed to save provider')
+  } catch (error: unknown) {
+    MessagePlugin.error(getWebSearchErrMessage(error) || 'Failed to save provider')
   } finally {
     saving.value = false
   }
@@ -674,8 +689,8 @@ const deleteProvider = (entity: WebSearchProviderEntity) => {
         await deleteWebSearchProviderAPI(entity.id!)
         MessagePlugin.success(t('webSearchSettings.toasts.providerDeleted'))
         await loadProviderEntities()
-      } catch (error: any) {
-        MessagePlugin.error(error?.message || 'Failed to delete provider')
+      } catch (error: unknown) {
+        MessagePlugin.error(getWebSearchErrMessage(error) || 'Failed to delete provider')
       }
     }
   })
@@ -691,7 +706,7 @@ const testConnection = async () => {
 
     let ok = false
     if (editingProvider.value && !data.parameters.api_key) {
-      const res = await testWebSearchProvider(editingProvider.value.id!)
+      const res = (await testWebSearchProvider(editingProvider.value.id!)) as { success?: boolean; error?: string }
       ok = !!res.success
       if (res.success) {
         MessagePlugin.success(t('webSearchSettings.toasts.testSuccess'))
@@ -699,7 +714,7 @@ const testConnection = async () => {
         MessagePlugin.error(res.error || t('webSearchSettings.toasts.testFailed'))
       }
     } else {
-      const res = await testWebSearchProvider(undefined, data)
+      const res = (await testWebSearchProvider(undefined, data)) as { success?: boolean; error?: string }
       ok = !!res.success
       if (res.success) {
         MessagePlugin.success(t('webSearchSettings.toasts.testSuccess'))
@@ -708,8 +723,8 @@ const testConnection = async () => {
       }
     }
     lastTestOk.value = ok
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('webSearchSettings.toasts.testFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getWebSearchErrMessage(error) || t('webSearchSettings.toasts.testFailed'))
     lastTestOk.value = false
   } finally {
     testing.value = false
@@ -843,7 +858,7 @@ onMounted(async () => {
 
 .provider-card__badge {
   .provider-card-badge();
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 
 // 真实品牌 logo：白底 + 细边，logo 用 mask-image 染成 currentColor（沿用品牌色）。
@@ -854,34 +869,34 @@ onMounted(async () => {
 
 // 各搜索源的徽章配色 —— 不强求与官方 logo 一致，挑同色系低饱和版即可。
 .provider-card--duckduckgo .provider-card__badge {
-  .provider-card-badge-color(#de5833);
+  .provider-card-badge-color(var(--gy-warning));
 }
 .provider-card--bing .provider-card__badge {
-  .provider-card-badge-color(#0089ff);
+  .provider-card-badge-color(var(--gy-accent-teal));
 }
 .provider-card--google .provider-card__badge {
-  .provider-card-badge-color(#4285f4);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 .provider-card--tavily .provider-card__badge {
-  .provider-card-badge-color(#6235bb);
+  .provider-card-badge-color(var(--gy-accent-purple));
 }
 .provider-card--baidu .provider-card__badge {
-  .provider-card-badge-color(#2932e1);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 .provider-card--searxng .provider-card__badge {
-  .provider-card-badge-color(#215689);
+  .provider-card-badge-color(var(--gy-accent-teal));
 }
 .provider-card--ollama .provider-card__badge {
-  .provider-card-badge-color(#464646);
+  .provider-card-badge-color(var(--gy-text-secondary));
 }
 .provider-card--keenable .provider-card__badge {
-  .provider-card-badge-color(#149e82);
+  .provider-card-badge-color(var(--gy-success));
 }
 .provider-card--zhipu .provider-card__badge {
-  .provider-card-badge-color(#2563eb);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 .provider-card--deepseek .provider-card__badge {
-  .provider-card-badge-color(#4D6BFE);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 
 .provider-card__body {
@@ -1129,48 +1144,36 @@ onMounted(async () => {
 // 彩色 logo 时给 header-icon 容器一个白底 + 1px 边，避免品牌色浅底压在
 // 彩色图标上影响对比度。
 .websearch-drawer .setting-drawer__header-icon:has(.header-icon__img) {
-  background: var(--td-bg-color-container);
-  box-shadow: inset 0 0 0 1px var(--td-component-stroke);
+  background: var(--gy-surface);
+  box-shadow: inset 0 0 0 1px var(--gy-border-subtle);
 }
 
 .websearch-drawer--duckduckgo .setting-drawer__header-icon {
-  background: rgba(222, 88, 51, 0.12);
-  color: #DE5833;
+  background: color-mix(in oklab, var(--gy-warning) 12%, transparent);
+  color: var(--gy-warning);
 }
-.websearch-drawer--bing .setting-drawer__header-icon {
-  background: rgba(0, 137, 255, 0.12);
-  color: #0089FF;
+.websearch-drawer--bing .setting-drawer__header-icon,
+.websearch-drawer--searxng .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-accent-teal) 12%, transparent);
+  color: var(--gy-accent-teal);
 }
-.websearch-drawer--google .setting-drawer__header-icon {
-  background: rgba(66, 133, 244, 0.12);
-  color: #4285F4;
+.websearch-drawer--google .setting-drawer__header-icon,
+.websearch-drawer--baidu .setting-drawer__header-icon,
+.websearch-drawer--zhipu .setting-drawer__header-icon,
+.websearch-drawer--deepseek .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-accent-blue) 12%, transparent);
+  color: var(--gy-accent-blue);
 }
 .websearch-drawer--tavily .setting-drawer__header-icon {
-  background: rgba(98, 53, 187, 0.12);
-  color: #6235BB;
-}
-.websearch-drawer--baidu .setting-drawer__header-icon {
-  background: rgba(41, 50, 225, 0.12);
-  color: #2932E1;
-}
-.websearch-drawer--searxng .setting-drawer__header-icon {
-  background: rgba(33, 86, 137, 0.12);
-  color: #215689;
+  background: color-mix(in oklab, var(--gy-accent-purple) 12%, transparent);
+  color: var(--gy-accent-purple);
 }
 .websearch-drawer--ollama .setting-drawer__header-icon {
-  background: rgba(70, 70, 70, 0.12);
-  color: #464646;
+  background: color-mix(in oklab, var(--gy-text-secondary) 12%, transparent);
+  color: var(--gy-text-secondary);
 }
 .websearch-drawer--keenable .setting-drawer__header-icon {
-  background: rgba(20, 158, 130, 0.12);
-  color: #149E82;
-}
-.websearch-drawer--zhipu .setting-drawer__header-icon {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563EB;
-}
-.websearch-drawer--deepseek .setting-drawer__header-icon {
-  background: rgba(77, 107, 254, 0.12);
-  color: #4D6BFE;
+  background: color-mix(in oklab, var(--gy-success) 12%, transparent);
+  color: var(--gy-success);
 }
 </style>

@@ -268,11 +268,17 @@ function formatUptime(totalSeconds: number): string {
 
 const troubleshootingDocsURL = docsUrl('troubleshootingMigrations')
 
+interface RuntimeConfigWindow extends Window {
+  __RUNTIME_CONFIG__?: {
+    GITHUB_URL?: string
+  }
+}
+
 // Pre-fills a new issue with the current migration error so users don't have to
 // paste it manually. Body is intentionally minimal — the bug template will fill
 // in the rest. Encode aggressively to survive newlines / quotes.
 const githubUrl = computed(() => {
-  const raw = ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, '')
+  const raw = ((window as RuntimeConfigWindow).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, '')
   if (!raw) return ''
   try {
     const parsed = new URL(raw)
@@ -323,8 +329,10 @@ const loadInfo = async () => {
     } else {
       error.value = t('system.messages.fetchFailed')
     }
-  } catch (err: any) {
-    error.value = err?.message || t('system.messages.networkError')
+  } catch (err: unknown) {
+    error.value =
+      (err instanceof Error ? err.message : (err as { message?: string } | null)?.message) ||
+      t('system.messages.networkError')
   } finally {
     loading.value = false
   }

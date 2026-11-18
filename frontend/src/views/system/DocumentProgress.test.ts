@@ -15,7 +15,7 @@ function dependencies(overrides: Record<string, unknown> = {}, messages: Array<{
       return key
     } }) },
     'tdesign-vue-next': { MessagePlugin: { success() {}, error() {} } },
-    '@/api/system/documentProgress': {
+    '@/api/system/document-progress': {
       listDocumentProgress: async () => page(),
       getDocumentProgress: async () => ({ data: { document: { id: 'doc' }, failures: [] } }),
       startDocumentWiki: async () => ({ data: { requested: 1, started: 1, already_queued: 0 } }),

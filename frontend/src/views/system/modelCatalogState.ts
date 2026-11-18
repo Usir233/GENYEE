@@ -1,4 +1,5 @@
-import type { CatalogModel, CatalogOverlay, CatalogProvider } from '@/api/system/modelCatalog'
+import { isProxy, toRaw } from 'vue'
+import type { CatalogModel, CatalogOverlay, CatalogProvider } from '@/api/system/model-catalog'
 
 export const modelIdentity = (model: CatalogModel) => `${model.type || 'KnowledgeQA'}:${model.id || model.match || ''}`
 export interface CatalogRow { key: string; provider: string; model: CatalogModel }
@@ -9,7 +10,7 @@ export function catalogRows(providers: CatalogProvider[]): CatalogRow[] {
 }
 export function stableJSON(value: unknown): string {
   return JSON.stringify(value, (_, v) => v && typeof v === 'object' && !Array.isArray(v)
-    ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v, 2)
+    ? Object.fromEntries(Object.entries(v).toSorted(([a], [b]) => a.localeCompare(b))) : v, 2)
 }
 export function catalogChanges(before: CatalogProvider[], after: CatalogProvider[]) {
   const flatten = (providers: CatalogProvider[]) => new Map<string, unknown>(providers.flatMap(p => [
@@ -23,9 +24,22 @@ export function catalogChanges(before: CatalogProvider[], after: CatalogProvider
   })
 }
 
-// Overlays are plain JSON; a JSON round trip also unwraps Vue reactive
-// proxies, which structuredClone rejects.
-const cloneOverlay = (overlay: CatalogOverlay): CatalogOverlay => JSON.parse(JSON.stringify(overlay))
+function unwrapReactiveTree<T>(value: T): T {
+  const raw = isProxy(value) ? toRaw(value) : value
+  if (Array.isArray(raw)) {
+    return raw.map(item => unwrapReactiveTree(item)) as unknown as T
+  }
+  if (raw && typeof raw === 'object') {
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).map(([k, v]) => [k, unwrapReactiveTree(v)]),
+    ) as T
+  }
+  return raw
+}
+
+// Overlays are plain JSON; unwrap any Vue reactive proxies via toRaw before structuredClone.
+const cloneOverlay = (overlay: CatalogOverlay): CatalogOverlay =>
+  structuredClone(toRaw(unwrapReactiveTree(overlay)))
 
 // Both overlay forms are supported. A form edit must also remove the same
 // fields from model_overrides, which otherwise wins later during resolution.
@@ -91,7 +105,7 @@ export function summarizeChanges(changes: ReturnType<typeof catalogChanges>): Ca
   return changes.map(({ key, before, after }) => {
     const [provider = key, type, ...id] = key.split(':')
     const fields = [...new Set([...Object.keys(before || {}), ...Object.keys(after || {})])].filter(field =>
-      stableJSON((before as Record<string, unknown> | undefined)?.[field]) !== stableJSON((after as Record<string, unknown> | undefined)?.[field])).sort()
+      stableJSON((before as Record<string, unknown> | undefined)?.[field]) !== stableJSON((after as Record<string, unknown> | undefined)?.[field])).toSorted()
     if (!type) return { key, provider, target: provider, kind: 'provider', fields }
     const target = id.join(':') || type
     return { key, provider, target, kind: !before ? 'added' : !after ? 'removed' : 'updated', fields: before && after ? fields : [] }

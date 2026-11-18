@@ -489,15 +489,24 @@ function formatTime(value: string): string {
   return date.toLocaleString(locale.value)
 }
 
+function getEnvErrMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'object' && e !== null && 'message' in e) {
+    const msg = (e as { message?: unknown }).message
+    if (typeof msg === 'string') return msg
+  }
+  return ''
+}
+
 async function load() {
   loading.value = true
   loadError.value = ''
   try {
     const res = await listMyEnvVars()
     groups.value = sortedConfigGroups(res?.data || [])
-  } catch (e: any) {
+  } catch (e: unknown) {
     groups.value = []
-    loadError.value = e?.message || envText('loadFailed')
+    loadError.value = getEnvErrMessage(e) || envText('loadFailed')
   } finally {
     loading.value = false
   }
@@ -526,8 +535,8 @@ async function submit(key: string, action: () => Promise<unknown>, successMessag
     if (editingKey.value === key) editingKey.value = ''
     MessagePlugin.success(successMessage)
     await load()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('envVarSettings.saveFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getEnvErrMessage(e) || t('envVarSettings.saveFailed'))
   } finally {
     busyKey.value = ''
   }
@@ -611,8 +620,8 @@ async function saveNewSandboxRow() {
     cancelAddSandbox()
     MessagePlugin.success(t('envVarSettings.saveSuccess'))
     await load()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('envVarSettings.saveFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getEnvErrMessage(e) || t('envVarSettings.saveFailed'))
   } finally {
     busyKey.value = ''
   }

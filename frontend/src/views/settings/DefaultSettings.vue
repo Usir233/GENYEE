@@ -187,6 +187,9 @@ const loadSettings = async () => {
   }
 }
 
+const getDefaultErrMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string' ? (error as { message: string }).message : '')
+
 const onModelChange = async (field: ModelField, id: string) => {
   if (!canEdit.value || !settingsLoaded.value || saving.value || settings[field] === (id || '')) return
   const previous = settings[field]
@@ -199,9 +202,9 @@ const onModelChange = async (field: ModelField, id: string) => {
       console.error('Failed to refresh models after saving defaults:', error)
     })
     MessagePlugin.success(t('defaultSettings.toasts.saveSuccess'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     settings[field] = previous
-    MessagePlugin.error(t('defaultSettings.toasts.saveFailed', { message: error?.message || '' }))
+    MessagePlugin.error(t('defaultSettings.toasts.saveFailed', { message: getDefaultErrMessage(error) }))
   } finally {
     saving.value = false
   }
@@ -247,8 +250,8 @@ const onWebSearchChange = async (value: unknown) => {
     }
     await loadWebSearchProviders()
     MessagePlugin.success(t('defaultSettings.toasts.saveSuccess'))
-  } catch (error: any) {
-    MessagePlugin.error(t('defaultSettings.toasts.saveFailed', { message: error?.message || '' }))
+  } catch (error: unknown) {
+    MessagePlugin.error(t('defaultSettings.toasts.saveFailed', { message: getDefaultErrMessage(error) }))
   } finally {
     saving.value = false
   }

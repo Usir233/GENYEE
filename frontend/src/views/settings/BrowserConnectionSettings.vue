@@ -223,6 +223,9 @@ async function desktopApiBase(): Promise<string> {
   }
   return preferredDesktopAPIBase(native, win.__GENYEE_API_BASE__)
 }
+const errText = (e: unknown): string =>
+  e instanceof Error ? e.message : (typeof e === 'object' && e !== null && 'message' in e && typeof (e as { message?: unknown }).message === 'string' ? (e as { message: string }).message : '')
+
 async function refresh() {
   try {
     if (!busy.value && !document.hidden) {
@@ -234,7 +237,7 @@ async function refresh() {
       status.value = result.data; loaded.value = true; refreshError.value = ''
       browserConnection.apply(result.data)
     }
-  } catch (e: any) { if (alive) { refreshError.value = e?.message || t('localBrowser.failed') } }
+  } catch (e: unknown) { if (alive) { refreshError.value = errText(e) || t('localBrowser.failed') } }
   if (alive) timer = setTimeout(refresh, 5000)
 }
 async function pair() {
@@ -250,7 +253,7 @@ async function pair() {
     }
     try { await navigator.clipboard.writeText(pairing.value); if (alive) { copied.value = true; copyFallback.value = false } }
     catch { if (alive) copyFallback.value = true }
-  } catch (e: any) { if (alive) error.value = e?.message || t('localBrowser.failed') }
+  } catch (e: unknown) { if (alive) error.value = errText(e) || t('localBrowser.failed') }
   finally { if (alive) busy.value = false }
 }
 async function disconnect() {
@@ -259,7 +262,7 @@ async function disconnect() {
   try {
     const result = await post<{ data: Connection }>(endpoint, { action: 'revoke' }, { signal: controller.signal })
     if (alive) { status.value = result.data; clearPairing(); browserConnection.apply(result.data) }
-  } catch (e: any) { if (alive) error.value = e?.message || t('localBrowser.failed') }
+  } catch (e: unknown) { if (alive) error.value = errText(e) || t('localBrowser.failed') }
   finally { if (alive) busy.value = false }
 }
 async function download() {
@@ -271,7 +274,7 @@ async function download() {
     const url = URL.createObjectURL(blob), link = document.createElement('a')
     link.href = url; link.download = 'browser-skill-genyee.zip'; link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-  } catch (e: any) { if (alive) error.value = e?.message || t('localBrowser.failed') }
+  } catch (e: unknown) { if (alive) error.value = errText(e) || t('localBrowser.failed') }
   finally { if (alive) downloading.value = false }
 }
 onMounted(() => { void refresh() })

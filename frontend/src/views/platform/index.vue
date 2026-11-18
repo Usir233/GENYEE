@@ -1,6 +1,6 @@
 <template>
     <div class="main" ref="dropzone" :style="{ '--sidebar-width': `${uiStore.sidebarDisplayWidth}px` }">
-        <Menu></Menu>
+        <AppSidebarMenu />
         <div v-if="isRouterAlive" class="platform-route-outlet">
             <RouterView />
         </div>
@@ -10,7 +10,7 @@
         <AssistantLauncher />
         <AssistantPageBridge />
         <div class="upload-mask" v-show="ismask">
-            <UploadMask></UploadMask>
+            <UploadMask />
         </div>
         <!-- 全局设置模态框，供所有 platform 子路由使用 -->
         <Settings />
@@ -23,10 +23,10 @@
     </div>
 </template>
 <script setup lang="ts">
-import Menu from '@/components/menu.vue'
+import AppSidebarMenu from '@/components/AppSidebarMenu.vue'
 import { ref, onMounted, onUnmounted, nextTick, provide, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router'
-import UploadMask from '@/components/upload-mask.vue'
+import UploadMask from '@/components/UploadMask.vue'
 import Settings from '@/views/settings/Settings.vue'
 import GlobalCommandPalette from '@/components/GlobalCommandPalette.vue'
 import AssistantPanel from '@/components/assistant/AssistantPanel.vue'
@@ -42,11 +42,18 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { collectDroppedFiles } from './collectDroppedFiles'
 
+interface WailsRuntimeWindow extends Window {
+    runtime?: {
+        EventsOn?: (eventName: string, callback: () => void) => void
+        EventsOff?: (eventName: string) => void
+    }
+}
+
 const route = useRoute();
 const router = useRouter();
 const commandPaletteStore = useCommandPaletteStore();
 const uiStore = useUIStore();
-let ismask = ref(false)
+const ismask = ref(false)
 const { t } = useI18n();
 
 const isRouterAlive = ref(true)
@@ -62,8 +69,8 @@ provide('app:reload', reloadApp)
 // 桌面端没有浏览器地址栏，整页重载会白屏，所以用前端软刷新替代。
 // 浏览器（含 Web 版 / 非 Lite 部署）里不拦截，交给浏览器做真正的整页刷新，
 // 否则会出现左侧菜单、全局设置、Pinia store 等不随"刷新"一起重置的问题。
-// @ts-ignore
-const isWailsDesktop = typeof window !== 'undefined' && !!(window as any).runtime?.EventsOn
+const wailsRuntime = typeof window !== 'undefined' ? (window as WailsRuntimeWindow).runtime : undefined
+const isWailsDesktop = Boolean(wailsRuntime?.EventsOn)
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
     if (!isWailsDesktop) return
@@ -78,7 +85,9 @@ let dragCounter = 0;
 
 // 获取当前知识库ID
 const getCurrentKbId = (): string | null => {
-    return (route.params as any)?.kbId as string || null
+    const raw = route.params?.kbId
+    const kbId = Array.isArray(raw) ? raw[0] : raw
+    return typeof kbId === 'string' && kbId ? kbId : null
 }
 
 const CHAT_DROP_ROUTE_NAMES = new Set(['chat', 'globalCreatChat', 'kbCreatChat']);
@@ -111,7 +120,7 @@ const checkKnowledgeBaseInitialization = async (): Promise<boolean> => {
             return false;
         }
         return true;
-    } catch (error) {
+    } catch {
         MessagePlugin.error(t('knowledgeBase.getInfoFailed'));
         return false;
     }
@@ -206,8 +215,7 @@ onMounted(() => {
     document.addEventListener('drop', handleGlobalDrop, true);
     if (isWailsDesktop) {
         window.addEventListener('keydown', handleGlobalKeyDown);
-        // @ts-ignore
-        window.runtime.EventsOn('app:reload', () => {
+        wailsRuntime?.EventsOn?.('app:reload', () => {
             reloadApp()
         })
     }
@@ -228,8 +236,7 @@ function maybeOpenCmdkFromRoute() {
     const q = String(route.query.cmdk ?? '')
     commandPaletteStore.openPalette(q)
     // 清除 query，避免回退/刷新时反复触发
-    const newQuery = { ...route.query }
-    delete (newQuery as any).cmdk
+    const { cmdk: _cmdk, ...newQuery } = route.query
     router.replace({ path: route.path, query: newQuery, hash: route.hash })
 }
 
@@ -241,11 +248,7 @@ onUnmounted(() => {
     document.removeEventListener('drop', handleGlobalDrop, true);
     if (isWailsDesktop) {
         window.removeEventListener('keydown', handleGlobalKeyDown);
-        // @ts-ignore
-        if (window.runtime?.EventsOff) {
-            // @ts-ignore
-            window.runtime.EventsOff('app:reload')
-        }
+        wailsRuntime?.EventsOff?.('app:reload')
     }
     dragCounter = 0;
 });
@@ -259,7 +262,7 @@ onUnmounted(() => {
     min-width: 600px;
     min-height: 0;
     /* 统一整页背景，让左侧菜单与右侧内容区视觉连贯 */
-    background: var(--td-bg-color-container);
+    background: var(--gy-surface);
 }
 
 /* 右侧路由区：占满剩余宽度与整列高度，并把 min-height:0 传给子页面以便内部 flex 滚动 */
@@ -273,11 +276,11 @@ onUnmounted(() => {
 }
 
 .upload-mask {
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--gy-surface-overlay);
     position: fixed;
     width: 100%;
     height: 100%;
-    z-index: 999;
+    z-index: var(--gy-z-dropdown);
     display: flex;
     justify-content: center;
     align-items: center;

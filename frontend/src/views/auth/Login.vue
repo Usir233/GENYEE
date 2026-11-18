@@ -105,8 +105,8 @@
 
     <!-- Header Links - Top Right -->
     <div class="header-links">
-      <a v-if="websiteUrl" :href="websiteUrl" target="_blank" rel="noopener noreferrer" class="header-link" :title="$t('common.website')">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      <a v-if="websiteUrl" :href="websiteUrl" target="_blank" rel="noopener noreferrer" class="header-link" :title="$t('common.website')" :aria-label="$t('common.website')">
+        <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
           stroke-linecap="round">
           <circle cx="12" cy="12" r="10" />
           <line x1="2" y1="12" x2="22" y2="12" />
@@ -115,8 +115,8 @@
         <span class="link-text">{{ $t('common.website') }}</span>
       </a>
 
-      <a v-if="githubUrl" :href="githubUrl" target="_blank" rel="noopener noreferrer" class="header-link" :title="$t('common.info')">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+      <a v-if="githubUrl" :href="githubUrl" target="_blank" rel="noopener noreferrer" class="header-link" :title="$t('common.info')" aria-label="GitHub">
+        <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
           <path
             d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
         </svg>
@@ -124,10 +124,17 @@
       </a>
 
       <div class="language-switch">
-        <button @click="toggleLanguageMenu" class="header-link" :title="currentLangOption?.label">
-          <span class="lang-flag-icon">{{ currentLangOption?.flag }}</span>
+        <button
+          type="button"
+          class="header-link"
+          :title="currentLangOption?.label"
+          :aria-label="currentLangOption?.label || $t('language.title')"
+          :aria-expanded="showLanguageMenu"
+          @click="toggleLanguageMenu"
+        >
+          <span class="lang-flag-icon" aria-hidden="true">{{ currentLangOption?.flag }}</span>
           <span class="link-text">{{ currentLangOption?.shortLabel }}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round">
             <polyline points="6 9 12 15 18 9" />
           </svg>
@@ -135,12 +142,18 @@
 
         <!-- Language Dropdown -->
         <div v-if="showLanguageMenu" class="language-dropdown">
-          <div v-for="lang in languageOptions" :key="lang.value" @click="selectLanguage(lang.value)"
-            class="language-option" :class="{ active: currentLanguage === lang.value }">
-            <span class="lang-flag">{{ lang.flag }}</span>
+          <button
+            v-for="lang in languageOptions"
+            :key="lang.value"
+            type="button"
+            class="language-option"
+            :class="{ active: currentLanguage === lang.value }"
+            @click="selectLanguage(lang.value)"
+          >
+            <span class="lang-flag" aria-hidden="true">{{ lang.flag }}</span>
             <span class="lang-label">{{ lang.label }}</span>
-            <span v-if="currentLanguage === lang.value" class="check-icon">✓</span>
-          </div>
+            <span v-if="currentLanguage === lang.value" class="check-icon" aria-hidden="true">✓</span>
+          </button>
         </div>
       </div>
     </div>
@@ -342,7 +355,7 @@
 <script setup lang="ts">
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { MessagePlugin } from 'tdesign-vue-next'
+import { MessagePlugin, type FormInstanceFunctions } from 'tdesign-vue-next'
 import { useRoleLabel } from '@/composables/useRoleLabel'
 import { docsUrl } from '@/utils/docsUrl'
 import { notifyLoginSuccess } from '@/utils/loginNotify'
@@ -394,7 +407,14 @@ const safeHttpUrl = (raw: unknown): string => {
   }
 }
 
-const runtimeConfig = typeof window !== 'undefined' ? (window as any).__RUNTIME_CONFIG__ : undefined
+interface RuntimeConfigWindow extends Window {
+  __RUNTIME_CONFIG__?: {
+    WEBSITE_URL?: unknown
+    GITHUB_URL?: unknown
+  }
+}
+
+const runtimeConfig = typeof window !== 'undefined' ? (window as RuntimeConfigWindow).__RUNTIME_CONFIG__ : undefined
 const websiteUrl = computed(() => {
   const configured = runtimeConfig?.WEBSITE_URL
   if (typeof configured === 'string') {
@@ -434,8 +454,8 @@ const slides = [
 ]
 
 // Form references
-const formRef = ref()
-const registerFormRef = ref()
+const formRef = ref<FormInstanceFunctions | null>(null)
+const registerFormRef = ref<FormInstanceFunctions | null>(null)
 
 // State management
 const loading = ref(false)
@@ -460,14 +480,14 @@ const inviteLookupError = ref('')
 const inviteLookupLoading = ref(false)
 
 // Language options
-const languageOptions = [
-  { value: 'zh-CN', label: '简体中文', shortLabel: '中文', flag: '🇨🇳' },
-  { value: 'zh-TW', label: '繁體中文', shortLabel: '繁中', flag: '繁' },
-  { value: 'en-US', label: 'English', shortLabel: 'EN', flag: '🇺🇸' },
-  { value: 'ru-RU', label: 'Русский', shortLabel: 'RU', flag: '🇷🇺' },
-  { value: 'ko-KR', label: '한국어', shortLabel: '한국어', flag: '🇰🇷' },
-  { value: 'ja-JP', label: '日本語', shortLabel: '日本語', flag: '🇯🇵' }
-]
+const languageOptions = computed(() => [
+  { value: 'zh-CN', label: t('language.autonyms.zhCN'), shortLabel: t('language.shortAutonyms.zhCN'), flag: t('language.flags.zhCN') },
+  { value: 'zh-TW', label: t('language.autonyms.zhTW'), shortLabel: t('language.shortAutonyms.zhTW'), flag: t('language.flags.zhTW') },
+  { value: 'en-US', label: t('language.autonyms.enUS'), shortLabel: t('language.shortAutonyms.enUS'), flag: t('language.flags.enUS') },
+  { value: 'ru-RU', label: t('language.autonyms.ruRU'), shortLabel: t('language.shortAutonyms.ruRU'), flag: t('language.flags.ruRU') },
+  { value: 'ko-KR', label: t('language.autonyms.koKR'), shortLabel: t('language.shortAutonyms.koKR'), flag: t('language.flags.koKR') },
+  { value: 'ja-JP', label: t('language.autonyms.jaJP'), shortLabel: t('language.shortAutonyms.jaJP'), flag: t('language.flags.jaJP') },
+])
 
 const currentLanguage = computed(() => locale.value)
 const oidcLoginText = computed(() => {
@@ -476,21 +496,33 @@ const oidcLoginText = computed(() => {
   }
   return t('auth.oidcLogin')
 })
-const currentLangOption = computed(() => languageOptions.find(l => l.value === currentLanguage.value))
+const currentLangOption = computed(() => languageOptions.value.find(l => l.value === currentLanguage.value))
 
 // Login form data
-const formData = reactive<{ [key: string]: any }>({
+const formData = reactive<{ email: string; password: string }>({
   email: '',
   password: '',
 })
 
 // Register form data
-const registerData = reactive<{ [key: string]: any }>({
+const registerData = reactive<{
+  username: string
+  email: string
+  password: string
+  confirmPassword: string
+}>({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
 })
+
+const resetRegisterData = () => {
+  registerData.username = ''
+  registerData.email = ''
+  registerData.password = ''
+  registerData.confirmPassword = ''
+}
 
 // Login form validation rules
 const formRules = computed(() => ({
@@ -535,10 +567,7 @@ const registerRules = computed(() => ({
 // Toggle login/register mode
 const toggleMode = () => {
   isRegisterMode.value = !isRegisterMode.value && registrationEnabled.value
-
-  Object.keys(registerData).forEach(key => {
-    (registerData as any)[key] = ''
-  })
+  resetRegisterData()
 }
 
 // Toggle language menu
@@ -571,7 +600,38 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-const persistLoginResponse = async (response: any, skipRedirect = false) => {
+type AuthLoginPayload = Parameters<typeof notifyLoginSuccess>[0] & {
+  user?: Parameters<typeof userInfoFromApi>[0] & {
+    id?: string
+    tenant_id?: number | string
+  }
+  token?: string
+  refresh_token?: string
+  tenant?: {
+    id?: number | string
+    name?: string
+    created_at?: string
+    updated_at?: string
+  } | null
+  active_tenant?: {
+    id?: number | string
+    name?: string
+    created_at?: string
+    updated_at?: string
+  } | null
+  memberships?: Parameters<typeof authStore.setMemberships>[0]
+}
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const m = (err as { message?: unknown }).message
+    if (typeof m === 'string') return m
+  }
+  return ''
+}
+
+const persistLoginResponse = async (response: AuthLoginPayload, skipRedirect = false) => {
   // Backend renamed `tenant` to `active_tenant` and added `memberships`
   // when tenant-level RBAC landed (issue #1303). The two are otherwise
   // identical — `active_tenant` is the tenant whose ID is encoded in the
@@ -675,9 +735,9 @@ const handleOIDCLogin = async () => {
       sessionStorage.setItem('genyee_pending_invite_token', inviteToken.value)
     }
     window.location.href = safeAuthURL
-  } catch (error: any) {
-    console.error('OIDC 登录跳转失败:', error)
-    MessagePlugin.error(error.message || t('auth.oidcLoginFailed'))
+  } catch (error: unknown) {
+    console.error('OIDC login redirect failed:', error)
+    MessagePlugin.error(getErrorMessage(error) || t('auth.oidcLoginFailed'))
   } finally {
     oidcLoading.value = false
   }
@@ -727,9 +787,9 @@ const handleLogin = async () => {
     } else {
       MessagePlugin.error(response.message || t('auth.loginError'))
     }
-  } catch (error: any) {
-    console.error('登录错误:', error)
-    MessagePlugin.error(error.message || t('auth.loginErrorRetry'))
+  } catch (error: unknown) {
+    console.error('Login failed:', error)
+    MessagePlugin.error(getErrorMessage(error) || t('auth.loginErrorRetry'))
   } finally {
     loading.value = false
   }
@@ -780,15 +840,13 @@ const handleRegister = async () => {
       formData.email = registerData.email
 
       // Clear register form
-      Object.keys(registerData).forEach(key => {
-        (registerData as any)[key] = ''
-      })
+      resetRegisterData()
     } else {
       MessagePlugin.error(response.message || t('auth.registerFailed'))
     }
-  } catch (error: any) {
-    console.error('注册错误:', error)
-    MessagePlugin.error(error.message || t('auth.registerError'))
+  } catch (error: unknown) {
+    console.error('Registration failed:', error)
+    MessagePlugin.error(getErrorMessage(error) || t('auth.registerError'))
   } finally {
     loading.value = false
   }
@@ -874,7 +932,15 @@ onMounted(async () => {
   min-height: 100%;
   overflow: hidden;
   position: relative;
-  background: linear-gradient(225deg, #24110a 0%, #3a1c0f 15%, #562a17 25%, #6f361d 38%, #8c4524 50%, #a8562e 65%, #bc6539 78%, #c27047 90%, #d38f6b 100%);
+  background: linear-gradient(
+    225deg,
+    var(--td-brand-color-10) 0%,
+    var(--td-brand-color-9) 18%,
+    var(--td-brand-color-7) 38%,
+    var(--td-brand-color-5) 58%,
+    var(--gy-brand) 78%,
+    var(--td-brand-color-2) 100%
+  );
 
   &::before {
     content: '';
@@ -883,8 +949,9 @@ onMounted(async () => {
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.06) 0%, transparent 50%),
-      radial-gradient(circle at 80% 50%, rgba(255, 255, 255, 0.04) 0%, transparent 50%);
+    background:
+      radial-gradient(circle at 20% 50%, color-mix(in oklab, var(--gy-text-inverse) 6%, transparent) 0%, transparent 50%),
+      radial-gradient(circle at 80% 50%, color-mix(in oklab, var(--gy-text-inverse) 4%, transparent) 0%, transparent 50%);
     pointer-events: none;
   }
 }
@@ -905,13 +972,10 @@ onMounted(async () => {
   position: absolute;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  box-shadow:
-    0 0 15px rgba(255, 255, 255, 0.35),
-    0 0 30px rgba(168, 86, 46, 0.2),
-    inset 0 0 8px rgba(255, 255, 255, 0.1);
+  border-radius: var(--gy-radius-circle);
+  background: color-mix(in oklab, var(--gy-text-inverse) 15%, transparent);
+  border: 2px solid color-mix(in oklab, var(--gy-text-inverse) 30%, transparent);
+  box-shadow: var(--gy-shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -922,7 +986,7 @@ onMounted(async () => {
 .node-icon {
   width: 20px;
   height: 20px;
-  color: rgba(255, 255, 255, 0.9);
+  color: color-mix(in oklab, var(--gy-text-inverse) 90%, transparent);
 }
 
 .node-1 {
@@ -1021,7 +1085,7 @@ onMounted(async () => {
 }
 
 .connection-line {
-  stroke: rgba(255, 255, 255, 0.5);
+  stroke: color-mix(in oklab, var(--gy-text-inverse) 50%, transparent);
   stroke-width: 1.5;
   stroke-dasharray: 6, 3;
   stroke-linecap: round;
@@ -1120,19 +1184,19 @@ onMounted(async () => {
 
 .showcase-subtitle {
   margin-top: 0;
-  font-size: 22px;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: var(--gy-text-3xl);
+  color: color-mix(in oklab, var(--gy-text-inverse) 95%, transparent);
   margin: 0 0 8px 0;
-  font-family: var(--app-font-family);
+  font-family: var(--gy-font-sans);
   line-height: 1.4;
   font-weight: 500;
 }
 
 .showcase-description {
-  font-size: var(--app-text-lg);
-  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--gy-text-lg);
+  color: color-mix(in oklab, var(--gy-text-inverse) 80%, transparent);
   margin: 0 0 28px 0;
-  font-family: var(--app-font-family);
+  font-family: var(--gy-font-sans);
   line-height: 1.5;
 }
 
@@ -1146,12 +1210,12 @@ onMounted(async () => {
 .tag {
   display: inline-block;
   padding: 8px 20px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  color: var(--td-text-color-anti);
-  font-size: var(--app-text-base);
+  background: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent);
+  border-radius: var(--gy-radius-pill);
+  color: var(--gy-text-inverse);
+  font-size: var(--gy-text-base);
   font-weight: 500;
-  font-family: var(--app-font-family);
+  font-family: var(--gy-font-sans);
 }
 
 /* Carousel */
@@ -1162,9 +1226,9 @@ onMounted(async () => {
 
 .screenshot-swiper {
   width: 100%;
-  border-radius: 16px;
+  border-radius: var(--gy-radius-xl);
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--gy-shadow-lg);
   padding-bottom: 40px;
 
   :deep(.swiper-wrapper) {
@@ -1179,24 +1243,24 @@ onMounted(async () => {
   :deep(.swiper-pagination-bullet) {
     width: 10px;
     height: 10px;
-    background: rgba(255, 255, 255, 0.5);
+    background: color-mix(in oklab, var(--gy-text-inverse) 50%, transparent);
     opacity: 1;
-    transition: all var(--app-motion-slow) ease;
+    transition: width var(--gy-motion-slow) ease, background-color var(--gy-motion-slow) ease;
     margin: 0 6px !important;
   }
 
   :deep(.swiper-pagination-bullet-active) {
-    background: var(--td-bg-color-container);
+    background: var(--gy-surface);
     width: 28px;
-    border-radius: 5px;
+    border-radius: var(--gy-radius-xs);
   }
 }
 
 .slide-content {
   width: 100%;
   height: 100%;
-  background: var(--td-bg-color-container);
-  border-radius: 16px;
+  background: var(--gy-surface);
+  border-radius: var(--gy-radius-xl);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1257,14 +1321,14 @@ onMounted(async () => {
   align-items: center;
   gap: 7px;
   padding: 9px 15px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: var(--td-text-color-anti);
+  border-radius: var(--gy-radius-pill);
+  background: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent);
+  border: 1px solid color-mix(in oklab, var(--gy-text-inverse) 25%, transparent);
+  color: var(--gy-text-inverse);
   text-decoration: none;
-  font-size: var(--app-text-md);
+  font-size: var(--gy-text-md);
   font-weight: 600;
-  font-family: var(--app-font-family);
+  font-family: var(--gy-font-sans);
   letter-spacing: 0.2px;
   cursor: pointer;
   position: relative;
@@ -1278,29 +1342,29 @@ onMounted(async () => {
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.4);
-    color: var(--td-text-color-anti);
+    background: color-mix(in oklab, var(--gy-text-inverse) 30%, transparent);
+    border-color: color-mix(in oklab, var(--gy-text-inverse) 40%, transparent);
+    color: var(--gy-text-inverse);
   }
 }
 
 .language-switch {
   position: relative;
 
-  button {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: var(--td-text-color-anti);
+  > button {
+    background: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent);
+    border: 1px solid color-mix(in oklab, var(--gy-text-inverse) 25%, transparent);
+    color: var(--gy-text-inverse);
 
     .lang-flag-icon {
-      font-size: var(--app-text-xl);
+      font-size: var(--gy-text-xl);
       line-height: 1;
       flex-shrink: 0;
     }
 
     &:hover {
-      background: rgba(255, 255, 255, 0.3);
-      border-color: rgba(255, 255, 255, 0.4);
+      background: color-mix(in oklab, var(--gy-text-inverse) 30%, transparent);
+      border-color: color-mix(in oklab, var(--gy-text-inverse) 40%, transparent);
     }
 
     svg:last-child {
@@ -1315,26 +1379,30 @@ onMounted(async () => {
   top: calc(100% + 8px);
   right: 0;
   min-width: 160px;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: var(--gy-surface-overlay);
+  border: 1px solid var(--gy-border-subtle);
+  border-radius: var(--gy-radius-md);
+  box-shadow: var(--gy-shadow-md);
   overflow: hidden;
-  z-index: 1000;
+  z-index: var(--gy-z-dropdown);
 }
 
 .language-option {
   display: flex;
   align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
   gap: 10px;
   padding: 10px 14px;
   cursor: pointer;
-  font-size: var(--app-text-md);
-  font-family: var(--app-font-family);
-  color: var(--td-text-color-primary);
+  font-size: var(--gy-text-md);
+  font-family: var(--gy-font-sans);
+  color: var(--gy-text-primary);
 
   .lang-flag {
-    font-size: var(--app-text-xl);
+    font-size: var(--gy-text-xl);
     flex-shrink: 0;
   }
 
@@ -1343,27 +1411,27 @@ onMounted(async () => {
   }
 
   .check-icon {
-    color: var(--td-success-color);
+    color: var(--gy-success);
     font-weight: 700;
-    font-size: var(--app-text-base);
+    font-size: var(--gy-text-base);
     flex-shrink: 0;
   }
 
   &:hover {
-    background: var(--td-bg-color-secondarycontainer);
+    background: var(--gy-surface-subtle);
   }
 
   &.active {
-    background: var(--td-success-color-light);
-    color: var(--td-brand-color-active);
+    background: var(--gy-success-soft);
+    color: var(--gy-brand-active);
   }
 }
 
 .form-card {
-  background: rgba(255, 255, 255, 0.97);
-  border-radius: 16px;
+  background: var(--gy-surface-overlay);
+  border-radius: var(--gy-radius-xl);
   padding: 40px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--gy-shadow-lg);
   box-sizing: border-box;
   border: none;
   width: 100%;
@@ -1443,12 +1511,12 @@ onMounted(async () => {
 .form-hint {
   margin: 10px 0 0;
   padding: 8px 12px;
-  border-radius: var(--app-radius-md);
-  background: var(--td-success-color-light);
-  color: var(--td-brand-color-active);
-  font-size: 12.5px;
+  border-radius: var(--gy-radius-md);
+  background: var(--gy-success-soft);
+  color: var(--gy-brand-active);
+  font-size: var(--gy-text-sm);
   line-height: 1.5;
-  font-family: var(--app-font-family);
+  font-family: var(--gy-font-sans);
 }
 
 /* 注册入口：从底部小字链接升级为带分隔线的醒目次级按钮，
@@ -1460,15 +1528,15 @@ onMounted(async () => {
     position: relative;
     text-align: center;
     margin: 4px 0 14px;
-    color: var(--td-text-color-secondary);
-    font-size: var(--app-text-md);
-    font-family: var(--app-font-family);
+    color: var(--gy-text-secondary);
+    font-size: var(--gy-text-md);
+    font-family: var(--gy-font-sans);
 
     span {
       position: relative;
       z-index: 1;
       padding: 0 12px;
-      background: rgba(255, 255, 255, 0.97);
+      background: var(--gy-surface-overlay);
     }
 
     &::before {
@@ -1516,18 +1584,18 @@ onMounted(async () => {
   }
 
   :deep(.t-input) {
-    border: 1px solid var(--td-component-stroke);
-    border-radius: var(--app-radius-md);
-    background: var(--td-bg-color-container);
-    transition: all var(--app-motion-base);
+    border: 1px solid var(--gy-border-subtle);
+    border-radius: var(--gy-radius-md);
+    background: var(--gy-surface);
+    transition: border-color var(--gy-motion-base) ease, box-shadow var(--gy-motion-base) ease;
 
     &:focus-within {
-      border-color: var(--td-brand-color);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--td-brand-color) 10%, transparent);
+      border-color: var(--gy-brand);
+      box-shadow: 0 0 0 3px var(--gy-brand-tint);
     }
 
     &:hover {
-      border-color: var(--td-brand-color);
+      border-color: var(--gy-brand);
     }
 
     .t-input__inner {
@@ -1584,7 +1652,7 @@ onMounted(async () => {
     position: relative;
     z-index: 1;
     padding: 0 12px;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--gy-surface-overlay);
   }
 
   &::before {
@@ -1614,11 +1682,11 @@ onMounted(async () => {
   border-bottom: 1px solid var(--td-component-stroke);
 
   .link-button {
-    color: var(--td-brand-color);
+    color: var(--gy-brand);
     text-decoration: none;
     margin-left: 4px;
     font-weight: 500;
-    transition: all var(--app-motion-base);
+    transition: color var(--gy-motion-base) ease;
 
     &:hover {
       color: var(--td-brand-color);
@@ -1782,7 +1850,7 @@ onMounted(async () => {
   }
 
   .form-title {
-    font-size: 22px;
+    font-size: var(--gy-text-3xl);
   }
 }
 
@@ -1859,17 +1927,24 @@ onMounted(async () => {
 <style lang="less">
 html[theme-mode="dark"] {
   .login-layout {
-    background: linear-gradient(225deg, #140a05 0%, #24110a 15%, #2f170c 25%, #3a1c0f 38%, #562a17 50%, #6f361d 65%, #8c4524 78%, #a8562e 90%, #bc6539 100%);
+    background: linear-gradient(
+      225deg,
+      var(--gy-surface-page) 0%,
+      var(--td-brand-color-2) 25%,
+      var(--td-brand-color-3) 50%,
+      var(--td-brand-color-4) 75%,
+      var(--td-brand-color-5) 100%
+    );
   }
 
   .knowledge-node {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+    background: color-mix(in oklab, var(--gy-text-inverse) 10%, transparent);
+    border-color: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent);
+    box-shadow: var(--gy-shadow-sm);
   }
 
   .connection-line {
-    stroke: rgba(255, 255, 255, 0.25);
+    stroke: color-mix(in oklab, var(--gy-text-inverse) 25%, transparent);
   }
 
   .header-logo .logo-image {
@@ -1877,61 +1952,43 @@ html[theme-mode="dark"] {
   }
 
   .header-link {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: color-mix(in oklab, var(--gy-text-inverse) 12%, transparent);
+    border-color: color-mix(in oklab, var(--gy-text-inverse) 15%, transparent);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent);
     }
   }
 
-  .language-switch button {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.15);
+  .language-switch > button {
+    background: color-mix(in oklab, var(--gy-text-inverse) 12%, transparent);
+    border-color: color-mix(in oklab, var(--gy-text-inverse) 15%, transparent);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: color-mix(in oklab, var(--gy-text-inverse) 20%, transparent);
     }
-  }
-
-  .language-dropdown {
-    background: rgba(36, 36, 36, 0.97) !important;
-    border-color: var(--td-component-stroke) !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
   }
 
   .tag {
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  .form-card {
-    background: rgba(36, 36, 36, 0.97) !important;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
-  }
-
-  .register-cta__divider span {
-    background: rgba(36, 36, 36, 0.97);
+    background: color-mix(in oklab, var(--gy-text-inverse) 12%, transparent);
   }
 
   .form-content .t-input {
-    background: var(--td-bg-color-page) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
+    background: var(--gy-surface-page);
+    border-color: var(--gy-border-overlay);
 
-    &:hover {
-      border-color: var(--td-brand-color) !important;
-    }
-
+    &:hover,
     &:focus-within {
-      border-color: var(--td-brand-color) !important;
+      border-color: var(--gy-brand);
     }
   }
 
   .screenshot-swiper .swiper-pagination-bullet-active {
-    background: rgba(255, 255, 255, 0.9) !important;
+    background: var(--gy-text-primary);
   }
 
   .login-features .feature-icon {
-    background: rgba(194, 112, 71, 0.15);
+    background: var(--gy-brand-soft);
   }
 }
 </style>

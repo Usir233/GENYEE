@@ -335,6 +335,22 @@ async function evaluateLeaveGate(): Promise<void> {
   }
 }
 
+function getTenantErrMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message?: unknown }).message || '')
+  }
+  return ''
+}
+
+function getTenantErrStatus(err: unknown): number | undefined {
+  if (typeof err === 'object' && err !== null && 'status' in err) {
+    const s = (err as { status?: unknown }).status
+    return typeof s === 'number' ? s : undefined
+  }
+  return undefined
+}
+
 function confirmLeaveTenant() {
   const tid = Number(tenantInfo.value?.id ?? 0)
   if (!tid) return
@@ -354,12 +370,12 @@ function confirmLeaveTenant() {
         } else {
           MessagePlugin.error(resp.message || t('tenantMember.errors.generic'))
         }
-      } catch (err: any) {
-        const status = err?.status
+      } catch (err: unknown) {
+        const status = getTenantErrStatus(err)
         if (status === 409) {
           MessagePlugin.error(t('tenantMember.errors.lastOwner'))
         } else {
-          MessagePlugin.error(err?.message || t('tenantMember.errors.generic'))
+          MessagePlugin.error(getTenantErrMessage(err) || t('tenantMember.errors.generic'))
         }
       } finally {
         dlg.destroy()
@@ -419,8 +435,8 @@ async function deleteCurrentTenant() {
     } else {
       MessagePlugin.error(resp.message || t('tenant.deleteDangerZone.failed'))
     }
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('tenant.deleteDangerZone.failed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getTenantErrMessage(err) || t('tenant.deleteDangerZone.failed'))
   } finally {
     deletingTenant.value = false
     deleteConfirmName.value = ''
@@ -465,7 +481,7 @@ const cancelEditName = () => {
 }
 
 // t-input 自身不冒泡 esc，这里手动处理（与 enter 的体验对称）。
-const onEditKeydown = (_value: any, ctx: { e: KeyboardEvent }) => {
+const onEditKeydown = (_value: string | number, ctx: { e: KeyboardEvent }) => {
   if (ctx?.e?.key === 'Escape') {
     cancelEditName()
   }
@@ -493,7 +509,7 @@ const cancelEditDescription = () => {
 }
 
 // textarea 上 Enter 默认走换行，提交走 Ctrl/⌘+Enter；Esc 取消。
-const onEditDescriptionKeydown = (_value: any, ctx: { e: KeyboardEvent }) => {
+const onEditDescriptionKeydown = (_value: string | number, ctx: { e: KeyboardEvent }) => {
   const e = ctx?.e
   if (!e) return
   if (e.key === 'Escape') {
@@ -528,8 +544,8 @@ const saveTenantDescription = async () => {
     } else {
       MessagePlugin.error(resp.message || t('tenant.details.editDescriptionFailed'))
     }
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('tenant.details.editDescriptionFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getTenantErrMessage(err) || t('tenant.details.editDescriptionFailed'))
   } finally {
     savingDescription.value = false
   }
@@ -573,8 +589,8 @@ const saveTenantName = async () => {
     } else {
       MessagePlugin.error(resp.message || t('tenant.details.editNameFailed'))
     }
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('tenant.details.editNameFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getTenantErrMessage(err) || t('tenant.details.editNameFailed'))
   } finally {
     saving.value = false
   }
@@ -586,16 +602,20 @@ const loadInfo = async () => {
     loading.value = true
     error.value = ''
 
-    const userResponse = await getCurrentUser()
+    const userResponse = await getCurrentUser() as {
+      success?: boolean
+      message?: string
+      data?: { tenant?: TenantInfo }
+    }
 
-    const data = userResponse?.data as { tenant?: TenantInfo } | undefined
-    if ((userResponse as any).success && data?.tenant) {
+    const data = userResponse?.data
+    if (userResponse.success && data?.tenant) {
       tenantInfo.value = data.tenant
     } else {
       error.value = userResponse.message || t('tenant.messages.fetchFailed')
     }
-  } catch (err: any) {
-    error.value = err?.message || t('tenant.messages.networkError')
+  } catch (err: unknown) {
+    error.value = getTenantErrMessage(err) || t('tenant.messages.networkError')
   } finally {
     loading.value = false
   }

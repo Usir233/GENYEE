@@ -116,8 +116,15 @@ function setSnapshot(saved: MCPMetadata | null) {
   emit('synced', !!(saved && !saved.stale))
 }
 
-function errorText(e: any) {
-  return e?.response?.data?.error?.message || e?.message || t('mcpMetadata.failed')
+function errorText(e: unknown): string {
+  if (typeof e === 'object' && e !== null) {
+    const respMsg = (e as { response?: { data?: { error?: { message?: unknown } } } }).response?.data?.error?.message
+    if (typeof respMsg === 'string' && respMsg) return respMsg
+    if ('message' in e && typeof (e as { message?: unknown }).message === 'string' && (e as { message: string }).message) {
+      return (e as { message: string }).message
+    }
+  }
+  return t('mcpMetadata.failed')
 }
 
 function formatTime(value: string) {
@@ -290,19 +297,16 @@ onBeforeUnmount(() => { generation++; emit('busy', false); emit('synced', false)
 <!-- t-popup attaches to body; z-index must sit above SettingDrawer (2500). -->
 <style lang="less">
 .mcp-server-docs-popup-overlay {
-  z-index: 3100 !important;
+  z-index: var(--gy-z-popover);
 
   .t-popup__content {
-    padding: 0 !important;
+    padding: 0;
     width: 400px;
     max-width: calc(100vw - 24px);
-    border-radius: var(--app-radius-xl) !important;
-    background: var(--td-bg-color-container) !important;
-    border: 0.5px solid var(--td-component-stroke) !important;
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    border-radius: var(--gy-radius-xl);
+    background: var(--gy-surface);
+    border: 0.5px solid var(--gy-border-subtle);
+    box-shadow: var(--gy-shadow-md);
   }
 
   .server-docs-popup {
@@ -312,25 +316,25 @@ onBeforeUnmount(() => { generation++; emit('busy', false); emit('synced', false)
   }
 
   .server-docs-popup__title {
-    font-size: var(--app-text-md);
+    font-size: var(--gy-text-md);
     font-weight: 600;
-    color: var(--td-text-color-primary);
+    color: var(--gy-text-primary);
   }
 
   .server-docs-popup p,
   .server-docs-popup pre {
     margin: 8px 0 0;
     font: inherit;
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-sm);
     line-height: 1.6;
-    color: var(--td-text-color-secondary);
+    color: var(--gy-text-secondary);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 }
 
 :root[theme-mode='dark'] .mcp-server-docs-popup-overlay .t-popup__content {
-  background: rgba(36, 36, 36, 0.92) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: var(--gy-surface-overlay);
+  border-color: var(--gy-border-overlay);
 }
 </style>

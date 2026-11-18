@@ -336,8 +336,8 @@ import { useI18n } from 'vue-i18n'
 import { MessagePlugin, type TableProps } from 'tdesign-vue-next'
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
 import { levelLabelKey } from '@/utils/reasoningEffort'
-import FieldControl from './ModelCatalogFieldControl.vue'
-import { getModelCatalog, previewModelCatalog, publishModelCatalog, type CatalogModel, type CatalogOverlay, type CatalogPreview, type CatalogState } from '@/api/system/modelCatalog'
+import FieldControl, { type CatalogFieldControlValue } from './ModelCatalogFieldControl.vue'
+import { getModelCatalog, previewModelCatalog, publishModelCatalog, type CatalogModel, type CatalogOverlay, type CatalogPreview, type CatalogProviderOverlay, type CatalogState } from '@/api/system/model-catalog'
 import { useModelProvidersStore } from '@/stores/modelProviders'
 import { useChatResourcesStore } from '@/stores/chatResources'
 import {
@@ -433,26 +433,43 @@ const columns = computed<TableProps['columns']>(() => [
 
 // ---------- 加载与发布 ----------
 
+const getErrMessage = (e: unknown): string => {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'object' && e !== null && 'message' in e) {
+    const msg = (e as { message?: unknown }).message
+    if (typeof msg === 'string') return msg
+  }
+  return ''
+}
+
+const getErrStatus = (e: unknown): number | undefined => {
+  if (typeof e === 'object' && e !== null && 'status' in e) {
+    const status = (e as { status?: unknown }).status
+    if (typeof status === 'number') return status
+  }
+  return undefined
+}
+
 async function load() {
   loading.value = true
   try {
     state.value = await getModelCatalog()
     loadError.value = ''
-  } catch (e: any) {
-    loadError.value = e?.message || t('modelCatalog.loadFailed')
+  } catch (e: unknown) {
+    loadError.value = getErrMessage(e) || t('modelCatalog.loadFailed')
     if (state.value) MessagePlugin.error(loadError.value)
   } finally {
     loading.value = false
   }
 }
 
-async function handleError(e: any) {
-  if (e?.status === 409) {
+async function handleError(e: unknown) {
+  if (getErrStatus(e) === 409) {
     MessagePlugin.warning(t('modelCatalog.conflict'))
     await load()
     return
   }
-  MessagePlugin.error(e?.message || String(e))
+  MessagePlugin.error(getErrMessage(e) || String(e))
 }
 
 // Every edit publishes a whole overlay against the version it was based on;
@@ -468,7 +485,7 @@ async function commit(overlay: CatalogOverlay, message = t('modelCatalog.publish
     void chatResources.ensureModels(true).catch(() => {})
     MessagePlugin.success(message)
     return true
-  } catch (e: any) {
+  } catch (e: unknown) {
     await handleError(e)
     return false
   } finally {
@@ -495,7 +512,7 @@ const levelOptions = computed(() => THINKING_LEVELS.map(level => ({ label: t(lev
 
 const editVisible = ref(false)
 const selected = ref<CatalogRow>()
-const form = reactive<Record<FieldKey, any>>({
+const form = reactive<Record<FieldKey, CatalogFieldControlValue>>({
   name: '', context_window: undefined, max_output_tokens: undefined, dimension: undefined,
   input: [], reasoning: false, thinking_levels: [], deprecated: false,
 })
@@ -559,8 +576,10 @@ const editDirty = computed(() => {
 
 function openEdit(row: CatalogRow) {
   selected.value = row
-  for (const { key, kind } of fieldDefs.value) form[key] = fieldValue('effective', row, key) ?? normalize(kind, undefined)
-  form.name = form.name || ''
+  for (const { key, kind } of fieldDefs.value) {
+    form[key] = (fieldValue('effective', row, key) ?? normalize(kind, undefined)) as CatalogFieldControlValue
+  }
+  form.name = typeof form.name === 'string' ? form.name : ''
   editVisible.value = true
 }
 
@@ -620,12 +639,26 @@ function layerValue(layer: Layer, field: FieldDef) {
 
 // ---------- 添加模型 ----------
 
+interface AddModelForm {
+  provider: string
+  type: string
+  id: string
+  name: string
+  context_window: number | undefined
+  max_output_tokens: number | undefined
+  dimension: number | undefined
+  input: string[]
+  reasoning: boolean
+  deprecated?: boolean
+  thinking_levels?: string[]
+}
+
 const addVisible = ref(false)
-const emptyAddForm = () => ({
+const emptyAddForm = (): AddModelForm => ({
   provider: providerFilter.value || '', type: typeFilter.value || 'KnowledgeQA', id: '', name: '',
   context_window: undefined, max_output_tokens: undefined, dimension: undefined, input: [] as string[], reasoning: false,
 })
-const addForm = reactive<Record<string, any>>(emptyAddForm())
+const addForm = reactive<AddModelForm>(emptyAddForm())
 // Levels start from the vendor defaults and are tuned after the model exists.
 const addFields = computed(() => fieldsFor(addForm.type).filter(field => field.key !== 'deprecated' && field.key !== 'thinking_levels'))
 // VLM eligibility is derived from a chat model's input modalities, so the
@@ -702,8 +735,8 @@ async function confirmJson() {
   let overlay: CatalogOverlay
   try {
     overlay = parseDraft()
-  } catch (e: any) {
-    jsonError.value = e?.message || String(e)
+  } catch (e: unknown) {
+    jsonError.value = getErrMessage(e) || String(e)
     return
   }
   const text = draft.value
@@ -711,9 +744,9 @@ async function confirmJson() {
   try {
     const candidate = await previewModelCatalog({ version: state.value.version, baseline: state.value.baseline, overlay })
     if (draft.value === text) jsonPreview.value = candidate
-  } catch (e: any) {
-    if (e?.status === 409) await handleError(e)
-    else jsonError.value = e?.message || String(e)
+  } catch (e: unknown) {
+    if (getErrStatus(e) === 409) await handleError(e)
+    else jsonError.value = getErrMessage(e) || String(e)
   } finally {
     saving.value = false
   }
@@ -737,8 +770,8 @@ async function importOverlay(event: Event) {
   }
   try {
     openJson(stableJSON(JSON.parse(await file.text())))
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || String(e))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrMessage(e) || String(e))
   }
 }
 
@@ -756,7 +789,7 @@ function exportOverlay() {
 const historyVisible = ref(false)
 
 const overrideSummary = (overlay: CatalogOverlay) => {
-  const count = Object.values(overlay?.providers || {}).reduce((sum, p: any) =>
+  const count = Object.values(overlay?.providers || {}).reduce((sum, p: CatalogProviderOverlay) =>
     sum + (p.models?.length || 0) + Object.keys(p.model_overrides || {}).length, 0)
   return count ? t('modelCatalog.historyModels', { count }) : t('modelCatalog.historyNoOverrides')
 }

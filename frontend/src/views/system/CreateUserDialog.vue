@@ -262,8 +262,10 @@ async function submit() {
       dismissing.value = true
       emit('update:visible', false)
     }
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.createUser.failed')
+  } catch (err: unknown) {
+    const msg =
+      (err instanceof Error ? err.message : (err as { message?: string } | null)?.message) ||
+      t('system.globalSettings.createUser.failed')
     announce(msg, 'error')
   } finally {
     submitting.value = false

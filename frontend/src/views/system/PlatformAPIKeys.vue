@@ -308,13 +308,22 @@ function toggleGroup(capabilities: TenantAPIKeyCapability[]) {
   capabilities.forEach(capability => { selected[capability] = next })
 }
 
+function getErrMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const msg = (error as { message?: unknown }).message
+    if (typeof msg === 'string') return msg
+  }
+  return ''
+}
+
 async function reload() {
   loading.value = true
   try {
     const response = await listPlatformAPIKeys()
     keys.value = response.data ?? []
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('platformApiKeys.loadFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getErrMessage(error) || t('platformApiKeys.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -337,8 +346,8 @@ async function createKey() {
     drawerVisible.value = false
     tokenVisible.value = true
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('platformApiKeys.createFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getErrMessage(error) || t('platformApiKeys.createFailed'))
   } finally {
     creating.value = false
   }
@@ -349,8 +358,8 @@ async function deleteKey(key: TenantAPIKey) {
     await deletePlatformAPIKey(key.id)
     MessagePlugin.success(t('platformApiKeys.deleteSuccess'))
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('platformApiKeys.deleteFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getErrMessage(error) || t('platformApiKeys.deleteFailed'))
   }
 }
 

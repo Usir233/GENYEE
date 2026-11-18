@@ -5,14 +5,14 @@
       <template v-for="group in navGroups" :key="group.key">
         <div class="nav-group-title">{{ group.label }}</div>
         <template v-for="item in group.items" :key="item.key">
-          <div :class="['nav-item', {
+          <button type="button" :class="['nav-item', {
             'active': currentSection === item.key,
             'has-submenu': item.children && item.children.length > 0,
             'expanded': expandedMenus.includes(item.key)
           }]" @click="handleNavClick(item)">
             <!-- 网络搜索使用自定义 SVG 图标 -->
             <svg v-if="item.key === 'websearch'" width="17" height="17" viewBox="0 0 18 18" fill="none"
-              xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              xmlns="http://www.w3.org/2000/svg" class="nav-icon" aria-hidden="true">
               <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.2" fill="none" />
               <path d="M 9 2 A 3.5 7 0 0 0 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
               <path d="M 9 2 A 3.5 7 0 0 1 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
@@ -24,7 +24,7 @@
 
             <!-- 沙箱：隔离运行窗口，避免和 Ollama / 系统设置共用 server -->
             <svg v-else-if="item.key === 'sandbox'" width="17" height="17" viewBox="0 0 18 18" fill="none"
-              xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              xmlns="http://www.w3.org/2000/svg" class="nav-icon" aria-hidden="true">
               <rect x="2.5" y="3" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.2"
                 fill="none" />
               <path d="M2.5 6.5h13" stroke="currentColor" stroke-width="1.2" />
@@ -38,16 +38,16 @@
             <t-icon v-if="item.children && item.children.length > 0"
               :name="expandedMenus.includes(item.key) ? 'chevron-down' : 'chevron-right'"
               class="expand-icon" />
-          </div>
+          </button>
 
           <!-- 子菜单 -->
           <Transition name="submenu">
             <div v-if="item.children && expandedMenus.includes(item.key)" class="submenu">
-              <div v-for="(child, childIndex) in item.children" :key="childIndex"
+              <button v-for="(child, childIndex) in item.children" :key="childIndex" type="button"
                 :class="['submenu-item', { 'active': currentSubSection === child.key }]"
                 @click.stop="handleSubMenuClick(item.key, child.key)">
                 <span class="submenu-label">{{ child.label }}</span>
-              </div>
+              </button>
             </div>
           </Transition>
         </template>
@@ -454,7 +454,7 @@ const navGroups = computed<NavGroup[]>(() => {
 })
 
 // 导航项点击处理
-const handleNavClick = (item: any) => {
+const handleNavClick = (item: NavItem) => {
   if (item.children && item.children.length > 0) {
     // 有子菜单，切换展开状态
     const index = expandedMenus.value.indexOf(item.key)
@@ -547,7 +547,7 @@ watch(() => uiStore.settingsInitialSection, (section) => {
     }
     currentSection.value = normalizedSection
     syncSettingsRoute(normalizedSection)
-    const navItem = (navItems.value as any[]).find((item) => item.key === normalizedSection)
+    const navItem = navItems.value.find((item) => item.key === normalizedSection)
     if (navItem && navItem.children && navItem.children.length > 0) {
       if (!expandedMenus.value.includes(section)) {
         expandedMenus.value.push(section)
@@ -626,7 +626,7 @@ const handleSettingsNav = (e: CustomEvent) => {
     currentSection.value = normalizedSection
     syncSettingsRoute(normalizedSection)
     // 如果有子菜单，自动展开
-    const navItem = (navItems.value as any[]).find((item: any) => item.key === normalizedSection)
+    const navItem = navItems.value.find((item) => item.key === normalizedSection)
     if (navItem && navItem.children && navItem.children.length > 0) {
       if (!expandedMenus.value.includes(section)) {
         expandedMenus.value.push(section)
@@ -664,10 +664,19 @@ onUnmounted(() => {
 /* 弹窗容器 */
 /* 关闭按钮 */
 /* 左侧导航栏：略紧凑于最初版，字号与留白适中 */
+.nav-item {
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  font: inherit;
+  text-align: left;
+  box-sizing: border-box;
+}
+
 .expand-icon {
   margin-left: 4px;
-  font-size: var(--app-text-base);
-  transition: transform var(--app-motion-base) ease;
+  font-size: var(--gy-text-base);
+  transition: transform var(--gy-motion-base) ease;
 }
 
 /* 子菜单 */
@@ -678,23 +687,30 @@ onUnmounted(() => {
 }
 
 .submenu-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  font: inherit;
+  text-align: left;
+  box-sizing: border-box;
   padding: 5px 12px;
   margin-bottom: 2px;
-  border-radius: var(--app-radius-xs);
+  border-radius: var(--gy-radius-xs);
   cursor: pointer;
-  color: var(--td-text-color-primary);
-  font-size: var(--app-text-md);
-  transition: all var(--app-motion-base) ease;
+  color: var(--gy-text-primary);
+  font-size: var(--gy-text-md);
+  transition: background-color var(--gy-motion-base) ease, color var(--gy-motion-base) ease;
   user-select: none;
 
   &:hover {
-    background-color: var(--td-bg-color-container-hover);
-    color: var(--td-text-color-primary);
+    background-color: var(--gy-surface-hover);
+    color: var(--gy-text-primary);
   }
 
   &.active {
-    background-color: var(--td-bg-color-secondarycontainer);
-    color: var(--td-brand-color);
+    background-color: var(--gy-surface-subtle);
+    color: var(--gy-brand);
     font-weight: 500;
   }
 }
@@ -706,7 +722,7 @@ onUnmounted(() => {
 /* 子菜单动画 */
 .submenu-enter-active,
 .submenu-leave-active {
-  transition: all var(--app-motion-base) ease;
+  transition: opacity var(--gy-motion-base) ease, max-height var(--gy-motion-base) ease;
 }
 
 .submenu-enter-from {

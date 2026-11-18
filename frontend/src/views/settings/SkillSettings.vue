@@ -84,7 +84,7 @@
               <p v-if="item.description" class="skill-card__desc" :title="item.description">
                 {{ compactText(item.description) }}
               </p>
-              <div v-for="view in [installsView(item)]" :key="'installs'" class="skill-card__installs">
+              <div v-for="(view, viewIdx) in [installsView(item)]" :key="viewIdx" class="skill-card__installs">
                 <span v-if="view.installs.length === 0 && !view.canAdd" class="skill-card__installs-label">
                   {{ skillText('noInstalls') }}
                 </span>
@@ -761,7 +761,16 @@ function compactText(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
 
-const SKILL_BADGE_HUES = ['#366ef4', '#0594fa', '#00a870', '#8e56dd', '#e37318', '#d6418f', '#5b5bd6', '#b07b3b']
+const SKILL_BADGE_HUES = [
+  'var(--gy-accent-blue)',
+  'var(--gy-accent-teal)',
+  'var(--gy-success)',
+  'var(--gy-accent-purple)',
+  'var(--gy-warning)',
+  'var(--gy-danger)',
+  'var(--gy-brand)',
+  'var(--gy-highlight)',
+]
 
 function skillInitial(name: string): string {
   const ch = Array.from((name || '').replace(/^[^\p{L}\p{N}]+/u, ''))[0] || '?'
@@ -823,11 +832,11 @@ function unusedTargets(item: SkillCatalogItem): SandboxConfigRecord[] {
   const live = new Set(liveInstalls(item).map((inst) => inst.sandbox_config_id))
   return skillConfigs.value
     .filter((cfg) => !live.has(cfg.id))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .toSorted((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 }
 
 function installsView(item: SkillCatalogItem) {
-  const installs = [...liveInstalls(item)].sort((a, b) => {
+  const installs = liveInstalls(item).toSorted((a, b) => {
     const diff = installPriority(item, a) - installPriority(item, b)
     if (diff !== 0) return diff
     return installName(a).localeCompare(installName(b), undefined, { sensitivity: 'base' })
@@ -1080,8 +1089,16 @@ function acceptPendingFile(file: File) {
   pendingFile.value = file
 }
 
-function skillRegisterErrorMessage(err: any, fromFile: boolean): string {
-  const raw = String(err?.message || '')
+function getSkillErrMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message?: unknown }).message || '')
+  }
+  return ''
+}
+
+function skillRegisterErrorMessage(err: unknown, fromFile: boolean): string {
+  const raw = getSkillErrMessage(err)
   if (/cannot exceed \d+\s*MB/i.test(raw)) {
     return t('settings.sandbox.skillBundleTooLarge', { size: maxSkillBundleMB })
   }
@@ -1136,7 +1153,7 @@ async function registerThenAdvance() {
     MessagePlugin.success(t('settings.skills.registerAccepted'))
     await loadCatalog()
     syncRegisteredFromCatalog()
-  } catch (e: any) {
+  } catch (e: unknown) {
     MessagePlugin.error(skillRegisterErrorMessage(e, Boolean(pendingFile.value)))
   } finally {
     uploading.value = false
@@ -1178,8 +1195,8 @@ async function handleAddPrimary() {
     rememberSession(addSessionIds, targets)
     await loadCatalog()
     prunePicks(addTargetIds, addPickRows.value)
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillUploadFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSkillErrMessage(e) || t('settings.sandbox.skillUploadFailed'))
   } finally {
     installing.value = false
   }
@@ -1223,8 +1240,8 @@ async function confirmInstall() {
     rememberSession(installSessionIds, targets)
     await loadCatalog()
     prunePicks(installTargetIds, installPickRows.value)
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.skillUploadFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSkillErrMessage(e) || t('settings.sandbox.skillUploadFailed'))
   } finally {
     installing.value = false
   }
@@ -1240,8 +1257,8 @@ async function removeCatalog(item: SkillCatalogItem) {
     await deleteSkillCatalog(item.id)
     MessagePlugin.success(t('settings.skills.deleteSuccess'))
     await loadCatalog()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.deleteFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSkillErrMessage(e) || t('common.deleteFailed'))
   } finally {
     deletingId.value = ''
   }
@@ -1276,8 +1293,8 @@ async function loadCatalog(silent = false) {
     const res = await listSkillCatalog()
     catalog.value = res?.data || []
     emit('count', catalog.value.length)
-  } catch (e: any) {
-    if (!silent) MessagePlugin.error(e?.message || t('settings.skills.loadFailed'))
+  } catch (e: unknown) {
+    if (!silent) MessagePlugin.error(getSkillErrMessage(e) || t('settings.skills.loadFailed'))
   } finally {
     ensurePoll()
   }
@@ -1291,8 +1308,8 @@ async function load() {
     const [configRes] = await Promise.all([listSandboxConfigs(), loadCatalog()])
     records.value = hostOnly.value ? [] : configRes?.data || []
     scriptsDisabled.value = configRes?.workspace_scripts_disabled === true
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.skills.loadFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSkillErrMessage(e) || t('settings.skills.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -1304,8 +1321,8 @@ async function enableScripts() {
     const res = await setSandboxWorkspacePolicy(false)
     scriptsDisabled.value = res?.workspace_scripts_disabled === true
     MessagePlugin.success(t('settings.sandbox.scriptsEnabled'))
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.policySaveFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSkillErrMessage(e) || t('settings.sandbox.policySaveFailed'))
   } finally {
     policySaving.value = false
   }
@@ -2115,9 +2132,9 @@ onUnmounted(() => {
   line-height: 1;
 
   .is-active & {
-    background: var(--td-brand-color);
-    border-color: var(--td-brand-color);
-    color: #fff;
+    background: var(--gy-brand);
+    border-color: var(--gy-brand);
+    color: var(--gy-text-inverse);
   }
 
   .is-done & {

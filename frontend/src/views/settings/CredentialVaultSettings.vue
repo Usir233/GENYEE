@@ -68,7 +68,7 @@ import { useI18n } from 'vue-i18n'
 import {
   createCredentialVaultItem, deleteCredentialVaultItem, listCredentialVault, updateCredentialVaultItem,
   type CredentialVaultChanges,
-} from '@/api/credentialVault'
+} from '@/api/credential-vault'
 import type { CredentialVaultItem } from '@/utils/secureForm'
 
 const { t, locale } = useI18n()
@@ -83,8 +83,18 @@ const editing = ref<CredentialVaultItem | null>(null)
 // The password is write-only: it lives here only while the dialog is open.
 const form = reactive({ title: '', site: '', domains: '', username: '', password: '' })
 
-const errorMessage = (e: any, fallback: string) =>
-  e?.response?.data?.error?.message || e?.error?.message || e?.message || fallback
+const errorMessage = (e: unknown, fallback: string): string => {
+  if (typeof e === 'object' && e !== null) {
+    const respMsg = (e as { response?: { data?: { error?: { message?: unknown } } } }).response?.data?.error?.message
+    if (typeof respMsg === 'string' && respMsg) return respMsg
+    const errObjMsg = (e as { error?: { message?: unknown } }).error?.message
+    if (typeof errObjMsg === 'string' && errObjMsg) return errObjMsg
+    if ('message' in e && typeof (e as { message?: unknown }).message === 'string' && (e as { message: string }).message) {
+      return (e as { message: string }).message
+    }
+  }
+  return fallback
+}
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString(locale.value)
 
@@ -196,19 +206,19 @@ onMounted(load)
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-md, 8px);
+  border: 1px solid var(--gy-border-subtle);
+  border-radius: var(--gy-radius-md);
 }
 
 .vault-item__title {
   font-weight: 600;
-  color: var(--td-text-color-primary);
+  color: var(--gy-text-primary);
 }
 
 .vault-item__meta,
 .vault-item__domains {
-  font-size: var(--app-text-xs, 12px);
-  color: var(--td-text-color-secondary);
+  font-size: var(--gy-text-xs);
+  color: var(--gy-text-secondary);
 }
 
 .vault-item__actions {

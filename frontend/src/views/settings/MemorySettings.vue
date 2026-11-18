@@ -356,6 +356,7 @@
                   shape="square"
                   :style="{ visibility: editingId === item.id ? 'hidden' : undefined }"
                   :title="t('common.delete')"
+                  :aria-label="t('common.delete')"
                 >
                   <template #icon><t-icon name="delete" /></template>
                 </t-button>
@@ -566,12 +567,15 @@ const topicProgressText = (topic: MemoryTopic) => {
   return t('memorySettings.trackingProgress', { hits: topic.hits, threshold: topic.threshold })
 }
 
+const getMemoryErrMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err ? String((err as { message?: unknown }).message || '') : '')
+
 const loadSettings = async () => {
   try {
     const response = await getMemorySettings()
     settings.value = response.data
     userEnabled.value = response.data.user_enabled
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to load memory settings:', error)
   }
 }
@@ -586,7 +590,7 @@ const loadItems = async () => {
     })
     items.value = response.data || []
     total.value = response.total || 0
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to load memories:', error)
     items.value = []
     total.value = 0
@@ -604,7 +608,7 @@ const loadTopics = async () => {
     })
     topics.value = response.data || []
     trackingCount.value = response.total || 0
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to load topics:', error)
     topics.value = []
     trackingCount.value = 0
@@ -622,7 +626,7 @@ const loadDocuments = async () => {
     })
     documents.value = response.data || []
     documentCount.value = response.total || 0
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to load documents:', error)
     documents.value = []
     documentCount.value = 0
@@ -652,7 +656,7 @@ const loadCounts = async () => {
         try {
           const response = await listMemoryItems({ status: value, limit: 1 })
           return response.total || 0
-        } catch (error: any) {
+        } catch {
           return 0
         }
       }),
@@ -678,8 +682,8 @@ const handlePromoteTopic = async (topic: MemoryTopic) => {
     MessagePlugin.success(t('memorySettings.promoteSuccess'))
     tab.value = 'active'
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('memorySettings.promoteFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getMemoryErrMessage(error) || t('memorySettings.promoteFailed'))
   }
 }
 
@@ -688,8 +692,8 @@ const handleDismissTopic = async (topic: MemoryTopic) => {
     await deleteMemoryTopic(topic.id)
     MessagePlugin.success(t('memorySettings.dismissSuccess'))
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('memorySettings.dismissFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getMemoryErrMessage(error) || t('memorySettings.dismissFailed'))
   }
 }
 
@@ -710,8 +714,8 @@ const handleStopTrackingDocument = async (doc: MemoryDoc) => {
     await deleteMemoryDocument(doc.id)
     MessagePlugin.success(t('memorySettings.stopTrackingDocumentSuccess'))
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('memorySettings.stopTrackingDocumentFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getMemoryErrMessage(error) || t('memorySettings.stopTrackingDocumentFailed'))
   }
 }
 
@@ -720,8 +724,8 @@ const handleConfirm = async (item: MemoryItem) => {
     await confirmMemoryItem(item.id)
     MessagePlugin.success(t('memorySettings.confirmSuccess'))
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('memorySettings.confirmFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getMemoryErrMessage(error) || t('memorySettings.confirmFailed'))
   }
 }
 
@@ -730,8 +734,8 @@ const handleReject = async (item: MemoryItem) => {
     await rejectMemoryItem(item.id)
     MessagePlugin.success(t('memorySettings.rejectSuccess'))
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('memorySettings.rejectFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getMemoryErrMessage(error) || t('memorySettings.rejectFailed'))
   }
 }
 
@@ -753,9 +757,9 @@ const handleEnabledChange = async (value: boolean) => {
     MessagePlugin.success(
       value ? t('memorySettings.toasts.enabled') : t('memorySettings.toasts.disabled'),
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     userEnabled.value = !value
-    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: error?.message || '' }))
+    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: getMemoryErrMessage(error) }))
   }
 }
 
@@ -774,8 +778,8 @@ const handleCreate = async () => {
     await reload()
     await loadSettings()
     MessagePlugin.success(t('memorySettings.toasts.added'))
-  } catch (error: any) {
-    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: error?.message || '' }))
+  } catch (error: unknown) {
+    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: getMemoryErrMessage(error) }))
   }
 }
 
@@ -793,8 +797,8 @@ const handleSaveEdit = async (item: MemoryItem) => {
     editingId.value = ''
     await Promise.all([loadItems(), loadCounts()])
     MessagePlugin.success(t('memorySettings.toasts.updated'))
-  } catch (error: any) {
-    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: error?.message || '' }))
+  } catch (error: unknown) {
+    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: getMemoryErrMessage(error) }))
   }
 }
 
@@ -804,8 +808,8 @@ const handleDelete = async (item: MemoryItem) => {
     await Promise.all([loadItems(), loadCounts()])
     await loadSettings()
     MessagePlugin.success(t('memorySettings.toasts.deleted'))
-  } catch (error: any) {
-    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: error?.message || '' }))
+  } catch (error: unknown) {
+    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: getMemoryErrMessage(error) }))
   }
 }
 
@@ -815,8 +819,8 @@ const handleClear = async () => {
     await reload()
     await loadSettings()
     MessagePlugin.success(t('memorySettings.toasts.cleared', { count: response.removed || 0 }))
-  } catch (error: any) {
-    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: error?.message || '' }))
+  } catch (error: unknown) {
+    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: getMemoryErrMessage(error) }))
   }
 }
 
@@ -851,8 +855,8 @@ const handleConsolidate = async () => {
       MessagePlugin.info(t(consolidateSkipMessage[result?.skipped ?? ''] ?? 'memorySettings.consolidateNothing'))
     }
     await reload()
-  } catch (error: any) {
-    MessagePlugin.error(error?.message || t('memorySettings.consolidateFailed'))
+  } catch (error: unknown) {
+    MessagePlugin.error(getMemoryErrMessage(error) || t('memorySettings.consolidateFailed'))
   } finally {
     consolidating.value = false
   }
@@ -870,8 +874,8 @@ const handleExport = async () => {
     link.download = 'genyee-memories.json'
     link.click()
     URL.revokeObjectURL(url)
-  } catch (error: any) {
-    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: error?.message || '' }))
+  } catch (error: unknown) {
+    MessagePlugin.error(t('memorySettings.toasts.saveFailed', { message: getMemoryErrMessage(error) }))
   }
 }
 
@@ -1230,19 +1234,16 @@ onMounted(async () => {
 <!-- t-popup renders into body, so the add form and usage popover have to be styled globally. -->
 <style lang="less">
 .memory-usage-popup-overlay {
-  z-index: 3050 !important;
+  z-index: var(--gy-z-popover);
 
-  .t-popup__content {
-    padding: 0 !important;
+  &.t-popup .t-popup__content {
+    padding: 0;
     width: 380px;
     max-width: calc(100vw - 24px);
-    border-radius: var(--app-radius-xl) !important;
-    background: var(--td-bg-color-container) !important;
-    border: 0.5px solid var(--td-component-stroke) !important;
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    border-radius: var(--gy-radius-xl);
+    background: var(--gy-surface-overlay);
+    border: 0.5px solid var(--gy-border-overlay);
+    box-shadow: var(--gy-shadow-md);
   }
 
   .usage-popup {
@@ -1250,16 +1251,16 @@ onMounted(async () => {
   }
 
   .usage-popup-title {
-    font-size: var(--app-text-md);
+    font-size: var(--gy-text-md);
     font-weight: 600;
-    color: var(--td-text-color-primary);
+    color: var(--gy-text-primary);
   }
 
   .usage-popup-intro {
     margin: 4px 0 12px;
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-sm);
     line-height: 1.5;
-    color: var(--td-text-color-placeholder);
+    color: var(--gy-text-muted);
   }
 
   .usage-popup-rows {
@@ -1277,42 +1278,30 @@ onMounted(async () => {
 
   .usage-popup-label {
     flex: 0 0 88px;
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-sm);
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--gy-text-primary);
   }
 
   .usage-popup-text {
     flex: 1;
     min-width: 0;
-    font-size: var(--app-text-sm);
-    color: var(--td-text-color-secondary);
+    font-size: var(--gy-text-sm);
+    color: var(--gy-text-secondary);
   }
 }
 
-:root[theme-mode='dark'] .memory-usage-popup-overlay .t-popup__content {
-  background: rgba(36, 36, 36, 0.92) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 8px 32px rgba(0, 0, 0, 0.28) !important;
-}
-
 .memory-add-popup-overlay {
-  z-index: 3050;
+  z-index: var(--gy-z-popover);
 
-  .t-popup__content {
-    padding: 14px 16px !important;
+  &.t-popup .t-popup__content {
+    padding: 14px 16px;
     width: 320px;
     max-width: calc(100vw - 24px);
-    border-radius: var(--app-radius-xl) !important;
-    background: var(--td-bg-color-container) !important;
-    border: 0.5px solid var(--td-component-stroke) !important;
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    border-radius: var(--gy-radius-xl);
+    background: var(--gy-surface-overlay);
+    border: 0.5px solid var(--gy-border-overlay);
+    box-shadow: var(--gy-shadow-md);
   }
 
   .add-popup {
@@ -1322,9 +1311,9 @@ onMounted(async () => {
   }
 
   .add-popup-title {
-    font-size: var(--app-text-base);
+    font-size: var(--gy-text-base);
     font-weight: 600;
-    color: var(--td-text-color-primary);
+    color: var(--gy-text-primary);
   }
 
   .add-field {
@@ -1334,14 +1323,14 @@ onMounted(async () => {
   }
 
   .add-label {
-    font-size: var(--app-text-sm);
-    color: var(--td-text-color-secondary);
+    font-size: var(--gy-text-sm);
+    color: var(--gy-text-secondary);
   }
 
   .add-kind-hint {
-    font-size: var(--app-text-sm);
+    font-size: var(--gy-text-sm);
     line-height: 18px;
-    color: var(--td-text-color-placeholder);
+    color: var(--gy-text-muted);
   }
 
   .add-popup-footer {
@@ -1354,14 +1343,5 @@ onMounted(async () => {
 /* The kind dropdown mounts to body too, above the popup that opened it. */
 .memory-add-kind-popup {
   z-index: 6200;
-}
-
-:root[theme-mode='dark'] .memory-add-popup-overlay .t-popup__content {
-  background: rgba(36, 36, 36, 0.92) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 8px 32px rgba(0, 0, 0, 0.28) !important;
 }
 </style>

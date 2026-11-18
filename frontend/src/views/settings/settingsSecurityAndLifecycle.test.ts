@@ -277,8 +277,8 @@ test('ParserEngineSettings checks connected.value, surfaces save toast errors, a
       '@/api/system': {
         getParserEngines: async () => ({
           data: [
-            { Name: 'builtin', Available: false },
-            { Name: 'mineru', Available: false },
+            { name: 'builtin', description: '', file_types: [], available: false },
+            { name: 'mineru', description: '', file_types: [], available: false },
           ],
           connected: false,
         }),
@@ -287,8 +287,8 @@ test('ParserEngineSettings checks connected.value, surfaces save toast errors, a
           checkCalls += 1
           return {
             data: [
-              { Name: 'builtin', Available: true },
-              { Name: 'mineru', Available: true },
+              { name: 'builtin', description: '', file_types: [], available: true },
+              { name: 'mineru', description: '', file_types: [], available: true },
             ],
             connected: true,
           }
@@ -305,13 +305,13 @@ test('ParserEngineSettings checks connected.value, surfaces save toast errors, a
   assert.equal(vm.connected, false)
 
   // Non-builtin engine when disconnected must short-circuit with ensureDocreaderConnected
-  vm.currentEngine = { Name: 'mineru', Available: false }
+  vm.currentEngine = { name: 'mineru', description: '', file_types: [], available: false }
   await vm.onCheck()
   assert.equal(checkCalls, 0, 'Expected !connected.value guard to short-circuit for non-builtin engine')
   assert.equal(vm.checkMessage, 'settings.parser.ensureDocreaderConnected')
 
   // Builtin engine can re-probe DocReader connectivity even when currently disconnected
-  vm.currentEngine = { Name: 'builtin', Available: false }
+  vm.currentEngine = { name: 'builtin', description: '', file_types: [], available: false }
   await vm.onCheck()
   assert.equal(checkCalls, 1)
   assert.equal(vm.connected, true)

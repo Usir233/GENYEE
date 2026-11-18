@@ -77,7 +77,7 @@ test('ModelCatalog only exposes http(s) model source URLs for external links', a
     'vue-i18n': { useI18n: () => ({ t: (k: string) => k, locale: ref('en-US') }) },
     'tdesign-vue-next': { MessagePlugin: { success() {}, error() {}, warning() {} } },
     '@/utils/reasoningEffort': { levelLabelKey: (l: string) => l },
-    '@/api/system/modelCatalog': {
+    '@/api/system/model-catalog': {
       getModelCatalog: async () => emptyState,
       previewModelCatalog: async () => ({ effective: [] }),
       publishModelCatalog: async () => emptyState,

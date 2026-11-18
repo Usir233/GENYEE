@@ -241,7 +241,7 @@ const loadConfig = async () => {
       initializationTimer = null
       if (isCurrentView()) isInitializing.value = false
     }, INITIALIZATION_DELAY_MS)
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isCurrentView()) console.error('Failed to load retrieval config:', error)
   }
 }
@@ -267,10 +267,12 @@ const saveConfig = async () => {
     // 只能确认本次提交的快照，不能把请求期间的新编辑也标记为已保存。
     initialConfig = submittedConfig
     if (!hasConfigChanged()) MessagePlugin.success(t('retrievalSettings.toasts.saveSuccess'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (!isCurrentView()) return
     console.error('Failed to save retrieval config:', error)
-    const errorMessage = error?.message || 'Unknown error'
+    const errorMessage =
+      (error instanceof Error ? error.message : (error as { message?: string } | null)?.message) ||
+      'Unknown error'
     MessagePlugin.error(t('retrievalSettings.toasts.saveFailed', { message: errorMessage }))
   } finally {
     if (request && pendingRetrievalSaves.get(configTenantId) === request) {
@@ -348,10 +350,10 @@ onMounted(loadConfig)
   &:hover { color: var(--td-text-color-primary); }
   &:focus-visible { outline: 2px solid var(--td-brand-color); outline-offset: 2px; }
   &.is-active {
-    color: var(--td-text-color-primary);
+    color: var(--gy-text-primary);
     font-weight: 500;
-    background: var(--td-bg-color-container);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    background: var(--gy-surface);
+    box-shadow: var(--gy-shadow-sm);
   }
 }
 

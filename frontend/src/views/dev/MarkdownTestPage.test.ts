@@ -32,6 +32,7 @@ test('MarkdownTestPage clears streamTimer and customMermaidTimer on unmount', as
     console,
     require(name: string) {
       if (name === 'vue') return require('vue')
+      if (name === 'vue-i18n') return { useI18n: () => ({ t: (k: string) => k }) }
       if (name === '@/utils/security') return { sanitizeMarkdownHTML: (s: string) => s }
       if (name === '@/utils/chatMarkdownRenderer') {
         return {

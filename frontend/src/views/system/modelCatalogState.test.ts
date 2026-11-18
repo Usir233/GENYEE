@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { reactive } from 'vue'
 import { catalogChanges, catalogRows, catalogSource, composeInput, formatTokens, hasModelOverride, patchCatalogModel, removeCatalogModelOverride, sameMembers, summarizeChanges, thinkingLevelsPatch } from './modelCatalogState'
-import type { CatalogOverlay, CatalogProvider } from '@/api/system/modelCatalog'
+import type { CatalogOverlay, CatalogProvider } from '@/api/system/model-catalog'
 
 test('form edits remove higher-precedence fields without losing unrelated overrides', () => {
   const overlay: CatalogOverlay = { providers: { openai: {

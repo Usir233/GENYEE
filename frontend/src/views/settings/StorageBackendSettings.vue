@@ -27,6 +27,7 @@
           :tabindex="canEdit(backend) ? 0 : undefined"
           @click="onCardClick($event, backend)"
           @keydown.enter="onCardClick($event, backend)"
+          @keydown.space.prevent="onCardClick($event, backend)"
         >
           <div
             class="backend-card__badge"
@@ -52,9 +53,15 @@
                   placement="bottom-right"
                   attach="body"
                   trigger="click"
-                  @click="(data: any) => handleMenuAction(data.value, backend)"
+                  @click="(data: { value?: unknown }) => handleMenuAction(String(data.value ?? ''), backend)"
                 >
-                  <t-button variant="text" shape="square" size="small" class="backend-card__action-btn">
+                  <t-button
+                    variant="text"
+                    shape="square"
+                    size="small"
+                    class="backend-card__action-btn"
+                    :aria-label="t('modelCatalog.more')"
+                  >
                     <t-icon name="ellipsis" />
                   </t-button>
                 </t-dropdown>
@@ -325,13 +332,21 @@ function onCardClick(event: Event, backend: StorageBackend) {
   openEdit(backend)
 }
 
+function getStorageErrMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'object' && e !== null && 'message' in e) {
+    return String((e as { message?: unknown }).message || '')
+  }
+  return ''
+}
+
 async function load() {
   loading.value = true
   try {
     const [list, types] = await Promise.all([listStorageBackends(), listStorageBackendTypes()])
     backends.value = list.data || []; defaultID.value = list.default_storage_backend_id || ''; providers.value = types.data || []
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.storageBackend.loadFailed', '加载存储后端失败'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getStorageErrMessage(e) || t('settings.storageBackend.loadFailed'))
   } finally { loading.value = false }
 }
 function resetConfig() { form.config = blankConfig(); rawTestResult.value = null }
@@ -341,20 +356,24 @@ async function testRaw() {
   testing.value = true
   rawTestResult.value = null
   try {
-    const r: any = editing.value ? await testStorageBackendByID(editing.value.id) : await testStorageBackend(form)
+    const r = (editing.value ? await testStorageBackendByID(editing.value.id) : await testStorageBackend(form)) as { success?: boolean; error?: string }
     if (r.success) { rawTestResult.value = 'ok'; MessagePlugin.success(t('settings.storageBackend.testSuccess')) }
     else { rawTestResult.value = 'error'; MessagePlugin.error(r.error || t('settings.storageBackend.testFailed')) }
-  } catch (e: any) {
+  } catch (e: unknown) {
     rawTestResult.value = 'error'
-    MessagePlugin.error(e?.message || t('settings.storageBackend.testFailed'))
+    MessagePlugin.error(getStorageErrMessage(e) || t('settings.storageBackend.testFailed'))
   } finally { testing.value = false }
 }
 async function testSaved(backend: StorageBackend) {
   try {
-    const r: any = await testStorageBackendByID(backend.id)
-    r.success ? MessagePlugin.success(t('settings.storageBackend.testSuccess')) : MessagePlugin.error(r.error || t('settings.storageBackend.testFailed'))
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.storageBackend.testFailed'))
+    const r = (await testStorageBackendByID(backend.id)) as { success?: boolean; error?: string }
+    if (r.success) {
+      MessagePlugin.success(t('settings.storageBackend.testSuccess'))
+    } else {
+      MessagePlugin.error(r.error || t('settings.storageBackend.testFailed'))
+    }
+  } catch (e: unknown) {
+    MessagePlugin.error(getStorageErrMessage(e) || t('settings.storageBackend.testFailed'))
   }
 }
 async function save() {
@@ -364,19 +383,19 @@ async function save() {
     const payload = { name: form.name.trim(), provider: form.provider, config: { ...form.config } }
     if (editing.value) await updateStorageBackend(editing.value.id, payload); else await createStorageBackend(payload)
     MessagePlugin.success(t('settings.storageBackend.saveSuccess')); visible.value = false; await load()
-  } catch (e: any) { MessagePlugin.error(e?.message || t('settings.storageBackend.saveFailed')) } finally { saving.value = false }
+  } catch (e: unknown) { MessagePlugin.error(getStorageErrMessage(e) || t('settings.storageBackend.saveFailed')) } finally { saving.value = false }
 }
 async function makeDefault(backend: StorageBackend) {
   try {
     await setDefaultStorageBackend(backend.id)
     defaultID.value = backend.id
     MessagePlugin.success(t('settings.storageBackend.defaultUpdated'))
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.storageBackend.saveFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getStorageErrMessage(e) || t('settings.storageBackend.saveFailed'))
   }
 }
 function remove(backend: StorageBackend) {
-  const dialog = DialogPlugin.confirm({ theme: 'danger', confirmBtn: { content: t('common.delete'), theme: 'danger' }, header: t('settings.storageBackend.deleteTitle'), body: t('settings.storageBackend.deleteConfirm', { name: backend.name }), onConfirm: async () => { dialog.destroy(); try { await deleteStorageBackend(backend.id); await load(); MessagePlugin.success(t('settings.storageBackend.deleted')) } catch (e: any) { MessagePlugin.error(e?.message || t('settings.storageBackend.deleteFailed')) } }, onCancel: () => dialog.destroy() })
+  const dialog = DialogPlugin.confirm({ theme: 'danger', confirmBtn: { content: t('common.delete'), theme: 'danger' }, header: t('settings.storageBackend.deleteTitle'), body: t('settings.storageBackend.deleteConfirm', { name: backend.name }), onConfirm: async () => { dialog.destroy(); try { await deleteStorageBackend(backend.id); await load(); MessagePlugin.success(t('settings.storageBackend.deleted')) } catch (e: unknown) { MessagePlugin.error(getStorageErrMessage(e) || t('settings.storageBackend.deleteFailed')) } }, onCancel: () => dialog.destroy() })
 }
 onMounted(load)
 </script>
@@ -451,7 +470,7 @@ onMounted(load)
 
 .backend-card__badge {
   .provider-card-badge();
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 
 .backend-card__badge-img {
@@ -459,28 +478,28 @@ onMounted(load)
 }
 
 .backend-card--local .backend-card__badge {
-  .provider-card-badge-color(#464646);
+  .provider-card-badge-color(var(--gy-text-secondary));
 }
 .backend-card--minio .backend-card__badge {
-  .provider-card-badge-color(#c0382b);
+  .provider-card-badge-color(var(--gy-danger));
 }
 .backend-card--cos .backend-card__badge {
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 .backend-card--tos .backend-card__badge {
-  .provider-card-badge-color(#0089ff);
+  .provider-card-badge-color(var(--gy-accent-teal));
 }
 .backend-card--s3 .backend-card__badge {
-  .provider-card-badge-color(#d97706);
+  .provider-card-badge-color(var(--gy-highlight));
 }
 .backend-card--oss .backend-card__badge {
-  .provider-card-badge-color(#e55a00);
+  .provider-card-badge-color(var(--gy-warning));
 }
 .backend-card--ks3 .backend-card__badge {
-  .provider-card-badge-color(#07a050);
+  .provider-card-badge-color(var(--gy-success));
 }
 .backend-card--obs .backend-card__badge {
-  .provider-card-badge-color(#ce1126);
+  .provider-card-badge-color(var(--gy-danger));
 }
 
 .backend-card__body {
@@ -643,7 +662,11 @@ onMounted(load)
   font-size: var(--app-text-md);
   color: var(--td-text-color-secondary);
   line-height: 1;
-  transition: all var(--app-motion-fast) ease;
+  transition:
+    background var(--gy-motion-fast) ease,
+    border-color var(--gy-motion-fast) ease,
+    color var(--gy-motion-fast) ease,
+    box-shadow var(--gy-motion-fast) ease;
 
   &:disabled {
     cursor: not-allowed;
@@ -651,16 +674,16 @@ onMounted(load)
   }
 
   &:hover:not(.is-active):not(:disabled) {
-    color: var(--td-text-color-primary);
-    background: var(--td-bg-color-container-hover);
+    color: var(--gy-text-primary);
+    background: var(--gy-surface-hover);
   }
 
   &.is-active {
-    background: var(--td-bg-color-container);
-    border-color: var(--td-brand-color);
-    color: var(--td-brand-color);
+    background: var(--gy-surface);
+    border-color: var(--gy-brand);
+    color: var(--gy-brand);
     font-weight: 500;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: var(--gy-shadow-sm);
   }
 }
 
@@ -693,16 +716,37 @@ onMounted(load)
 -->
 <style lang="less">
 .storage-backend-drawer .setting-drawer__header-icon:has(.header-icon__img) {
-  background: var(--td-bg-color-container);
-  box-shadow: inset 0 0 0 1px var(--td-component-stroke);
+  background: var(--gy-surface);
+  box-shadow: inset 0 0 0 1px var(--gy-border-subtle);
 }
 
-.storage-backend-drawer--local .setting-drawer__header-icon { background: rgba(70, 70, 70, 0.1); color: #464646; }
-.storage-backend-drawer--minio .setting-drawer__header-icon { background: rgba(225, 38, 38, 0.12); color: #C0382B; }
-.storage-backend-drawer--cos .setting-drawer__header-icon { background: rgba(0, 82, 217, 0.1); color: #0052D9; }
-.storage-backend-drawer--tos .setting-drawer__header-icon { background: rgba(0, 137, 255, 0.12); color: #0089FF; }
-.storage-backend-drawer--s3 .setting-drawer__header-icon { background: rgba(255, 153, 0, 0.12); color: #D97706; }
-.storage-backend-drawer--oss .setting-drawer__header-icon { background: rgba(255, 90, 0, 0.12); color: #E55A00; }
-.storage-backend-drawer--ks3 .setting-drawer__header-icon { background: color-mix(in srgb, var(--td-brand-color) 12%, transparent); color: #07A050; }
-.storage-backend-drawer--obs .setting-drawer__header-icon { background: rgba(206, 17, 38, 0.1); color: #CE1126; }
+.storage-backend-drawer--local .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-text-secondary) 12%, transparent);
+  color: var(--gy-text-secondary);
+}
+.storage-backend-drawer--minio .setting-drawer__header-icon,
+.storage-backend-drawer--obs .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-danger) 12%, transparent);
+  color: var(--gy-danger);
+}
+.storage-backend-drawer--cos .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-accent-blue) 12%, transparent);
+  color: var(--gy-accent-blue);
+}
+.storage-backend-drawer--tos .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-accent-teal) 12%, transparent);
+  color: var(--gy-accent-teal);
+}
+.storage-backend-drawer--s3 .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-highlight) 12%, transparent);
+  color: var(--gy-highlight);
+}
+.storage-backend-drawer--oss .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-warning) 12%, transparent);
+  color: var(--gy-warning);
+}
+.storage-backend-drawer--ks3 .setting-drawer__header-icon {
+  background: color-mix(in oklab, var(--gy-success) 12%, transparent);
+  color: var(--gy-success);
+}
 </style>

@@ -150,10 +150,11 @@ const save = async () => {
     if (workspaceOwner.value !== owner) return
     assistant.setWorkspaceConfig(res?.data || next)
     MessagePlugin.success(t('assistantSettings.saved'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (workspaceOwner.value !== owner) return
     syncDraft()
-    MessagePlugin.error(t('assistantSettings.saveFailed', { message: error?.message || '' }))
+    const msg = error instanceof Error ? error.message : (error as { message?: string } | null)?.message || ''
+    MessagePlugin.error(t('assistantSettings.saveFailed', { message: msg }))
   }
 }
 

@@ -153,8 +153,19 @@ function formatDate(value: string) {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(locale.value)
 }
-function errorMessage(error: any, key: string): string {
-  return error?.response?.data?.error || error?.message || t(key)
+function errorMessage(error: unknown, key: string): string {
+  if (typeof error === 'object' && error !== null) {
+    const respErr = (error as { response?: { data?: { error?: unknown } } }).response?.data?.error
+    if (typeof respErr === 'string' && respErr) return respErr
+    if (typeof respErr === 'object' && respErr !== null && 'message' in respErr) {
+      const nestedMsg = (respErr as { message?: unknown }).message
+      if (typeof nestedMsg === 'string' && nestedMsg) return nestedMsg
+    }
+    if ('message' in error && typeof (error as { message?: unknown }).message === 'string') {
+      return (error as { message: string }).message || t(key)
+    }
+  }
+  return t(key)
 }
 function announce(message: string) { emit('announced', message) }
 async function fetchPage(nextOffset: number) {

@@ -783,6 +783,23 @@ function queueState(row: QueueStat): { label: string; tone: string } {
   return { label: t('system.globalSettings.runtime.status.idle'), tone: 'idle' }
 }
 
+function getRuntimeErrMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const msg = (err as { message?: unknown }).message
+    if (typeof msg === 'string') return msg
+  }
+  return ''
+}
+
+function getRuntimeErrCode(err: unknown): string {
+  if (typeof err === 'object' && err !== null && 'code' in err) {
+    const code = (err as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return ''
+}
+
 async function fetchRuntimeTasks(reset: boolean) {
   const queue = taskQueue.value?.name
   if (!queue) return
@@ -810,23 +827,24 @@ async function fetchRuntimeTasks(reset: boolean) {
     tasks.value = reset ? response.tasks : mergeRuntimeTaskPage(tasks.value, response.tasks)
     tasksCursor.value = response.next_cursor || ''
     tasksHasMore.value = response.has_more && Boolean(response.next_cursor)
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (requestID !== tasksRequestID) return
-    if (!reset && err?.code === 'runtime_task_cursor_expired') {
+    if (!reset && getRuntimeErrCode(err) === 'runtime_task_cursor_expired') {
       tasksLoadingMore.value = false
       await fetchRuntimeTasks(true)
       return
     }
-    tasksError.value = err?.message || t('system.globalSettings.runtime.tasks.loadError')
+    tasksError.value = getRuntimeErrMessage(err) || t('system.globalSettings.runtime.tasks.loadError')
   } finally {
-    if (requestID !== tasksRequestID) return
-    if (reset) {
-      tasksLoading.value = false
-    } else {
-      tasksLoadingMore.value = false
+    if (requestID === tasksRequestID) {
+      if (reset) {
+        tasksLoading.value = false
+      } else {
+        tasksLoadingMore.value = false
+      }
+      await nextTick()
+      attachTasksScrollObserver()
     }
-    await nextTick()
-    attachTasksScrollObserver()
   }
 }
 
@@ -884,8 +902,8 @@ async function runTaskAction(task: RuntimeTask, action: RuntimeTaskAction) {
     MessagePlugin.success(t(`system.globalSettings.runtime.tasks.actionSuccess.${action}`))
     await Promise.all([reloadRuntimeTasks(), load(false)])
     taskQueue.value = queues.value.find((item) => item.name === queue) ?? taskQueue.value
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t(`system.globalSettings.runtime.tasks.actionError.${action}`))
+  } catch (err: unknown) {
+    MessagePlugin.error(getRuntimeErrMessage(err) || t(`system.globalSettings.runtime.tasks.actionError.${action}`))
   } finally {
     taskActionID.value = ''
     taskAction.value = ''
@@ -901,8 +919,8 @@ async function purgeArchivedTasks() {
     MessagePlugin.success(t('system.globalSettings.runtime.tasks.purgeArchivedSuccess', { count: deleted }))
     await Promise.all([reloadRuntimeTasks(), load(false)])
     taskQueue.value = queues.value.find((item) => item.name === queue) ?? taskQueue.value
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('system.globalSettings.runtime.tasks.purgeArchivedError'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getRuntimeErrMessage(err) || t('system.globalSettings.runtime.tasks.purgeArchivedError'))
   } finally {
     purging.value = false
   }
@@ -924,8 +942,8 @@ async function load(showSpinner: boolean) {
       .toLocaleTimeString(locale.value, { hour12: false })
     error.value = ''
     loadedOnce.value = true
-  } catch (err: any) {
-    error.value = err?.message || t('system.globalSettings.runtime.errors.generic')
+  } catch (err: unknown) {
+    error.value = getRuntimeErrMessage(err) || t('system.globalSettings.runtime.errors.generic')
   } finally {
     if (showSpinner) loading.value = false
   }
@@ -1940,10 +1958,6 @@ onUnmounted(() => {
   .rq-task-state-filter {
     overflow-x: auto;
     scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
   }
 
   .rq-task-state-option {

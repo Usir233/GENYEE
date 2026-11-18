@@ -258,7 +258,7 @@ import { STORAGE_QUOTA_KEYS, resolveStorageQuota, formatStorageQuota } from './s
 
 const deploymentCapabilities = useDeploymentCapabilitiesStore()
 
-const { t, tm, te, locale } = useI18n()
+const { t, te } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -634,6 +634,15 @@ function minimumFor(item: SystemSettingItem): number {
   return 0
 }
 
+function getSystemErrMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const msg = (err as { message?: unknown }).message
+    if (typeof msg === 'string') return msg
+  }
+  return ''
+}
+
 async function loadSettings() {
   loading.value = true
   try {
@@ -649,8 +658,8 @@ async function loadSettings() {
         ? [...(item.value as unknown[])]
         : item.value
     }
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.messages.loadFailed')
+  } catch (err: unknown) {
+    const msg = getSystemErrMessage(err) || t('system.globalSettings.messages.loadFailed')
     MessagePlugin.error(msg)
   } finally {
     loading.value = false
@@ -850,8 +859,8 @@ async function runBulkAction(item: SystemSettingItem) {
       }),
     )
     markSettingSaved(item)
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.bulkApply.failed')
+  } catch (err: unknown) {
+    const msg = getSystemErrMessage(err) || t('system.globalSettings.bulkApply.failed')
     saveAnnouncement.value = msg
     MessagePlugin.error(msg)
   } finally {
@@ -874,8 +883,8 @@ async function resetSetting(item: SystemSettingItem) {
     markSettingSaved(item)
     MessagePlugin.success(t('system.globalSettings.reset.success'))
     await refreshSandboxDockerCapability(item.key)
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.reset.failed')
+  } catch (err: unknown) {
+    const msg = getSystemErrMessage(err) || t('system.globalSettings.reset.failed')
     saveAnnouncement.value = msg
     MessagePlugin.error(msg)
   } finally {
@@ -901,8 +910,8 @@ async function persistSetting(item: SystemSettingItem) {
     markSettingSaved(updated)
     MessagePlugin.success(t('system.globalSettings.messages.saveSuccess'))
     await refreshSandboxDockerCapability(item.key)
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.messages.saveFailed')
+  } catch (err: unknown) {
+    const msg = getSystemErrMessage(err) || t('system.globalSettings.messages.saveFailed')
     saveAnnouncement.value = msg
     MessagePlugin.error(msg)
     // Roll the input back to the canonical value on failure. Without

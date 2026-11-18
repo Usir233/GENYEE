@@ -73,7 +73,7 @@ import SettingDrawer from '@/components/settings/SettingDrawer.vue'
 import {
   getDocumentProgress, listDocumentProgress, startDocumentWiki,
   type DocumentProgress, type DocumentProgressDetail, type DocumentProgressStatus, type WikiStartResult,
-} from '@/api/system/documentProgress'
+} from '@/api/system/document-progress'
 
 const props = withDefaults(defineProps<{ refreshToken?: string }>(), { refreshToken: '' })
 const { t } = useI18n()

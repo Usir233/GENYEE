@@ -208,17 +208,23 @@ const monoFontOptions = computed<{ value: MonoFontKey; label: string; preview: s
 const currentSansStack = computed(() => SANS_STACKS[localSansFont.value] ?? SANS_STACKS.system)
 const currentMonoStack = computed(() => MONO_STACKS[localMonoFont.value] ?? MONO_STACKS.system)
 
+interface WailsDesktopWindow extends Window {
+  go?: {
+    main?: {
+      App?: {
+        AutoCheckForUpdates?: () => void
+      }
+    }
+  }
+}
+
 // 自动检查更新状态
 const isAutoCheckUpdateEnabled = computed({
   get: () => settingsStore.isAutoCheckUpdateEnabled,
   set: (val) => {
     settingsStore.toggleAutoCheckUpdate(val)
     if (val) {
-      // @ts-ignore
-      if (window.go && window.go.main && window.go.main.App && window.go.main.App.AutoCheckForUpdates) {
-        // @ts-ignore
-        window.go.main.App.AutoCheckForUpdates()
-      }
+      ;(window as WailsDesktopWindow).go?.main?.App?.AutoCheckForUpdates?.()
     }
   }
 })

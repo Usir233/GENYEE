@@ -221,9 +221,10 @@ const testConnection = async () => {
     } else {
       MessagePlugin.error(result.error || t('ollamaSettings.toasts.connectFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     connectionStatus.value = false
-    MessagePlugin.error(error.message || t('ollamaSettings.toasts.connectFailed'))
+    const msg = error instanceof Error ? error.message : (error as { message?: string } | null)?.message
+    MessagePlugin.error(msg || t('ollamaSettings.toasts.connectFailed'))
   } finally {
     testing.value = false
   }
@@ -237,9 +238,10 @@ const refreshModels = async () => {
     // 调用真实 Ollama API 获取模型列表（现在返回完整的模型信息）
     const models = await listOllamaModels()
     downloadedModels.value = models
-  } catch (error: any) {
-    console.error('获取模型列表失败:', error)
-    MessagePlugin.error(error.message || t('ollamaSettings.toasts.listFailed'))
+  } catch (error: unknown) {
+    console.error('Failed to fetch Ollama model list:', error)
+    const msg = error instanceof Error ? error.message : (error as { message?: string } | null)?.message
+    MessagePlugin.error(msg || t('ollamaSettings.toasts.listFailed'))
   } finally {
     loadingModels.value = false
   }
@@ -320,16 +322,17 @@ const downloadModel = async () => {
           downloading.value = false
           downloadProgress.value = 0
         }
-      } catch (error) {
+      } catch {
         clearProgressInterval()
         MessagePlugin.error(t('ollamaSettings.toasts.progressFailed'))
         downloading.value = false
         downloadProgress.value = 0
       }
     }, 1000)
-  } catch (error: any) {
-    console.error('下载失败:', error)
-    MessagePlugin.error(error.message || t('ollamaSettings.toasts.downloadFailed'))
+  } catch (error: unknown) {
+    console.error('Ollama model download failed:', error)
+    const msg = error instanceof Error ? error.message : (error as { message?: string } | null)?.message
+    MessagePlugin.error(msg || t('ollamaSettings.toasts.downloadFailed'))
     downloading.value = false
     downloadProgress.value = 0
   }
@@ -359,7 +362,7 @@ const initOllamaBaseUrl = async () => {
     
     return result
   } catch (error) {
-    console.error('初始化 Ollama 地址失败:', error)
+    console.error('Failed to initialize Ollama base URL:', error)
     // 如果获取失败，使用默认值或 store 中的值
     if (!localBaseUrl.value) {
       localBaseUrl.value = 'http://localhost:11434'

@@ -243,6 +243,16 @@ const clearTimers = () => {
 
 const canEdit = computed(() => authStore.hasRole('admin'))
 
+const getMemWsErrMessage = (error: unknown): string =>
+  error instanceof Error
+    ? error.message
+    : typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+      ? (error as { message: string }).message
+      : ''
+
 const loadConfig = async () => {
   const gen = ++loadGen
   clearTimers()
@@ -264,11 +274,12 @@ const loadConfig = async () => {
       config.embedding_model_id = response.data.embedding_model_id || ''
       config.vector_recall = response.data.vector_recall !== false
     }
+
     loadSucceeded.value = true
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (gen !== loadGen) return
     console.error('Failed to load memory config:', error)
-    MessagePlugin.error(error?.message || t('memoryWorkspaceSettings.toasts.saveFailed', { message: '' }))
+    MessagePlugin.error(getMemWsErrMessage(error) || t('memoryWorkspaceSettings.toasts.saveFailed', { message: '' }))
   } finally {
     if (gen === loadGen) {
       // Give the switches a tick to settle so binding the loaded values does not
@@ -290,10 +301,10 @@ const saveConfig = async () => {
     await updateTenantMemoryConfig({ ...config })
     if (gen !== loadGen) return
     MessagePlugin.success(t('memoryWorkspaceSettings.toasts.saveSuccess'))
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (gen !== loadGen) return
     MessagePlugin.error(
-      t('memoryWorkspaceSettings.toasts.saveFailed', { message: error?.message || '' }),
+      t('memoryWorkspaceSettings.toasts.saveFailed', { message: getMemWsErrMessage(error) }),
     )
   }
 }

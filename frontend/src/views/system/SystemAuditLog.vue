@@ -552,12 +552,21 @@ async function loadAuditLog(reset: boolean) {
     } else {
       auditError.value = resp.message || t('system.globalSettings.audit.errors.generic')
     }
-  } catch (err: any) {
-    const status = err?.status
+  } catch (err: unknown) {
+    const status =
+      typeof err === 'object' && err !== null && 'status' in err
+        ? (err as { status?: unknown }).status
+        : undefined
+    const errMsg =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+          ? ((err as { message: string }).message)
+          : ''
     if (status === 403) {
       auditError.value = t('system.globalSettings.audit.forbidden')
     } else {
-      auditError.value = err?.message || t('system.globalSettings.audit.errors.generic')
+      auditError.value = errMsg || t('system.globalSettings.audit.errors.generic')
     }
   } finally {
     auditLoading.value = false

@@ -247,18 +247,21 @@ const passwordRules = computed<Record<string, FormRule[]>>(() => ({
   ],
 }))
 
+const getUserErrMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string' ? (err as { message: string }).message : '')
+
 const loadInfo = async () => {
   try {
     loading.value = true
     error.value = ''
     const resp = await getCurrentUser()
-    if ((resp as any).success && resp.data) {
+    if (resp.success && resp.data) {
       userInfo.value = resp.data.user
     } else {
       error.value = resp.message || t('tenant.messages.fetchFailed')
     }
-  } catch (err: any) {
-    error.value = err?.message || t('tenant.messages.networkError')
+  } catch (err: unknown) {
+    error.value = getUserErrMessage(err) || t('tenant.messages.networkError')
   } finally {
     loading.value = false
   }
@@ -323,8 +326,8 @@ const submitPasswordChange = async () => {
     }
     authStore.logout()
     router.push('/login')
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('userProfile.changePassword.failed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getUserErrMessage(err) || t('userProfile.changePassword.failed'))
   } finally {
     passwordSubmitting.value = false
   }
@@ -436,16 +439,12 @@ onMounted(loadInfo)
 <style lang="less">
 /* t-popup 挂到 body，需全局样式；z-index 需高于设置全屏遮罩（2000）。 */
 .user-profile-password-popup-overlay {
-  z-index: 3050 !important;
-
+  z-index: var(--gy-z-popover);
 }
 
 :root[theme-mode='dark'] .user-profile-password-popup-overlay .t-popup__content {
-  background: rgba(36, 36, 36, 0.92) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 8px 32px rgba(0, 0, 0, 0.28) !important;
+  background: var(--gy-surface-overlay);
+  border-color: var(--gy-border-overlay);
+  box-shadow: var(--gy-shadow-lg);
 }
 </style>

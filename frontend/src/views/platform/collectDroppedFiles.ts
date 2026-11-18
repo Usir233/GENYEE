@@ -4,6 +4,28 @@
 // 到 dataTransfer.files。Firefox 在拖拽文件夹时 dataTransfer.files 为空，
 // 同样需要走 entry 遍历路径。
 
+export interface DroppedFileSystemEntry {
+  readonly isFile?: boolean
+  readonly isDirectory?: boolean
+  readonly name?: string
+  file?: (
+    successCallback: (file: File) => void,
+    errorCallback?: (err: unknown) => void,
+  ) => void
+  createReader?: () => DroppedDirectoryReader
+}
+
+export interface DroppedDirectoryReader {
+  readEntries: (
+    successCallback: (entries: DroppedFileSystemEntry[]) => void,
+    errorCallback?: (err: unknown) => void,
+  ) => void
+}
+
+interface DataTransferItemWithEntry extends DataTransferItem {
+  webkitGetAsEntry?: () => DroppedFileSystemEntry | null
+}
+
 const isHiddenSegment = (segment: string): boolean => segment.startsWith('.')
 
 export const setRelativePath = (file: File, relativePath: string): void => {
@@ -20,24 +42,30 @@ export const setRelativePath = (file: File, relativePath: string): void => {
   }
 }
 
-const readAllDirEntries = (reader: { readEntries: Function }): Promise<any[]> => {
+const readAllDirEntries = (reader: DroppedDirectoryReader): Promise<DroppedFileSystemEntry[]> => {
   return new Promise((resolve) => {
-    const collected: any[] = []
+    const collected: DroppedFileSystemEntry[] = []
     const readBatch = () => {
-      reader.readEntries((entries: any[]) => {
-        if (!entries || entries.length === 0) {
-          resolve(collected)
-        } else {
-          collected.push(...entries)
-          readBatch()
-        }
-      }, () => resolve(collected))
+      reader.readEntries(
+        (entries: DroppedFileSystemEntry[]) => {
+          if (!entries || entries.length === 0) {
+            resolve(collected)
+          } else {
+            collected.push(...entries)
+            readBatch()
+          }
+        },
+        () => resolve(collected),
+      )
     }
     readBatch()
   })
 }
 
-export const traverseEntry = (entry: any, path: string): Promise<File[]> => {
+export const traverseEntry = (
+  entry: DroppedFileSystemEntry | null | undefined,
+  path: string,
+): Promise<File[]> => {
   return new Promise((resolve) => {
     try {
       if (!entry) {
@@ -49,22 +77,26 @@ export const traverseEntry = (entry: any, path: string): Promise<File[]> => {
           resolve([])
           return
         }
-        entry.file((file: File) => {
-          // 仅对目录内的文件设置 webkitRelativePath，与
-          // <input webkitdirectory> 行为一致。顶层拖入的文件
-          // 保持空值，作为普通文件上传。
-          if (path) {
-            const relativePath = `${path}/${file.name}`
-            if (relativePath.split('/').some(isHiddenSegment)) {
-              resolve([])
-              return
+        entry.file(
+          (file: File) => {
+            // 仅对目录内的文件设置 webkitRelativePath，与
+            // <input webkitdirectory> 行为一致。顶层拖入的文件
+            // 保持空值，作为普通文件上传。
+            if (path) {
+              const relativePath = `${path}/${file.name}`
+              if (relativePath.split('/').some(isHiddenSegment)) {
+                resolve([])
+                return
+              }
+              setRelativePath(file, relativePath)
             }
-            setRelativePath(file, relativePath)
-          }
-          resolve([file])
-        }, () => resolve([]))
+            resolve([file])
+          },
+          () => resolve([]),
+        )
       } else if (entry.isDirectory) {
-        const dirPath = path ? `${path}/${entry.name}` : entry.name
+        const entryName = entry.name ?? ''
+        const dirPath = path ? `${path}/${entryName}` : entryName
         // 跳过隐藏目录（.git、.DS_Store 等）
         if (dirPath.split('/').some(isHiddenSegment)) {
           resolve([])
@@ -75,10 +107,12 @@ export const traverseEntry = (entry: any, path: string): Promise<File[]> => {
           return
         }
         readAllDirEntries(entry.createReader())
-          .then(children => Promise.all(
-            children.map(c => traverseEntry(c, dirPath).catch(() => [] as File[])),
-          ))
-          .then(results => resolve(results.flat()))
+          .then((children) =>
+            Promise.all(
+              children.map((c) => traverseEntry(c, dirPath).catch(() => [] as File[])),
+            ),
+          )
+          .then((results) => resolve(results.flat()))
           .catch(() => resolve([]))
       } else {
         resolve([])
@@ -99,39 +133,46 @@ export const collectDroppedFiles = async (event: DragEvent): Promise<File[]> => 
     return fallbackFiles
   }
 
-  const fileItems = items.filter(item => item.kind === 'file')
+  const fileItems = items.filter((item) => item.kind === 'file')
   if (fileItems.length === 0) {
     return fallbackFiles
   }
 
-  const pairs = fileItems.map(item => {
+  const pairs = fileItems.map((item) => {
     try {
-      return { item, entry: (item as any).webkitGetAsEntry?.() ?? null }
+      return {
+        item,
+        entry: (item as DataTransferItemWithEntry).webkitGetAsEntry?.() ?? null,
+      }
     } catch {
       return { item, entry: null }
     }
   })
-  const usable = pairs.filter(p => p.entry != null)
+  const usable = pairs.filter(
+    (p): p is { item: DataTransferItem; entry: DroppedFileSystemEntry } => p.entry != null,
+  )
   if (usable.length === 0) {
     // 浏览器不支持 webkitGetAsEntry，退回已快照的 FileList。
     return fallbackFiles
   }
 
-  const results = await Promise.all(usable.map(async ({ item, entry }) => {
-    try {
-      if (entry.isDirectory) {
+  const results = await Promise.all(
+    usable.map(async ({ item, entry }) => {
+      try {
+        if (entry.isDirectory) {
+          return await traverseEntry(entry, '')
+        }
+        // 顶层文件用 getAsFile：同步、保留空 webkitRelativePath。
+        const file = item.getAsFile()
+        if (file) return [file]
         return await traverseEntry(entry, '')
+      } catch {
+        if (entry?.isDirectory) return []
+        const file = item.getAsFile()
+        return file ? [file] : []
       }
-      // 顶层文件用 getAsFile：同步、保留空 webkitRelativePath。
-      const file = item.getAsFile()
-      if (file) return [file]
-      return await traverseEntry(entry, '')
-    } catch {
-      if (entry?.isDirectory) return []
-      const file = item.getAsFile()
-      return file ? [file] : []
-    }
-  }))
+    }),
+  )
 
   // 只要拿到了 FileSystemEntry，就采信遍历结果（包括空数组）。
   // 空文件夹 / 全是隐藏文件时若再回退 dataTransfer.files，

@@ -163,7 +163,7 @@ export function configLabel(
  * from under a half-filled input.
  */
 export function sortedConfigGroups(groups: ConfigEnvGroup[]): ConfigEnvGroup[] {
-  return [...groups].sort((a, b) => {
+  return groups.toSorted((a, b) => {
     const byName = configLabel(a).localeCompare(configLabel(b))
     if (byName !== 0) return byName
     return a.sandbox_config_id.localeCompare(b.sandbox_config_id)

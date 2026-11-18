@@ -111,8 +111,9 @@
                 <div v-if="canManageModel(model)" class="model-card__actions" @click.stop>
                   <t-dropdown :options="getModelOptions(model._modelType, model)" placement="bottom-right" attach="body"
                     trigger="click"
-                    @click="(data: any) => handleMenuAction({ value: data.value }, model._modelType, model)">
-                    <t-button variant="text" shape="square" size="small" class="model-card__action-btn model-card__more">
+                    @click="(data: { value?: unknown }) => handleMenuAction({ value: String(data.value ?? '') }, model._modelType, model)">
+                    <t-button variant="text" shape="square" size="small" class="model-card__action-btn model-card__more"
+                      :aria-label="$t('modelCatalog.more')">
                       <t-icon name="ellipsis" />
                     </t-button>
                   </t-dropdown>
@@ -131,6 +132,7 @@
                         variant="text"
                         size="small"
                         class="model-card__action-btn model-card__delete"
+                        :aria-label="$t('common.delete')"
                         @click.stop
                       >
                         <template #icon><t-icon name="delete" /></template>
@@ -361,13 +363,45 @@ const assistant = useAssistantStore()
 type ModelType = 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr'
 type FilterType = 'all' | ModelType
 
+type LegacyModelItem = ReturnType<typeof convertToLegacyFormat>
+
+interface ModelFormSavePayload {
+  modelType?: ModelType
+  modelName?: string
+  displayName?: string
+  source: 'local' | 'remote'
+  baseUrl?: string
+  apiKey?: string
+  appSecret?: string
+  provider?: string
+  dimension?: number
+  supportsDimensionOverride?: boolean
+  supportsVision?: boolean
+  contextWindow?: number
+  maxOutputTokens?: number
+  maxConcurrency?: number
+  customHeaders?: Array<{ key?: string; value?: string }>
+  extraConfig?: Record<string, unknown>
+  thinkingControl?: string
+  specCompat?: string
+  spec?: Record<string, unknown> | null
+}
+
+const getModelErrMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message?: unknown }).message || '')
+  }
+  return ''
+}
+
 const showDialog = ref(false)
 const showDebugDrawer = ref(false)
 const showUsageDialog = ref(false)
 const usageConflict = ref<ModelUsageDetails | null>(null)
 const usageConflictModelName = ref('')
 const currentModelType = ref<ModelType>('chat')
-const editingModel = ref<any>(null)
+const editingModel = ref<LegacyModelItem | null>(null)
 const modelDraft = ref<Record<string, unknown> | null>(null)
 const loading = ref(true)
 const activeTypeFilter = ref<FilterType>('all')
@@ -494,13 +528,13 @@ const sourceLabel = (type: ModelType) => {
 // store), so the model card and the editor dropdown always agree. Falls
 // back to the raw id when the catalog has not loaded yet, and to '' when
 // the backend didn't store a provider — caller falls back to sourceLabel().
-const providerLabel = (model: any): string => {
+const providerLabel = (model: LegacyModelItem): string => {
   const id = model.provider
   if (!id) return ''
   return providersStore.labelFor(id, String(locale.value || '')) || id
 }
 
-const vendorIcon = (model: any): string => {
+const vendorIcon = (model: LegacyModelItem): string => {
   if (model.source === 'local' || !model.provider) return ''
   return providersStore.iconFor(model.provider)
 }
@@ -515,7 +549,7 @@ const vendorIcon = (model: any): string => {
 //            blows out the card chip row, and the "OpenAI 兼容" framing
 //            isn't meaningful to most end users (they didn't pick "I
 //            want OpenAI compatibility", they just pasted a base URL).
-const vendorLabel = (model: any): string => {
+const vendorLabel = (model: LegacyModelItem): string => {
   if (model.source === 'local') return 'Ollama'
   if (model.provider === 'generic') {
     return t('modelSettings.source.custom')
@@ -523,7 +557,7 @@ const vendorLabel = (model: any): string => {
   return providerLabel(model) || sourceLabel(model._modelType)
 }
 
-const modelDisplayName = (model: any) => {
+const modelDisplayName = (model: Pick<LegacyModelItem, 'displayName' | 'name'>) => {
   const displayName = typeof model.displayName === 'string' ? model.displayName.trim() : ''
   return displayName || model.name
 }
@@ -566,9 +600,9 @@ const loadModels = async () => {
     // 设置页自己 listModels 之后立刻写回空间级缓存。否则对话输入栏 /
     // 智能体编辑器会继续拿 60s TTL 里的旧 context_window，刷新页面才对。
     chatResources.replaceModels(models)
-  } catch (error: any) {
-    console.error('加载模型列表失败:', error)
-    MessagePlugin.error(error.message)
+  } catch (error: unknown) {
+    console.error('Failed to load model list:', error)
+    MessagePlugin.error(getModelErrMessage(error))
   } finally {
     loading.value = false
   }
@@ -583,19 +617,19 @@ const openAddDialog = () => {
 
 // Tenant Admin+ manages tenant models; only SystemAdmin manages shared
 // built-in models. The backend repeats this distinction authoritatively.
-const canEditModel = (model: any) =>
+const canEditModel = (model: LegacyModelItem) =>
   model.isBuiltin ? authStore.isSystemAdmin : authStore.hasRole('admin')
 
-const isModelCardClickable = (model: any) => canEditModel(model)
+const isModelCardClickable = (model: LegacyModelItem) => canEditModel(model)
 
-const canManageModel = (model: any) => canEditModel(model)
+const canManageModel = (model: LegacyModelItem) => canEditModel(model)
 
 // Built-in lifecycle remains deployment-managed (YAML / SQL). The UI only
 // exposes configuration and credential editing to SystemAdmin.
-const canDeleteModel = (model: any) =>
+const canDeleteModel = (model: LegacyModelItem) =>
   authStore.hasRole('admin') && !model.isBuiltin
 
-const onModelCardClick = (event: Event, type: ModelType, model: any) => {
+const onModelCardClick = (event: Event, type: ModelType, model: LegacyModelItem) => {
   if (!isModelCardClickable(model)) return
   if (event.type === 'keydown') {
     const ke = event as KeyboardEvent
@@ -608,7 +642,7 @@ const onModelCardClick = (event: Event, type: ModelType, model: any) => {
 }
 
 // 编辑模型
-const editModel = (type: ModelType, model: any) => {
+const editModel = (type: ModelType, model: LegacyModelItem) => {
   if (model.isBuiltin && !authStore.isSystemAdmin) {
     MessagePlugin.warning(t('modelSettings.toasts.builtinCannotEdit'))
     return
@@ -622,7 +656,7 @@ const editModel = (type: ModelType, model: any) => {
 }
 
 // 保存模型
-const handleModelSave = async (modelData: any) => {
+const handleModelSave = async (modelData: ModelFormSavePayload) => {
   const saveType: ModelType = modelData.modelType ?? currentModelType.value
   currentModelType.value = saveType
 
@@ -768,8 +802,8 @@ const handleModelSave = async (modelData: any) => {
     }
 
     await loadModels()
-  } catch (error: any) {
-    console.error('保存模型失败:', error)
+  } catch (error: unknown) {
+    console.error('Failed to save model:', error)
     throw error
   }
 }
@@ -786,15 +820,19 @@ const deleteModel = async (_type: ModelType, modelId: string) => {
     await deleteModelAPI(modelId)
     MessagePlugin.success(t('modelSettings.toasts.deleted'))
     await loadModels()
-  } catch (error: any) {
-    console.error('删除模型失败:', error)
+  } catch (error: unknown) {
+    console.error('Failed to delete model:', error)
     if (error instanceof ModelInUseError) {
       usageConflict.value = error.details
       usageConflictModelName.value = model?.display_name || model?.name || modelId
       showUsageDialog.value = true
       return
     }
-    MessagePlugin.error(error.message || t('modelSettings.toasts.deleteFailed'))
+    if (error instanceof Error) {
+      MessagePlugin.error(error.message || t('modelSettings.toasts.deleteFailed'))
+      return
+    }
+    MessagePlugin.error(getModelErrMessage(error) || t('modelSettings.toasts.deleteFailed'))
   }
 }
 
@@ -839,8 +877,8 @@ const openUsageResource = async (
 }
 
 // 获取模型操作菜单选项
-const getModelOptions = (type: ModelType, model: any) => {
-  const options: any[] = []
+const getModelOptions = (type: ModelType, model: LegacyModelItem) => {
+  const options: Array<{ content: string; value: string }> = []
 
   if (model.isBuiltin) {
     if (authStore.isSystemAdmin) {
@@ -874,7 +912,7 @@ const getModelOptions = (type: ModelType, model: any) => {
 }
 
 // 处理菜单操作
-const handleMenuAction = (data: { value: string }, type: ModelType, model: any) => {
+const handleMenuAction = (data: { value: string }, type: ModelType, model: LegacyModelItem) => {
   const value = data.value
 
   if (value.indexOf('edit-') === 0) {
@@ -905,9 +943,9 @@ const copyModel = async (_type: ModelType, modelId: string) => {
     await copyModelConfig(source.id, displayName)
     MessagePlugin.success(t('modelSettings.toasts.copied'))
     await loadModels()
-  } catch (error: any) {
-    console.error('复制模型失败:', error)
-    MessagePlugin.error(error.message || t('modelSettings.toasts.copyFailed'))
+  } catch (error: unknown) {
+    console.error('Failed to copy model:', error)
+    MessagePlugin.error(getModelErrMessage(error) || t('modelSettings.toasts.copyFailed'))
   } finally {
     copyingModelId.value = null
   }
@@ -1130,7 +1168,6 @@ useAssistantDataChange(() => { void loadModels() }, { areas: ['model'] })
   :deep(.t-tabs__nav-scroll) {
     overflow-x: auto;
     scrollbar-width: none;
-    &::-webkit-scrollbar { display: none; }
   }
   :deep(.t-tabs__content) { display: none; }
 }
@@ -1241,28 +1278,28 @@ useAssistantDataChange(() => { void loadModels() }, { areas: ['model'] })
 
 .model-card__badge {
   .provider-card-badge(28px, 8px);
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 
 // 5 种类型的徽章配色 —— 比原 tag 配色饱和度低一档，避免炫光
 .model-card--chat .model-card__badge {
-  .provider-card-badge-color(#0052d9);
+  .provider-card-badge-color(var(--gy-accent-blue));
 }
 
 .model-card--embedding .model-card__badge {
-  .provider-card-badge-color(#6235bb);
+  .provider-card-badge-color(var(--gy-accent-purple));
 }
 
 .model-card--rerank .model-card__badge {
-  .provider-card-badge-color(#b85c00);
+  .provider-card-badge-color(var(--gy-warning));
 }
 
 .model-card--vllm .model-card__badge {
-  .provider-card-badge-color(#c93e3e);
+  .provider-card-badge-color(var(--gy-danger));
 }
 
 .model-card--asr .model-card__badge {
-  .provider-card-badge-color(#118053);
+  .provider-card-badge-color(var(--gy-success));
 }
 
 .model-card__body {

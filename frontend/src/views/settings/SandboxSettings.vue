@@ -111,7 +111,7 @@
                     placement="bottom-right"
                     attach="body"
                     trigger="click"
-                    @click="(data: any) => onMenuAction(data.value, record)"
+                    @click="(data: { value?: unknown }) => onMenuAction(String(data.value ?? ''), record)"
                   >
                     <t-button variant="text" shape="square" size="small" class="sandbox-card__more"
                       :aria-label="$t('modelCatalog.more')">
@@ -401,6 +401,14 @@ function isUserSandboxBusy(err: unknown): boolean {
   return body.status === 409 || body.$httpStatus === 409 || body.error === 'USER_SANDBOX_BUSY'
 }
 
+function getSandboxErrMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message?: unknown }).message || '')
+  }
+  return ''
+}
+
 async function loadUserSandboxes(configId: string) {
   if (inventoryRecord.value?.config?.allocation_mode !== 'user') {
     userSandboxes.value = []
@@ -410,9 +418,9 @@ async function loadUserSandboxes(configId: string) {
   try {
     const res = await listUserSandboxes(configId)
     userSandboxes.value = res?.data || []
-  } catch (e: any) {
+  } catch (e: unknown) {
     userSandboxes.value = []
-    MessagePlugin.error(e?.message || t('settings.sandbox.inventoryFailed'))
+    MessagePlugin.error(getSandboxErrMessage(e) || t('settings.sandbox.inventoryFailed'))
   } finally {
     userSandboxesLoading.value = false
   }
@@ -439,12 +447,12 @@ async function confirmRelease() {
       // The shared-machine table is refreshed below either way.
     }
     await loadUserSandboxes(record.id)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (isUserSandboxBusy(e)) {
       MessagePlugin.warning(t('settings.sandbox.userSandboxBusy'))
       return
     }
-    MessagePlugin.error(e?.message || t('settings.sandbox.inventoryFailed'))
+    MessagePlugin.error(getSandboxErrMessage(e) || t('settings.sandbox.inventoryFailed'))
   } finally {
     releasing.value = false
   }
@@ -467,7 +475,7 @@ async function loadSessionTitles(ids: string[]) {
   const next: Record<string, string> = {}
   await Promise.all(unique.map(async (id) => {
     try {
-      const res: any = await getSession(id)
+      const res = await getSession(id) as { data?: { title?: string } } | null
       next[id] = String(res?.data?.title || '').trim()
     } catch {
       next[id] = ''
@@ -602,8 +610,8 @@ async function load() {
     const res = await listSandboxConfigs()
     records.value = res?.data || []
     workspaceScriptsDisabled.value = res?.workspace_scripts_disabled === true
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.loadFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSandboxErrMessage(e) || t('settings.sandbox.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -617,8 +625,8 @@ async function setScriptsDisabled(disabled: boolean) {
     MessagePlugin.success(
       disabled ? t('settings.sandbox.scriptsDisabled') : t('settings.sandbox.scriptsEnabled'),
     )
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.policySaveFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSandboxErrMessage(e) || t('settings.sandbox.policySaveFailed'))
   } finally {
     policySaving.value = false
   }
@@ -663,8 +671,8 @@ async function openInventory(record: SandboxConfigRecord) {
       loadSessionTitles(inventory.value?.session_ids || []),
       loadUserSandboxes(record.id),
     ])
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.inventoryFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getSandboxErrMessage(e) || t('settings.sandbox.inventoryFailed'))
     showInventory.value = false
   } finally {
     inventoryLoading.value = false
@@ -677,7 +685,7 @@ async function removeRecord(record: SandboxConfigRecord, force = false) {
     MessagePlugin.success(t('settings.sandbox.deleted'))
     showInventory.value = false
     await load()
-  } catch (e: any) {
+  } catch (e: unknown) {
     const refusal = parseSandboxConflict(e)
     // Both refusals are about what the config still occupies, so both land in
     // the occupancy drawer where that state is spelled out. Counted sandboxes
@@ -692,7 +700,7 @@ async function removeRecord(record: SandboxConfigRecord, force = false) {
       showRefusal(record, 'unverifiable', refusal.inventory)
       return
     }
-    MessagePlugin.error(e?.message || t('settings.sandbox.deleteFailed'))
+    MessagePlugin.error(getSandboxErrMessage(e) || t('settings.sandbox.deleteFailed'))
   }
 }
 

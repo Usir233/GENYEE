@@ -246,26 +246,23 @@ onBeforeUnmount(() => { generation++; emit('busy', false) })
 <!-- t-popup attaches to body; z-index must sit above SettingDrawer (2500). -->
 <style lang="less">
 .mcp-tool-detail-popup {
-  z-index: 3100 !important;
+  z-index: var(--gy-z-popover);
 
   .t-popup__content {
-    padding: 0 !important;
+    padding: 0;
     width: 380px;
     max-width: calc(100vw - 24px);
-    border-radius: var(--app-radius-xl) !important;
-    background: var(--td-bg-color-container) !important;
-    border: 0.5px solid var(--td-component-stroke) !important;
-    box-shadow:
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    border-radius: var(--gy-radius-xl);
+    background: var(--gy-surface);
+    border: 0.5px solid var(--gy-border-subtle);
+    box-shadow: var(--gy-shadow-md);
     overflow: hidden;
   }
 }
 
 :root[theme-mode='dark'] .mcp-tool-detail-popup .t-popup__content {
-  background: rgba(36, 36, 36, 0.92) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: var(--gy-surface-overlay);
+  border-color: var(--gy-border-overlay);
 }
 
 .tool-detail__tabs {
@@ -273,33 +270,33 @@ onBeforeUnmount(() => { generation++; emit('busy', false) })
   gap: 2px;
   margin: 10px 12px 0;
   padding: 2px;
-  border-radius: var(--app-radius-md);
-  background: var(--td-bg-color-secondarycontainer);
+  border-radius: var(--gy-radius-md);
+  background: var(--gy-surface-subtle);
 }
 
 .tool-detail__tab {
   height: 24px;
   padding: 0 10px;
   border: 0;
-  border-radius: var(--app-radius-sm);
+  border-radius: var(--gy-radius-sm);
   background: transparent;
   font: inherit;
-  font-size: var(--app-text-sm);
+  font-size: var(--gy-text-sm);
   line-height: 24px;
-  color: var(--td-text-color-secondary);
+  color: var(--gy-text-secondary);
   cursor: pointer;
-  transition: background-color var(--app-motion-fast) ease, color var(--app-motion-fast) ease;
+  transition: background-color var(--gy-motion-fast) ease, color var(--gy-motion-fast) ease;
 }
 
 .tool-detail__tab:hover {
-  color: var(--td-text-color-primary);
+  color: var(--gy-text-primary);
 }
 
 .tool-detail__tab.is-active {
-  color: var(--td-text-color-primary);
+  color: var(--gy-text-primary);
   font-weight: 500;
-  background: var(--td-bg-color-container);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  background: var(--gy-surface);
+  box-shadow: var(--gy-shadow-sm);
 }
 
 .tool-detail__body {

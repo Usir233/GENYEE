@@ -79,12 +79,21 @@ const form = reactive({
 })
 const complexPasswordEnabled = ref(false)
 
+const getErrMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const msg = (err as { message?: unknown }).message
+    if (typeof msg === 'string') return msg
+  }
+  return ''
+}
+
 const loadAuthConfig = async () => {
   try {
     const resp = await getAuthConfig()
     complexPasswordEnabled.value = !!resp.complex_password_enabled
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.messages.loadFailed')
+  } catch (err: unknown) {
+    const msg = getErrMessage(err) || t('system.globalSettings.messages.loadFailed')
     MessagePlugin.error(msg)
     complexPasswordEnabled.value = false
   }
@@ -148,8 +157,8 @@ async function submit() {
     emit('announced', success)
     MessagePlugin.success(success)
     emit('update:visible', false)
-  } catch (err: any) {
-    const msg = err?.message || t('system.globalSettings.passwordReset.failed')
+  } catch (err: unknown) {
+    const msg = getErrMessage(err) || t('system.globalSettings.passwordReset.failed')
     emit('announced', msg)
     MessagePlugin.error(msg)
   } finally {

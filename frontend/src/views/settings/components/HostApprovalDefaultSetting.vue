@@ -24,7 +24,18 @@ const { t } = useI18n()
 const mode = ref<HostApprovalMode>('ask')
 const saving = ref(false)
 
-const nativeApp = () => (window as any).go?.main?.App
+interface WailsApprovalWindow extends Window {
+  go?: {
+    main?: {
+      App?: {
+        GetApprovalMode?: () => Promise<unknown> | unknown
+        SetApprovalMode?: (mode: HostApprovalMode) => Promise<void> | void
+      }
+    }
+  }
+}
+
+const nativeApp = () => (window as WailsApprovalWindow).go?.main?.App
 
 onMounted(async () => {
   try {
