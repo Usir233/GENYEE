@@ -2,7 +2,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-const source = readFileSync(new URL('./OrganizationSettingsModal.vue', import.meta.url), 'utf8')
+const source = [
+  './OrganizationSettingsModal.vue',
+  './composables/useOrganizationSettings.ts',
+  './components/OrgGeneralInviteSection.vue',
+  './components/OrgMembersSection.vue',
+  './components/OrgJoinRequestsSection.vue',
+  './components/OrgSharedResourcesSection.vue',
+  './organization-settings-modal.less',
+].map((rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')).join('\n')
 // 遮罩层由共享壳 SettingsModalShell 渲染，overscroll 规则也随之搬到那里。
 const shellSource = readFileSync(new URL('../../components/SettingsModalShell.vue', import.meta.url), 'utf8')
 

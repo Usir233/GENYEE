@@ -66,6 +66,7 @@
                       variant="text"
                       shape="square"
                       :title="$t('integrations.claw.copy')"
+                      :aria-label="$t('integrations.claw.copy')"
                       @click="copyEnvExample"
                     >
                       <t-icon name="file-copy" size="16px" />
@@ -81,6 +82,7 @@
                       variant="text"
                       shape="square"
                       :title="$t('integrations.claw.copy')"
+                      :aria-label="$t('integrations.claw.copy')"
                       @click="copyInstallCommand"
                     >
                       <t-icon name="file-copy" size="16px" />

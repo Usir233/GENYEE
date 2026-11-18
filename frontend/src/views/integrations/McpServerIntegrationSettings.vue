@@ -41,7 +41,7 @@
                 :options="menuOptions(ep)"
                 @click="handleMenuClick($event, ep)"
               >
-                <t-button variant="text" shape="square" size="small" class="channel-card__action-btn" @click.stop>
+                <t-button variant="text" shape="square" size="small" class="channel-card__action-btn" :aria-label="$t('common.more')" @click.stop>
                   <template #icon><t-icon name="ellipsis" /></template>
                 </t-button>
               </t-dropdown>
@@ -53,7 +53,7 @@
                 @confirm="() => removeEndpoint(ep)"
               >
                 <t-tooltip :content="$t('common.delete')" placement="top">
-                  <t-button theme="danger" shape="square" variant="text" size="small" class="channel-card__action-btn" @click.stop>
+                  <t-button theme="danger" shape="square" variant="text" size="small" class="channel-card__action-btn" :aria-label="$t('common.delete')" @click.stop>
                     <template #icon><t-icon name="delete" /></template>
                   </t-button>
                 </t-tooltip>
@@ -215,7 +215,7 @@
             <label class="form-label">{{ $t('integrations.mcpserver.tokenLabel') }}</label>
             <div class="code-toolbar">
               <pre class="code-toolbar__code">{{ freshToken }}</pre>
-              <t-button class="code-toolbar__copy" size="small" variant="text" shape="square" :title="$t('common.copy')" @click="copyText(freshToken)">
+              <t-button class="code-toolbar__copy" size="small" variant="text" shape="square" :title="$t('common.copy')" :aria-label="$t('common.copy')" @click="copyText(freshToken)">
                 <t-icon name="file-copy" size="16px" />
               </t-button>
             </div>
@@ -225,7 +225,7 @@
             <label class="form-label">{{ $t('integrations.mcpserver.urlLabel') }}</label>
             <div class="code-toolbar">
               <pre class="code-toolbar__code">{{ endpointUrl(editing) }}</pre>
-              <t-button class="code-toolbar__copy" size="small" variant="text" shape="square" :title="$t('common.copy')" @click="copyText(endpointUrl(editing))">
+              <t-button class="code-toolbar__copy" size="small" variant="text" shape="square" :title="$t('common.copy')" :aria-label="$t('common.copy')" @click="copyText(endpointUrl(editing))">
                 <t-icon name="file-copy" size="16px" />
               </t-button>
             </div>
@@ -239,7 +239,7 @@
                 <p class="form-desc form-desc--block">{{ $t(`integrations.mcpserver.snippet.${snippet.key}Desc`) }}</p>
                 <div class="code-toolbar">
                   <pre class="code-toolbar__code">{{ snippet.text }}</pre>
-                  <t-button class="code-toolbar__copy" size="small" variant="text" shape="square" :title="$t('common.copy')" @click="copyText(snippet.text)">
+                  <t-button class="code-toolbar__copy" size="small" variant="text" shape="square" :title="$t('common.copy')" :aria-label="$t('common.copy')" @click="copyText(snippet.text)">
                     <t-icon name="file-copy" size="16px" />
                   </t-button>
                 </div>
@@ -298,7 +298,14 @@ const catalog = ref<McpEndpointToolCatalog>({ groups: [], tools: [], default_too
 const kbLoading = ref(false)
 const knowledgeBases = ref<{ id: string; name: string }[]>([])
 const kbOptions = computed(() => knowledgeBases.value.map((kb) => ({ label: kb.name || kb.id, value: kb.id })))
-const kbNameById = computed(() => Object.fromEntries(knowledgeBases.value.map((kb) => [kb.id, kb.name || kb.id])))
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message: string }).message
+  }
+  return ''
+}
 
 const agentsLoading = ref(false)
 const agents = ref<CustomAgent[]>([])
@@ -392,8 +399,8 @@ async function load() {
     const [epRes, catRes] = await Promise.all([listMcpEndpoints(), getMcpEndpointToolCatalog()])
     endpoints.value = epRes?.data ?? []
     catalog.value = catRes?.data ?? { groups: [], tools: [], default_tools: [] }
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('integrations.mcpserver.loadFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getErrorMessage(err) || t('integrations.mcpserver.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -503,8 +510,8 @@ async function saveForm() {
       // token is read in place instead of in a second, taller dialog.
       if (res?.data) openEdit(res.data, 1, res.data.token || '')
     }
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('integrations.mcpserver.saveFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getErrorMessage(err) || t('integrations.mcpserver.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -515,8 +522,8 @@ async function removeEndpoint(ep: McpEndpoint) {
     await deleteMcpEndpoint(ep.id)
     MessagePlugin.success(t('integrations.mcpserver.deleted'))
     await load()
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('integrations.mcpserver.deleteFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getErrorMessage(err) || t('integrations.mcpserver.deleteFailed'))
   }
 }
 
@@ -526,8 +533,8 @@ async function rotateToken(ep: McpEndpoint) {
     MessagePlugin.success(t('integrations.mcpserver.rotated'))
     await load()
     if (res?.data) openEdit(res.data, 1, res.data.token || '')
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('integrations.mcpserver.rotateFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getErrorMessage(err) || t('integrations.mcpserver.rotateFailed'))
   }
 }
 
@@ -536,8 +543,8 @@ async function toggleEnabled(ep: McpEndpoint) {
     await updateMcpEndpoint(ep.id, { enabled: !ep.enabled })
     MessagePlugin.success(ep.enabled ? t('integrations.mcpserver.disabledToast') : t('integrations.mcpserver.enabledToast'))
     await load()
-  } catch (err: any) {
-    MessagePlugin.error(err?.message || t('integrations.mcpserver.saveFailed'))
+  } catch (err: unknown) {
+    MessagePlugin.error(getErrorMessage(err) || t('integrations.mcpserver.saveFailed'))
   }
 }
 
@@ -782,9 +789,9 @@ onMounted(() => {
 }
 
 .im-step.active .im-step-num {
-  background: var(--td-brand-color);
-  color: #fff;
-  border-color: var(--td-brand-color);
+  background: var(--gy-brand);
+  color: var(--gy-text-inverse);
+  border-color: var(--gy-brand);
 }
 
 .im-step.done .im-step-num {

@@ -310,6 +310,14 @@ function duration(run: AutomationRun): string {
   return t('automation.detail.durationMinutes', { n: Math.round(seconds / 60) })
 }
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  return ''
+}
+
 function close() {
   emit('update:visible', false)
 }
@@ -327,8 +335,8 @@ async function loadRuns(reset: boolean) {
     runs.value = reset ? items : [...runs.value, ...items]
     runsTotal.value = res.total ?? runs.value.length
     runsPage.value = page
-  } catch (e: any) {
-    if (version === detailVersion) MessagePlugin.error(e?.message || t('common.operationFailed'))
+  } catch (e: unknown) {
+    if (version === detailVersion) MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     if (version === detailVersion) {
       runsLoading.value = false
@@ -380,9 +388,9 @@ async function loadGrants() {
     if (version !== detailVersion) return
     grants.value = g.data ?? []
     candidates.value = c.data ?? []
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (version !== detailVersion) return
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     if (version === detailVersion) grantsLoading.value = false
   }
@@ -425,9 +433,9 @@ async function runNow() {
       runs.value = [res.data, ...runs.value]
       runsTotal.value += 1
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (version !== detailVersion) return
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     if (version === detailVersion) busy.value = ''
   }
@@ -446,9 +454,9 @@ async function toggle() {
     const res = a.enabled ? await pauseAutomation(a.id) : await resumeAutomation(a.id)
     if (version !== detailVersion) return
     emit('changed', res.data)
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (version !== detailVersion) return
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     if (version === detailVersion) busy.value = ''
   }
@@ -465,9 +473,9 @@ async function cancel(run: AutomationRun) {
     const res = await cancelAutomationRun(run.id)
     if (version !== detailVersion) return
     runs.value = runs.value.map((r) => (r.id === run.id ? res.data : r))
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (version !== detailVersion) return
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   }
 }
 
@@ -488,8 +496,8 @@ function allow(candidate: AutomationGrantCandidate) {
       try {
         await addAutomationGrant(a.id, candidate.prompt_id)
         await loadGrants()
-      } catch (e: any) {
-        MessagePlugin.error(e?.message || t('common.operationFailed'))
+      } catch (e: unknown) {
+        MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
       }
     },
   })
@@ -499,8 +507,8 @@ async function revoke(grant: AutomationGrant) {
   try {
     await revokeAutomationGrant(grant.id)
     await loadGrants()
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   }
 }
 </script>
@@ -522,15 +530,15 @@ async function revoke(grant: AutomationGrant) {
   border: 0;
   border-radius: var(--app-radius-sm);
   background: transparent;
-  color: color-mix(in srgb, var(--td-text-color-primary) 55%, transparent);
+  color: color-mix(in oklab, var(--td-text-color-primary) 55%, transparent);
   cursor: pointer;
 
   &:hover:not(:disabled) {
     color: var(--td-text-color-secondary);
-    background: color-mix(in srgb, var(--td-text-color-primary) 5%, transparent);
+    background: color-mix(in oklab, var(--td-text-color-primary) 5%, transparent);
   }
   &:active:not(:disabled) {
-    background: color-mix(in srgb, var(--td-text-color-primary) 9%, transparent);
+    background: color-mix(in oklab, var(--td-text-color-primary) 9%, transparent);
   }
   &:focus-visible {
     outline: 2px solid var(--td-brand-color-focus);
@@ -576,7 +584,7 @@ async function revoke(grant: AutomationGrant) {
 .automation-detail__brief {
   padding: 14px 16px 16px;
   border-radius: var(--app-radius-lg);
-  background: color-mix(in srgb, var(--td-bg-color-secondarycontainer) 40%, var(--td-bg-color-container));
+  background: color-mix(in oklab, var(--td-bg-color-secondarycontainer) 40%, var(--td-bg-color-container));
 }
 
 .automation-detail__brief-heading {
@@ -679,7 +687,7 @@ async function revoke(grant: AutomationGrant) {
 }
 
 .automation-detail__instruction-scroll--more {
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, black calc(100% - 28px), transparent);
 }
 
 .automation-detail__instruction-toggle {
@@ -780,7 +788,7 @@ async function revoke(grant: AutomationGrant) {
   &:last-child { padding-bottom: 0; }
   &:last-child::before { display: none; }
   &.is-focused .automation-run__result {
-    background: color-mix(in srgb, var(--td-brand-color) 5%, var(--td-bg-color-container));
+    background: color-mix(in oklab, var(--td-brand-color) 5%, var(--td-bg-color-container));
   }
 }
 
@@ -801,7 +809,7 @@ async function revoke(grant: AutomationGrant) {
   padding: 12px 14px;
   border: 0;
   border-radius: var(--app-radius-lg);
-  background: color-mix(in srgb, var(--td-bg-color-secondarycontainer) 40%, var(--td-bg-color-container));
+  background: color-mix(in oklab, var(--td-bg-color-secondarycontainer) 40%, var(--td-bg-color-container));
   text-align: left;
   font: inherit;
   transition: background-color var(--app-motion-fast) ease;

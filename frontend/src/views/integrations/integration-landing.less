@@ -1,15 +1,12 @@
-@claw-accent: #e85d2a;
-@claw-accent-dark: #c44d1f;
-
 .integration-landing {
-  --integration-accent: var(--td-brand-color);
+  --integration-accent: var(--gy-brand);
   container-type: inline-size;
   container-name: integration-landing;
   display: flex;
   flex-direction: column;
   gap: 16px;
 
-  &--claw { --integration-accent: @claw-accent-dark; }
+  &--claw { --integration-accent: var(--gy-brand-active); }
 
   .landing-hero {
     display: flex;
@@ -148,7 +145,7 @@
       width: 28px;
       height: 28px;
       border-radius: var(--app-radius-sm);
-      background: color-mix(in srgb, var(--integration-accent) 8%, transparent);
+      background: color-mix(in oklab, var(--integration-accent) 8%, transparent);
       color: var(--integration-accent);
       .t-icon { font-size: var(--app-text-xl); }
     }
@@ -189,7 +186,7 @@
     font-size: var(--app-text-sm);
     font-weight: 500;
     color: var(--integration-accent);
-    background: color-mix(in srgb, var(--integration-accent) 10%, transparent);
+    background: color-mix(in oklab, var(--integration-accent) 10%, transparent);
   }
   .landing-step-body { flex: 1; min-width: 0; }
   .landing-step-title {

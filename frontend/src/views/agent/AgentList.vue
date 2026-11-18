@@ -74,86 +74,76 @@
             :key="agent.isMine ? agent.id : `shared-${agent.share_id}`">
             <!-- 内置：始终置顶。filteredAgents 在 all 视图里已经把
                  builtin 排到最前；这里只在第一张 builtin 之前打一次标题。 -->
-            <div v-if="agent.isMine
+            <button v-if="agent.isMine
               && agent.is_builtin
               && (index === 0
                 || !filteredAgents[index - 1].isMine
-                || !(filteredAgents[index - 1] as AgentWithUI).is_builtin)" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('builtin')" @click="toggleAgentSection('builtin')"
-              @keydown.enter.prevent="toggleAgentSection('builtin')"
-              @keydown.space.prevent="toggleAgentSection('builtin')">
+                || !filteredAgents[index - 1].is_builtin)" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('builtin')" @click="toggleAgentSection('builtin')">
               <t-icon name="app" size="14px" />
               <span>{{ $t('agent.sections.builtin') }}</span>
               <span class="agent-section-count">{{ filteredAgentSectionCounts.builtin }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('builtin') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 我创建的：当前 agent 是本空间 + 非内置 + 我亲手创建，且前一张
                  要么不存在、要么不是本空间、要么是内置（builtin → mine 过渡）、
                  要么是同事创建。与 KB 列表对齐，Lite 隐藏该分组标题。 -->
-            <div v-if="!authStore.isLiteMode && agent.isMine
+            <button v-if="!authStore.isLiteMode && agent.isMine
               && !agent.is_builtin
               && isMyAgent(agent)
               && (index === 0
                 || !filteredAgents[index - 1].isMine
-                || (filteredAgents[index - 1] as AgentWithUI).is_builtin
-                || !isMyAgent(filteredAgents[index - 1] as AgentWithUI))" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('mine')" @click="toggleAgentSection('mine')"
-              @keydown.enter.prevent="toggleAgentSection('mine')"
-              @keydown.space.prevent="toggleAgentSection('mine')">
+                || filteredAgents[index - 1].is_builtin
+                || !isMyAgent(filteredAgents[index - 1]))" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('mine')" @click="toggleAgentSection('mine')">
               <t-icon name="user" size="14px" />
               <span>{{ $t('agent.sections.mine') }}</span>
               <span class="agent-section-count">{{ filteredAgentSectionCounts.mine }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('mine') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 本空间 · 仅查看 / 其他成员：本空间里非内置且非我创建的同事 agent。 -->
-            <div v-if="agent.isMine
+            <button v-if="agent.isMine
               && !agent.is_builtin
               && !isMyAgent(agent)
               && (index === 0
                 || !filteredAgents[index - 1].isMine
-                || (filteredAgents[index - 1] as AgentWithUI).is_builtin
-                || isMyAgent(filteredAgents[index - 1] as AgentWithUI))" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('tenantOthers')" @click="toggleAgentSection('tenantOthers')"
-              @keydown.enter.prevent="toggleAgentSection('tenantOthers')"
-              @keydown.space.prevent="toggleAgentSection('tenantOthers')">
+                || filteredAgents[index - 1].is_builtin
+                || isMyAgent(filteredAgents[index - 1]))" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('tenantOthers')" @click="toggleAgentSection('tenantOthers')">
               <t-icon :name="tenantSectionIconName" size="14px" />
               <span>{{ $t(tenantSectionLabelKey) }}</span>
               <span class="agent-section-count">{{ filteredAgentSectionCounts.tenantOthers }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('tenantOthers') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 共享给我 · 可编辑：仅在「全部」视图过渡处显示分组标题 -->
-            <div v-if="!agent.isMine
-              && isSharedAgentEditable((agent as any).permission)
-              && (index === 0 || filteredAgents[index - 1].isMine)" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('sharedEditable')" @click="toggleAgentSection('sharedEditable')"
-              @keydown.enter.prevent="toggleAgentSection('sharedEditable')"
-              @keydown.space.prevent="toggleAgentSection('sharedEditable')">
+            <button v-if="!agent.isMine
+              && isSharedAgentEditable(agent.permission)
+              && (index === 0 || filteredAgents[index - 1].isMine)" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('sharedEditable')" @click="toggleAgentSection('sharedEditable')">
               <t-icon name="usergroup-add" size="14px" />
               <t-icon name="edit-1" size="12px" class="agent-section-subicon" />
               <span>{{ $t('agent.sections.sharedEditable') }}</span>
               <span class="agent-section-count">{{ filteredAgentSectionCounts.sharedEditable }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('sharedEditable') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 共享给我 · 仅查看 -->
-            <div v-if="!agent.isMine
-              && !isSharedAgentEditable((agent as any).permission)
+            <button v-if="!agent.isMine
+              && !isSharedAgentEditable(agent.permission)
               && (index === 0
                 || filteredAgents[index - 1].isMine
-                || isSharedAgentEditable((filteredAgents[index - 1] as any).permission))" class="agent-section-header"
-              role="button" tabindex="0" :aria-expanded="!isAgentSectionCollapsed('sharedReadonly')" @click="toggleAgentSection('sharedReadonly')"
-              @keydown.enter.prevent="toggleAgentSection('sharedReadonly')"
-              @keydown.space.prevent="toggleAgentSection('sharedReadonly')">
+                || isEditableSharedDisplayAgent(filteredAgents[index - 1]))" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('sharedReadonly')" @click="toggleAgentSection('sharedReadonly')">
               <t-icon name="usergroup-add" size="14px" />
               <t-icon name="browse" size="12px" class="agent-section-subicon" />
               <span>{{ $t('agent.sections.sharedReadonly') }}</span>
               <span class="agent-section-count">{{ filteredAgentSectionCounts.sharedReadonly }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('sharedReadonly') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <div v-show="!isAgentRowHidden(agent)" class="agent-card" :class="{
               'is-builtin': agent.is_builtin,
               'agent-mode-normal': agent.config?.agent_mode === 'quick-answer',
@@ -182,19 +172,19 @@
                   </button>
                   <template #content>
                     <div class="popup-menu">
-                      <div v-if="canManageAgent(agent)" class="popup-menu-item" @click="handleEdit(agent)"><t-icon
-                          class="menu-icon" name="edit" /><span>{{ $t('common.edit') }}</span></div>
-                      <div v-if="authStore.hasRole('contributor')" class="popup-menu-item" @click="handleCopy(agent)">
+                      <button v-if="canManageAgent(agent)" type="button" class="popup-menu-item" @click="handleEdit(agent)"><t-icon
+                          class="menu-icon" name="edit" /><span>{{ $t('common.edit') }}</span></button>
+                      <button v-if="authStore.hasRole('contributor')" type="button" class="popup-menu-item" @click="handleCopy(agent)">
                         <t-icon class="menu-icon" name="file-copy" /><span>{{ $t('common.copy') }}</span>
-                      </div>
-                      <div v-if="authStore.hasRole('admin')" class="popup-menu-item"
+                      </button>
+                      <button v-if="authStore.hasRole('admin')" type="button" class="popup-menu-item"
                         @click="handleToggleDisabled(agent)">
                         <t-icon class="menu-icon" name="poweroff" />
                         <span>{{ agent.disabled_by_me ? $t('agent.enable') : $t('agent.disable') }}</span>
-                      </div>
-                      <div v-if="!agent.is_builtin && canManageAgent(agent)" class="popup-menu-item delete"
+                      </button>
+                      <button v-if="!agent.is_builtin && canManageAgent(agent)" type="button" class="popup-menu-item delete"
                         @click="handleDelete(agent)"><t-icon class="menu-icon" name="delete" /><span>{{
-                          $t('common.delete') }}</span></div>
+                          $t('common.delete') }}</span></button>
                     </div>
                   </template>
                 </t-popup>
@@ -208,10 +198,10 @@
                   </button>
                   <template #content>
                     <div class="popup-menu">
-                      <div class="popup-menu-item" @click="handleToggleSharedDisabled(agent)">
+                      <button type="button" class="popup-menu-item" @click="handleToggleSharedDisabled(agent)">
                         <t-icon class="menu-icon" name="poweroff" />
                         <span>{{ agent.disabled_by_me ? $t('agent.enable') : $t('agent.disable') }}</span>
-                      </div>
+                      </button>
                     </div>
                   </template>
                 </t-popup>
@@ -279,7 +269,7 @@
                   <span>{{ $t('agent.builtin') }}</span>
                 </div>
                 <ResourceOriginBadge v-else-if="showAgentOriginBadge(agent)" :variant="agentOriginVariant(agent)"
-                  :creator-name="(agent as any).creator_name" />
+                  :creator-name="agent.creator_name" />
               </div>
             </div>
           </template>
@@ -289,47 +279,41 @@
         <div v-if="spaceSelection === 'mine' && sortedMineAgents.length > 0" class="agent-card-wrap">
           <template v-for="(agent, index) in sortedMineAgents" :key="agent.id">
             <!-- 内置：始终置顶。sortedMineAgents 已按 内置→我→同事 排序。 -->
-            <div v-if="agent.is_builtin
-              && (index === 0 || !sortedMineAgents[index - 1].is_builtin)" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('builtin')" @click="toggleAgentSection('builtin')"
-              @keydown.enter.prevent="toggleAgentSection('builtin')"
-              @keydown.space.prevent="toggleAgentSection('builtin')">
+            <button v-if="agent.is_builtin
+              && (index === 0 || !sortedMineAgents[index - 1].is_builtin)" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('builtin')" @click="toggleAgentSection('builtin')">
               <t-icon name="app" size="14px" />
               <span>{{ $t('agent.sections.builtin') }}</span>
               <span class="agent-section-count">{{ mineAgentSectionCounts.builtin }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('builtin') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 我创建的：非 Lite 在第一张非内置且我亲手创建的卡片前打标题 -->
-            <div v-if="!authStore.isLiteMode && !agent.is_builtin
+            <button v-if="!authStore.isLiteMode && !agent.is_builtin
               && isMyAgent(agent)
               && (index === 0
                 || sortedMineAgents[index - 1].is_builtin
-                || !isMyAgent(sortedMineAgents[index - 1]))" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('mine')" @click="toggleAgentSection('mine')"
-              @keydown.enter.prevent="toggleAgentSection('mine')"
-              @keydown.space.prevent="toggleAgentSection('mine')">
+                || !isMyAgent(sortedMineAgents[index - 1]))" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('mine')" @click="toggleAgentSection('mine')">
               <t-icon name="user" size="14px" />
               <span>{{ $t('agent.sections.mine') }}</span>
               <span class="agent-section-count">{{ mineAgentSectionCounts.mine }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('mine') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 本空间 · 仅查看 / 其他成员：非内置且非我创建的同事 agent -->
-            <div v-if="!agent.is_builtin
+            <button v-if="!agent.is_builtin
               && !isMyAgent(agent)
               && (index === 0
                 || sortedMineAgents[index - 1].is_builtin
-                || isMyAgent(sortedMineAgents[index - 1]))" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('tenantOthers')" @click="toggleAgentSection('tenantOthers')"
-              @keydown.enter.prevent="toggleAgentSection('tenantOthers')"
-              @keydown.space.prevent="toggleAgentSection('tenantOthers')">
+                || isMyAgent(sortedMineAgents[index - 1]))" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('tenantOthers')" @click="toggleAgentSection('tenantOthers')">
               <t-icon :name="tenantSectionIconName" size="14px" />
               <span>{{ $t(tenantSectionLabelKey) }}</span>
               <span class="agent-section-count">{{ mineAgentSectionCounts.tenantOthers }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('tenantOthers') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <div v-show="!isAgentRowHidden(agent)" class="agent-card" :class="{
               'is-builtin': agent.is_builtin,
               'agent-mode-normal': agent.config?.agent_mode === 'quick-answer',
@@ -358,24 +342,24 @@
                   </button>
                   <template #content>
                     <div class="popup-menu">
-                      <div v-if="canManageAgent(agent)" class="popup-menu-item" @click="handleEdit(agent)">
+                      <button v-if="canManageAgent(agent)" type="button" class="popup-menu-item" @click="handleEdit(agent)">
                         <t-icon class="menu-icon" name="edit" />
                         <span>{{ $t('common.edit') }}</span>
-                      </div>
-                      <div v-if="authStore.hasRole('contributor')" class="popup-menu-item" @click="handleCopy(agent)">
+                      </button>
+                      <button v-if="authStore.hasRole('contributor')" type="button" class="popup-menu-item" @click="handleCopy(agent)">
                         <t-icon class="menu-icon" name="file-copy" />
                         <span>{{ $t('common.copy') }}</span>
-                      </div>
-                      <div v-if="authStore.hasRole('admin')" class="popup-menu-item"
+                      </button>
+                      <button v-if="authStore.hasRole('admin')" type="button" class="popup-menu-item"
                         @click="handleToggleDisabled(agent)">
                         <t-icon class="menu-icon" name="poweroff" />
                         <span>{{ agent.disabled_by_me ? $t('agent.enable') : $t('agent.disable') }}</span>
-                      </div>
-                      <div v-if="!agent.is_builtin && canManageAgent(agent)" class="popup-menu-item delete"
+                      </button>
+                      <button v-if="!agent.is_builtin && canManageAgent(agent)" type="button" class="popup-menu-item delete"
                         @click="handleDelete(agent)">
                         <t-icon class="menu-icon" name="delete" />
                         <span>{{ $t('common.delete') }}</span>
-                      </div>
+                      </button>
                     </div>
                   </template>
                 </t-popup>
@@ -440,7 +424,7 @@
                   <span>{{ $t('agent.builtin') }}</span>
                 </div>
                 <ResourceOriginBadge v-else-if="showAgentOriginBadge(agent)" :variant="agentOriginVariant(agent)"
-                  :creator-name="(agent as any).creator_name" />
+                  :creator-name="agent.creator_name" />
               </div>
             </div>
           </template>
@@ -453,46 +437,40 @@
         <div v-else-if="spaceSelectionOrgId && sortedSpaceAgentsList.length > 0" class="agent-card-wrap">
           <template v-for="(shared, index) in sortedSpaceAgentsList" :key="'shared-' + shared.share_id">
             <!-- 我共享的：当前用户共享进本空间的智能体，只在首条 is_mine 上挂标题 -->
-            <div v-if="shared.is_mine && index === 0" class="agent-section-header"
-              role="button" tabindex="0" :aria-expanded="!isAgentSectionCollapsed('sharedByMe')" @click="toggleAgentSection('sharedByMe')"
-              @keydown.enter.prevent="toggleAgentSection('sharedByMe')"
-              @keydown.space.prevent="toggleAgentSection('sharedByMe')">
+            <button v-if="shared.is_mine && index === 0" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('sharedByMe')" @click="toggleAgentSection('sharedByMe')">
               <t-icon name="share" size="14px" />
               <span>{{ $t('agent.sections.sharedByMe') }}</span>
               <span class="agent-section-count">{{ spaceAgentSectionCounts.sharedByMe }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('sharedByMe') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 共享给我 · 可编辑：首次从 is_mine 进入共享 + editable -->
-            <div v-if="!shared.is_mine
+            <button v-if="!shared.is_mine
               && isSharedAgentEditable(shared.permission)
-              && (index === 0 || sortedSpaceAgentsList[index - 1].is_mine)" class="agent-section-header" role="button"
-              tabindex="0" :aria-expanded="!isAgentSectionCollapsed('sharedEditable')" @click="toggleAgentSection('sharedEditable')"
-              @keydown.enter.prevent="toggleAgentSection('sharedEditable')"
-              @keydown.space.prevent="toggleAgentSection('sharedEditable')">
+              && (index === 0 || sortedSpaceAgentsList[index - 1].is_mine)" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('sharedEditable')" @click="toggleAgentSection('sharedEditable')">
               <t-icon name="usergroup-add" size="14px" />
               <t-icon name="edit-1" size="12px" class="agent-section-subicon" />
               <span>{{ $t('agent.sections.sharedEditable') }}</span>
               <span class="agent-section-count">{{ spaceAgentSectionCounts.sharedEditable }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('sharedEditable') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 共享给我 · 仅查看：首次从可编辑 / is_mine 进入 viewer -->
-            <div v-if="!shared.is_mine
+            <button v-if="!shared.is_mine
               && !isSharedAgentEditable(shared.permission)
               && (index === 0
                 || sortedSpaceAgentsList[index - 1].is_mine
-                || isSharedAgentEditable(sortedSpaceAgentsList[index - 1].permission))" class="agent-section-header"
-              role="button" tabindex="0" :aria-expanded="!isAgentSectionCollapsed('sharedReadonly')" @click="toggleAgentSection('sharedReadonly')"
-              @keydown.enter.prevent="toggleAgentSection('sharedReadonly')"
-              @keydown.space.prevent="toggleAgentSection('sharedReadonly')">
+                || isSharedAgentEditable(sortedSpaceAgentsList[index - 1].permission))" type="button" class="agent-section-header"
+              :aria-expanded="!isAgentSectionCollapsed('sharedReadonly')" @click="toggleAgentSection('sharedReadonly')">
               <t-icon name="usergroup-add" size="14px" />
               <t-icon name="browse" size="12px" class="agent-section-subicon" />
               <span>{{ $t('agent.sections.sharedReadonly') }}</span>
               <span class="agent-section-count">{{ spaceAgentSectionCounts.sharedReadonly }}</span>
               <t-icon class="agent-section-toggle"
                 :name="isAgentSectionCollapsed('sharedReadonly') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <div v-show="!isSpaceAgentCollapsed(shared)" class="agent-card shared-agent-card" :class="{
               'agent-mode-normal': shared.agent?.config?.agent_mode === 'quick-answer',
               'agent-mode-agent': shared.agent?.config?.agent_mode === 'smart-reasoning'
@@ -512,10 +490,10 @@
                   </button>
                   <template #content>
                     <div class="popup-menu">
-                      <div class="popup-menu-item" @click="handleToggleSharedDisabledFromShared(shared)">
+                      <button type="button" class="popup-menu-item" @click="handleToggleSharedDisabledFromShared(shared)">
                         <t-icon class="menu-icon" name="poweroff" />
                         <span>{{ shared.disabled_by_me ? $t('agent.enable') : $t('agent.disable') }}</span>
-                      </div>
+                      </button>
                     </div>
                   </template>
                 </t-popup>
@@ -798,12 +776,25 @@ interface AgentWithUI extends CustomAgent {
 /** Merged agent for "all" tab: my agents (isMine: true) or shared
  *  (isMine: false, org_name, source_tenant_id, share_id, permission, disabled_by_me?).
  *  `permission` drives the「可编辑 / 仅查看」分组，仅在 shared 分支携带。 */
-type DisplayAgent = (AgentWithUI & { isMine: true }) | (CustomAgent & { isMine: false; org_name: string; source_tenant_id: number; share_id: string; permission?: string; showMore?: boolean; disabled_by_me?: boolean })
+type DisplayAgent =
+  | (AgentWithUI & { isMine: true; shared_at?: string })
+  | (CustomAgent & {
+      isMine: false
+      org_name: string
+      source_tenant_id: number
+      share_id: string
+      permission?: string
+      showMore?: boolean
+      disabled_by_me?: boolean
+      shared_at?: string
+    })
 
-const flatAgentSortAccessors: ResourceSortAccessors<any> = {
+type FlatSortableAgent = AgentWithUI | DisplayAgent
+
+const flatAgentSortAccessors: ResourceSortAccessors<FlatSortableAgent> = {
   getName: item => item?.name,
-  getUpdatedAt: item => item?.updated_at ?? item?.shared_at,
-  getCreatedAt: item => item?.created_at ?? item?.shared_at,
+  getUpdatedAt: item => item?.updated_at ?? ('shared_at' in item ? item.shared_at : undefined),
+  getCreatedAt: item => item?.created_at ?? ('shared_at' in item ? item.shared_at : undefined),
 }
 
 const sharedAgentSortAccessors: ResourceSortAccessors<OrganizationSharedAgentItem> = {
@@ -887,9 +878,13 @@ const effectiveSharedCountByOrg = computed<Record<string, number>>(() => {
   return merged
 })
 
+type PinnedAgentIndexEntry =
+  | { isMine: true; agent: AgentWithUI }
+  | { isMine: false; agent: CustomAgent; shared: SharedAgentInfo }
+
 // Favorites / Recents view: hydrate pinned ids against own + shared agents.
 const agentResourceIndex = computed(() => {
-  const map = new Map<string, { agent: any; isMine: boolean; shared?: SharedAgentInfo }>()
+  const map = new Map<string, PinnedAgentIndexEntry>()
   for (const a of agents.value) map.set(a.id, { agent: a, isMine: true })
   for (const s of sharedAgents.value) {
     if (s.agent && !map.has(s.agent.id)) map.set(s.agent.id, { agent: s.agent, isMine: false, shared: s })
@@ -966,7 +961,7 @@ const unsearchedFilteredAgents = computed<DisplayAgent[]>(() => {
   // 共享区按 share permission 排序：editor/admin 在前，viewer 在后，
   // 让「共享给我 · 可编辑 / 仅查看」分组标题正好落在过渡处。即便当前角色
   // 不显示分组标题，排序也保留——展示更可预测。
-  const sortedShared = [...sharedAgents.value].sort((a, b) => {
+  const sortedShared = sharedAgents.value.toSorted((a, b) => {
     const aE = isSharedAgentEditable(a.permission) ? 0 : 1
     const bE = isSharedAgentEditable(b.permission) ? 0 : 1
     return aE - bE
@@ -1346,7 +1341,7 @@ function canManageAgent(agent: AgentWithUI | DisplayAgent): boolean {
     return false
   }
   const userId = authStore.user?.id || ''
-  const creatorId = (agent as any).created_by || ''
+  const creatorId = agent.created_by || ''
   // A creator demoted to Viewer no longer manages it (access.CreatorRoleFloor).
   if (creatorId && userId && creatorId === userId && authStore.hasRole('contributor')) return true
   return authStore.hasRole('admin')
@@ -1368,11 +1363,11 @@ function agentOriginVariant(agent: { created_by?: string }): 'mine' | 'creator' 
   return isMyAgent(agent) ? 'mine' : 'creator'
 }
 
-function showAgentOriginBadge(agent: { created_by?: string; creator_name?: string }): boolean {
+function showAgentOriginBadge(agent: { created_by?: string; creator_name?: string; is_builtin?: boolean; isMine?: boolean; permission?: string }): boolean {
   return shouldShowResourceOriginBadge({
     section: agentSectionOf(agent),
     variant: agentOriginVariant(agent),
-    creatorName: (agent as any).creator_name,
+    creatorName: agent.creator_name,
     showSectionHeaders: true,
   })
 }
@@ -1390,6 +1385,9 @@ function showAgentBuiltinBadge(agent: { is_builtin?: boolean }): boolean {
 const AGENT_EDITABLE_PERMS = new Set(['admin', 'editor'])
 function isSharedAgentEditable(perm: string | undefined): boolean {
   return !!perm && AGENT_EDITABLE_PERMS.has(perm)
+}
+function isEditableSharedDisplayAgent(agent: DisplayAgent | undefined): boolean {
+  return !!agent && !agent.isMine && isSharedAgentEditable(agent.permission)
 }
 // 同空间、非当前用户创建的 Agent 分组标题。
 // contributor / viewer 在本空间里对这些 Agent 没有写权限，所以打"仅查看"；
@@ -1427,7 +1425,15 @@ const toggleAgentSection = (key: AgentSectionKey) => {
 //
 // 当前用户自己创建的 agent 在模板里**没有**独立分组标题（不像 KB 那边有
 // "我创建的"段），所以这里返回 null——折叠任何分组都不会影响到它们。
-const agentSectionOf = (item: any): AgentSectionKey | null => {
+type AgentSectionCandidate = {
+  is_builtin?: boolean
+  isMine?: boolean
+  is_mine?: boolean
+  permission?: string
+  created_by?: string
+}
+
+const agentSectionOf = (item: AgentSectionCandidate | null | undefined): AgentSectionKey | null => {
   // 内置 agent（is_builtin=true）单独成段，置顶展示——它们是空间共有的
   // 系统资源，跟"我 / 同事 / 共享"几个所有权分类不在同一维度。判定要早于
   // shared 那一档，因为 filteredAgents 里的 shared 条目也可能携带 is_builtin
@@ -1440,9 +1446,9 @@ const agentSectionOf = (item: any): AgentSectionKey | null => {
     return isSharedAgentEditable(item?.permission) ? 'sharedEditable' : 'sharedReadonly'
   }
   // 本空间内：我亲手创建 → 'mine'；同事 / 非内置但无 created_by → 'tenantOthers'。
-  return isMyAgent(item as AgentWithUI) ? 'mine' : 'tenantOthers'
+  return isMyAgent(item ?? {}) ? 'mine' : 'tenantOthers'
 }
-const isAgentRowHidden = (item: any): boolean => {
+const isAgentRowHidden = (item: AgentSectionCandidate): boolean => {
   const key = agentSectionOf(item)
   return key !== null && isAgentSectionCollapsed(key)
 }
@@ -1450,11 +1456,12 @@ const isAgentRowHidden = (item: any): boolean => {
 // 空间筛选视图（sortedSpaceAgentsList）的条目结构和 filteredAgents 不同：
 // is_mine=true 表示「我共享给这个空间」，需要独立成段（避免和首页的"我创建的"
 // 共用一个折叠状态）。is_mine=false 仍按 permission 走 sharedEditable / Readonly。
-const spaceAgentSectionOf = (shared: any): AgentSectionKey => {
+const spaceAgentSectionOf = (shared: Pick<OrganizationSharedAgentItem, 'is_mine' | 'permission'> | null | undefined): AgentSectionKey => {
   if (shared?.is_mine) return 'sharedByMe'
   return isSharedAgentEditable(shared?.permission) ? 'sharedEditable' : 'sharedReadonly'
 }
-const isSpaceAgentCollapsed = (shared: any): boolean => isAgentSectionCollapsed(spaceAgentSectionOf(shared))
+const isSpaceAgentCollapsed = (shared: Pick<OrganizationSharedAgentItem, 'is_mine' | 'permission'>): boolean =>
+  isAgentSectionCollapsed(spaceAgentSectionOf(shared))
 
 // 各分组卡片数量——和 KB 列表同思路，组标题上展示"(N)"，方便折叠后核对。
 const emptyAgentCounts = (): Record<AgentSectionKey, number> => ({
@@ -1482,6 +1489,14 @@ const spaceAgentSectionCounts = computed<Record<AgentSectionKey, number>>(() => 
   return c
 })
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  return ''
+}
+
 const handleDelete = (agent: AgentWithUI) => {
   openMoreAgentId.value = null
   confirmDelete({
@@ -1489,15 +1504,15 @@ const handleDelete = (agent: AgentWithUI) => {
     body: t('agent.delete.confirmMessage', { name: agent.name }),
     onConfirm: async () => {
       try {
-        const res: any = await deleteAgent(agent.id)
+        const res: { success?: boolean; message?: string } = await deleteAgent(agent.id)
         if (res.success) {
           MessagePlugin.success(t('agent.messages.deleted'))
           fetchList(true)
         } else {
           MessagePlugin.error(res.message || t('agent.messages.deleteFailed'))
         }
-      } catch (e: any) {
-        MessagePlugin.error(e?.message || t('agent.messages.deleteFailed'))
+      } catch (e: unknown) {
+        MessagePlugin.error(getErrorMessage(e) || t('agent.messages.deleteFailed'))
       }
     },
   })
@@ -1505,15 +1520,15 @@ const handleDelete = (agent: AgentWithUI) => {
 
 const handleCopy = (agent: AgentWithUI) => {
   openMoreAgentId.value = null
-  copyAgent(agent.id).then((res: any) => {
+  copyAgent(agent.id).then((res: { data?: CustomAgent; message?: string }) => {
     if (res.data) {
       MessagePlugin.success(t('agent.messages.copied'))
       fetchList(true)
     } else {
       MessagePlugin.error(res.message || t('agent.messages.copyFailed'))
     }
-  }).catch((e: any) => {
-    MessagePlugin.error(e?.message || t('agent.messages.copyFailed'))
+  }).catch((e: unknown) => {
+    MessagePlugin.error(getErrorMessage(e) || t('agent.messages.copyFailed'))
   })
 }
 
@@ -1521,15 +1536,15 @@ const handleCopy = (agent: AgentWithUI) => {
 const handleToggleDisabled = (agent: AgentWithUI) => {
   openMoreAgentId.value = null
   const nextDisabled = !agent.disabled_by_me
-  setSharedAgentDisabledByMe(agent.id, nextDisabled).then((res: any) => {
+  setSharedAgentDisabledByMe(agent.id, nextDisabled).then((res: { success?: boolean; message?: string }) => {
     if (res.success) {
       MessagePlugin.success(nextDisabled ? t('agent.messages.disabled') : t('agent.messages.enabled'))
       fetchList(true)
     } else {
       MessagePlugin.error(res.message || t('agent.messages.saveFailed'))
     }
-  }).catch((e: any) => {
-    MessagePlugin.error(e?.message || t('agent.messages.saveFailed'))
+  }).catch((e: unknown) => {
+    MessagePlugin.error(getErrorMessage(e) || t('agent.messages.saveFailed'))
   })
 }
 
@@ -1538,15 +1553,15 @@ const handleToggleSharedDisabled = (agent: DisplayAgent) => {
   if (agent.isMine) return
   openMoreAgentId.value = null
   const nextDisabled = !agent.disabled_by_me
-  setSharedAgentDisabledByMe(agent.id, nextDisabled).then((res: any) => {
+  setSharedAgentDisabledByMe(agent.id, nextDisabled).then((res: { success?: boolean; message?: string }) => {
     if (res.success) {
       MessagePlugin.success(nextDisabled ? t('agent.messages.disabled') : t('agent.messages.enabled'))
       orgStore.fetchSharedAgents({ force: true })
     } else {
       MessagePlugin.error(res.message || t('agent.messages.saveFailed'))
     }
-  }).catch((e: any) => {
-    MessagePlugin.error(e?.message || t('agent.messages.saveFailed'))
+  }).catch((e: unknown) => {
+    MessagePlugin.error(getErrorMessage(e) || t('agent.messages.saveFailed'))
   })
 }
 
@@ -1554,15 +1569,15 @@ const handleToggleSharedDisabledFromShared = (shared: SharedAgentInfo) => {
   if (!shared.agent) return
   openMoreAgentId.value = null
   const nextDisabled = !shared.disabled_by_me
-  setSharedAgentDisabledByMe(shared.agent.id, nextDisabled).then((res: any) => {
+  setSharedAgentDisabledByMe(shared.agent.id, nextDisabled).then((res: { success?: boolean; message?: string }) => {
     if (res.success) {
       MessagePlugin.success(nextDisabled ? t('agent.messages.disabled') : t('agent.messages.enabled'))
       orgStore.fetchSharedAgents({ force: true })
     } else {
       MessagePlugin.error(res.message || t('agent.messages.saveFailed'))
     }
-  }).catch((e: any) => {
-    MessagePlugin.error(e?.message || t('agent.messages.saveFailed'))
+  }).catch((e: unknown) => {
+    MessagePlugin.error(getErrorMessage(e) || t('agent.messages.saveFailed'))
   })
 }
 
@@ -1687,7 +1702,7 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
   border-radius: var(--app-radius-sm);
   color: var(--td-text-color-secondary);
   cursor: pointer;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--td-bg-color-container) 72%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--td-bg-color-container) 72%, transparent);
   transition: background var(--app-motion-base), border-color var(--app-motion-base), color var(--app-motion-base);
 
   &:hover {
@@ -1746,6 +1761,11 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
 
 .agent-section-header {
   .resource-section-header();
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
 }
 
 .agent-card-wrap {
@@ -1797,6 +1817,12 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
 
 <style lang="less">
 /* 下拉菜单样式已统一至 @/assets/dropdown-menu.less */
+button.popup-menu-item {
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
 
 // 共享智能体详情侧边栏
 .shared-detail-drawer-overlay {
@@ -1805,8 +1831,8 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1000;
+  background: color-mix(in oklab, black 40%, transparent);
+  z-index: var(--gy-z-dropdown);
   display: flex;
   justify-content: flex-end;
 }
@@ -1815,11 +1841,11 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
   width: 360px;
   max-width: 90vw;
   height: 100%;
-  background: var(--td-bg-color-container);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  background: var(--gy-surface);
+  box-shadow: var(--gy-shadow-lg);
   display: flex;
   flex-direction: column;
-  font-family: var(--app-font-family);
+  font-family: var(--gy-font-sans);
 }
 
 .shared-detail-drawer-header {
@@ -1915,10 +1941,10 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
 
 .shared-detail-drawer-enter-active,
 .shared-detail-drawer-leave-active {
-  transition: opacity 0.25s ease;
+  transition: opacity var(--gy-motion-base) ease;
 
   .shared-detail-drawer {
-    transition: transform 0.25s ease;
+    transition: transform var(--gy-motion-base) ease;
   }
 }
 

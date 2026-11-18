@@ -149,6 +149,14 @@ const filtered = computed(() => {
     a.name.toLowerCase().includes(q) || a.instruction.toLowerCase().includes(q))
 })
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  return ''
+}
+
 function schedulePoll() {
   clearTimeout(poll)
   if (!disposed) poll = setTimeout(() => { void load(true) }, 5000)
@@ -170,8 +178,8 @@ async function load(silent = false) {
         detail.value = null
       }
     }
-  } catch (e: any) {
-    if (version === loadVersion && !silent) MessagePlugin.error(e?.message || t('common.operationFailed'))
+  } catch (e: unknown) {
+    if (version === loadVersion && !silent) MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     if (version === loadVersion) {
       loading.value = false
@@ -249,8 +257,8 @@ async function toggle(item: Automation) {
   try {
     const res = item.enabled ? await pauseAutomation(item.id) : await resumeAutomation(item.id)
     onSaved(res.data)
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     busy.value.delete(item.id)
   }
@@ -264,8 +272,8 @@ async function runNow(item: Automation) {
     MessagePlugin.success(t('automation.messages.queued'))
     openDetail(item, res.data?.id ?? '')
     void load(true)
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.operationFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('common.operationFailed'))
   } finally {
     busy.value.delete(item.id)
   }
@@ -281,8 +289,8 @@ async function remove(item: Automation) {
     automations.value = automations.value.filter((a) => a.id !== item.id)
     if (detail.value?.id === item.id) detailVisible.value = false
     MessagePlugin.success(t('common.deleteSuccess'))
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.deleteFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('common.deleteFailed'))
   } finally {
     busy.value.delete(item.id)
   }
@@ -408,7 +416,7 @@ onMounted(async () => {
   transition: background-color var(--app-motion-base) ease, box-shadow var(--app-motion-base) ease;
 
   &:hover:not(.automation-card--add) {
-    box-shadow: 0 3px 12px color-mix(in srgb, var(--td-text-color-primary) 6%, transparent);
+    box-shadow: 0 3px 12px color-mix(in oklab, var(--td-text-color-primary) 6%, transparent);
   }
 
   &.is-paused .automation-card__schedule {
@@ -431,8 +439,8 @@ onMounted(async () => {
     &:focus-visible {
       color: var(--td-text-color-primary);
       border-color: var(--td-component-border);
-      background: color-mix(in srgb, var(--td-bg-color-secondarycontainer) 15%, var(--td-bg-color-container));
-      box-shadow: 0 3px 12px color-mix(in srgb, var(--td-text-color-primary) 5%, transparent);
+      background: color-mix(in oklab, var(--td-bg-color-secondarycontainer) 15%, var(--td-bg-color-container));
+      box-shadow: 0 3px 12px color-mix(in oklab, var(--td-text-color-primary) 5%, transparent);
     }
 
     &__icon {
@@ -518,16 +526,16 @@ onMounted(async () => {
   border: 0;
   border-radius: var(--app-radius-sm);
   background: none;
-  color: color-mix(in srgb, var(--td-text-color-primary) 55%, transparent);
+  color: color-mix(in oklab, var(--td-text-color-primary) 55%, transparent);
   cursor: pointer;
 
   &:hover:not(:disabled) {
     color: var(--td-text-color-secondary);
-    background: color-mix(in srgb, var(--td-text-color-primary) 5%, transparent);
+    background: color-mix(in oklab, var(--td-text-color-primary) 5%, transparent);
   }
 
   &:active:not(:disabled) {
-    background: color-mix(in srgb, var(--td-text-color-primary) 9%, transparent);
+    background: color-mix(in oklab, var(--td-text-color-primary) 9%, transparent);
   }
 
   &:disabled {

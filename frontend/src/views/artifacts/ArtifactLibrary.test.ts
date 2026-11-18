@@ -46,7 +46,7 @@ test('ArtifactLibrary URL-encodes session_id in openSession and reloads on works
     '@/components/settings/useConfirmDelete': { useConfirmDelete: () => () => {} },
     '@/components/EmptyState.vue': { default: {} },
     '@/components/icons/ResourceIcon.vue': { default: {} },
-    '@/components/document-preview.vue': { default: {} },
+    '@/components/DocumentPreview.vue': { default: {} },
     '@/views/chat/components/ArtifactFileIcon.vue': { default: {} },
   }, {})
 

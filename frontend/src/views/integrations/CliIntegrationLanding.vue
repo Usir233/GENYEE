@@ -80,9 +80,15 @@ import IntegrationLandingLayout from './IntegrationLandingLayout.vue'
 import IntegrationExternalCta from './IntegrationExternalCta.vue'
 import { buildCLIConnectCommand } from './cliIntegration'
 
+type RuntimeConfigWindow = Window & {
+  __RUNTIME_CONFIG__?: {
+    GITHUB_URL?: string
+  }
+}
+
 const { apiBaseUrlDisplay } = useApiBaseUrlDisplay()
 const githubUrl = computed(() => {
-  const raw = ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, '').replace(/\.git$/i, '')
+  const raw = ((window as RuntimeConfigWindow).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, '').replace(/\.git$/i, '')
   if (!raw) return ''
   try {
     const parsed = new URL(raw)

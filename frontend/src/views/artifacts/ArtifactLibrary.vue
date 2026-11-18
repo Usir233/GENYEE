@@ -236,7 +236,7 @@ import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
 import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/EmptyState.vue'
 import ResourceIcon from '@/components/icons/ResourceIcon.vue'
-import DocumentPreview from '@/components/document-preview.vue'
+import DocumentPreview from '@/components/DocumentPreview.vue'
 import ArtifactFileIcon from '@/views/chat/components/ArtifactFileIcon.vue'
 
 const PAGE_SIZE = 30
@@ -706,7 +706,7 @@ onBeforeUnmount(() => {
   color: var(--td-text-color-secondary);
 
   &:not(.t-is-disabled):not(.t-is-loading):hover {
-    background: color-mix(in srgb, var(--td-text-color-primary) 10%, var(--td-bg-color-container));
+    background: color-mix(in oklab, var(--td-text-color-primary) 10%, var(--td-bg-color-container));
     color: var(--td-text-color-primary);
   }
 

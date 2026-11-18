@@ -121,6 +121,9 @@ test('OrganizationSettingsModal encodes inviteLink, reloads when orgId changes w
           searchTenantsForInvite: async () => ({ success: true, data: [] }),
         }
       }
+      if (name === './composables/useOrganizationSettings') {
+        return require('./composables/useOrganizationSettings')
+      }
       return { default: {} }
     },
   })

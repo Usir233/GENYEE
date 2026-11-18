@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import test from 'node:test'
@@ -20,36 +21,54 @@ function mountSfc(relativePath: string, stubs: Record<string, unknown>, winExtra
   const script = compileScript(descriptor, { id: `test-${relativePath}` }).content
     .replace('__expose();', '')
     .replace('return __returned__', '__expose(__returned__); return __returned__')
-  const compiled = ts.transpileModule(script, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  }).outputText
 
   const openedWindows: Array<{ url: string; target?: string; features?: string }> = []
-  const exports: any = {}
-  runInNewContext(compiled, {
-    exports,
-    URL,
-    AbortController,
-    Uint8Array,
-    btoa,
-    setTimeout,
-    clearTimeout,
-    console: { ...console, error() {} },
-    window: {
-      location: { origin: 'https://genyee.example.com' },
-      crypto: { getRandomValues: (arr: Uint8Array) => arr },
-      open: (url: string, target?: string, features?: string) => {
-        openedWindows.push({ url, target, features })
-        return null
+  const moduleCache = new Map<string, unknown>()
+  function evalTsCode(sourceCode: string, currentFile: string) {
+    const modExports: any = {}
+    const transpiled = ts.transpileModule(sourceCode, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText
+    runInNewContext(transpiled, {
+      exports: modExports,
+      URL,
+      AbortController,
+      AbortSignal,
+      Uint8Array,
+      btoa,
+      performance,
+      setTimeout,
+      clearTimeout,
+      console: { ...console, error() {} },
+      window: {
+        location: { origin: 'https://genyee.example.com' },
+        crypto: { getRandomValues: (arr: Uint8Array) => arr },
+        open: (url: string, target?: string, features?: string) => {
+          openedWindows.push({ url, target, features })
+          return null
+        },
+        ...winExtra,
       },
-      ...winExtra,
-    },
-    require(name: string) {
-      if (name === 'vue') return require('vue')
-      if (name in stubs) return stubs[name]
-      return { default: {} }
-    },
-  })
+      require(name: string) {
+        if (name === 'vue') return require('vue')
+        if (name in stubs) return stubs[name]
+        if (name.endsWith('.vue')) return { default: {} }
+        if (name.startsWith('.')) {
+          const base = resolve(dirname(currentFile), name)
+          const tsPath = existsSync(base) ? base : existsSync(`${base}.ts`) ? `${base}.ts` : ''
+          if (tsPath) {
+            if (moduleCache.has(tsPath)) return moduleCache.get(tsPath)
+            const loaded = evalTsCode(readFileSync(tsPath, 'utf8'), tsPath)
+            moduleCache.set(tsPath, loaded)
+            return loaded
+          }
+        }
+        return { default: {} }
+      },
+    })
+    return modExports
+  }
+  const exports = evalTsCode(script, filename)
 
   const component = exports.default
   component.render = () => null

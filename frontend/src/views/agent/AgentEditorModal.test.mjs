@@ -5,7 +5,20 @@ import { runInNewContext } from 'node:vm'
 import { effectScope, nextTick, ref, watch } from 'vue'
 import { agentRequiresRerankModel } from '../../utils/agent-readiness.ts'
 
-const source = readFileSync(new URL('./AgentEditorModal.vue', import.meta.url), 'utf8')
+const source = [
+  './AgentEditorModal.vue',
+  './composables/useAgentEditorForm.ts',
+  './composables/useAgentTypePresets.ts',
+  './composables/useAgentPromptPlaceholders.ts',
+  './composables/useAgentSkillsSandbox.ts',
+  './components/editor/AgentBasicSection.vue',
+  './components/editor/AgentPromptsSection.vue',
+  './components/editor/AgentModelSection.vue',
+  './components/editor/AgentAttachmentsConversationSection.vue',
+  './components/editor/AgentToolsMcpSkillsSection.vue',
+  './components/editor/AgentRetrievalWebSection.vue',
+  './agent-editor-modal.less',
+].map((rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')).join('\n')
 
 test('the agent editor marks rerank required only for the built-in knowledge search', () => {
   const declaration = source.match(/^const needsRerankModel = computed\(\(\) => \{[\s\S]*?^\}\);/m)?.[0]
@@ -84,7 +97,7 @@ test('conversation settings stay reachable in smart-reasoning mode', () => {
   // The nav entry is pushed unconditionally; a re-introduced guard would indent it.
   const navItems = source.match(/const navItems = computed\(\(\) => \{([\s\S]*?)^\}\);/m)?.[1]
   assert.ok(navItems, 'expected to find the nav items computed')
-  assert.match(navItems, /^  items\.push\(\{ key: 'conversation'/m)
+  assert.match(navItems, /^ {2}items\.push\(\{ key: 'conversation'/m)
 
   // Switching to agent mode must not evict the user from the section.
   // Tolerates the watch being dropped entirely by a later cleanup.
@@ -122,7 +135,7 @@ test('the section description matches what the mode actually shows', () => {
 test('history turns can be raised beyond the old 20 cap', () => {
   // KnowledgeQA history is capped by turns alone; 20 was too tight for the
   // windows current models have.
-  const input = source.match(/<t-input-number v-model="formData\.config\.history_turns"[^>]*>/)
+  const input = source.match(/<t-input-number (?:v-model|:model-value)="formData\.config\.history_turns"[^>]*>/)
   assert.ok(input, 'expected to find the history turns input')
   assert.match(input[0], /:max="100"/)
 })
@@ -184,7 +197,7 @@ test('agent skill picker uses the catalog and only enables ready installs', () =
 })
 
 test('agent skill picker offers upgrades to admins only and keeps upgrading skills selected', () => {
-  assert.match(source, /from '@\/utils\/skillUpgrade'/)
+  assert.match(source, /from '(?:@|\.\.\/\.\.\/\.\.)\/utils\/skillUpgrade'/)
   assert.match(source, /const upgradable = Boolean\(inst && installUpgradable\(item, inst\)\)/)
   assert.match(source, /canInstallSkills\.value && hasSandboxSelected\.value && skill\.upgradable/)
   assert.match(source, /v-if="canUpgradeSkillRow\(skill\)"/)

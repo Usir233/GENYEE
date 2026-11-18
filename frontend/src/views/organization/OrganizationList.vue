@@ -20,8 +20,7 @@
               <t-tooltip :content="canManageOrg ? $t('organization.createOrg') : noPermissionTip" placement="bottom">
                 <t-button variant="text" theme="default" size="small" class="header-action-btn"
                   style="--wails-draggable: no-drag" :disabled="!canManageOrg" @click="handleCreateOrganization">
-                  <template #icon><img src="@/assets/img/organization-green.svg" class="org-create-icon" alt=""
-                      aria-hidden="true" /></template>
+                  <template #icon><t-icon name="usergroup-add" size="16px" /></template>
                 {{ $t('organization.createOrg') }}
                 </t-button>
               </t-tooltip>
@@ -60,28 +59,24 @@
           <template v-for="(org, index) in filteredOrganizations" :key="org.id">
             <!-- 我创建的：仅在 all 视图下出现；created/joined 子视图自身已经
                  隐含了语义，再加标题反而冗余。-->
-            <div v-if="spaceSelection === 'all' && org.is_owner && index === 0" class="org-section-header"
-              role="button" tabindex="0" :aria-expanded="!isOrgSectionCollapsed('created')" @click="toggleOrgSection('created')"
-              @keydown.enter.prevent="toggleOrgSection('created')"
-              @keydown.space.prevent="toggleOrgSection('created')">
+            <button v-if="spaceSelection === 'all' && org.is_owner && index === 0" type="button" class="org-section-header"
+              :aria-expanded="!isOrgSectionCollapsed('created')" @click="toggleOrgSection('created')">
               <t-icon name="user" size="14px" />
               <span>{{ $t('organization.createdByMe') }}</span>
               <span class="org-section-count">{{ orgSectionCounts.created }}</span>
               <t-icon class="org-section-toggle"
                 :name="isOrgSectionCollapsed('created') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <!-- 我加入的：第一张非 owner 卡片前打标题（all 视图下） -->
-            <div v-if="spaceSelection === 'all' && !org.is_owner
-              && (index === 0 || filteredOrganizations[index - 1].is_owner)" class="org-section-header" role="button"
-              tabindex="0" :aria-expanded="!isOrgSectionCollapsed('joined')" @click="toggleOrgSection('joined')"
-              @keydown.enter.prevent="toggleOrgSection('joined')"
-              @keydown.space.prevent="toggleOrgSection('joined')">
+            <button v-if="spaceSelection === 'all' && !org.is_owner
+              && (index === 0 || filteredOrganizations[index - 1].is_owner)" type="button" class="org-section-header"
+              :aria-expanded="!isOrgSectionCollapsed('joined')" @click="toggleOrgSection('joined')">
               <t-icon name="usergroup" size="14px" />
               <span>{{ $t('organization.joinedByMe') }}</span>
               <span class="org-section-count">{{ orgSectionCounts.joined }}</span>
               <t-icon class="org-section-toggle"
                 :name="isOrgSectionCollapsed('joined') ? 'chevron-right' : 'chevron-down'" size="14px" />
-            </div>
+            </button>
             <div v-show="!isOrgRowHidden(org)" class="org-card"
             :class="{ 'joined-org': !org.is_owner }" role="link" tabindex="0" @keydown.enter.self.prevent="handleCardClick(org)" @keydown.space.self.prevent="handleCardClick(org)" @click="handleCardClick(org)">
 
@@ -107,19 +102,19 @@
                 </button>
                 <template #content>
                   <div class="popup-menu" @click.stop>
-                    <div class="popup-menu-item" @click.stop="handleSettings(org)">
+                    <button type="button" class="popup-menu-item" @click.stop="handleSettings(org)">
                       <t-icon class="menu-icon" name="setting" />
                       <span>{{ $t('organization.settings.editTitle') }}</span>
-                    </div>
-                    <div v-if="!org.is_owner" class="popup-menu-item delete" @click.stop="handleLeave(org)">
+                    </button>
+                    <button v-if="!org.is_owner" type="button" class="popup-menu-item delete" @click.stop="handleLeave(org)">
                       <t-icon class="menu-icon" name="logout" />
                       <span>{{ $t('organization.leave') }}</span>
-                    </div>
-                    <div v-if="org.is_owner && canManageOrg" class="popup-menu-item delete"
+                    </button>
+                    <button v-if="org.is_owner && canManageOrg" type="button" class="popup-menu-item delete"
                       @click.stop="handleDelete(org)">
                       <t-icon class="menu-icon" name="delete" />
                       <span>{{ $t('common.delete') }}</span>
-                    </div>
+                    </button>
                   </div>
                 </template>
               </t-popup>
@@ -180,8 +175,7 @@
           </t-tooltip>
           <t-tooltip :content="noPermissionTip" placement="top" :disabled="canManageOrg">
             <t-button theme="primary" class="org-create-btn" :disabled="!canManageOrg" @click="handleCreateOrganization">
-              <template #icon><img src="@/assets/img/organization-green.svg" class="org-create-icon" alt=""
-                  aria-hidden="true" /></template>
+              <template #icon><t-icon name="usergroup-add" size="16px" /></template>
               {{ $t('organization.createOrg') }}
             </t-button>
           </t-tooltip>
@@ -202,14 +196,14 @@
           }">
             <div class="invite-preview-header">
               <!-- 预览详情且来自搜索时显示返回按钮 -->
-              <button v-if="invitePreviewData && !inviteCode" class="invite-preview-back" @click="backFromPreview"
+              <button v-if="invitePreviewData && !inviteCode" type="button" class="invite-preview-back" @click="backFromPreview"
                 :aria-label="$t('organization.join.backToSearch')">
                 <t-icon name="chevron-left" />
               </button>
               <h2 class="invite-preview-title">{{ invitePreviewData ? $t('organization.invite.previewTitle') :
                 $t('organization.joinOrg') }}</h2>
-              <button class="invite-preview-close" @click="closeInvitePreview" :aria-label="$t('common.close')">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <button type="button" class="invite-preview-close" @click="closeInvitePreview" :aria-label="$t('common.close')">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
               </button>
@@ -288,6 +282,10 @@
                           <div v-else class="searchable-list">
                             <div v-for="org in searchableList" :key="org.id" class="searchable-row"
                               :class="{ 'is-full': isOrgFull(org) }"
+                              :role="!isOrgFull(org) ? 'button' : undefined"
+                              :tabindex="!isOrgFull(org) ? 0 : undefined"
+                              @keydown.enter.self.prevent="!isOrgFull(org) && previewSearchableOrg(org)"
+                              @keydown.space.self.prevent="!isOrgFull(org) && previewSearchableOrg(org)"
                               @click="!isOrgFull(org) && previewSearchableOrg(org)">
                               <div class="searchable-row-main">
                                 <SpaceAvatar :name="org.name" :avatar="org.avatar" size="small" />
@@ -355,7 +353,7 @@
                       </t-tooltip>
                       <t-tooltip :content="$t('organization.invite.agents')" placement="top">
                         <div class="feature-badge stat-agent">
-                          <img src="@/assets/img/agent-green.svg" class="stat-agent-icon" alt="" aria-hidden="true" />
+                          <t-icon name="control-platform" size="14px" />
                           <span class="badge-count">{{ invitePreviewData.agent_share_count ?? 0 }}</span>
                         </div>
                       </t-tooltip>
@@ -821,6 +819,14 @@ function handleDelete(org: OrgWithUI) {
   })
 }
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  return ''
+}
+
 // 处理邀请链接预览
 async function handleInvitePreview(code: string) {
   inviteCode.value = code
@@ -840,8 +846,8 @@ async function handleInvitePreview(code: string) {
     } else {
       invitePreviewError.value = result.message || t('organization.invite.invalidCode')
     }
-  } catch (e: any) {
-    invitePreviewError.value = e?.message || t('organization.invite.previewFailed')
+  } catch (e: unknown) {
+    invitePreviewError.value = getErrorMessage(e) || t('organization.invite.previewFailed')
   } finally {
     invitePreviewLoading.value = false
   }
@@ -897,8 +903,8 @@ async function confirmJoinOrganization() {
         MessagePlugin.error(orgStore.error || t('organization.invite.joinFailed'))
       }
     }
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('organization.invite.joinFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('organization.invite.joinFailed'))
   } finally {
     inviteJoining.value = false
   }
@@ -962,7 +968,7 @@ async function doSearchSearchable() {
   searchLoading.value = true
   try {
     await orgStore.fetchSearchableOrganizations(currentQuery, { limit: 20 })
-  } catch (e) {
+  } catch {
     orgStore.clearSearchableOrganizations()
   } finally {
     searchLoading.value = false
@@ -1046,8 +1052,8 @@ async function joinBySearchOrg() {
     } else {
       MessagePlugin.error(result.message || t('organization.invite.joinFailed'))
     }
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('organization.invite.joinFailed'))
+  } catch (e: unknown) {
+    MessagePlugin.error(getErrorMessage(e) || t('organization.invite.joinFailed'))
   } finally {
     inviteJoining.value = false
   }
@@ -1141,30 +1147,28 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
 }
 
 .org-join-btn {
-  border-color: color-mix(in srgb, var(--td-brand-color) 50%, transparent);
-  color: var(--td-brand-color);
+  border-color: color-mix(in oklab, var(--gy-brand) 50%, transparent);
+  color: var(--gy-brand);
   font-weight: 500;
-  transition: all var(--app-motion-base) ease;
+  transition: background-color var(--gy-motion-base) ease, border-color var(--gy-motion-base) ease, color var(--gy-motion-base) ease;
 
   .t-icon {
-    color: var(--td-brand-color);
+    color: var(--gy-brand);
   }
 
   &:hover {
-    background: color-mix(in srgb, var(--td-brand-color) 8%, transparent);
-    border-color: var(--td-brand-color);
-    color: var(--td-brand-color);
+    background: color-mix(in oklab, var(--gy-brand) 8%, transparent);
+    border-color: var(--gy-brand);
+    color: var(--gy-brand);
 
     .t-icon {
-      color: var(--td-brand-color);
+      color: var(--gy-brand);
     }
   }
 }
 
-.org-create-btn .org-create-icon {
-  width: 16px;
-  height: 16px;
-  filter: brightness(0) invert(1);
+.org-create-btn :deep(.t-icon) {
+  color: currentColor;
 }
 
 .header-subtitle {
@@ -1189,7 +1193,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   border-radius: var(--app-radius-sm);
   color: var(--td-text-color-secondary);
   cursor: pointer;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--td-bg-color-container) 72%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--td-bg-color-container) 72%, transparent);
   transition: background var(--app-motion-base), border-color var(--app-motion-base), color var(--app-motion-base);
 
   &:hover {
@@ -1217,6 +1221,11 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
 // 共享空间分组标题——与 KB / Agent 列表口径完全一致（图标 + 名称 + 数量 + 折叠 chevron）。
 .org-section-header {
   .resource-section-header();
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
 }
 
 /* 与知识库 / 智能体列表统一：紧凑 + 1px 描边 */
@@ -1263,15 +1272,9 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
     line-height: 1;
   }
 
-  &.stat-kb .t-icon { color: var(--td-brand-color); }
+  &.stat-kb .t-icon { color: var(--gy-brand); }
 
-  .stat-agent-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    /* 将绿色 icon 着色为紫色，与智能体能力色一致 */
-    filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(236deg);
-  }
+  &.stat-agent .t-icon { color: var(--gy-accent-purple); }
 }
 
 // 待审核角标：与 feature-badge 同高
@@ -1280,11 +1283,11 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   align-items: center;
   height: 22px;
   padding: 0 6px;
-  border-radius: var(--app-radius-sm);
-  font-size: var(--app-text-sm);
+  border-radius: var(--gy-radius-sm);
+  font-size: var(--gy-text-sm);
   font-weight: 500;
-  background: rgba(250, 173, 20, 0.12);
-  color: var(--td-warning-color);
+  background: var(--gy-warning-soft);
+  color: var(--gy-warning);
   white-space: nowrap;
 }
 
@@ -1299,7 +1302,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   font-size: var(--app-text-sm);
   font-weight: 500;
   font-family: var(--app-font-family);
-  background: color-mix(in srgb, var(--td-text-color-secondary) 8%, transparent);
+  background: color-mix(in oklab, var(--td-text-color-secondary) 8%, transparent);
   color: var(--td-text-color-secondary);
 
   .t-icon {
@@ -1308,7 +1311,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   }
 
   &.owner {
-    background: color-mix(in srgb, var(--app-accent-purple) 10%, transparent);
+    background: color-mix(in oklab, var(--app-accent-purple) 10%, transparent);
     color: var(--td-brand-color);
 
     .t-icon {
@@ -1317,7 +1320,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   }
 
   &.admin {
-    background: color-mix(in srgb, var(--td-brand-color) 12%, transparent);
+    background: color-mix(in oklab, var(--td-brand-color) 12%, transparent);
     color: var(--td-brand-color);
 
     .t-icon {
@@ -1326,7 +1329,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   }
 
   &.editor {
-    background: color-mix(in srgb, var(--td-brand-color) 8%, transparent);
+    background: color-mix(in oklab, var(--td-brand-color) 8%, transparent);
     color: var(--td-brand-color);
 
     .t-icon {
@@ -1335,7 +1338,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   }
 
   &.viewer {
-    background: color-mix(in srgb, var(--td-text-color-secondary) 8%, transparent);
+    background: color-mix(in oklab, var(--td-text-color-secondary) 8%, transparent);
     color: var(--td-text-color-secondary);
 
     .t-icon {
@@ -1355,13 +1358,19 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
 
 <style lang="less">
 /* 下拉菜单样式已统一至 @/assets/dropdown-menu.less */
+button.popup-menu-item {
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
 
 // 邀请预览弹框 - 参考 FAQ 导入弹窗风格，更紧凑
 .invite-preview-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
-  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--gy-z-modal);
+  background: color-mix(in oklab, black 50%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1374,9 +1383,9 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
-  background: var(--td-bg-color-container);
-  border-radius: var(--app-radius-xl);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  background: var(--gy-surface);
+  border-radius: var(--gy-radius-xl);
+  box-shadow: var(--gy-shadow-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1474,23 +1483,29 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   padding: 20px 24px 0;
   min-height: 0;
   max-height: calc(90vh - 120px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-track {
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 3px;
-  }
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--td-bg-color-component-disabled);
-    border-radius: 3px;
-    transition: background var(--app-motion-base);
+    &::-webkit-scrollbar-track {
+      background: var(--gy-scrollbar-track);
+      border-radius: var(--gy-radius-xs);
+    }
 
-    &:hover {
-      background: var(--td-brand-color);
+    &::-webkit-scrollbar-thumb {
+      background: var(--gy-scrollbar-thumb);
+      border-radius: var(--gy-radius-xs);
+      transition: background var(--gy-motion-base);
+
+      &:hover {
+        background: var(--gy-scrollbar-thumb-hover);
+      }
     }
   }
 }
@@ -1519,12 +1534,12 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   &:hover,
   &:focus-visible {
     color: var(--td-brand-color);
-    background: color-mix(in srgb, var(--td-brand-color) 8%, var(--td-bg-color-secondarycontainer));
+    background: color-mix(in oklab, var(--td-brand-color) 8%, var(--td-bg-color-secondarycontainer));
     outline: none;
   }
 
   &.active {
-    background: color-mix(in srgb, var(--td-brand-color) 12%, transparent);
+    background: color-mix(in oklab, var(--td-brand-color) 12%, transparent);
     color: var(--td-brand-color);
     font-weight: 500;
   }
@@ -1582,26 +1597,32 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   min-height: 120px;
   overflow-y: auto;
   margin-bottom: 16px;
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--app-radius-lg);
-  background: var(--td-bg-color-container);
+  border: 1px solid var(--gy-border-subtle);
+  border-radius: var(--gy-radius-lg);
+  background: var(--gy-surface);
+  scrollbar-width: thin;
+  scrollbar-color: var(--gy-scrollbar-thumb) var(--gy-scrollbar-track);
 
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
+  @supports not (scrollbar-color: auto) {
+    scrollbar-width: auto;
 
-  &::-webkit-scrollbar-track {
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 3px;
-  }
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--td-bg-color-component-disabled);
-    border-radius: 3px;
-    transition: background var(--app-motion-base);
+    &::-webkit-scrollbar-track {
+      background: var(--gy-scrollbar-track);
+      border-radius: var(--gy-radius-xs);
+    }
 
-    &:hover {
-      background: var(--td-brand-color);
+    &::-webkit-scrollbar-thumb {
+      background: var(--gy-scrollbar-thumb);
+      border-radius: var(--gy-radius-xs);
+      transition: background var(--gy-motion-base);
+
+      &:hover {
+        background: var(--gy-scrollbar-thumb-hover);
+      }
     }
   }
 }
@@ -1830,7 +1851,7 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
   }
 
   &:hover {
-    background: color-mix(in srgb, var(--td-brand-color) 8%, var(--td-bg-color-secondarycontainer));
+    background: color-mix(in oklab, var(--td-brand-color) 8%, var(--td-bg-color-secondarycontainer));
     color: var(--td-text-color-secondary);
 
     code,
@@ -1911,7 +1932,11 @@ watch(keyword, () => { collapsedOrgSections.value = new Set() })
 
 .modal-enter-active,
 .modal-leave-active {
-  transition: all var(--app-motion-slow) ease;
+  transition: opacity var(--gy-motion-slow) ease;
+
+  .invite-preview-modal {
+    transition: transform var(--gy-motion-slow) ease;
+  }
 }
 
 .modal-enter-from,

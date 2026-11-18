@@ -391,6 +391,14 @@ const clock = computed({
 
 const trigger = computed(() => triggerFromScheduleForm(schedule, timezone.value))
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  return ''
+}
+
 function close() {
   emit('update:visible', false)
 }
@@ -457,8 +465,8 @@ watch([trigger, () => props.visible], () => {
     try {
       const res = await validateAutomationTrigger(current)
       if (seq === previewSeq) previewRuns.value = res.data?.next_runs ?? []
-    } catch (e: any) {
-      if (seq === previewSeq) previewError.value = e?.message || t('automation.schedule.invalid')
+    } catch (e: unknown) {
+      if (seq === previewSeq) previewError.value = getErrorMessage(e) || t('automation.schedule.invalid')
     } finally {
       if (seq === previewSeq) previewLoading.value = false
     }
@@ -505,8 +513,8 @@ async function save() {
     modalShell.markClean()
     emit('saved', res.data)
     close()
-  } catch (e: any) {
-    if (version === editorVersion) MessagePlugin.error(e?.message || t('common.saveFailed'))
+  } catch (e: unknown) {
+    if (version === editorVersion) MessagePlugin.error(getErrorMessage(e) || t('common.saveFailed'))
   } finally {
     if (version === editorVersion) saving.value = false
   }
@@ -692,8 +700,8 @@ async function save() {
   &:hover span { background: var(--td-bg-color-container-hover); }
   input:checked + span {
     color: var(--td-brand-color);
-    border-color: color-mix(in srgb, var(--td-brand-color) 40%, var(--td-component-stroke));
-    background: color-mix(in srgb, var(--td-brand-color) 7%, var(--td-bg-color-container));
+    border-color: color-mix(in oklab, var(--td-brand-color) 40%, var(--td-component-stroke));
+    background: color-mix(in oklab, var(--td-brand-color) 7%, var(--td-bg-color-container));
     font-weight: 500;
   }
   input:focus-visible + span {

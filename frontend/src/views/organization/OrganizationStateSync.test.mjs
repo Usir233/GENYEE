@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const listSource = readFileSync(new URL('./OrganizationList.vue', import.meta.url), 'utf8')
-const settingsSource = readFileSync(new URL('./OrganizationSettingsModal.vue', import.meta.url), 'utf8')
+const settingsSource = [
+  './OrganizationSettingsModal.vue',
+  './composables/useOrganizationSettings.ts',
+].map((rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')).join('\n')
 const kbShareSource = readFileSync(
   new URL('../knowledge/settings/KBShareSettings.vue', import.meta.url),
   'utf8'

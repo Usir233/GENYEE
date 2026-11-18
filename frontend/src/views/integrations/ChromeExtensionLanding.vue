@@ -70,6 +70,7 @@
                       size="small"
                       variant="text"
                       :title="$t('integrations.chrome.copy')"
+                      :aria-label="$t('integrations.chrome.copy')"
                       @click="copyApiUrl"
                     >
                       <t-icon name="file-copy" size="16px" />
