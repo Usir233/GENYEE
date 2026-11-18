@@ -188,7 +188,7 @@ const canDownloadKnowledge = computed(() => {
 })
 
 const kbHook = useKnowledgeBase(kbId.value)
-const cardList = kbHook.cardList as Ref<KnowledgeCard[]>
+const cardList = kbHook.cardList as unknown as Ref<KnowledgeCard[]>
 const total = kbHook.total as Ref<number>
 const moreIndex = kbHook.moreIndex as Ref<number>
 const details = kbHook.details as { id: string; title?: string; parse_status?: string; [key: string]: unknown }
@@ -390,10 +390,15 @@ const {
   deleteKnowledgeDocuments, handleMoveKnowledge, handleEnterBatchFromCard,
   batchQueryKnowledge, waitForKnowledgeDeletion, createKnowledgeFromURL,
   reparseKnowledge, getKnowledgeDetails, getKnowledgeSpans,
-  hasKnowledgeTrace: knowledgeSpansPayloadHasTrace,
+  hasKnowledgeTrace: (data) => knowledgeSpansPayloadHasTrace(data as Parameters<typeof knowledgeSpansPayloadHasTrace>[0]),
   cancelKnowledgeParse, delKnowledgeDetails, downKnowledgeDetails,
   ensureKnowledgeBases: () => chatResources.ensureKnowledgeBases(),
-  getRawKnowledgeBases: () => chatResources.rawKnowledgeBases,
+  getRawKnowledgeBases: () =>
+    chatResources.rawKnowledgeBases.map((kb) => ({
+      id: kb.id,
+      name: kb.name || '',
+      type: kb.type,
+    })),
   getSharedKnowledgeBases: () => orgStore.sharedKnowledgeBases || [],
   openUploadConfirm: (options) => uploadConfirmStore.open(options),
   enqueueUploadBatch: (input) => uploadTasksStore.enqueue(input),

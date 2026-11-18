@@ -375,6 +375,7 @@ import {
   updateVectorStore,
   deleteVectorStore as deleteVectorStoreAPI,
   testVectorStoreRaw,
+  type VectorStoreConfigValue,
   type VectorStoreEntity,
   type VectorStoreTypeInfo,
 } from '@/api/vector-store'
@@ -700,8 +701,10 @@ const onDrawerConfirm = async () => {
       const data: Partial<VectorStoreEntity> = {
         name: form.value.name.trim(),
         engine_type: form.value.engine_type,
-        connection_config: { ...form.value.connection_config },
-        index_config: showAdvanced.value ? { ...form.value.index_config } : {},
+        connection_config: { ...form.value.connection_config } as Record<string, VectorStoreConfigValue>,
+        index_config: showAdvanced.value
+          ? ({ ...form.value.index_config } as Record<string, VectorStoreConfigValue>)
+          : {},
       }
       await createVectorStore(data)
       MessagePlugin.success(t('vectorStoreSettings.toasts.storeCreated'))
@@ -756,7 +759,7 @@ const onDrawerTest = async () => {
   try {
     const data = {
       engine_type: form.value.engine_type,
-      connection_config: { ...form.value.connection_config },
+      connection_config: { ...form.value.connection_config } as Record<string, VectorStoreConfigValue>,
     }
     const res = (await testVectorStoreRaw(data)) as { success?: boolean; error?: string }
     lastTestOk.value = !!res.success

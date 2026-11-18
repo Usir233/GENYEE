@@ -146,6 +146,8 @@ export interface CustomAgentConfig {
   question_suggestions?: QuestionSuggestionConfig;
 }
 
+export type AgentConfig = CustomAgentConfig;
+
 // 智能体
 export interface CustomAgent {
   id: string;

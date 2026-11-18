@@ -8,15 +8,17 @@ export interface TimelinePresentationEvent {
   superseded?: boolean
   done?: boolean
   iteration?: number
-  timestamp?: number | string
+  timestamp?: unknown
   reasoning?: { id: string; content: string }
   progress_history?: string[]
   [key: string]: unknown
 }
 
 /** Presentation only: keep reasoning and progress separate in the stored stream. */
-export function foldProgressIntoThinking<T extends TimelinePresentationEvent>(events: T[]): T[] {
-  const result: T[] = []
+export function foldProgressIntoThinking<T extends TimelinePresentationEvent>(
+  events: T[],
+): Array<T & { title?: string }> {
+  const result: Array<T & { title?: string }> = []
   for (const event of events) {
     const progress = event.type === 'progress' || (event.type === 'answer' && event.superseded)
     if (!progress || typeof event.content !== 'string' || !event.content.trim()) {
@@ -45,8 +47,8 @@ export function foldProgressIntoThinking<T extends TimelinePresentationEvent>(ev
 export function attachReasoningToTools<T extends TimelinePresentationEvent>(
   events: T[],
   canAttach: (event: T) => boolean,
-): T[] {
-  const result: T[] = []
+): Array<T & { reasoning?: { id: string; content: string } }> {
+  const result: Array<T & { reasoning?: { id: string; content: string } }> = []
   for (let i = 0; i < events.length; i++) {
     const event = events[i]
     const next = events[i + 1]

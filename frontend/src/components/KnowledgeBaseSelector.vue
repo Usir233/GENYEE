@@ -136,7 +136,7 @@ const resolveAnchorEl = (): HTMLElement | DOMRect | null => {
     return a.$el ?? null
   }
   // 直接 DOM 节点或 DOMRect
-  return a
+  return a as HTMLElement | DOMRect
 }
 
 const isSelected = (id: string) => selectedKbIds.value.includes(id)

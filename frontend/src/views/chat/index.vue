@@ -544,7 +544,7 @@ const {
   onError: (msg) => MessagePlugin.error(msg),
   onPageAction: (prompt) =>
     void respondToPageAction(
-      prompt,
+      prompt as unknown as Parameters<typeof respondToPageAction>[0],
       !props.embeddedMode ? 'unavailable' : assistant.pageAccess ? 'enabled' : 'disabled',
       { current: () => router.currentRoute.value.fullPath, push: (location) => router.push(location) },
     ),
@@ -634,7 +634,7 @@ const {
   streamError: error,
   findLastMessage,
   prepareResumedMessage,
-  startStream: (params) => startStream(params as Parameters<typeof startStream>[0]),
+  startStream: (params) => startStream(params as unknown as Parameters<typeof startStream>[0]),
   reloadThread: (query) => {
     void getmsgList(query);
   },
@@ -678,7 +678,7 @@ const {
   composerLocked: composerLockedRef,
   scrollToBottom,
   sendMsg: (value, mid, mentions) => sendMsg(value, mid, mentions),
-  startStream: (params) => startStream(params as Parameters<typeof startStream>[0]),
+  startStream: (params) => startStream(params as unknown as Parameters<typeof startStream>[0]),
   t,
 });
 
@@ -982,7 +982,7 @@ async function sendMsg(
     attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
     query: value,
     suggestion_attribution: suggestionAttribution || undefined,
-    question_origin: options?.questionOrigin,
+    question_origin: options?.questionOrigin || undefined,
     page_context: agentEnabled ? hostScope?.pageContext || undefined : undefined,
     assistant_access: agentEnabled ? hostScope?.assistantAccess || undefined : undefined,
     method: 'POST',
@@ -1034,11 +1034,13 @@ onChunk((data) => {
   if (data.response_type === 'session_title') {
     const title = data.content || data.data?.title;
     if (title && data.data?.session_id) {
-      usemenuStore.updatasessionTitle(data.data.session_id, title);
+      const titleSessionId = String(data.data.session_id);
+      const nextTitle = String(title);
+      usemenuStore.updatasessionTitle(titleSessionId, nextTitle);
       usemenuStore.changeIsFirstSession(false);
       notifySessionMutation({
-        sessionId: data.data.session_id,
-        patch: { title },
+        sessionId: titleSessionId,
+        patch: { title: nextTitle },
       });
     }
     return;
@@ -1109,7 +1111,7 @@ onMounted(async () => {
       firstModelId.value || '',
       (firstMentionedItems.value as MentionedItemInput[] | undefined) || [],
       (firstImageFiles.value as File[] | undefined) || [],
-      (firstAttachmentFiles.value as AttachmentUploadItem[] | undefined) || [],
+      (firstAttachmentFiles.value as unknown as AttachmentUploadItem[] | undefined) || [],
       { questionOrigin: firstQuestionOrigin.value || undefined },
     );
     usemenuStore.changeFirstQuery('', [], '', [], []);

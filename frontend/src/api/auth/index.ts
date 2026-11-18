@@ -153,7 +153,6 @@ export interface RawUserInfoPayload {
   preferences?: UserPreferences
   created_at?: string
   updated_at?: string
-  [key: string]: unknown
 }
 
 function getErrorMessage(error: unknown): string | undefined {

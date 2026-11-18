@@ -24,7 +24,7 @@ interface MoveTargetKB {
 
 interface KnowledgeItem {
   id: string;
-  file_name: string;
+  file_name?: string;
   original_file_name?: string;
   folder_path?: string;
   file_type?: string;
@@ -335,7 +335,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
 
         <div class="cell cell-name" role="cell">
           <DocumentFileIcon :source-type="item.type"
-            :file-name="item.file_type ? `document.${item.file_type.toLowerCase()}` : (item.original_file_name || item.file_name)" />
+            :file-name="item.file_type ? `document.${item.file_type.toLowerCase()}` : (item.original_file_name || item.file_name || '')" />
           <div class="row-file-text">
             <div class="row-title-line">
               <button type="button" class="row-file-name" :title="item.description ? `${item.file_name}\n${item.description}` : item.file_name"

@@ -5,6 +5,7 @@ import { persistedAssistantId } from './steerStreamFork'
 export type SessionArtifactItem = ArtifactMeta & {
   messageId: string
 }
+export type SessionArtifact = SessionArtifactItem
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null

@@ -1,5 +1,5 @@
 import { emitAssistantDataChange } from '@/utils/assistantDataChange'
-import { approvalEventFromRecord, clearComposerApproval, isModelReview, showComposerApproval } from '@/views/chat/components/hostApproval'
+import { approvalEventFromRecord, clearComposerApproval, isModelReview, showComposerApproval, type ComposerApprovalEvent } from '@/views/chat/components/hostApproval'
 import { applyFinalArtifactContent } from '@/utils/finalArtifactContent'
 import { parseThinkBlocks } from '@/utils/thinkBlocks'
 import { markRaw, nextTick, type Ref } from 'vue'
@@ -1093,7 +1093,7 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
         // A model review is a record, not a question for the user.
         if (!isModelReview(approvalEvent)) {
           message.pendingHostApproval = approvalEvent
-          showComposerApproval(approvalEvent)
+          showComposerApproval(approvalEvent as ComposerApprovalEvent)
         }
         break
       }

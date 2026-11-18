@@ -146,7 +146,7 @@ for (const name of ['ChatHeader', 'SessionSidebarRow'] as const) {
     for (const location of ['trigger', 'action']) {
       await f.click(f.trigger())
       assert.equal(f.trigger().props['aria-expanded'], true)
-      const target = location === 'trigger' ? f.trigger() : f.find(el => el.tag === 'button' && el.props.class?.includes('card-menu-item'))
+      const target = location === 'trigger' ? f.trigger() : f.find(el => el.tag === 'button' && Boolean(el.props.class?.includes('card-menu-item')))
       target.focus()
       const event = await f.keydown(target)
       assert.equal(event.defaultPrevented, true)

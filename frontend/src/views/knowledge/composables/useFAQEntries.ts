@@ -34,6 +34,7 @@ export interface FAQEntryPayload {
   is_enabled?: boolean
   is_recommended?: boolean
   answer_strategy?: 'all' | 'random'
+  [key: string]: unknown
 }
 
 export type FAQViewMode = 'grid' | 'list'

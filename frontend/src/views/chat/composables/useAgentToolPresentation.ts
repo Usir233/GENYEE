@@ -435,9 +435,9 @@ export function useAgentToolPresentation(t: TranslateFn) {
 
   const getToolTitle = (event: AgentTimelineEvent): string => {
     if (event.tool_name === 'local_browser') return browserToolTitle(t, event);
-    const mcpTitle = getMcpToolTitle(t, event);
+    const mcpTitle = getMcpToolTitle(i18n.global.t, event);
     if (mcpTitle) return mcpTitle;
-    const catalogTitle = getCatalogToolTitle(t, event);
+    const catalogTitle = getCatalogToolTitle(i18n.global.t, event);
     if (catalogTitle) return catalogTitle;
     if (event.pending) {
       if (event.tool_name === 'image_analysis') {
@@ -686,7 +686,7 @@ export function useAgentToolPresentation(t: TranslateFn) {
     if (toolName === 'grep_chunks') {
       const chunkResults = Array.isArray(toolData.chunk_results) ? toolData.chunk_results : [];
       if (chunkResults.length) {
-        return groupGrepChunkResults(chunkResults)
+        return groupGrepChunkResults(chunkResults as unknown as Parameters<typeof groupGrepChunkResults>[0])
           .filter((group) => group.knowledge_id || group.title)
           .map((group, index) => ({
             id: group.knowledge_id || group.key,
@@ -719,7 +719,11 @@ export function useAgentToolPresentation(t: TranslateFn) {
     }
 
     if (toolName === 'read_document' || toolName === 'list_knowledge_chunks' || toolName === 'wiki_read_source_doc') {
-      return readDocumentReferences(toolData, cleanToolOutputContent(event.output), getToolDescription(event));
+      return readDocumentReferences(
+        toolData as unknown as Parameters<typeof readDocumentReferences>[0],
+        cleanToolOutputContent(event.output),
+        getToolDescription(event),
+      );
     }
 
     return [];
@@ -855,7 +859,7 @@ export function useAgentToolPresentation(t: TranslateFn) {
   const getGrepResultsSummary = (toolData?: AgentToolData | null): string => {
     if (!toolData) return '';
     const totalChunks = Number(toolData.total_matches ?? 0) || 0;
-    const docCount = countGrepDocuments(toolData);
+    const docCount = countGrepDocuments(toolData as unknown as Parameters<typeof countGrepDocuments>[0]);
     if (totalChunks === 0) {
       return t('agentStream.search.noResults');
     }
@@ -866,10 +870,10 @@ export function useAgentToolPresentation(t: TranslateFn) {
   };
 
   const getKnowledgeChunksSummary = (toolData?: AgentToolData | null): string =>
-    getKnowledgeChunksSummaryHtml(t, toolData);
+    getKnowledgeChunksSummaryHtml(i18n.global.t, toolData as unknown as Parameters<typeof getKnowledgeChunksSummaryHtml>[1]);
 
   const getAttachmentParsingSummary = (event?: AgentTimelineEvent | null): string =>
-    getAttachmentParsingSummaryHtml(t, event ?? {});
+    getAttachmentParsingSummaryHtml(i18n.global.t, event ?? {});
 
   return {
     getToolIconName,

@@ -51,7 +51,7 @@ export interface AgentEditorFormConfig extends CustomAgentConfig {
   citation_enabled: boolean
   max_iterations: number
   llm_call_timeout: number
-  allowed_tools: string[]
+  allowed_tools: string[] | null
   reflection_enabled: boolean
   mcp_selection_mode: 'all' | 'selected' | 'none'
   mcp_services: string[]
@@ -755,7 +755,7 @@ watch(() => formData.value.config.sandbox_config_id, async () => {
   watch(agentMode, (val) => {
     if (val === 'smart-reasoning') {
       if (!isInitializing.value) keepAllowedToolsUnset.value = false
-      if (!isInitializing.value && formData.value.config.allowed_tools.length === 0) {
+      if (!isInitializing.value && (formData.value.config.allowed_tools ?? []).length === 0) {
         const tools: string[] = ['ask_user']
         if (hasRagKnowledgeBase.value) tools.push(...KNOWLEDGE_BASE_TOOLS)
         if (hasWikiKnowledgeBase.value) tools.push(...WIKI_READ_TOOLS)

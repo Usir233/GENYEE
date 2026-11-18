@@ -334,6 +334,7 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { extractTextRelations, fabriText, fabriTag, type Node, type Relation } from '@/api/initialization'
+import type { ModelConfig } from '@/api/model'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useAuthStore } from '@/stores/auth'
 import { docsUrl } from '@/utils/docsUrl'
@@ -358,7 +359,7 @@ interface GraphExtractConfig {
 interface Props {
   graphExtract: GraphExtractConfig
   modelId: string
-  allModels?: Record<string, unknown>[]
+  allModels?: Array<ModelConfig | Record<string, unknown>>
   embedded?: boolean
 }
 

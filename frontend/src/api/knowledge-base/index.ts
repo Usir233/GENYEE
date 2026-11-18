@@ -192,7 +192,7 @@ export const FALLBACK_IMAGE_ATTR_SCHEMA: ImageAttrSchema = {
 // does not mention keeps the default. The result is what the form seeds with and
 // what makes an empty custom table safe to open.
 export function mergeImageActions(
-  custom?: ImageActionsConfig | null,
+  custom?: Partial<ImageActionsConfig> | null,
 ): ImageActionsConfig {
   if (custom && custom.ocr && custom.ocr.on && custom.ocr.on.length > 0) {
     return { ocr: { on: custom.ocr.on } };
@@ -314,7 +314,14 @@ export async function fetchImagePipelines(): Promise<ImagePipelineSpec[]> {
   return res.data;
 }
 
-export type VectorStoreSource = 'env' | 'user' | 'shared' | 'unavailable';
+export type VectorStoreSource =
+  | 'env'
+  | 'user'
+  | 'shared'
+  | 'unavailable'
+  | 'builtin'
+  | 'dedicated'
+  | 'workspace_default';
 export type VectorStoreStatus = 'available' | 'unavailable';
 
 export interface KnowledgeBaseStoreView {
@@ -380,7 +387,24 @@ export function getKnowledgeBaseById(id: string, options?: { agent_id?: string; 
   if (options?.agent_id) query.set('agent_id', options.agent_id);
   if (options?.agent_source_tenant_id) query.set('agent_source_tenant_id', options.agent_source_tenant_id);
   const qs = query.toString();
-  return get(qs ? `/api/v1/knowledge-bases/${id}?${qs}` : `/api/v1/knowledge-bases/${id}`);
+  return get<{
+    success?: boolean;
+    data: {
+      id: string;
+      name: string;
+      description?: string;
+      type?: 'document' | 'faq' | string;
+      summary_model_id?: string;
+      embedding_model_id?: string;
+      indexing_strategy?: {
+        vector_enabled?: boolean;
+        keyword_enabled?: boolean;
+        wiki_enabled?: boolean;
+        graph_enabled?: boolean;
+      };
+      [key: string]: unknown;
+    };
+  }>(qs ? `/api/v1/knowledge-bases/${id}?${qs}` : `/api/v1/knowledge-bases/${id}`);
 }
 
 export function updateKnowledgeBase(id: string, data: {
@@ -624,7 +648,22 @@ export function getKnowledgeDetails(id: string, options?: { agent_id?: string; a
   if (options?.agent_id) query.set('agent_id', options.agent_id);
   if (options?.agent_source_tenant_id) query.set('agent_source_tenant_id', options.agent_source_tenant_id);
   const qs = query.toString();
-  return get(qs ? `/api/v1/knowledge/${id}?${qs}` : `/api/v1/knowledge/${id}`);
+  return get<{
+    success?: boolean;
+    data?: {
+      id?: string;
+      title?: string;
+      file_name?: string;
+      description?: string;
+      knowledge_base_id?: string;
+      knowledge_base_name?: string;
+      folder_path?: string;
+      [key: string]: unknown;
+    };
+    knowledge_base_id?: string;
+    folder_path?: string;
+    [key: string]: unknown;
+  }>(qs ? `/api/v1/knowledge/${id}?${qs}` : `/api/v1/knowledge/${id}`);
 }
 
 export function updateManualKnowledge(
@@ -723,7 +762,7 @@ export function regenerateKnowledgeSummary(knowledgeId: string) {
 
 // Get chunk by chunk_id only (new endpoint - to be added to backend)
 export function getChunkByIdOnly(chunkId: string) {
-  return get(`/api/v1/chunks/by-id/${chunkId}`);
+  return get<{ success?: boolean; data?: { content?: string; [key: string]: unknown } }>(`/api/v1/chunks/by-id/${chunkId}`);
 }
 
 // Delete a single generated question from a chunk by question ID

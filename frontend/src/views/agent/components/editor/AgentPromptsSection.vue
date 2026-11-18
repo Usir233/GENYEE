@@ -69,7 +69,7 @@
             <div class="setting-control setting-control-full" style="position: relative;">
               <div v-if="isAgentMode" class="textarea-with-template">
                 <t-textarea
-                  :ref="(el) => setPromptTextareaRef('system', el)"
+                  :ref="(el: unknown) => setPromptTextareaRef('system', el)"
                   :model-value="formData.config.system_prompt"
                   :placeholder="$t('agent.editor.systemPromptPlaceholder')"
                   :autosize="{ minRows: 10, maxRows: 25 }"
@@ -95,7 +95,7 @@
               </div>
               <div v-else class="textarea-with-template">
                 <t-textarea
-                  :ref="(el) => setPromptTextareaRef('system', el)"
+                  :ref="(el: unknown) => setPromptTextareaRef('system', el)"
                   :model-value="formData.config.system_prompt"
                   :placeholder="$t('agent.editor.systemPromptPlaceholder')"
                   :autosize="{ minRows: 10, maxRows: 25 }"
@@ -182,7 +182,7 @@
             <div class="setting-control setting-control-full" style="position: relative;">
               <div class="textarea-with-template">
                 <t-textarea
-                  :ref="(el) => setPromptTextareaRef('context', el)"
+                  :ref="(el: unknown) => setPromptTextareaRef('context', el)"
                   :model-value="formData.config.context_template"
                   :placeholder="$t('agent.editor.contextTemplatePlaceholder')"
                   :autosize="{ minRows: 8, maxRows: 20 }"
@@ -294,7 +294,7 @@
 
                   <div class="textarea-with-template">
                     <t-textarea
-                      :ref="(el) => setPromptTextareaRef('intent', el)"
+                      :ref="(el: unknown) => setPromptTextareaRef('intent', el)"
                       :model-value="intentEditorValue"
                       class="system-prompt-textarea"
                       :autosize="{ minRows: 10, maxRows: 25 }"
@@ -374,7 +374,7 @@
               <div class="setting-control setting-control-full" style="position: relative;">
                 <div class="textarea-with-template">
                   <t-textarea
-                    :ref="(el) => setPromptTextareaRef('rewriteSystem', el)"
+                    :ref="(el: unknown) => setPromptTextareaRef('rewriteSystem', el)"
                     :model-value="formData.config.rewrite_prompt_system"
                     :placeholder="defaultRewritePromptSystem || $t('agent.editor.rewritePromptSystemPlaceholder')"
                     :autosize="{ minRows: 4, maxRows: 10 }"
@@ -444,7 +444,7 @@
               <div class="setting-control setting-control-full" style="position: relative;">
                 <div class="textarea-with-template">
                   <t-textarea
-                    :ref="(el) => setPromptTextareaRef('rewriteUser', el)"
+                    :ref="(el: unknown) => setPromptTextareaRef('rewriteUser', el)"
                     :model-value="formData.config.rewrite_prompt_user"
                     :placeholder="defaultRewritePromptUser || $t('agent.editor.rewritePromptUserPlaceholder')"
                     :autosize="{ minRows: 4, maxRows: 10 }"
@@ -566,7 +566,7 @@
               <div class="setting-control setting-control-full" style="position: relative;">
                 <div class="textarea-with-template">
                   <t-textarea
-                    :ref="(el) => setPromptTextareaRef('fallback', el)"
+                    :ref="(el: unknown) => setPromptTextareaRef('fallback', el)"
                     :model-value="formData.config.fallback_prompt"
                     :placeholder="defaultFallbackPrompt || $t('agent.editor.fallbackPromptPlaceholder')"
                     :autosize="{ minRows: 4, maxRows: 10 }"

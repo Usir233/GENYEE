@@ -1,6 +1,7 @@
 import { get, post, put, postUpload } from '../../utils/request';
 import i18n from '@/i18n';
 import type { ModelCapabilities, ModelSpecOverride, ReasoningEffortLevel } from '../model';
+export type { ModelCapabilities, ModelSpecOverride, ReasoningEffortLevel };
 
 const t = (key: string) => i18n.global.t(key);
 

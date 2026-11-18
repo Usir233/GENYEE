@@ -348,7 +348,7 @@ const sandboxPanel = useChatSandboxPanel();
 const artifactList = computed<IndexedSessionArtifact[]>(() => {
     const raw = props.session?.artifacts;
     const list = Array.isArray(raw) ? raw : [];
-    return list.map((a, i) => ({ index: i, ...a }));
+    return list.map((a, i) => ({ ...a, index: a.index ?? i }));
 });
 const liveArtifacts = computed(() => artifactList.value.filter((a) => !a.deleted_at));
 const hasArtifacts = computed(() => liveArtifacts.value.length > 0);

@@ -822,7 +822,7 @@ const mapSessionRow = (item: RawSessionSummaryItem) => ({
 const syncMenuStoreFromBuckets = () => {
     usemenuStore.clearMenuArr();
     const flat = flattenBucketItems(sessionBuckets.value, bucketOrder.value);
-    flat.forEach((item) => usemenuStore.updatemenuArr(item));
+    flat.forEach((item) => usemenuStore.updatemenuArr({ ...item }));
     total.value = flat.length;
 };
 

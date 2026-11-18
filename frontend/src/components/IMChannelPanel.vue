@@ -774,7 +774,7 @@ interface IMCredentialsDraft {
   allowed_webhook_host_suffix?: string
   ilink_bot_id?: string
   ilink_user_id?: string
-  [key: string]: unknown
+  [key: string]: string | number | boolean | undefined
 }
 
 function getImErrorMessage(e: unknown): string {

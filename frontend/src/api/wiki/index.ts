@@ -190,7 +190,7 @@ export function createWikiPage(kbId: string, data: Partial<WikiPage>) {
 }
 
 export function getWikiPage(kbId: string, slug: string) {
-  return get(`/api/v1/knowledge-bases/${encodeURIComponent(kbId)}/wiki/pages/${encodeSlugPath(slug)}`);
+  return get<{ success?: boolean; data?: WikiPage } & Partial<WikiPage>>(`/api/v1/knowledge-bases/${encodeURIComponent(kbId)}/wiki/pages/${encodeSlugPath(slug)}`);
 }
 
 // WikiPageUpdatePayload is a partial update: absent fields keep their stored
@@ -317,6 +317,7 @@ export interface WikiGraphQueryParams {
   types?: string[];
   limit?: number;
 }
+export type WikiGraphQueryOptions = WikiGraphQueryParams;
 
 // getWikiGraph fetches a slice of the wiki link graph. Without params the
 // backend returns the top-500 most-connected pages (overview mode). Pass

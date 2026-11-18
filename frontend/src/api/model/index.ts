@@ -277,8 +277,12 @@ export async function debugModel(
 
 export type ModelCredentialField = 'api_key' | 'app_secret'
 
+export interface CredentialFieldMeta {
+  configured: boolean
+}
+
 export interface ModelCredentialsResponse {
-  fields: Record<ModelCredentialField, { configured: boolean }>
+  fields: Record<ModelCredentialField, CredentialFieldMeta>
 }
 
 export async function putModelCredentials(

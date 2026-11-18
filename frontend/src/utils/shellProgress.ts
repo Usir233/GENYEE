@@ -1,3 +1,14 @@
+export interface ShellCommandProgress {
+  command: string
+  started_at: string
+  output: string
+  done: boolean
+  stdout?: string
+  stderr?: string
+  exit_code?: number
+  [key: string]: unknown
+}
+
 /** Live tail under a shell card. Async jobs keep streaming after the tool returns. */
 export function showLiveShellOutput(event: {
   tool_name?: string

@@ -103,7 +103,7 @@ test('a slow knowledge-base list from a closed visit cannot restart document loa
   let lists = 0
   const ids: string[] = []
   const p = setup(t, { getKnowledgeDetails: async (id: string) => { ids.push(id); return detail(id) } },
-    () => ++lists === 1 ? old.promise : Promise.resolve())
+    () => (++lists === 1 ? old.promise : Promise.resolve()).then(() => {}))
   await p.open('a')
   await p.hide()
   await p.open('b')

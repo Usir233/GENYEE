@@ -49,6 +49,13 @@ export interface KBDetailInfo {
   storage_backend_id?: string
   storage_provider_config?: { provider?: string }
   chunking_config?: {
+    strategy?: string
+    chunk_size?: number
+    chunk_overlap?: number
+    enable_parent_child?: boolean
+    parent_chunk_size?: number
+    child_chunk_size?: number
+    token_limit?: number
     parser_engine_rules?: Array<{ file_types: string[]; engine: string }>
     [key: string]: unknown
   }

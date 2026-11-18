@@ -4,7 +4,7 @@ export interface SessionActivity {
   failures: number
 }
 
-interface ActivityMessage {
+export interface ActivityMessage {
   id: string
   role: string
   is_completed: boolean

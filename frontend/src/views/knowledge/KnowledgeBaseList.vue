@@ -1140,7 +1140,7 @@ const unsearchedFilteredKnowledgeBases = computed(() => {
     )
   }
   if (spaceSelection.value === 'mine') {
-    return sortedMineKbs.value.map(kb => ({ ...kb, isMine: true as const }))
+    return sortedMineKbs.value.map((kb): OwnedFlatKBItem => ({ ...kb, isMine: true as const }))
   }
   if (spaceSelection.value !== 'all') {
     return []
@@ -1351,8 +1351,8 @@ function canManageKBCard(kb: KB & { permission?: string; isMine?: boolean }): bo
   return authStore.hasRole('admin')
 }
 
-function canDuplicateKBCard(kb: { isMine?: boolean }): boolean {
-  return authStore.hasRole('contributor') && kb.isMine !== false
+function canDuplicateKBCard(kb: KB | FlatKBListItem | { isMine?: boolean }): boolean {
+  return authStore.hasRole('contributor') && (kb as { isMine?: boolean }).isMine !== false
 }
 
 // isMyKb 仅用于卡片右下角徽章在「我创建」与「同空间其他成员创建」之间切换。

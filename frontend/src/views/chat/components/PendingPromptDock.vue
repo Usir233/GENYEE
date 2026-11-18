@@ -183,16 +183,16 @@ const onKeydown = (e: KeyboardEvent) => {
     return
   }
   if (e.repeat) return
-  if (cards.get(activeId.value)?.handleKey?.(e)) e.preventDefault()
+  if (activeId.value && cards.get(activeId.value)?.handleKey?.(e)) e.preventDefault()
 }
 
 watch(() => dock?.focusRequest.value, () => { void takeFocus() })
 
 // A new prompt opens the dock; it takes focus unless the user is typing.
 watch(() => prompts.value.map((p) => p.pending_id), (ids, previous = []) => {
-  const arrived = ids.filter((id) => !previous.includes(id))
+  const arrived = ids.filter((id): id is string => Boolean(id) && !previous.includes(id))
   if (!dock || !arrived.length) return
-  if (!ids.includes(dock.activeId.value)) dock.activeId.value = arrived[0]
+  if (!ids.includes(dock.activeId.value)) dock.activeId.value = arrived[0] || ''
   dock.collapsed.value = false
   if (!isTextEntry(document.activeElement)) void takeFocus()
 })

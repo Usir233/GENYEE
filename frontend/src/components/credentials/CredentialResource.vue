@@ -163,7 +163,7 @@ interface Props {
   // Initial per-field "configured?" map, sourced from the parent resource's
   // main GET response. The component reads it on first render and after
   // every reset; subsequent state transitions are tracked locally.
-  meta: Record<K, { configured: boolean }>
+  meta?: Partial<Record<K, { configured: boolean }>>
 }
 
 interface Emits {
@@ -220,7 +220,7 @@ function flashInlineToast(key: string, kind: InlineToastKind, ms = 2400) {
   }, ms)
 }
 
-function deriveStatesFromMeta(meta: Record<string, { configured: boolean }>) {
+function deriveStatesFromMeta(meta: Partial<Record<string, { configured: boolean }>>) {
   for (const f of props.fields) {
     // Preserve in-progress edits across parent re-renders — `meta` describes
     // server state, the editing flag is user intent.

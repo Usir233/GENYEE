@@ -8,6 +8,9 @@ export interface MessageSuggestionItem {
   knowledge_base_ids?: string[]
 }
 
+export type MessageSuggestionQuestion = MessageSuggestionItem
+export type MessageSuggestionEventType = 'impression' | 'click' | 'dismiss'
+
 export interface MessageSuggestionSet {
   id: string
   session_id: string

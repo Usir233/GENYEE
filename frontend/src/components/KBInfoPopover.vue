@@ -133,10 +133,10 @@
               <span class="kb-info-card-label">{{ t('knowledgeBase.infoCard.vectorStore') }}</span>
               <span class="kb-info-card-value">
                 <VectorStoreBadge
-                  :source="kbInfo.vector_store_source"
+                  :source="(kbInfo.vector_store_source as VectorStoreSource | undefined)"
                   :name="kbInfo.vector_store_name"
                   :engine-type="kbInfo.vector_store_engine_type"
-                  :status="kbInfo.vector_store_status"
+                  :status="(kbInfo.vector_store_status as VectorStoreStatus | undefined)"
                 />
               </span>
             </div>
@@ -169,6 +169,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VectorStoreBadge from '@/components/VectorStoreBadge.vue'
+import type { VectorStoreSource, VectorStoreStatus } from '@/api/knowledge-base'
 import { useOrganizationStore } from '@/stores/organization'
 import { useAuthStore } from '@/stores/auth'
 import { formatStringDate } from '@/utils'
@@ -184,10 +185,10 @@ export interface KbPopoverInfo {
   share_count?: number
   chunk_count?: number
   knowledge_count?: number
-  vector_store_source?: 'builtin' | 'dedicated' | 'workspace_default'
+  vector_store_source?: VectorStoreSource | string
   vector_store_name?: string
   vector_store_engine_type?: string
-  vector_store_status?: 'available' | 'unavailable'
+  vector_store_status?: VectorStoreStatus | string
   storage_provider_config?: { provider?: string } | null
   vlm_config?: { enabled?: boolean } | null
   asr_config?: { enabled?: boolean } | null

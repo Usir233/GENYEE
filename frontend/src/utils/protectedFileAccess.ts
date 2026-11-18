@@ -121,7 +121,7 @@ function tenantRequestHeaders(): Record<string, string> {
     const selectedTenantId = (localStorage.getItem('genyee_selected_tenant_id') || '').trim();
     if (selectedTenantId) {
       // Always attach when a selected tenant is set. Same rationale as
-      // utils/request.ts / api/chat/streame.ts: the
+      // utils/request.ts / api/chat/stream.ts: the
       // "selectedTenantId === defaultTenantId → skip" short-circuit
       // silently drops the header whenever any code path writes the
       // active tenant into genyee_tenant, leaving authenticated file

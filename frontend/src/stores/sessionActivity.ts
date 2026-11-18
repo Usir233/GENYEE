@@ -6,6 +6,7 @@ import {
   createSessionActivityState,
   restoreSessionActivity,
   serializeSessionActivity,
+  type ActivityMessage,
   type SessionActivity,
 } from './sessionActivityState'
 
@@ -15,7 +16,7 @@ export const useSessionActivityStore = defineStore('sessionActivity', () => {
   const entries = reactive<Record<string, SessionActivity>>({})
   const unread = reactive<Record<string, true>>({})
   const activity = createSessionActivityState(entries, async sessionId => {
-    const result = await getMessageList({ session_id: sessionId, limit: 20, created_at: '' })
+    const result = await getMessageList<ActivityMessage>({ session_id: sessionId, limit: 20, created_at: '' })
     return result.data || []
   }, unread)
   const auth = useAuthStore()

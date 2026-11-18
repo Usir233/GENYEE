@@ -41,7 +41,7 @@ async function fetchLogs(reset = true) {
     const offset = reset ? 0 : logs.value.length
     const res = await getSyncLogs(targetDsId, pageSize, offset)
     if (seq !== fetchSeq || targetDsId !== props.dataSourceId) return
-    const items = res?.data || res || []
+    const items = Array.isArray(res) ? res : (res?.data || [])
     logs.value = reset ? items : [...logs.value, ...items]
     hasMore.value = items.length === pageSize
   } catch { /* ignore */ } finally {

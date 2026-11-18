@@ -74,7 +74,7 @@ export function fixture(
   function mount(component: vue.ComponentOptions, props: Record<string, unknown> = {}) {
     component.render = () => null
     const app = renderer.createApp(component, props)
-    const vm = app.mount({})
+    const vm = app.mount({}) as vue.ComponentPublicInstance & DynamicModuleExports
     let mounted = true
     const close = () => { if (mounted) { mounted = false; app.unmount() } }
     t.after(close)

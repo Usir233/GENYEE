@@ -10,11 +10,11 @@ test('form edits remove higher-precedence fields without losing unrelated overri
     model_overrides: { shared: { context_window: 123, compat: { supports_temperature: false } } },
   } } }
   const next = patchCatalogModel(overlay, 'openai', { id: 'shared', type: 'KnowledgeQA' }, { context_window: 456 })
-  assert.equal(next.providers.openai.models[0].context_window, 456)
-  assert.equal(next.providers.openai.models[0].reasoning, true)
-  assert.equal(next.providers.openai.models[1].dimension, 1024)
-  assert.deepEqual(next.providers.openai.model_overrides.shared, { compat: { supports_temperature: false } })
-  assert.equal(overlay.providers.openai.model_overrides.shared.context_window, 123)
+  assert.equal(next.providers.openai.models![0].context_window, 456)
+  assert.equal(next.providers.openai.models![0].reasoning, true)
+  assert.equal(next.providers.openai.models![1].dimension, 1024)
+  assert.deepEqual(next.providers.openai.model_overrides!.shared, { compat: { supports_temperature: false } })
+  assert.equal(overlay.providers.openai.model_overrides!.shared.context_window, 123)
 })
 test('restore removes only the selected type and preserves unrelated models', () => {
   const overlay: CatalogOverlay = { providers: { openai: { models: [
@@ -58,7 +58,7 @@ test('change summaries name the model and the fields that changed', () => {
 })
 test('edits accept the reactive overlay held by the page', () => {
   const overlay = reactive<CatalogOverlay>({ providers: { p: { models: [{ id: 'm', reasoning: true }] } } })
-  assert.equal(patchCatalogModel(overlay, 'p', { id: 'm' }, { context_window: 1 }).providers.p.models[0].context_window, 1)
+  assert.equal(patchCatalogModel(overlay, 'p', { id: 'm' }, { context_window: 1 }).providers.p.models![0].context_window, 1)
   assert.deepEqual(removeCatalogModelOverride(overlay, 'p', { id: 'm' }).providers.p.models, [])
 })
 test('input edits keep text and unknown modalities', () => {

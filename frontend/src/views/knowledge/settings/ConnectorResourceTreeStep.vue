@@ -416,7 +416,7 @@ defineProps<{
   schedulePresets: Array<{ label: string; value: string }>
   feishuParseMode: string
   dingtalkIncludeUploadedFiles: boolean
-  yuqueFolderMode: string
+  yuqueFolderMode: 'none' | 'toc'
   yuqueTOCOnly: boolean
 }>()
 
@@ -438,7 +438,7 @@ const emit = defineEmits<{
   'update:feishu-parse-mode': [mode: string]
   'update:sync-deletions': [enabled: boolean]
   'update:dingtalk-uploaded-files': [enabled: boolean]
-  'update:yuque-folder-mode': [mode: string]
+  'update:yuque-folder-mode': [mode: 'none' | 'toc']
   'update:yuque-toc-only': [enabled: boolean]
 }>()
 

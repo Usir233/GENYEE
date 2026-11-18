@@ -34,7 +34,13 @@ export async function steerSession(
   expectedAssistantMessageId?: string,
   steerId?: string,
 ) {
-  return post(`/api/v1/sessions/${session_id}/steer`, {
+  return post<{
+    success?: boolean
+    status?: string
+    steer_id?: string
+    delivery?: SteerDelivery
+    assistant_message_id?: string
+  }>(`/api/v1/sessions/${session_id}/steer`, {
     query,
     expected_assistant_message_id: expectedAssistantMessageId,
     steer_id: steerId,
@@ -46,12 +52,22 @@ export async function steerSession(
 
 /** Flip a queued after-message to inject so the running turn reads it next. */
 export async function promoteSteerSession(session_id: string, steer_id: string) {
-  return post(`/api/v1/sessions/${session_id}/steer/${steer_id}/inject`, {});
+  return post<{
+    success?: boolean
+    status?: string
+    steer_id?: string
+    delivery?: SteerDelivery
+    assistant_message_id?: string
+  }>(`/api/v1/sessions/${session_id}/steer/${steer_id}/inject`, {});
 }
 
 /** Pending overlay items for the live run. Empty when nothing is generating. */
 export async function listSteerSession(session_id: string) {
-  return get(`/api/v1/sessions/${session_id}/steer`);
+  return get<{
+    success?: boolean
+    items?: SteerQueueItem[]
+    assistant_message_id?: string
+  }>(`/api/v1/sessions/${session_id}/steer`);
 }
 
 /** Drop a queued overlay item so it is neither injected nor sent as a follow-up. */

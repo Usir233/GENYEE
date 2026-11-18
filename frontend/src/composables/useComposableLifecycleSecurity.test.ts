@@ -428,7 +428,7 @@ test('useVoiceInput suppresses onText and onError when component unmounts during
 
   await voice.start()
   now += 1200
-  activeRecorder.stop()
+  activeRecorder!.stop()
   await flush()
   assert.equal(voice.state.value, 'transcribing')
 

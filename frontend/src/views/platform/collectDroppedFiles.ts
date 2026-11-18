@@ -22,7 +22,7 @@ export interface DroppedDirectoryReader {
   ) => void
 }
 
-interface DataTransferItemWithEntry extends DataTransferItem {
+type DataTransferItemWithEntry = Omit<DataTransferItem, 'webkitGetAsEntry'> & {
   webkitGetAsEntry?: () => DroppedFileSystemEntry | null
 }
 

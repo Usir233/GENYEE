@@ -336,10 +336,7 @@ async function reloadMessageArtifacts() {
     try {
         const res = await listMessageArtifacts(props.sessionId, props.messageId)
         if (seq !== loadSeq) return
-        const unwrapped =
-            res && typeof res === 'object' && 'data' in res
-                ? (res as { data?: ArtifactMeta[] }).data
-                : (res as ArtifactMeta[] | undefined)
+        const unwrapped = Array.isArray(res) ? res : res?.data
         fetched.value = Array.isArray(unwrapped) ? unwrapped : []
         applyRequestedPreview()
     } catch (err) {

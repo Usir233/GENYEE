@@ -70,8 +70,8 @@ test('child rows stay at spawn position and concurrent waits share one row', asy
     { id: 'b', name: 'b', session_id: 'sb', run_id: 'rb', status: 'waiting' }] }
   const result = collaborationTimeline(events, snapshot)
   assert.deepEqual(result.map(e => e.type), ['progress', 'child_task', 'child_task', 'progress'])
-  assert.equal(result[1].task.sessionId, 'sa')
-  assert.equal(result[2].task.sessionId, 'sb')
+  assert.equal(result[1].task!.sessionId, 'sa')
+  assert.equal(result[2].task!.sessionId, 'sb')
   assert.equal(result.filter(e => e.type === 'child_wait').length, 0, 'live waiting belongs at the response tail')
   const restored = collaborationTimeline([{ type: 'answer', content: 'Result' }], snapshot, true)
   assert.deepEqual(restored.map(e => e.type), ['child_task', 'child_task', 'answer'])
@@ -118,8 +118,8 @@ test('a continued child stays at its followup position in the new parent turn', 
     ]
     const rows = collaborationTimeline(events, snapshot)
     assert.deepEqual(rows.map(row => row.type), ['progress', 'child_task', 'thinking'])
-    assert.equal(rows[1].task.sessionId, 'original-session')
-    assert.equal(rows[1].task.runId, 'new-run')
+    assert.equal(rows[1].task!.sessionId, 'original-session')
+    assert.equal(rows[1].task!.runId, 'new-run')
     assert.equal(rows[1].timestamp, 'now')
     events[1].success = false
     assert.ok(collaborationTimeline(events, snapshot).some(row => row.tool_name === 'followup_task'), 'failed continuation remains visible')

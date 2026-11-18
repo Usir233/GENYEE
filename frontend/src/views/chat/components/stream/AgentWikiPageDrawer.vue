@@ -17,8 +17,8 @@
     <template v-if="page">
       <div class="wiki-reader-meta">
         <div class="wiki-reader-meta__tags">
-          <t-tag size="small" :theme="getTypeTheme(page.page_type)" variant="light-outline">
-            {{ getTypeLabel(page.page_type) }}
+          <t-tag size="small" :theme="(getTypeTheme(page.page_type || '') as 'primary' | 'warning' | 'success' | 'default')" variant="light-outline">
+            {{ getTypeLabel(page.page_type || '') }}
           </t-tag>
           <span class="wiki-reader-meta-text">
             {{ $t('knowledgeEditor.wikiBrowser.version', { ver: page.version || 1 }) }}
@@ -43,8 +43,8 @@ defineProps<{
   page: WikiPage | null;
   contentHtml: string;
   wikiGraphHref: string;
-  getTypeTheme: (type?: string) => 'primary' | 'warning' | 'success' | 'default';
-  getTypeLabel: (type?: string) => string;
+  getTypeTheme: (type: string) => string;
+  getTypeLabel: (type: string) => string;
 }>();
 
 const emit = defineEmits<{

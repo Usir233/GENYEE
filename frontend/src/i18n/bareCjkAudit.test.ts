@@ -10,39 +10,11 @@ const TEST_FILE_RE = /\.test\.(ts|tsx|js|mjs|cjs)$/
 const BARE_CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
 
 /**
- * Explicit allowlist of the ONLY 25 remaining view/component files scheduled
- * for W7–W8 CJK localization (using pre-seeded keys in `src/i18n/locales/*.ts`).
- * All foundation layers (`utils/`, `composables/`, `hooks/`, `directives/`,
- * `stores/`, `api/`, `router/`, `types/`, `config/`, `assets/`, `i18n/`) MUST
- * maintain 0 bare CJK literals immediately.
+ * W7–W8 CJK localization is complete: the pending allowlist is permanently
+ * empty (0 files). 100% of non-test, non-locale `frontend/src/` source code
+ * MUST contain 0 bare CJK literals.
  */
-export const W7_W8_PENDING_CJK_ALLOWLIST: ReadonlySet<string> = new Set([
-  'components/AgentEmbedChannelPanel.vue',
-  'components/GlobalCommandPalette/commands.ts',
-  'components/IMChannelPanel.vue',
-  'components/ModelEditorDialog.vue',
-  'components/SessionSidebarRow.vue',
-  'components/UserMenu.vue',
-  'components/document-preview.vue',
-  'components/menu.vue',
-  'views/auth/Login.vue',
-  'views/chat/components/AgentStreamDisplay.vue',
-  'views/chat/components/botmsg.vue',
-  'views/chat/components/usermsg.vue',
-  'views/chat/index.vue',
-  'views/dev/MarkdownTestPage.vue',
-  'views/knowledge/KnowledgeBase.vue',
-  'views/knowledge/components/FAQEntryManager.vue',
-  'views/knowledge/settings/chunkingSamples.ts',
-  'views/knowledge/wiki/WikiBrowser.vue',
-  'views/settings/ModelSettings.vue',
-  'views/settings/OllamaSettings.vue',
-  'views/settings/ParserEngineSettings.vue',
-  'views/settings/StorageBackendSettings.vue',
-  'views/settings/VectorStoreSettings.vue',
-  'views/settings/WebSearchSettings.vue',
-  'views/settings/components/McpServiceDialog.vue',
-])
+export const W7_W8_PENDING_CJK_ALLOWLIST: ReadonlySet<string> = new Set([])
 
 const STRICT_ZERO_CJK_DIRS = [
   'utils/',
@@ -131,14 +103,15 @@ test('foundation directories contain zero bare CJK literals', () => {
   )
 })
 
-test('no unallowlisted source file introduces bare CJK literals', () => {
+test('all non-test, non-locale source files contain zero bare CJK literals (empty allowlist)', () => {
+  assert.equal(W7_W8_PENDING_CJK_ALLOWLIST.size, 0, 'W7/W8 bare CJK allowlist must remain empty')
   const disallowed = scanBareCjkHits().filter(
     (hit) => !W7_W8_PENDING_CJK_ALLOWLIST.has(hit.relPath),
   )
   assert.deepEqual(
     disallowed.map((h) => `${h.relPath}:${h.line}: ${h.snippet}`),
     [],
-    `Bare CJK literals found outside W7/W8 allowlist:\n${disallowed
+    `Bare CJK literals found in source files:\n${disallowed
       .slice(0, 25)
       .map((h) => `  ${h.relPath}:${h.line}  ${h.snippet}`)
       .join('\n')}`,

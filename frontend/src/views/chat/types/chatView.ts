@@ -1,4 +1,7 @@
 import type { SuggestedQuestion } from '@/api/agent';
+import type { AssistantAccessLevel } from '@/api/assistant';
+import type { PageContextPayload } from '@/api/chat/stream';
+import type { CollaborationStatus } from '@/api/chat/stream-types';
 import type { MessageSuggestionQuestion, MessageSuggestionSet } from '@/api/message-suggestion';
 import type { AssistantPageContext } from '@/composables/useAssistantPageContext';
 import type { QuestionOrigin } from '@/utils/questionOrigin';
@@ -8,12 +11,14 @@ import type { AgentTimelineEvent } from './agentStream';
 
 export interface MentionedItemInput {
   id: string;
-  name?: string;
-  type?: 'kb' | 'file' | 'tag' | 'mcp' | 'skill' | string;
+  name: string;
+  type: 'kb' | 'file' | 'tag' | 'mcp' | 'skill' | string;
   kb_type?: 'document' | 'faq' | string;
+  kb_id?: string;
+  kb_name?: string;
+  service_id?: string;
   skill_name?: string;
   count?: number;
-  [key: string]: unknown;
 }
 
 export interface AttachmentUploadItem {
@@ -41,7 +46,7 @@ export interface ChatMessageRow {
   id?: string;
   assistant_message_id?: string;
   request_id?: string;
-  role: 'user' | 'assistant' | string;
+  role?: 'user' | 'assistant' | string;
   content?: string;
   created_at?: string;
   channel?: string;
@@ -53,6 +58,8 @@ export interface ChatMessageRow {
   isSteer?: boolean;
   _steerPending?: boolean;
   _steerFailed?: boolean;
+  collaborationStatus?: CollaborationStatus;
+  collaboration_status?: CollaborationStatus;
   mentioned_items?: MentionedItemInput[];
   images?: MessageImageDisplay[];
   attachments?: MessageAttachmentDisplay[];
@@ -69,7 +76,7 @@ export interface ChatMessageRow {
 }
 
 export interface ChatSessionDetail {
-  id?: string;
+  id: string;
   title?: string;
   kind?: string;
   last_request_state?: Record<string, unknown>;
@@ -95,8 +102,8 @@ export interface SendMessageOptions {
 
 export interface HostScopeSnapshot {
   knowledgeBaseIds?: string[];
-  pageContext?: AssistantPageContext | Record<string, unknown>;
-  assistantAccess?: Record<string, unknown>;
+  pageContext?: PageContextPayload | AssistantPageContext | Record<string, unknown> | null;
+  assistantAccess?: AssistantAccessLevel;
 }
 
 export interface InputFieldExposed {

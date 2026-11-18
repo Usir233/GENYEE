@@ -96,15 +96,15 @@ export interface Resource {
 // --- API calls ---
 
 export function getConnectorTypes() {
-  return get('/api/v1/data-sources/types')
+  return get<{ success?: boolean; data?: ConnectorMeta[] }>('/api/v1/data-sources/types')
 }
 
 export function listDataSources(kbId: string) {
-  return get(`/api/v1/data-sources?kb_id=${encodeURIComponent(kbId)}`)
+  return get<{ success?: boolean; data?: DataSource[] }>(`/api/v1/data-sources?kb_id=${encodeURIComponent(kbId)}`)
 }
 
 export function getDataSource(id: string) {
-  return get(`/api/v1/data-sources/${id}`)
+  return get<{ success?: boolean; data?: DataSource }>(`/api/v1/data-sources/${id}`)
 }
 
 export function createDataSource(data: Partial<DataSource>) {
@@ -156,7 +156,7 @@ export function resumeDataSource(id: string) {
 }
 
 export function getSyncLogs(id: string, limit = 20, offset = 0) {
-  return get(`/api/v1/data-sources/${id}/logs?limit=${limit}&offset=${offset}`)
+  return get<{ success?: boolean; data?: SyncLog[] }>(`/api/v1/data-sources/${id}/logs?limit=${limit}&offset=${offset}`)
 }
 
 // ----------------------------------------------------------------------------

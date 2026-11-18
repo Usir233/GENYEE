@@ -265,9 +265,9 @@ const builtinAgents = computed(() => {
 const customAgents = computed(() => agentsList.value.filter(a => !a.is_builtin));
 
 const toCustomAgent = (agent: SharedAgentInfo['agent']): CustomAgent => ({
-  is_builtin: false,
-  config: {},
   ...agent,
+  is_builtin: agent.is_builtin ?? false,
+  config: agent.config ?? {},
 });
 
 const sharedAgentsList = computed<SharedAgentSelection[]>(() =>

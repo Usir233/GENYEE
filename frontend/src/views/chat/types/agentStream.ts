@@ -36,7 +36,7 @@ export interface AgentWebResultItem {
   match_snippet?: string;
 }
 
-export interface AgentToolData extends Partial<AssistantPageLink>, Partial<PageFillResult> {
+export interface AgentToolData extends Omit<Partial<AssistantPageLink>, 'display_type'>, Partial<PageFillResult> {
   display_type?: DisplayType | string;
   knowledge_base_id?: string;
   knowledge_base_ids?: string[];

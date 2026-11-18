@@ -407,7 +407,7 @@ const safeHttpUrl = (raw: unknown): string => {
   }
 }
 
-interface RuntimeConfigWindow extends Window {
+type RuntimeConfigWindow = Omit<Window, '__RUNTIME_CONFIG__'> & {
   __RUNTIME_CONFIG__?: {
     WEBSITE_URL?: unknown
     GITHUB_URL?: unknown

@@ -139,30 +139,30 @@
                     </template>
                     <template v-else-if="detailCache[item.id]?.data">
                       <div class="detail-header">
-                        <span class="detail-name">{{ detailCache[item.id].data.name }}</span>
-                        <span class="detail-type-badge" :class="detailCache[item.id].data.type === 'faq' ? 'faq' : 'doc'">
-                          {{ detailCache[item.id].data.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument') }}
+                        <span class="detail-name">{{ detailCache[item.id]?.data?.name }}</span>
+                        <span class="detail-type-badge" :class="detailCache[item.id]?.data?.type === 'faq' ? 'faq' : 'doc'">
+                          {{ detailCache[item.id]?.data?.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument') }}
                         </span>
                       </div>
-                      <p v-if="detailCache[item.id].data.description" class="detail-desc">{{ detailCache[item.id].data.description }}</p>
+                      <p v-if="detailCache[item.id]?.data?.description" class="detail-desc">{{ detailCache[item.id]?.data?.description }}</p>
                       <div class="detail-meta">
-                        <span v-if="detailCache[item.id].data.type === 'faq'">
-                          {{ $t('mentionDetail.faqCount', { count: detailCache[item.id].data.chunk_count ?? detailCache[item.id].data.count ?? 0 }) }}
+                        <span v-if="detailCache[item.id]?.data?.type === 'faq'">
+                          {{ $t('mentionDetail.faqCount', { count: detailCache[item.id]?.data?.chunk_count ?? detailCache[item.id]?.data?.count ?? 0 }) }}
                         </span>
                         <span v-else>
-                          {{ $t('mentionDetail.kbCount', { count: detailCache[item.id].data.knowledge_count ?? detailCache[item.id].data.count ?? 0 }) }}
+                          {{ $t('mentionDetail.kbCount', { count: detailCache[item.id]?.data?.knowledge_count ?? detailCache[item.id]?.data?.count ?? 0 }) }}
                         </span>
-                        <span v-if="detailCache[item.id].data.org_name || item.orgName" class="detail-org">
+                        <span v-if="detailCache[item.id]?.data?.org_name || item.orgName" class="detail-org">
                           <img src="@/assets/img/organization-green.svg" class="detail-icon-img" alt="" aria-hidden="true" />
                           <span class="detail-label">{{ $t('mentionDetail.belongsToOrg') }}</span>
                           <span
                             class="detail-value clickable"
-                            @click.stop="handleOrgClick(detailCache[item.id].data.org_name || item.orgName)"
+                            @click.stop="handleOrgClick(detailCache[item.id]?.data?.org_name || item.orgName)"
                           >
-                            {{ detailCache[item.id].data.org_name || item.orgName }}
+                            {{ detailCache[item.id]?.data?.org_name || item.orgName }}
                           </span>
                         </span>
-                        <span v-if="agentIdForDetail && (detailCache[item.id].data.org_name || item.orgName)" class="detail-readonly-hint">
+                        <span v-if="agentIdForDetail && (detailCache[item.id]?.data?.org_name || item.orgName)" class="detail-readonly-hint">
                           {{ $t('mentionDetail.readOnlyFromAgent') }}
                         </span>
                       </div>
@@ -175,22 +175,22 @@
                       <div class="detail-loading"><t-loading size="small" /></div>
                     </template>
                     <template v-else-if="detailCache[item.id]?.error">
-                      <div class="detail-error">{{ detailCache[item.id].error }}</div>
+                      <div class="detail-error">{{ detailCache[item.id]?.error }}</div>
                     </template>
                     <template v-else-if="detailCache[item.id]?.data">
                       <div class="detail-header">
-                        <span class="detail-name">{{ detailCache[item.id].data.title || detailCache[item.id].data.file_name || item.name }}</span>
+                        <span class="detail-name">{{ detailCache[item.id]?.data?.title || detailCache[item.id]?.data?.file_name || item.name }}</span>
                       </div>
-                      <p v-if="detailCache[item.id].data.description" class="detail-desc">{{ detailCache[item.id].data.description }}</p>
+                      <p v-if="detailCache[item.id]?.data?.description" class="detail-desc">{{ detailCache[item.id]?.data?.description }}</p>
                       <div class="detail-meta">
-                        <span v-if="detailCache[item.id].data.knowledge_base_name || item.kbName" class="detail-kb">
+                        <span v-if="detailCache[item.id]?.data?.knowledge_base_name || item.kbName" class="detail-kb">
                           <t-icon name="folder" class="detail-icon" />
                           <span class="detail-label">{{ $t('mentionDetail.belongsToKb') }}</span>
                           <span
                             class="detail-value clickable"
-                            @click.stop="handleKbClick(detailCache[item.id].data.knowledge_base_id || item.kbId)"
+                            @click.stop="handleKbClick(detailCache[item.id]?.data?.knowledge_base_id || item.kbId)"
                           >
-                            {{ detailCache[item.id].data.knowledge_base_name || item.kbName }}
+                            {{ detailCache[item.id]?.data?.knowledge_base_name || item.kbName }}
                           </span>
                         </span>
                         <span v-if="item.orgName" class="detail-org">
@@ -624,7 +624,7 @@ async function fetchKbDetail(item: { id: string }) {
       agent_source_tenant_id: agentSourceTenantIdForDetail.value,
     } : undefined;
     const res = await getKnowledgeBaseById(item.id, opts) as { data?: MentionDetailData } | MentionDetailData | undefined;
-    const data = res && typeof res === 'object' && 'data' in res ? res.data : res;
+    const data: MentionDetailData | undefined = res && typeof res === 'object' && 'data' in res ? res.data : (res as MentionDetailData | undefined);
     detailCache.value = { ...detailCache.value, [item.id]: { loading: false, data } };
   } catch (e: unknown) {
     detailCache.value = { ...detailCache.value, [item.id]: { loading: false, error: extractDetailErrorMessage(e) } };
@@ -640,7 +640,7 @@ async function fetchFileDetail(item: { id: string }) {
       agent_source_tenant_id: agentSourceTenantIdForDetail.value,
     } : undefined;
     const res = await getKnowledgeDetails(item.id, opts) as { data?: MentionDetailData } | MentionDetailData | undefined;
-    const data = res && typeof res === 'object' && 'data' in res ? res.data : res;
+    const data: MentionDetailData | undefined = res && typeof res === 'object' && 'data' in res ? res.data : (res as MentionDetailData | undefined);
     detailCache.value = { ...detailCache.value, [item.id]: { loading: false, data } };
   } catch (e: unknown) {
     detailCache.value = { ...detailCache.value, [item.id]: { loading: false, error: extractDetailErrorMessage(e) } };

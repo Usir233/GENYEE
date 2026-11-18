@@ -50,7 +50,7 @@ export interface CatalogModelOption {
  */
 export interface CanonicalModelProviderOption extends Omit<
   ModelProviderOption,
-  'requiresAuth' | 'defaultUrls' | 'modelTypes' | 'extraFields' | 'credentialLabels'
+  'requires_auth' | 'default_urls' | 'model_types' | 'extra_fields' | 'credential_labels'
 > {
   requires_auth?: boolean
   default_urls?: Record<string, string>

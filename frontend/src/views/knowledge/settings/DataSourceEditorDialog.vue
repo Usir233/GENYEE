@@ -182,9 +182,9 @@ function enterReplaceCredentials() {
   testErrorMsg.value = ''
 }
 
-const yuqueFolderMode = computed({
+const yuqueFolderMode = computed<'none' | 'toc'>({
   get: () => (form.value.config.settings?.folder_mode === 'toc' ? 'toc' : 'none'),
-  set: (mode: string) => {
+  set: (mode: 'none' | 'toc') => {
     form.value.config.settings = { ...form.value.config.settings, folder_mode: mode }
   },
 })

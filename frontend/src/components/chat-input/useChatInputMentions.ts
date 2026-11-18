@@ -201,7 +201,7 @@ export function useChatInputMentions(options: {
   const selectedMCPItems = computed<MentionItem[]>(() =>
     selectedMCPServiceIds.value
       .map((id: string) => mcpServices.value.find((service) => service.id === id))
-      .filter((svc): svc is MCPService => Boolean(svc) && isMCPAllowedByAgent(svc))
+      .filter((svc): svc is MCPService => svc !== undefined && isMCPAllowedByAgent(svc))
       .map(toMCPMentionItem),
   );
 

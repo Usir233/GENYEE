@@ -74,6 +74,8 @@
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, computed } from 'vue';
 import ContextualGuide from '@/components/ContextualGuide.vue';
 import InputField from '@/components/InputField.vue';
+import type { AttachmentFile } from '@/components/AttachmentUpload.vue';
+import type { MentionRequestItem } from '@/types/mention';
 import { createSessions } from "@/api/chat/index";
 import { pickHostProjectDir } from '@/utils/desktopProjectDir';
 import { projectDirBasename, shouldRenderHostProjectSettings, withOptionalProjectDir } from '@/utils/hostWorkspace';
@@ -255,9 +257,9 @@ const handleSuggestedQuestionClick = (item: SuggestedQuestion) => {
 const sendMsg = (
     value: string,
     modelId: string,
-    mentionedItems: Array<Record<string, unknown>>,
+    mentionedItems: MentionRequestItem[],
     imageFiles: File[] = [],
-    attachmentFiles: Array<Record<string, unknown>> = [],
+    attachmentFiles: AttachmentFile[] = [],
     options: SendMessageOptions = {},
 ) => {
     void createNewSession(value, modelId, mentionedItems, imageFiles, attachmentFiles, options);
@@ -266,9 +268,9 @@ const sendMsg = (
 async function createNewSession(
     value: string,
     modelId: string,
-    mentionedItems: Array<Record<string, unknown>> = [],
+    mentionedItems: MentionRequestItem[] = [],
     imageFiles: File[] = [],
-    attachmentFiles: Array<Record<string, unknown>> = [],
+    attachmentFiles: AttachmentFile[] = [],
     options: SendMessageOptions = {},
 ) {
     try {
@@ -289,9 +291,9 @@ const navigateToSession = async (
     sessionId: string,
     value: string,
     modelId: string,
-    mentionedItems: Array<Record<string, unknown>>,
+    mentionedItems: MentionRequestItem[],
     imageFiles: File[] = [],
-    attachmentFiles: Array<Record<string, unknown>> = [],
+    attachmentFiles: AttachmentFile[] = [],
     options: SendMessageOptions = {},
 ) => {
     const encodedSessionId = encodeURIComponent(sessionId);

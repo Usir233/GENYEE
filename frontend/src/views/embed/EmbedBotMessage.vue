@@ -61,6 +61,7 @@ import {
 import { useEmbedCitationPopover } from '@/composables/useEmbedCitationPopover'
 import { useTypewriter } from '@/composables/useTypewriter'
 import { vStableHtml } from '@/directives/stableHtml'
+import type { AgentTimelineEvent } from '@/views/chat/types/agentStream'
 
 const RagPipelineProgress = defineAsyncComponent(
   () => import('@/views/chat/components/RagPipelineProgress.vue'),
@@ -88,9 +89,11 @@ type EmbedSession = {
   isRagMode?: boolean
   isAgentMode?: boolean
   showThink?: boolean
+  thinking?: boolean
+  thinkContent?: string
   hideContent?: boolean
   is_completed?: boolean
-  agentEventStream?: Array<Record<string, unknown>>
+  agentEventStream?: AgentTimelineEvent[]
   knowledge_references?: Array<{ chunk_type?: string; knowledge_id?: string; knowledge_title?: string }>
 }
 

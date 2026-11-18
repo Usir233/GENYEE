@@ -1,6 +1,6 @@
 import { computed, nextTick, ref, watch, type ComputedRef, type Ref } from 'vue';
 import { useDeferredTimelineCompletion } from '@/composables/useChatScrollFollow';
-import { isAwaitingInput } from '@/composables/useChatStreamHandler';
+import { isAwaitingInput, type ChatMessage } from '@/composables/useChatStreamHandler';
 import {
   attachReasoningToTools,
   earlierStepKeys,
@@ -183,7 +183,7 @@ export function useAgentTimelineEvents(options: UseAgentTimelineEventsOptions) {
   // A run awaiting input keeps its steps in the timeline: the card it waits on
   // must stay in view rather than fold into the collapsed steps.
   const isConversationDone = computed(
-    () => isAssistantTurnComplete(props.session) && !isAwaitingInput(props.session),
+    () => isAssistantTurnComplete(props.session) && !isAwaitingInput(props.session as ChatMessage),
   );
   const timelineCompleted = useDeferredTimelineCompletion(isConversationDone, readingHistory);
   const isSegmentDone = computed(() => Boolean(props.session?.steerForked) || isConversationDone.value);

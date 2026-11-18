@@ -66,8 +66,10 @@ export function removeCatalogModelOverride(overlay: CatalogOverlay, provider: st
   const p = next.providers[provider]
   if (!p) return next
   p.models = (p.models || []).filter((m: CatalogModel) => !(m.id.toLowerCase() === model.id.toLowerCase() && (!m.type || m.type === (model.type || 'KnowledgeQA'))))
-  for (const id of Object.keys(p.model_overrides || {})) {
-    if (id.toLowerCase() === model.id.toLowerCase()) delete p.model_overrides[id]
+  if (p.model_overrides) {
+    for (const id of Object.keys(p.model_overrides)) {
+      if (id.toLowerCase() === model.id.toLowerCase()) delete p.model_overrides[id]
+    }
   }
   return next
 }

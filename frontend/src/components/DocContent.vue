@@ -409,8 +409,10 @@ const handleChunkPageChange = (pageInfo: { current: number }): void => {
 };
 
 const downloadFile = (): void => {
-  if (!props.details?.id) return;
-  downKnowledgeDetails(props.details.id)
+  const currentDetails = props.details;
+  if (!currentDetails?.id) return;
+  const downloadFileName = resolveKnowledgeDownloadFileName({ ...currentDetails, id: currentDetails.id });
+  downKnowledgeDetails(currentDetails.id)
     .then((result) => {
       if (result) {
         if (downloadBlobUrl.value) {
@@ -420,7 +422,7 @@ const downloadFile = (): void => {
         const link = document.createElement('a');
         link.style.display = 'none';
         link.setAttribute('href', downloadBlobUrl.value);
-        link.setAttribute('download', resolveKnowledgeDownloadFileName(props.details));
+        link.setAttribute('download', downloadFileName);
         document.body.appendChild(link);
         link.click();
         void nextTick(() => {

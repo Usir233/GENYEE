@@ -4,7 +4,7 @@ import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess'
 export const STAGES = ['docreader', 'chunking', 'embedding', 'multimodal', 'postprocess'] as const
 export type StageName = (typeof STAGES)[number]
 
-export type SpanNode = KnowledgeTraceNode & {
+export type SpanNode = Omit<KnowledgeTraceNode, 'children'> & {
   updated_at?: string
   created_at?: string
   parent_span_id?: string

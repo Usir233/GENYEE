@@ -643,7 +643,7 @@ const {
   isRemoteSandboxSupported: () => deploymentCapabilities.isSupported('settings.sandbox.remote'),
   isHostSandboxSupported: () => deploymentCapabilities.isSupported('settings.sandbox.host'),
   getSandboxConfigs: () => chatResources.sandboxConfigs || [],
-  isNamedSandboxBackend,
+  isNamedSandboxBackend: (type) => isNamedSandboxBackend(type || ''),
   ensureSkills: (configId, sourceTenantId, force) => editorResources.ensureSkills(configId, sourceTenantId, force),
   ensureSkillCatalog: (force) => editorResources.ensureSkillCatalog(force),
   getSkillCatalog: () => editorResources.skillCatalog || [],

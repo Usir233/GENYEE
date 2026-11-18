@@ -22,7 +22,12 @@ export interface CatalogProvider {
   model_thinking_levels?: Record<string, string[]>
   vendor_thinking_levels?: string[]
 }
-export interface CatalogOverlay { providers: Record<string, Record<string, unknown>> }
+export interface CatalogProviderOverlay {
+  models?: CatalogModel[]
+  model_overrides?: Record<string, Partial<CatalogModel> & Record<string, unknown>>
+  [key: string]: unknown
+}
+export interface CatalogOverlay { providers: Record<string, CatalogProviderOverlay> }
 export interface CatalogState {
   version: number
   baseline: string

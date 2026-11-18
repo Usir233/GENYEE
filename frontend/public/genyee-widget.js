@@ -31,7 +31,7 @@
   var POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
   var DEFAULT_POSITION = 'bottom-right';
   var DEFAULT_COLOR = '#A8562E';
-  var SAFE_COLOR_RE = /^(?:#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[0-9.,%\s\/]+\)|[a-zA-Z]{3,20})$/;
+  var SAFE_COLOR_RE = /^(?:#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[0-9.,%\s/]+\)|[a-zA-Z]{3,20})$/;
   var DEFAULT_TITLE = 'AI Assistant';
   var DEFAULT_WIDTH = 400;
   var DEFAULT_HEIGHT = 600;
@@ -166,7 +166,7 @@
       }
       embedUrl = parsedEmbedUrl.toString();
       embedOrigin = parsedEmbedUrl.origin;
-    } catch (e) {
+    } catch (_e) {
       console.warn('[GENYEE] invalid embed baseUrl');
       return null;
     }
@@ -219,7 +219,7 @@
     var hostOrigin = '';
     try {
       hostOrigin = global.location ? global.location.origin : '';
-    } catch (e) { hostOrigin = ''; }
+    } catch (_e) { hostOrigin = ''; }
     var crossOriginEmbed = hostOrigin && embedOrigin && hostOrigin !== embedOrigin;
     var sandboxAttr = String(opts.sandbox || opts.sandboxMode || '').trim();
     if (!sandboxAttr && opts.scriptEl) {

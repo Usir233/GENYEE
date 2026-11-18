@@ -304,8 +304,10 @@
     </t-dialog>
 
     <!-- 模型编辑器抽屉 -->
-    <ModelEditorDialog v-model:visible="showDialog" :model-type="currentModelType" :model-data="editingModel"
-      :draft="modelDraft" :save-model="handleModelSave" />
+    <ModelEditorDialog v-model:visible="showDialog" :model-type="currentModelType"
+      :model-data="(editingModel as ModelFormData | null)"
+      :draft="(modelDraft as Partial<ModelFormData> | null)"
+      :save-model="handleModelSave" />
     <ModelDebugDrawer v-model:visible="showDebugDrawer" :models="allModels" />
 
   </div>
@@ -321,6 +323,7 @@ import { useAssistantPageContext } from '@/composables/useAssistantPageContext'
 import { useAssistantStore, type AssistantModelDraft } from '@/stores/assistant'
 import ModelEditorDialog from '@/components/ModelEditorDialog.vue'
 import ModelDebugDrawer from '@/components/ModelDebugDrawer.vue'
+import type { ModelFormData } from '@/components/model-editor/types'
 import {
   listModels,
   createModel,
@@ -334,6 +337,7 @@ import {
   modelUsageResourceCount,
   modelUsageResourceRoute,
   type ModelConfig,
+  type ModelSpecOverride,
   type ModelUsageDetails,
   type ModelUsageResourceKind,
 } from '@/api/model'
@@ -384,7 +388,7 @@ interface ModelFormSavePayload {
   extraConfig?: Record<string, unknown>
   thinkingControl?: string
   specCompat?: string
-  spec?: Record<string, unknown> | null
+  spec?: ModelSpecOverride | Record<string, unknown> | null
 }
 
 const getModelErrMessage = (err: unknown): string => {

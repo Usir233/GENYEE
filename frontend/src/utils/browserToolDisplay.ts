@@ -93,7 +93,7 @@ export function browserToolContent(event: BrowserToolEvent) {
     title: text(observation.title).slice(0, 300),
     address: browserPageAddress(output.final_url || output.url || observation.url || args.url),
     text: content.slice(0, 12000),
-    truncated: observation.truncated === true || content.length > 12000 || diagnostics && (entries.length > 100 || entries.some(entry => record(entry).truncated === true || Array.isArray(record(entry).stack_trace) && record(entry).stack_trace.length > 20)),
+    truncated: observation.truncated === true || content.length > 12000 || diagnostics && (entries.length > 100 || entries.some(entry => record(entry).truncated === true || Array.isArray(record(entry).stack_trace) && (record(entry).stack_trace as unknown[]).length > 20)),
     image: ['png', 'jpeg'].includes(format) && image.length <= 8 * 1024 * 1024 && /^[A-Za-z0-9+/\r\n]+={0,2}$/.test(image)
       ? `data:image/${format};base64,${image}` : '',
     tabs: Array.isArray(output.tabs) ? output.tabs.map(record).map(tab => ({

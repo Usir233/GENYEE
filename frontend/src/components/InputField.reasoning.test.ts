@@ -4,8 +4,17 @@ import { runInNewContext } from 'node:vm'
 import test from 'node:test'
 import ts from 'typescript'
 import { computed, effectScope, reactive, ref, watch, type ComputedRef } from 'vue'
-import type { ModelConfig } from '../api/model'
+import type { ModelCapabilities, ModelConfig } from '../api/model'
 import { supportedLevels, levelLabelKey, levelFromLegacy, clampLevel, type ReasoningLevel } from '../utils/reasoningEffort'
+
+const caps = (thinking_levels: ModelCapabilities['thinking_levels']): ModelCapabilities => ({
+  provider: 'openai',
+  api: 'openai-completions',
+  cataloged: true,
+  reasoning: thinking_levels.length > 0,
+  thinking_levels,
+  thinking_format: 'openai',
+})
 
 const source = readFileSync(new URL('./chat-input/useChatInputModelReasoning.ts', import.meta.url), 'utf8')
 const start = source.indexOf('const selectedModel = computed(')
@@ -59,9 +68,9 @@ test('composer reasoning follows model capabilities and discards incompatible ov
   try {
     assert.equal(f.reasoningLevels.value.length, 0, 'unknown model hides reasoning')
     f.availableModels.value = [
-      { id: 'model-a', capabilities: { thinking_levels: ['off', 'auto', 'low', 'high'] } },
-      { id: 'model-b', capabilities: { thinking_levels: ['auto', 'medium', 'max'] } },
-      { id: 'model-c', capabilities: { thinking_levels: [] } },
+      { id: 'model-a', capabilities: caps(['off', 'auto', 'low', 'high']) },
+      { id: 'model-b', capabilities: caps(['auto', 'medium', 'max']) },
+      { id: 'model-c', capabilities: caps([]) },
     ]
     assert.deepEqual(Array.from(f.reasoningLevels.value), ['off', 'auto', 'low', 'high'])
     assert.equal(f.displayedReasoningLevel.value, 'high')
@@ -86,11 +95,11 @@ test('session restoration waits for model data and does not validate against the
   try {
     f.settingsStore.reasoningEffortOverride = 'high'
     assert.equal(f.settingsStore.reasoningEffortOverride, 'high')
-    f.availableModels.value = [{ id: 'model-a', capabilities: { thinking_levels: ['auto', 'high'] } }]
+    f.availableModels.value = [{ id: 'model-a', capabilities: caps(['auto', 'high']) }]
     assert.equal(f.settingsStore.reasoningEffortOverride, 'high')
     f.settingsStore._isApplyingSessionState = true
     f.settingsStore.reasoningEffortOverride = 'max'
-    f.availableModels.value.push({ id: 'model-b', capabilities: { thinking_levels: ['auto', 'max'] } })
+    f.availableModels.value.push({ id: 'model-b', capabilities: caps(['auto', 'max']) })
     f.selectedModelId.value = 'model-b'
     f.settingsStore._isApplyingSessionState = false
     assert.equal(f.settingsStore.reasoningEffortOverride, 'max')
@@ -102,7 +111,7 @@ test('session restoration waits for model data and does not validate against the
 test('default displays the agent level without sending an override, and selection can restore inheritance', () => {
   const f = fixture()
   try {
-    f.availableModels.value = [{ id: 'model-a', capabilities: { thinking_levels: ['off', 'auto', 'low', 'high'] } }]
+    f.availableModels.value = [{ id: 'model-a', capabilities: caps(['off', 'auto', 'low', 'high']) }]
     assert.equal(f.displayedReasoningLevel.value, 'high')
     assert.equal(f.settingsStore.reasoningEffortOverride, '')
     f.currentAgentConfig.value = { thinking: true, reasoning_effort: 'low' }

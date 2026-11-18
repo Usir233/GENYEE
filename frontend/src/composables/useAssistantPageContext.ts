@@ -1,5 +1,6 @@
 import { onBeforeUnmount, watch } from 'vue'
 import { useAssistantStore, type AssistantPageContext } from '@/stores/assistant'
+export type { AssistantPageContext }
 
 /**
  * Publishes what this page has open to the GENYEE assistant for as long as

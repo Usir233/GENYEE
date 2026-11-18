@@ -247,7 +247,7 @@
           </div>
           <div class="drawer-row__control">
             <FieldControl :kind="field.kind" :model-value="addForm[field.key]" :placeholder="t('modelCatalog.optional')"
-              @update:model-value="addForm[field.key] = $event" />
+              @update:model-value="setAddFormField(field.key, $event)" />
           </div>
         </div>
       </section>
@@ -659,6 +659,9 @@ const emptyAddForm = (): AddModelForm => ({
   context_window: undefined, max_output_tokens: undefined, dimension: undefined, input: [] as string[], reasoning: false,
 })
 const addForm = reactive<AddModelForm>(emptyAddForm())
+function setAddFormField(key: FieldKey, value: CatalogFieldControlValue) {
+  ;(addForm as unknown as Record<FieldKey, CatalogFieldControlValue>)[key] = value
+}
 // Levels start from the vendor defaults and are tuned after the model exists.
 const addFields = computed(() => fieldsFor(addForm.type).filter(field => field.key !== 'deprecated' && field.key !== 'thinking_levels'))
 // VLM eligibility is derived from a chat model's input modalities, so the

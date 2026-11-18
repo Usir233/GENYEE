@@ -12,7 +12,14 @@ export type KnowledgeReferenceLike = {
   chunk_index?: number
   chunk_type?: string
   content?: string
-  metadata?: Record<string, string>
+  metadata?: {
+    url?: string
+    title?: string
+    snippet?: string
+    source?: string
+    tool?: string
+    [key: string]: unknown
+  }
   /** Where the knowledge came from: an upload, "manual", or the imported URL. */
   knowledge_source?: string
   /** Positions of the chunk in the original file. */
@@ -62,8 +69,8 @@ export function normalizeReferenceUrl(url: string): string {
   }
 }
 
-function toSafeHttpUrl(raw: string | undefined): string {
-  const trimmed = String(raw || '').trim()
+function toSafeHttpUrl(raw: unknown): string {
+  const trimmed = (typeof raw === 'string' ? raw : '').trim()
   if (!trimmed) return ''
   try {
     const parsed = new URL(trimmed)

@@ -68,7 +68,7 @@ async function loadList(silent = false) {
   try {
     const res = await listDataSources(targetKbId)
     if (isUnmounted || seq !== loadSeq || targetKbId !== props.kbId) return
-    dataSources.value = res?.data || res || []
+    dataSources.value = Array.isArray(res) ? res : (res?.data || [])
     emit('count', dataSources.value.length)
 
     const hasRunningSync = dataSources.value.some(ds => ds.latest_sync_log?.status === 'running')

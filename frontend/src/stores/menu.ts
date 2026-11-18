@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
 import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import type { QuestionOrigin } from '@/utils/questionOrigin'
+import type { AttachmentFile } from '@/components/AttachmentUpload.vue'
 
 export interface MenuChild {
   id?: string
@@ -17,7 +18,11 @@ export interface FirstMentionedItem {
   id: string
   name?: string
   type?: string
-  [key: string]: unknown
+  kb_type?: string
+  kb_id?: string
+  kb_name?: string
+  service_id?: string
+  skill_name?: string
 }
 
 interface MenuItem {
@@ -58,7 +63,7 @@ export const useMenuStore = defineStore('menuStore', () => {
   const firstMentionedItems = ref<FirstMentionedItem[]>([])
   const firstModelId = ref('')
   const firstImageFiles = ref<Array<File | Record<string, unknown>>>([])
-  const firstAttachmentFiles = ref<Array<File | Record<string, unknown>>>([])
+  const firstAttachmentFiles = ref<Array<File | AttachmentFile | Record<string, unknown>>>([])
   const firstQuestionOrigin = ref<QuestionOrigin | null>(null)
   const prefillQuery = ref('')
 
@@ -148,7 +153,7 @@ export const useMenuStore = defineStore('menuStore', () => {
     mentionedItems: FirstMentionedItem[] = [],
     modelId: string = '',
     imageFiles: Array<File | Record<string, unknown>> = [],
-    attachmentFiles: Array<File | Record<string, unknown>> = [],
+    attachmentFiles: Array<File | AttachmentFile | Record<string, unknown>> = [],
     questionOrigin: QuestionOrigin | null = null,
   ) => {
     firstQuery.value = payload

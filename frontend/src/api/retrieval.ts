@@ -16,10 +16,10 @@ export interface RetrievalConfig {
 
 // Get tenant retrieval config via KV API
 export function getTenantRetrievalConfig() {
-  return get('/api/v1/tenants/kv/retrieval-config')
+  return get<{ success: boolean; data?: Partial<RetrievalConfig> }>('/api/v1/tenants/kv/retrieval-config')
 }
 
 // Update tenant retrieval config via KV API
 export function updateTenantRetrievalConfig(config: RetrievalConfig) {
-  return put('/api/v1/tenants/kv/retrieval-config', config)
+  return put<{ success: boolean; data?: RetrievalConfig }>('/api/v1/tenants/kv/retrieval-config', config)
 }

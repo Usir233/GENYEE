@@ -7,7 +7,7 @@ import test from 'node:test'
 // upload in progress, steering a running turn) and was overwritten when a
 // second suggestion was picked before the first send went out.
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
-const inputField = read('../components/Input-field.vue')
+const inputField = read('../components/InputField.vue')
 const homePage = read('../views/creatChat/creatChat.vue')
 const chatPage = read('../views/chat/index.vue')
 

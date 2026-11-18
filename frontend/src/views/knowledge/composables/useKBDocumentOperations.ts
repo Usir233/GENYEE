@@ -34,7 +34,7 @@ export function useKBDocumentOperations(deps: {
   loadKnowledgeBaseInfo: (targetKbId: string, force?: boolean) => Promise<void>
   scheduleWikiStatusProbes: () => void
   openCardDetails: (item: KnowledgeCard) => void
-  getCardDetails: (item: KnowledgeCard) => void
+  getCardDetails: (item: Pick<KnowledgeCard, 'id' | 'tags'>) => void
   closeDoc: () => void
   handleNavigateToKbList: () => void
   shouldSuppressDocClick: () => boolean

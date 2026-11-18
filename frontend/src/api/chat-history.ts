@@ -46,17 +46,17 @@ export interface MessageSearchResult {
 
 // Get tenant chat history config via KV API
 export function getTenantChatHistoryConfig() {
-  return get('/api/v1/tenants/kv/chat-history-config')
+  return get<{ success: boolean; data?: ChatHistoryConfig }>('/api/v1/tenants/kv/chat-history-config')
 }
 
 // Update tenant chat history config via KV API
 export function updateTenantChatHistoryConfig(config: ChatHistoryConfig) {
-  return put('/api/v1/tenants/kv/chat-history-config', config)
+  return put<{ success: boolean; data?: ChatHistoryConfig }>('/api/v1/tenants/kv/chat-history-config', config)
 }
 
 // Get chat history KB statistics
 export function getChatHistoryKBStats() {
-  return get('/api/v1/messages/chat-history-stats')
+  return get<{ success: boolean; data?: ChatHistoryKBStats }>('/api/v1/messages/chat-history-stats')
 }
 
 // Cleanup is synchronous: do not report success while a background deletion is
@@ -69,5 +69,5 @@ export function clearChatHistoryIndex() {
 
 // Search messages across all sessions (keyword + vector hybrid search)
 export function searchMessages(data: MessageSearchRequest) {
-  return post('/api/v1/messages/search', data)
+  return post<{ success: boolean; data?: MessageSearchResult }>('/api/v1/messages/search', data)
 }

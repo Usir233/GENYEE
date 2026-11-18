@@ -92,7 +92,7 @@ test('open suspended child resumes GET subscription and live timeline after pare
         agent_steps: [{ iteration: 0, reasoning_content: 'before approval', tool_calls: [{ id: 'call-1', name: 'mcp_read', args: {} }] }],
         pending_prompt: { id: 'approval', kind: 'tool_approval', tool_call_id: 'call-1', request: {} },
       }] }) }
-      if (id === '@/api/chat/streame') return { useStream: () => stream }
+      if (id === '@/api/chat/stream') return { useStream: () => stream }
       if (id === '@/composables/useChatStreamHandler') return { useChatStreamHandler, isAwaitingInput: (m: any) => m?.run_state === 'awaiting_input' }
       if (id === '@/utils/collaborationDisplay') return { isCollaborationTaskActive: (s: string) => ['running', 'waiting'].includes(s) }
       assert.ok(id in modules, `unexpected component import ${id}`)

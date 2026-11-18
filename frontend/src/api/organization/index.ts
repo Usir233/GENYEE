@@ -1,4 +1,5 @@
 import { get, post, put, del } from '@/utils/request'
+import type { CustomAgentConfig } from '@/api/agent'
 
 // Organization types
 export interface Organization {
@@ -233,6 +234,10 @@ export interface ReviewJoinRequestRequest {
   role?: 'admin' | 'editor' | 'viewer' // Optional: role to assign when approving; overrides applicant's requested role
 }
 
+export type OrganizationInfo = Organization
+export type ReviewJoinRequestPayload = ReviewJoinRequestRequest
+export type RequestRoleUpgradePayload = RequestRoleUpgradeRequest
+
 export interface RequestRoleUpgradeRequest {
   requested_role: 'admin' | 'editor' | 'viewer' // The role user wants to upgrade to
   message?: string // Optional message explaining the reason
@@ -309,7 +314,10 @@ export interface SharedAgentInfo {
     name: string
     description?: string
     avatar?: string
-    config?: Record<string, unknown>
+    is_builtin: boolean
+    created_at?: string
+    updated_at?: string
+    config: CustomAgentConfig
     [key: string]: unknown
   }
   share_id: string

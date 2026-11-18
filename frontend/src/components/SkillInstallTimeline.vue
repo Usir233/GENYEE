@@ -8,7 +8,7 @@
           : $t('settings.sandbox.skillTranscriptEmpty') }}
       </p>
       <template v-else>
-        <div v-for="(msg, index) in messages" :key="msg.id || index" class="skill-timeline__turn"
+        <div v-for="(msg, index) in messages" :key="String(msg.id || index)" class="skill-timeline__turn"
           :class="{ 'skill-timeline__turn--command': index === messages.length - 1 && live && commandOutput && !commandOutput.done }">
           <details v-if="msg.role === 'user'" class="skill-timeline__prompt">
             <summary>

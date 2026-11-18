@@ -16,10 +16,10 @@
       v-if="formData"
       :mode="editorMode"
       :vector-store-id="formData.vectorStoreId"
-      :bound-source="formData.vectorStoreInfo?.source"
+      :bound-source="(formData.vectorStoreInfo?.source as VectorStoreSource | undefined)"
       :bound-name="formData.vectorStoreInfo?.name"
       :bound-engine-type="formData.vectorStoreInfo?.engineType"
-      :bound-status="formData.vectorStoreInfo?.status"
+      :bound-status="(formData.vectorStoreInfo?.status as VectorStoreStatus | undefined)"
       @update:vector-store-id="emit('update:vector-store-id', $event)"
     />
   </div>
@@ -125,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+import type { VectorStoreSource, VectorStoreStatus } from '@/api/knowledge-base'
 import type { ModelConfig } from '@/api/model'
 import type { ParserEngineRule } from '@/types/knowledgeProcess'
 import KBModelConfig from '../settings/KBModelConfig.vue'

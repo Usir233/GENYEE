@@ -22,7 +22,7 @@ defineProps<{
   canDownloadKnowledge: boolean
   canMutateKnowledge: boolean
   traceAvailableById: Record<string, boolean>
-  moveMenuMode: 'normal' | 'targets' | 'mode'
+  moveMenuMode: 'normal' | 'targets' | 'confirm'
   moveTargetKbs: MoveTargetKB[]
   moveTargetsLoading: boolean
   moveSelectedTargetName: string
@@ -48,10 +48,10 @@ const emit = defineEmits<{
   open: [item: KnowledgeCard]
   'open-folder': [path: string]
   'move-to-folder': [ids: string[], path: string]
-  'toggle-card-checkbox': [item: KnowledgeCard, index: number, checked: boolean, event?: MouseEvent]
+  'toggle-card-checkbox': [id: string, checked: boolean, ctx?: { e?: Event }]
   'card-menu-visible-change': [visible: boolean, item: KnowledgeCard]
   'card-action': [action: DocumentRowAction, item: KnowledgeCard]
-  'toggle-row': [id: string, index: number, checked: boolean, shiftKey: boolean]
+  'toggle-row': [id: string, checked: boolean, shiftKey: boolean]
   'toggle-all': [checked: boolean]
   'list-action': [action: DocumentRowAction, item: KnowledgeCard]
   'probe-trace': [item: KnowledgeCard]
@@ -144,12 +144,12 @@ onBeforeUnmount(() => {
         :move-mode="moveMode"
         :move-submitting="moveSubmitting"
         :show-folder-path="showDocumentFolderPath"
-        @open="(item: KnowledgeCard) => emit('open', item)"
+        @open="(item) => emit('open', item as KnowledgeCard)"
         @open-folder="(path: string) => emit('open-folder', path)"
-        @move-to-folder="(item: KnowledgeCard, path: string) => emit('move-to-folder', [item.id], path)"
-        @toggle-checkbox="(item: KnowledgeCard, idx: number, checked: boolean, ev?: MouseEvent) => emit('toggle-card-checkbox', item, idx, checked, ev)"
-        @menu-visible-change="(visible: boolean, item: KnowledgeCard) => emit('card-menu-visible-change', visible, item)"
-        @action="(action: DocumentRowAction, item: KnowledgeCard) => emit('card-action', action, item)"
+        @move-to-folder="(item, path: string) => emit('move-to-folder', [item.id], path)"
+        @toggle-checkbox="(id: string, checked: boolean, ctx?: { e?: Event }) => emit('toggle-card-checkbox', id, checked, ctx)"
+        @menu-visible-change="(visible: boolean, item) => emit('card-menu-visible-change', visible, item as KnowledgeCard)"
+        @action="(action, item) => emit('card-action', action as DocumentRowAction, item as KnowledgeCard)"
         @tags-changed="emit('tags-changed')"
         @move-select-target="(kb: MoveTargetKB) => emit('move-select-target', kb)"
         @move-back="emit('move-back')"
@@ -176,12 +176,12 @@ onBeforeUnmount(() => {
         :move-submitting="moveSubmitting"
         :show-folder-path="showDocumentFolderPath"
         @open-folder="(path: string) => emit('open-folder', path)"
-        @move-to-folder="(item: KnowledgeCard, path: string) => emit('move-to-folder', [item.id], path)"
-        @open="(item: KnowledgeCard) => emit('open', item)"
-        @toggle-row="(id: string, idx: number, checked: boolean, shift: boolean) => emit('toggle-row', id, idx, checked, shift)"
+        @move-to-folder="(item, path: string) => emit('move-to-folder', [item.id], path)"
+        @open="(item) => emit('open', item as KnowledgeCard)"
+        @toggle-row="(id: string, checked: boolean, shift: boolean) => emit('toggle-row', id, checked, shift)"
         @toggle-all="(checked: boolean) => emit('toggle-all', checked)"
-        @action="(action: DocumentRowAction, item: KnowledgeCard) => emit('list-action', action, item)"
-        @probe-trace="(item: KnowledgeCard) => emit('probe-trace', item)"
+        @action="(action, item) => emit('list-action', action as DocumentRowAction, item as KnowledgeCard)"
+        @probe-trace="(item) => emit('probe-trace', item as KnowledgeCard)"
         @tags-changed="emit('tags-changed')"
         @move-select-target="(kb: MoveTargetKB) => emit('move-select-target', kb)"
         @move-back="emit('move-back')"

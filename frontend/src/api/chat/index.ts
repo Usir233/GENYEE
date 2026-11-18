@@ -18,7 +18,7 @@ export interface CreateSessionRequest {
 }
 
 export async function createSessions(data: CreateSessionRequest = {}) {
-  return post("/api/v1/sessions", data);
+  return post<{ success?: boolean; data?: { id: string; [key: string]: unknown } }>("/api/v1/sessions", data);
 }
 
 export interface VoiceTranscription {
@@ -105,11 +105,11 @@ export async function agentChat(data: {
   });
 }
 
-export async function getMessageList(data: { session_id: string; limit: number, created_at: string }) {
+export async function getMessageList<T = Record<string, unknown>>(data: { session_id: string; limit: number, created_at: string }) {
   if (data.created_at) {
-    return get(`/api/v1/messages/${data.session_id}/load?before_time=${encodeURIComponent(data.created_at)}&limit=${data.limit}`);
+    return get<{ success?: boolean; data?: T[] }>(`/api/v1/messages/${data.session_id}/load?before_time=${encodeURIComponent(data.created_at)}&limit=${data.limit}`);
   } else {
-    return get(`/api/v1/messages/${data.session_id}/load?limit=${data.limit}`);
+    return get<{ success?: boolean; data?: T[] }>(`/api/v1/messages/${data.session_id}/load?limit=${data.limit}`);
   }
 }
 
@@ -171,7 +171,7 @@ export interface ArtifactMeta {
 // listMessageArtifacts returns the artifacts attached to a single assistant
 // message. Used by the drawer opened from the message action toolbar.
 export async function listMessageArtifacts(session_id: string, message_id: string) {
-  return get(
+  return get<{ success?: boolean; data?: ArtifactMeta[] }>(
     `/api/v1/sessions/${session_id}/messages/${message_id}/artifacts`,
   );
 }
@@ -180,7 +180,7 @@ export async function listMessageArtifacts(session_id: string, message_id: strin
 // session, in creation order. Powers "download everything generated in this
 // chat" drawers.
 export async function listSessionArtifacts(session_id: string) {
-  return get(`/api/v1/sessions/${session_id}/artifacts`);
+  return get<{ success?: boolean; data?: ArtifactMeta[] }>(`/api/v1/sessions/${session_id}/artifacts`);
 }
 
 // downloadArtifact streams a single artifact's bytes as a Blob so the caller
@@ -217,9 +217,9 @@ export async function deleteMessageArtifact(
 }
 
 export async function getHostApprovalMode(session_id: string) {
-  return get(`/api/v1/sessions/${encodeURIComponent(session_id)}/host-approval-mode`);
+  return get<{ success?: boolean; data?: { mode?: string; default?: string } }>(`/api/v1/sessions/${encodeURIComponent(session_id)}/host-approval-mode`);
 }
 
 export async function setHostApprovalMode(session_id: string, mode: 'ask' | 'auto') {
-  return put(`/api/v1/sessions/${encodeURIComponent(session_id)}/host-approval-mode`, { mode });
+  return put<{ success?: boolean; data?: { mode?: string; default?: string } }>(`/api/v1/sessions/${encodeURIComponent(session_id)}/host-approval-mode`, { mode });
 }

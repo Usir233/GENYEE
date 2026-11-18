@@ -268,7 +268,7 @@ function formatUptime(totalSeconds: number): string {
 
 const troubleshootingDocsURL = docsUrl('troubleshootingMigrations')
 
-interface RuntimeConfigWindow extends Window {
+type RuntimeConfigWindow = Omit<Window, '__RUNTIME_CONFIG__'> & {
   __RUNTIME_CONFIG__?: {
     GITHUB_URL?: string
   }

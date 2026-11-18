@@ -1,50 +1,50 @@
 <template>
   <div class="tool-result-renderer">
     <!-- Search Results -->
-    <SearchResults v-if="displayType === 'search_results'" :data="toolData as SearchResultsData"
+    <SearchResults v-if="displayType === 'search_results'" :data="asToolData<SearchResultsData>()"
       :arguments="toolArguments" />
 
     <!-- Chunk Detail -->
-    <ChunkDetail v-else-if="displayType === 'chunk_detail'" :data="toolData as ChunkDetailData" />
+    <ChunkDetail v-else-if="displayType === 'chunk_detail'" :data="asToolData<ChunkDetailData>()" />
 
     <!-- Related Chunks -->
-    <RelatedChunks v-else-if="displayType === 'related_chunks'" :data="toolData as RelatedChunksData" />
+    <RelatedChunks v-else-if="displayType === 'related_chunks'" :data="asToolData<RelatedChunksData>()" />
 
     <!-- Knowledge Base List -->
-    <KnowledgeBaseList v-else-if="displayType === 'knowledge_base_list'" :data="toolData as KnowledgeBaseListData" />
+    <KnowledgeBaseList v-else-if="displayType === 'knowledge_base_list'" :data="asToolData<KnowledgeBaseListData>()" />
 
     <!-- Document Info -->
-    <DocumentInfo v-else-if="displayType === 'document_info'" :data="toolData as DocumentInfoData" />
+    <DocumentInfo v-else-if="displayType === 'document_info'" :data="asToolData<DocumentInfoData>()" />
 
     <!-- Graph Query Results -->
-    <GraphQueryResults v-else-if="displayType === 'graph_query_results'" :data="toolData as GraphQueryResultsData" />
+    <GraphQueryResults v-else-if="displayType === 'graph_query_results'" :data="asToolData<GraphQueryResultsData>()" />
 
     <!-- Thinking Display -->
-    <ThinkingDisplay v-else-if="displayType === 'thinking'" :data="toolData as ThinkingData" />
+    <ThinkingDisplay v-else-if="displayType === 'thinking'" :data="asToolData<ThinkingData>()" />
 
     <!-- Plan Display -->
-    <PlanDisplay v-else-if="displayType === 'plan'" :data="toolData as PlanData" />
+    <PlanDisplay v-else-if="displayType === 'plan'" :data="asToolData<PlanData>()" />
 
     <!-- Database Query Display -->
-    <DatabaseQuery v-else-if="displayType === 'database_query'" :data="toolData as DatabaseQueryData" />
+    <DatabaseQuery v-else-if="displayType === 'database_query'" :data="asToolData<DatabaseQueryData>()" />
 
     <!-- Web Search Results Display -->
-    <WebSearchResults v-else-if="displayType === 'web_search_results'" :data="toolData as WebSearchResultsData" />
+    <WebSearchResults v-else-if="displayType === 'web_search_results'" :data="asToolData<WebSearchResultsData>()" />
 
     <!-- Web Fetch Results Display -->
-    <WebFetchResults v-else-if="displayType === 'web_fetch_results'" :data="toolData as WebFetchResultsData" />
+    <WebFetchResults v-else-if="displayType === 'web_fetch_results'" :data="asToolData<WebFetchResultsData>()" />
 
     <!-- Grep Results Display -->
-    <GrepResults v-else-if="displayType === 'grep_results'" :data="toolData as GrepResultsData" />
+    <GrepResults v-else-if="displayType === 'grep_results'" :data="asToolData<GrepResultsData>()" />
 
     <!-- Knowledge Chunks List -->
     <KnowledgeChunksList v-else-if="displayType === 'knowledge_chunks_list'"
-      :data="toolData as KnowledgeChunksListData" />
+      :data="asToolData<KnowledgeChunksListData>()" />
 
     <!-- Wiki Edit Results Display -->
     <WikiEditResult
       v-else-if="displayType === 'wiki_write_page' || displayType === 'wiki_replace_text' || displayType === 'wiki_rename_page' || displayType === 'wiki_delete_page'"
-      :data="toolData as WikiEditData" />
+      :data="asToolData<WikiEditData>()" />
 
     <ShellExecResult
       v-else-if="displayType === 'shell_exec'"
@@ -195,6 +195,9 @@ const props = withDefaults(defineProps<Props>(), { success: undefined });
 
 const displayType = computed(() => props.displayType);
 const toolData = computed<Record<string, unknown>>(() => props.toolData || {});
+function asToolData<T>(): T {
+  return toolData.value as unknown as T;
+}
 const output = computed(() => props.output || '');
 const toolArguments = computed<Record<string, unknown>>(() => props.arguments || {});
 

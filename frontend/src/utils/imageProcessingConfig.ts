@@ -162,11 +162,9 @@ export function buildImageProcessingConfig(
  */
 export interface KnowledgeBaseImageConfigShape {
   image_processing_config?: {
-    image_pipeline?: string
-    image_attrs_enabled?: boolean
-    [key: string]: unknown
+    image_pipeline?: string | null
+    image_attrs_enabled?: boolean | null
   } | null
-  [key: string]: unknown
 }
 
 export function resolveImagePipelineFromKb(
