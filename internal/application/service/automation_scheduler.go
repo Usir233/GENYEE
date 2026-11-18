@@ -279,7 +279,13 @@ func (s *AutomationService) expireLeases(ctx context.Context, now time.Time) err
 			s.closeAbandonedMessage(ctx, run)
 			if deletedParent != nil && deletedParent.DeletedAt.Valid {
 				if cleanErr := s.cleanupDeletedAutomation(ctx, deletedParent); cleanErr != nil {
-					logger.Warnf(ctx, "Clean deleted automation %s after expired run %s: %v", deletedParent.ID, run.ID, cleanErr)
+					logger.Warnf(
+						ctx,
+						"Clean deleted automation %s after expired run %s: %v",
+						deletedParent.ID,
+						run.ID,
+						cleanErr,
+					)
 				}
 			}
 		}
@@ -355,7 +361,9 @@ func (s *AutomationService) reconcileRun(ctx context.Context, run *types.Automat
 			return err
 		}
 		var current types.AutomationRun
-		if s.db.WithContext(ctx).Select("cancel_requested").Where("id = ?", run.ID).Take(&current).Error == nil && current.CancelRequested {
+		if s.db.WithContext(ctx).Select(
+			"cancel_requested",
+		).Where("id = ?", run.ID).Take(&current).Error == nil && current.CancelRequested {
 			reason, a := s.cancellationReason(ctx, run)
 			cErr := s.cancelRun(ctx, run, reason)
 			if a != nil && a.DeletedAt.Valid {
@@ -548,7 +556,10 @@ func (s *AutomationService) settle(ctx context.Context, run *types.AutomationRun
 	case failure:
 		s.notify(ctx, &a, run, types.NotificationAutomationFailed, run.Error)
 		if a.ConsecutiveFailures+1 >= s.cfg.FailuresBeforePause && a.Enabled {
-			_ = s.pause(ctx, &a, fmt.Sprintf("%d runs in a row failed", a.ConsecutiveFailures+1))
+			reason := fmt.Sprintf("%d runs in a row failed", a.ConsecutiveFailures+1)
+			if pauseErr := s.pause(ctx, &a, reason); pauseErr != nil {
+				logger.Warnf(ctx, "Pause automation %s after consecutive failures: %v", a.ID, pauseErr)
+			}
 		}
 	}
 }

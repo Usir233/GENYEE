@@ -80,7 +80,9 @@ func insertProcessingKnowledge(t *testing.T, db *gorm.DB) string {
 	t.Helper()
 	id := uuid.New().String()
 	require.NoError(t, db.Exec(`
-		INSERT INTO knowledges (id, tenant_id, knowledge_base_id, type, title, source, parse_status, pending_subtasks_count)
+		INSERT INTO knowledges (
+			id, tenant_id, knowledge_base_id, type, title, source, parse_status, pending_subtasks_count
+		)
 		VALUES (?, 1, ?, 'document', 'finalize-test', 'manual', 'processing', 0)
 	`, id, uuid.New().String()).Error)
 	return id

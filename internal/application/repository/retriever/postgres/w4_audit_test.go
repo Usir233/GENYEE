@@ -161,7 +161,10 @@ func TestW4PostgresAudit_WriteDeleteMoveAndBatchUpdateGuards(t *testing.T) {
 	require.Error(t, repo.MoveKnowledgeIndices(ctx, "", "kb-dst", "doc-1", nil, 4, ""))
 	require.Error(t, repo.MoveKnowledgeIndices(ctx, "kb-src", "", "doc-1", nil, 4, ""))
 	require.Error(t, repo.MoveKnowledgeIndices(ctx, "kb-src", "kb-dst", "", nil, 4, ""))
-	require.Error(t, repo.CopyIndices(ctx, "", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "kb-dst", 4, ""))
+	require.Error(
+		t,
+		repo.CopyIndices(ctx, "", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "kb-dst", 4, ""),
+	)
 
 	// BatchUpdateChunkEnabledStatus must execute inside a transaction and roll back on failure.
 	boom := errors.New("db failure on second update")

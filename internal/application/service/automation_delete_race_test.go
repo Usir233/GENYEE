@@ -18,7 +18,9 @@ func TestAutomationRunNowCannotQueueAfterConcurrentDeletion(t *testing.T) {
 	deleted := false
 	// Delete after RunNow has loaded its authorization snapshot but before it
 	// persists a run. The snapshot must not authorize recreating orphan work.
-	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("audit:delete_automation", func(tx *gorm.DB) {
+	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("audit:delete_automation", func(
+		tx *gorm.DB,
+	) {
 		if deleted || tx.Statement.Table != "automations" {
 			return
 		}
@@ -48,7 +50,9 @@ func TestAutomationDeleteRereadsPersistentSessionInsideLock(t *testing.T) {
 
 	// Simulate persistent_session_id being committed right after Delete's initial
 	// s.load snapshot, with no retained AutomationRun row carrying session_id.
-	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("audit:late_persistent_session", func(tx *gorm.DB) {
+	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("audit:late_persistent_session", func(
+		tx *gorm.DB,
+	) {
 		if tx.Statement.Table != "automations" || tx.Statement.Context.Value(deleteKey{}) == nil {
 			return
 		}
@@ -111,7 +115,10 @@ func TestAutomationDeleteJoinsCancelErrorsWithoutAbortingCleanup(t *testing.T) {
 	require.Zero(t, r2Count, "error cancelling first run must not abort cancelling and cleaning subsequent runs")
 
 	var sessions int64
-	require.NoError(t, f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error,
+	)
 	require.Zero(t, sessions, "conversations must still be cleaned up even when StopDelegation fails")
 
 	// Now simulate the remote worker settling r1: its converged AutomationRun row must be cleaned up immediately.
@@ -124,5 +131,9 @@ func TestAutomationDeleteJoinsCancelErrorsWithoutAbortingCleanup(t *testing.T) {
 
 	var remainingRuns int64
 	require.NoError(t, f.db.Model(&types.AutomationRun{}).Where("automation_id = ?", a.ID).Count(&remainingRuns).Error)
-	require.Zero(t, remainingRuns, "remote running task of deleted automation must clean up its run record on convergence")
+	require.Zero(
+		t,
+		remainingRuns,
+		"remote running task of deleted automation must clean up its run record on convergence",
+	)
 }

@@ -58,7 +58,7 @@ func newSwitchTenantTestService(repo *switchTenantUserRepo, memberSvc interfaces
 	}
 }
 
-func withLiveSwitchSession(t *testing.T, ctx context.Context, svc *userService, user *types.User) context.Context {
+func withLiveSwitchSession(ctx context.Context, t *testing.T, svc *userService, user *types.User) context.Context {
 	t.Helper()
 	accessTok, _, err := svc.generateTokensForTenant(ctx, user, user.TenantID)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestSwitchTenantRecordsLastActiveTenantPreference(t *testing.T) {
 	}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	user, _ := repo.GetUserByID(ctx, "alice")
-	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	ctx = withLiveSwitchSession(ctx, t, svc, user)
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")
 	if err != nil {
@@ -123,7 +123,7 @@ func TestSwitchTenantBackToHomeWritesHomePreference(t *testing.T) {
 	}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	user, _ := repo.GetUserByID(ctx, "alice")
-	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	ctx = withLiveSwitchSession(ctx, t, svc, user)
 
 	if _, err := svc.SwitchTenant(ctx, user, 7, ""); err != nil {
 		t.Fatalf("SwitchTenant back to home: %v", err)
@@ -157,7 +157,7 @@ func TestSwitchTenantPreferenceWriteFailureAbortsSwitch(t *testing.T) {
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	svc.tokenRepo = tokens
 	user, _ := repo.GetUserByID(ctx, "alice")
-	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	ctx = withLiveSwitchSession(ctx, t, svc, user)
 	tokens.createCalls = 0
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")
@@ -190,7 +190,7 @@ func TestSwitchTenantSuperuserRecordsPreferenceWithoutMembership(t *testing.T) {
 	svc := newSwitchTenantTestService(repo, &membershipLookupService{byTenant: map[uint64]*types.TenantMember{}})
 	svc.config = &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}
 	user, _ := repo.GetUserByID(ctx, "alice")
-	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	ctx = withLiveSwitchSession(ctx, t, svc, user)
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")
 	if err != nil {
@@ -227,7 +227,7 @@ func TestSwitchTenantPreservesOidcOnlyLogin(t *testing.T) {
 	}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	user, _ := repo.GetUserByID(ctx, "alice")
-	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	ctx = withLiveSwitchSession(ctx, t, svc, user)
 
 	if _, err := svc.SwitchTenant(ctx, user, 42, ""); err != nil {
 		t.Fatalf("SwitchTenant: %v", err)
@@ -252,7 +252,7 @@ func TestSwitchTenantNonMemberWritesNoPreference(t *testing.T) {
 	}}
 	svc := newSwitchTenantTestService(repo, &membershipLookupService{byTenant: map[uint64]*types.TenantMember{}})
 	user, _ := repo.GetUserByID(ctx, "alice")
-	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	ctx = withLiveSwitchSession(ctx, t, svc, user)
 
 	if _, err := svc.SwitchTenant(ctx, user, 42, ""); !errors.Is(err, ErrMembershipNotFound) {
 		t.Fatalf("SwitchTenant for non-member: err = %v, want ErrMembershipNotFound", err)

@@ -20,7 +20,11 @@ func TestAutomationDeleteFencesRunsArrivingAfterActiveScan(t *testing.T) {
 			require.NoError(t, f.db.Model(a).Update("next_run_at", f.now).Error)
 			a = f.reload(t, a.ID)
 			interleaved := false
-			require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("lifecycle:arriving_run", func(tx *gorm.DB) {
+			require.NoError(t, f.db.Callback().Query().After(
+				"gorm:after_query",
+			).Register("lifecycle:arriving_run", func(
+				tx *gorm.DB,
+			) {
 				if interleaved || tx.Statement.Table != "automation_runs" {
 					return
 				}
@@ -58,17 +62,23 @@ func TestAutomationDeleteFencesRunsArrivingAfterActiveScan(t *testing.T) {
 func TestAutomationAddGrantCannotRecreateGrantAfterDeletion(t *testing.T) {
 	f := newAutomationFixture(t)
 	a := f.create(t, types.AutomationPatch{})
-	run := &types.AutomationRun{AutomationID: a.ID, TenantID: a.TenantID, ScheduledAt: f.now,
-		TriggerKind: types.AutomationRunManual, Status: types.AutomationRunSucceeded, SessionID: "session"}
+	run := &types.AutomationRun{
+		AutomationID: a.ID, TenantID: a.TenantID, ScheduledAt: f.now,
+		TriggerKind: types.AutomationRunManual, Status: types.AutomationRunSucceeded, SessionID: "session",
+	}
 	require.NoError(t, f.db.Create(run).Error)
-	prompt := &types.AgentPrompt{ID: "approval", TenantID: a.TenantID,
+	prompt := &types.AgentPrompt{
+		ID: "approval", TenantID: a.TenantID,
 		UserID: automationGrantUser(a.OwnerUserID), SessionID: run.SessionID,
 		Kind: types.AgentPromptKindToolApproval, Request: types.JSON(mustJSON(t, types.ToolApprovalPromptRequest{
 			Grant: "op:knowledge.delete:kb", GrantRisk: "destructive", GrantLabel: "documents in kb",
-		}))}
+		})),
+	}
 	require.NoError(t, f.db.Create(prompt).Error)
 	deleted := false
-	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("lifecycle:delete_before_grant", func(tx *gorm.DB) {
+	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("lifecycle:delete_before_grant", func(
+		tx *gorm.DB,
+	) {
 		if deleted || tx.Statement.Table != "agent_prompts" {
 			return
 		}
@@ -89,9 +99,11 @@ func TestAutomationPruneRetainsExactlyNewestRunsAtSameTime(t *testing.T) {
 	f := newAutomationFixture(t)
 	f.svc.Configure(AutomationConfig{Retention: 1})
 	a := f.create(t, types.AutomationPatch{})
-	old := &types.AutomationRun{ID: "old", AutomationID: a.ID, TenantID: a.TenantID,
+	old := &types.AutomationRun{
+		ID: "old", AutomationID: a.ID, TenantID: a.TenantID,
 		ScheduledAt: f.now, CreatedAt: f.now, TriggerKind: types.AutomationRunSchedule,
-		Status: types.AutomationRunSucceeded}
+		Status: types.AutomationRunSucceeded,
+	}
 	newest := *old
 	newest.ID, newest.TriggerKind, newest.CreatedAt = "new", types.AutomationRunManual, f.now.Add(time.Second)
 	require.NoError(t, f.db.Create(old).Error)
@@ -118,9 +130,11 @@ func TestAutomationPruneConversationLifecycle(t *testing.T) {
 				require.NoError(t, err)
 				run := f.settleRun(t, queued.ID)
 				// A later finished row makes the conversation-bearing row old.
-				require.NoError(t, f.db.Create(&types.AutomationRun{AutomationID: a.ID, TenantID: a.TenantID,
+				require.NoError(t, f.db.Create(&types.AutomationRun{
+					AutomationID: a.ID, TenantID: a.TenantID,
 					ScheduledAt: f.now.Add(time.Hour), TriggerKind: types.AutomationRunManual,
-					Status: types.AutomationRunSkipped}).Error)
+					Status: types.AutomationRunSkipped,
+				}).Error)
 				if deleted {
 					// Model a process stopping after the durable parent tombstone,
 					// before conversation cleanup. Prune must finish the cleanup.
@@ -161,7 +175,10 @@ func TestAutomationDeleteCleansConversationAfterMessageFailure(t *testing.T) {
 	f.svc.record(f.ctx, run, out)
 	require.NoError(t, f.svc.Delete(f.ctx, a.ID))
 	var sessions int64
-	require.NoError(t, f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error,
+	)
 	t.Logf("sessions after failed message creation and deletion: %d", sessions)
 	require.Zero(t, sessions, "the conversation must be linked before fallible message writes so deletion can find it")
 }
@@ -180,7 +197,10 @@ func TestAutomationRunSessionRejectsDeletedParent(t *testing.T) {
 			require.NoError(t, f.svc.Delete(f.ctx, a.ID))
 			session, err := f.svc.runSession(f.ctx, a, run)
 			var sessions int64
-			require.NoError(t, f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error)
+			require.NoError(
+				t,
+				f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error,
+			)
 			t.Logf("runSession after deletion: error=%v remaining_sessions=%d", err, sessions)
 			require.Zero(t, sessions, "a stale executor cannot create a conversation after deletion")
 			require.Error(t, err)
@@ -196,9 +216,11 @@ func TestAutomationPruneDeletedPersistentSessionWithoutRetainedRunReference(t *t
 	queued, err := f.svc.RunNow(f.ctx, a.ID)
 	require.NoError(t, err)
 	run := f.settleRun(t, queued.ID)
-	require.NoError(t, f.db.Create(&types.AutomationRun{AutomationID: a.ID, TenantID: a.TenantID,
+	require.NoError(t, f.db.Create(&types.AutomationRun{
+		AutomationID: a.ID, TenantID: a.TenantID,
 		ScheduledAt: f.now.Add(time.Hour), TriggerKind: types.AutomationRunSchedule,
-		Status: types.AutomationRunSkipped}).Error)
+		Status: types.AutomationRunSkipped,
+	}).Error)
 	f.svc.prune(f.ctx)
 	require.Len(t, f.runs(t, a.ID), 1)
 	require.Empty(t, f.runs(t, a.ID)[0].SessionID)
@@ -227,7 +249,10 @@ func TestAutomationRunSessionRollsBackWhenClaimWasLost(t *testing.T) {
 			require.Error(t, err)
 			require.Nil(t, session)
 			var sessions int64
-			require.NoError(t, f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error)
+			require.NoError(
+				t,
+				f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error,
+			)
 			require.Zero(t, sessions)
 			require.Empty(t, f.reload(t, a.ID).PersistentSessionID)
 		})

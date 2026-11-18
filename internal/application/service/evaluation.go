@@ -43,6 +43,7 @@ type EvaluationService struct {
 	evaluationMemoryStorage *evaluationMemoryStorage // In-memory + local JSON snapshot storage for evaluation tasks
 }
 
+// NewEvaluationService creates an EvaluationService backed by in-memory and snapshot storage.
 func NewEvaluationService(
 	config *config.Config,
 	dataset interfaces.DatasetService,
@@ -231,6 +232,7 @@ func (e *evaluationMemoryStorage) update(taskID string, fn func(params *types.Ev
 	return nil
 }
 
+// EvaluationResult returns the stored evaluation task detail for the caller's tenant.
 func (e *EvaluationService) EvaluationResult(ctx context.Context, taskID string) (*types.EvaluationDetail, error) {
 	logger.Info(ctx, "Start getting evaluation result")
 	logger.Infof(ctx, "Task ID: %s", taskID)
@@ -321,7 +323,12 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 			logger.Errorf(ctx, "Failed to get knowledge base: %v", err)
 			return nil, err
 		}
-		if kb == nil || (kb.TenantID != 0 && kb.TenantID != tenantID && !access.HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleViewer)) {
+		if kb == nil || (kb.TenantID != 0 && kb.TenantID != tenantID && !access.HasKBGrant(
+			ctx,
+			kb.ID,
+			kb.TenantID,
+			types.OrgRoleViewer,
+		)) {
 			return nil, repository.ErrKnowledgeBaseNotFound
 		}
 		embeddingModelID := kb.EmbeddingModelID
@@ -493,19 +500,31 @@ func (e *EvaluationService) cleanupEvaluation(ctx context.Context, knowledgeBase
 	defer cancel()
 	var cleanupErr error
 	if knowledgeID != "" {
-		if err := deleteReferencedKnowledge(cleanupCtx, e.knowledgeService, knowledgeBaseID, []string{knowledgeID}); err != nil {
+		if err := deleteReferencedKnowledge(
+			cleanupCtx,
+			e.knowledgeService,
+			knowledgeBaseID,
+			[]string{knowledgeID},
+		); err != nil {
 			cleanupErr = fmt.Errorf("delete evaluation knowledge %s: %w", knowledgeID, err)
 		}
 	}
 	if err := e.knowledgeBaseService.DeleteKnowledgeBase(cleanupCtx, knowledgeBaseID); err != nil {
-		cleanupErr = errors.Join(cleanupErr, fmt.Errorf("delete evaluation knowledge base %s: %w", knowledgeBaseID, err))
+		cleanupErr = errors.Join(
+			cleanupErr,
+			fmt.Errorf("delete evaluation knowledge base %s: %w", knowledgeBaseID, err),
+		)
 	}
 	return cleanupErr
 }
 
 // EvalDataset performs the actual evaluation of a dataset
 // Processes each QA pair in parallel and records metrics
-func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.EvaluationDetail, knowledgeBaseID string) (err error) {
+func (e *EvaluationService) EvalDataset(
+	ctx context.Context,
+	detail *types.EvaluationDetail,
+	knowledgeBaseID string,
+) (err error) {
 	logger.Info(ctx, "Start evaluating dataset")
 	logger.Infof(ctx, "Task ID: %s, Dataset ID: %s", detail.Task.ID, detail.Task.DatasetID)
 
@@ -536,7 +555,7 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 	}
 
 	// Update total QA pairs count in task details
-	e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
+	_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
 		params.Task.Total = len(dataset)
 		logger.Infof(ctx, "Updated task total to %d QA pairs", params.Task.Total)
 	})
@@ -623,7 +642,7 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 			// Update progress metrics atomically under storage lock
 			_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
-				finished += 1
+				finished++
 				params.Metric = metricHook.MetricResult()
 				params.Task.Finished = finished
 				logger.Infof(ctx, "Updated task progress: %d/%d completed", finished, params.Task.Total)

@@ -123,7 +123,8 @@ func (a MessageKBShareAuthorizer) resourceAccessibleViaOwnKB(
 	resource *types.StoredResource,
 	ownerTenantID uint64,
 ) bool {
-	if a.Bindings == nil || message == nil || resource == nil || ownerTenantID == 0 || resource.TenantID != ownerTenantID {
+	if a.Bindings == nil || message == nil || resource == nil || ownerTenantID == 0 || resource.TenantID !=
+		ownerTenantID {
 		return false
 	}
 	handle, ok := types.ParseResourcePath(types.BuildResourcePath(resource.Handle))

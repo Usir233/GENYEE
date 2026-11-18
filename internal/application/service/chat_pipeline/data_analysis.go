@@ -17,6 +17,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/utils"
 )
 
+// PluginDataAnalysis executes tabular SQL/DuckDB analysis over retrieved CSV/Excel files.
 type PluginDataAnalysis struct {
 	modelService         interfaces.ModelService
 	knowledgeBaseService interfaces.KnowledgeBaseService
@@ -28,6 +29,7 @@ type PluginDataAnalysis struct {
 	storageResolver      interfaces.StorageBackendResolver
 }
 
+// NewPluginDataAnalysis creates a new PluginDataAnalysis and registers it with eventManager.
 func NewPluginDataAnalysis(
 	eventManager *EventManager,
 	modelService interfaces.ModelService,
@@ -53,13 +55,15 @@ func NewPluginDataAnalysis(
 	return p
 }
 
+// ActivationEvents returns the event types handled by PluginDataAnalysis.
 func (p *PluginDataAnalysis) ActivationEvents() []types.EventType {
 	return []types.EventType{types.DATA_ANALYSIS}
 }
 
+// OnEvent runs tabular analysis when retrieved chunks reference CSV or Excel documents.
 func (p *PluginDataAnalysis) OnEvent(
 	ctx context.Context,
-	eventType types.EventType,
+	_ types.EventType,
 	chatManage *types.ChatManage,
 	next func() *PluginError,
 ) *PluginError {

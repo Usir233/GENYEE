@@ -26,7 +26,8 @@ func (d imageAssetDialect) sourceAttrOrdinal(name string, minimum int) string {
 		return d.sourceOrdinal("i.attrs->>'"+name+"'", "jsonb_typeof(i.attrs->'"+name+"')", minimum)
 	}
 	path := `'$."` + name + `"'`
-	return d.sourceOrdinal("json_extract(i.attrs, "+path+")", "json_type(i.attrs, "+path+")", minimum)
+	safeAttrs := "(CASE WHEN json_valid(i.attrs) THEN i.attrs ELSE '{}' END)"
+	return d.sourceOrdinal("json_extract("+safeAttrs+", "+path+")", "json_type("+safeAttrs+", "+path+")", minimum)
 }
 
 // sourcePage 优先逐图页码，再从同一文档内同图的 OCR/caption 副本回退 PDF 定位。

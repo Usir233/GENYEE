@@ -21,7 +21,7 @@ func TestDescribeChatHistorySkip(t *testing.T) {
 	}{
 		{
 			name: "no tenant in context",
-			ctx:  func() context.Context { return context.Background() },
+			ctx:  context.Background,
 			want: "no tenant in context",
 		},
 		{

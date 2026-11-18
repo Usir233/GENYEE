@@ -25,7 +25,7 @@ https://github.com/pltrdy/seq2seq/blob/master/seq2seq/metrics/rouge.py
 
 ROUGe metric implementation.
 
-This is a modified and slightly extended verison of
+This is a modified and slightly extended version of
 https://github.com/miso-belica/sumy/blob/dev/sumy/evaluation/rouge.py.
 */
 
@@ -33,15 +33,18 @@ import (
 	"strings"
 )
 
+// Ngrams stores n-gram counts or set membership for ROUGE computation.
 type Ngrams struct {
 	ngrams    map[string]int
 	exclusive bool
 }
 
+// NewNgrams creates an Ngrams bag (or set when exclusive is true).
 func NewNgrams(exclusive bool) *Ngrams {
 	return &Ngrams{ngrams: make(map[string]int), exclusive: exclusive}
 }
 
+// Add inserts an n-gram into the collection.
 func (n *Ngrams) Add(o string) {
 	if n.exclusive {
 		n.ngrams[o] = 1
@@ -50,10 +53,12 @@ func (n *Ngrams) Add(o string) {
 	}
 }
 
+// Len returns the number of distinct n-grams stored.
 func (n *Ngrams) Len() int {
 	return len(n.ngrams)
 }
 
+// Intersection returns the n-grams common to n and o.
 func (n *Ngrams) Intersection(o *Ngrams) *Ngrams {
 	intersection := NewNgrams(n.exclusive)
 	for k := range n.ngrams {
@@ -64,12 +69,14 @@ func (n *Ngrams) Intersection(o *Ngrams) *Ngrams {
 	return intersection
 }
 
+// BatchAdd adds all n-grams in o.
 func (n *Ngrams) BatchAdd(o []string) {
 	for _, v := range o {
 		n.Add(v)
 	}
 }
 
+// Union returns a new Ngrams containing items from n and all others.
 func (n *Ngrams) Union(others ...*Ngrams) *Ngrams {
 	union := NewNgrams(n.exclusive)
 	for k := range n.ngrams {
@@ -123,13 +130,14 @@ func reconLcs(x, y []string, exclusive bool) *Ngrams {
 
 	reconRev := make([]string, 0, table[i][j])
 	for i > 0 && j > 0 {
-		if x[i-1] == y[j-1] {
+		switch {
+		case x[i-1] == y[j-1]:
 			reconRev = append(reconRev, x[i-1])
 			i--
 			j--
-		} else if table[i-1][j] > table[i][j-1] {
+		case table[i-1][j] > table[i][j-1]:
 			i--
-		} else {
+		default:
 			j--
 		}
 	}
@@ -156,9 +164,8 @@ func rougeN(evaluatedSentences, referenceSentences []string, n int, rawResults, 
 		results["ref"] = float64(referenceCount)
 		results["overlap"] = float64(overlappingCount)
 		return results
-	} else {
-		return calculateRougeN(evaluatedCount, referenceCount, overlappingCount)
 	}
+	return calculateRougeN(evaluatedCount, referenceCount, overlappingCount)
 }
 
 func calculateRougeN(evaluatedCount, referenceCount, overlappingCount int) map[string]float64 {
@@ -243,10 +250,9 @@ func rougeLSummaryLevel(
 		results["ref"] = float64(m)
 		results["overlap"] = float64(llcs)
 		return results
-	} else {
-		results["f"] = fLcs
-		results["p"] = pLcs
-		results["r"] = rLcs
-		return results
 	}
+	results["f"] = fLcs
+	results["p"] = pLcs
+	results["r"] = rLcs
+	return results
 }

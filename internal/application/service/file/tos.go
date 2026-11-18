@@ -30,22 +30,25 @@ type tosFileService struct {
 const tosScheme = "tos://"
 
 // NewTosFileService creates a TOS file service.
-func NewTosFileService(endpoint, region, accessKey, secretKey, bucketName, pathPrefix string) (interfaces.FileService, error) {
+func NewTosFileService(
+	endpoint, region, accessKey, secretKey, bucketName, pathPrefix string,
+) (interfaces.FileService, error) {
 	return NewTosFileServiceWithTempBucket(endpoint, region, accessKey, secretKey, bucketName, pathPrefix, "", "")
 }
 
 // NewTosFileServiceWithTempBucket creates a TOS file service with optional temp bucket.
-func NewTosFileServiceWithTempBucket(endpoint, region, accessKey, secretKey, bucketName, pathPrefix, tempBucketName, tempRegion string) (interfaces.FileService, error) {
+func NewTosFileServiceWithTempBucket(
+	endpoint, region, accessKey, secretKey, bucketName, pathPrefix, tempBucketName, tempRegion string,
+) (interfaces.FileService, error) {
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
 		return nil, fmt.Errorf("unsafe TOS endpoint: %w", err)
 	}
-	httpConfig := utils.DefaultSSRFSafeHTTPClientConfig()
 	client, err := tos.NewClientV2(
 		endpoint,
 		tos.WithRegion(region),
 		tos.WithCredentials(tos.NewStaticCredentials(accessKey, secretKey)),
 		tos.WithHTTPTransport(&utils.SSRFValidatingRoundTripper{
-			Base: utils.NewSSRFSafeTransport(httpConfig),
+			Base: objectStorageTransport(),
 		}),
 	)
 	if err != nil {
@@ -66,7 +69,7 @@ func NewTosFileServiceWithTempBucket(endpoint, region, accessKey, secretKey, buc
 			tos.WithRegion(tempRegion),
 			tos.WithCredentials(tos.NewStaticCredentials(accessKey, secretKey)),
 			tos.WithHTTPTransport(&utils.SSRFValidatingRoundTripper{
-				Base: utils.NewSSRFSafeTransport(httpConfig),
+				Base: objectStorageTransport(),
 			}),
 		)
 		if err != nil {
@@ -96,7 +99,9 @@ func (s *tosFileService) CheckConnectivity(ctx context.Context) error {
 }
 
 // CheckTosConnectivity tests TOS connectivity using the provided credentials.
-func CheckTosConnectivity(ctx context.Context, endpoint, region, accessKey, secretKey, bucketName string) error {
+func CheckTosConnectivity(
+	ctx context.Context, endpoint, region, accessKey, secretKey, bucketName string,
+) error {
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
 		return fmt.Errorf("unsafe TOS endpoint: %w", err)
 	}
@@ -105,7 +110,7 @@ func CheckTosConnectivity(ctx context.Context, endpoint, region, accessKey, secr
 		tos.WithRegion(region),
 		tos.WithCredentials(tos.NewStaticCredentials(accessKey, secretKey)),
 		tos.WithHTTPTransport(&utils.SSRFValidatingRoundTripper{
-			Base: utils.NewSSRFSafeTransport(utils.DefaultSSRFSafeHTTPClientConfig()),
+			Base: objectStorageTransport(),
 		}),
 	)
 	if err != nil {
@@ -120,16 +125,20 @@ func CheckTosConnectivity(ctx context.Context, endpoint, region, accessKey, secr
 }
 
 func ensureTOSBucket(client *tos.ClientV2, bucketName string) error {
-	_, err := client.HeadBucket(context.Background(), &tos.HeadBucketInput{
+	headCtx, cancel := objectStorageSetupContext()
+	_, err := client.HeadBucket(headCtx, &tos.HeadBucketInput{
 		Bucket: bucketName,
 	})
+	cancel()
 	if err == nil {
 		return nil
 	}
 
 	var serverErr *tos.TosServerError
 	if errors.As(err, &serverErr) && serverErr.StatusCode == 404 {
-		_, createErr := client.CreateBucketV2(context.Background(), &tos.CreateBucketV2Input{
+		createCtx, createCancel := objectStorageSetupContext()
+		defer createCancel()
+		_, createErr := client.CreateBucketV2(createCtx, &tos.CreateBucketV2Input{
 			Bucket: bucketName,
 		})
 		if createErr == nil {
@@ -172,7 +181,9 @@ func parseTOSFilePath(filePath string) (bucketName string, objectKey string, err
 	return parts[0], parts[1], nil
 }
 
-func (s *tosFileService) SaveFile(ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string) (string, error) {
+func (s *tosFileService) SaveFile(
+	ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string,
+) (string, error) {
 	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
 		return "", err
 	}
@@ -191,12 +202,14 @@ func (s *tosFileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	contentType := file.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = utils.GetContentTypeByExt(ext)
 	}
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 	_, err = s.client.PutObjectV2(ctx, &tos.PutObjectV2Input{
 		PutObjectBasicInput: tos.PutObjectBasicInput{
 			Bucket:      s.bucketName,
@@ -212,7 +225,9 @@ func (s *tosFileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 	return fmt.Sprintf("tos://%s/%s", s.bucketName, objectName), nil
 }
 
-func (s *tosFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+func (s *tosFileService) SaveBytes(
+	ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool,
+) (string, error) {
 	if err := validateTenantID(tenantID); err != nil {
 		return "", err
 	}
@@ -240,6 +255,8 @@ func (s *tosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 		)
 	}
 
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 	_, err = s.client.PutObjectV2(ctx, &tos.PutObjectV2Input{
 		PutObjectBasicInput: tos.PutObjectBasicInput{
 			Bucket:      targetBucket,
@@ -297,6 +314,8 @@ func (s *tosFileService) CopyFile(ctx context.Context,
 		return "", fmt.Errorf("invalid file path: %w", err)
 	}
 
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 	_, err = s.client.CopyObject(ctx, &tos.CopyObjectInput{
 		Bucket:    s.bucketName,
 		Key:       destKey,
@@ -318,14 +337,16 @@ func (s *tosFileService) GetFile(ctx context.Context, filePath string) (io.ReadC
 		return nil, err
 	}
 
+	ctx, cancel := objectStorageTransferContext(ctx)
 	output, err := s.client.GetObjectV2(ctx, &tos.GetObjectV2Input{
 		Bucket: bucketName,
 		Key:    objectName,
 	})
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to get file from TOS: %w", err)
 	}
-	return output.Content, nil
+	return objectStorageBoundReader(output.Content, cancel), nil
 }
 
 func (s *tosFileService) DeleteFile(ctx context.Context, filePath string) error {
@@ -334,6 +355,8 @@ func (s *tosFileService) DeleteFile(ctx context.Context, filePath string) error 
 		return err
 	}
 
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 	_, err = s.client.DeleteObjectV2(ctx, &tos.DeleteObjectV2Input{
 		Bucket: bucketName,
 		Key:    objectName,
@@ -344,7 +367,7 @@ func (s *tosFileService) DeleteFile(ctx context.Context, filePath string) error 
 	return nil
 }
 
-func (s *tosFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+func (s *tosFileService) GetFileURL(_ context.Context, filePath string) (string, error) {
 	bucketName, objectName, err := s.resolveTOSTarget(filePath)
 	if err != nil {
 		return "", err

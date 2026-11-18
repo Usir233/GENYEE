@@ -39,7 +39,9 @@ func NewMCPServiceService(
 func (s *mcpServiceService) CreateMCPService(ctx context.Context, service *types.MCPService) error {
 	// Stdio transport is disabled for security reasons
 	if service.TransportType == types.MCPTransportStdio {
-		return fmt.Errorf("stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead")
+		return fmt.Errorf(
+			"stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead",
+		)
 	}
 	if err := mcp.ValidateServiceOutboundURLs(service); err != nil {
 		return err
@@ -146,7 +148,9 @@ func (s *mcpServiceService) UpdateMCPService(
 
 	// Stdio transport is disabled for security reasons
 	if finalTransportType == types.MCPTransportStdio {
-		return fmt.Errorf("stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead")
+		return fmt.Errorf(
+			"stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead",
+		)
 	}
 
 	if updateFields["usage_instructions"] {
@@ -338,21 +342,22 @@ func (s *mcpServiceService) UpdateMCPService(
 	// Close existing client connection if:
 	// 1. Service is now disabled (need to close connection)
 	// 2. Critical configuration changed (need to reconnect with new config)
-	if !existing.Enabled {
+	switch {
+	case !existing.Enabled:
 		if s.mcpManager != nil {
-			s.mcpManager.CloseClient(service.ID)
+			_ = s.mcpManager.CloseClient(service.ID)
 		}
 		logger.GetLogger(ctx).Infof("MCP service disabled, connection closed: %s (ID: %s)", name, service.ID)
-	} else if configChanged {
+	case configChanged:
 		if s.mcpManager != nil {
-			s.mcpManager.CloseClient(service.ID)
+			_ = s.mcpManager.CloseClient(service.ID)
 		}
 		logger.GetLogger(ctx).Infof("MCP service config changed, connection closed: %s (ID: %s)", name, service.ID)
-	} else if oldEnabled != existing.Enabled && existing.Enabled {
+	case oldEnabled != existing.Enabled && existing.Enabled:
 		// Service was just enabled (was disabled, now enabled)
 		// Close any existing connection to ensure clean state
 		if s.mcpManager != nil {
-			s.mcpManager.CloseClient(service.ID)
+			_ = s.mcpManager.CloseClient(service.ID)
 		}
 		logger.GetLogger(ctx).Infof("MCP service enabled, existing connection closed: %s (ID: %s)", name, service.ID)
 	}
@@ -379,7 +384,7 @@ func (s *mcpServiceService) DeleteMCPService(ctx context.Context, tenantID uint6
 
 	// Close client connection
 	if s.mcpManager != nil {
-		s.mcpManager.CloseClient(id)
+		_ = s.mcpManager.CloseClient(id)
 	}
 
 	if err := s.mcpServiceRepo.Delete(ctx, tenantID, id); err != nil {
@@ -457,7 +462,7 @@ func (s *mcpServiceService) TestMCPService(
 	if err := client.Connect(testCtx); err != nil {
 		return mcpTestFailure(err, "Connection failed"), nil
 	}
-	defer client.Disconnect()
+	defer func() { _ = client.Disconnect() }()
 
 	// Initialize
 	initResult, err := client.Initialize(testCtx)
@@ -581,7 +586,7 @@ func (s *mcpServiceService) UpdateMCPCredentials(
 	}
 
 	// Credential changed → recycle client so the next call reconnects.
-	s.mcpManager.CloseClient(id)
+	_ = s.mcpManager.CloseClient(id)
 	logger.GetLogger(ctx).Infof(
 		"MCP credentials updated, connection closed: %s (ID: %s)",
 		secutils.SanitizeForLog(existing.Name), id,
@@ -637,7 +642,7 @@ func (s *mcpServiceService) ClearMCPCredential(
 		return fmt.Errorf("failed to update MCP service: %w", err)
 	}
 
-	s.mcpManager.CloseClient(id)
+	_ = s.mcpManager.CloseClient(id)
 	logger.GetLogger(ctx).Infof(
 		"MCP credential cleared by user: id=%s field=%s, connection closed",
 		secutils.SanitizeForLog(id), field,

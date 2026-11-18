@@ -1,3 +1,4 @@
+// Package doris implements the Apache Doris retrieve engine repository.
 package doris
 
 import (
@@ -100,8 +101,30 @@ func TestDorisRetrieveAndMutations_FailClosedOnMissingKBOrBlankTargets(t *testin
 	require.Error(t, repo.DeleteByChunkIDList(context.Background(), []string{" "}, 768, ""))
 	require.Error(t, repo.DeleteByChunkIDList(context.Background(), []string{"c1"}, 0, ""))
 	require.Error(t, repo.MoveKnowledgeIndices(context.Background(), "", "kb2", "k1", nil, 768, ""))
-	require.Error(t, repo.CopyIndices(context.Background(), "kb1", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "", 768, ""))
-	require.Error(t, repo.CopyIndices(context.Background(), "kb1", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "kb2", 0, ""))
+	require.Error(
+		t,
+		repo.CopyIndices(
+			context.Background(),
+			"kb1",
+			map[string]string{"k1": "k2"},
+			map[string]string{"c1": "c2"},
+			"",
+			768,
+			"",
+		),
+	)
+	require.Error(
+		t,
+		repo.CopyIndices(
+			context.Background(),
+			"kb1",
+			map[string]string{"k1": "k2"},
+			map[string]string{"c1": "c2"},
+			"kb2",
+			0,
+			"",
+		),
+	)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -198,7 +221,12 @@ func TestDorisStreamLoadOnce_TruncatesFailureFieldsAndRedactsCredentials(t *test
 	defer srv.Close()
 	repo.feHTTPBase = srv.URL
 
-	err = repo.streamLoadOnce(context.Background(), "genyee_embeddings_768", []string{"id"}, []map[string]any{{"id": "1"}})
+	err = repo.streamLoadOnce(
+		context.Background(),
+		"genyee_embeddings_768",
+		[]string{"id"},
+		[]map[string]any{{"id": "1"}},
+	)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "SuperSecretPass123", "credentials in ErrorURL must be redacted")
 	assert.LessOrEqual(t, len(err.Error()), 2*maxStreamLoadErrorPreviewBytes, "error message must be bounded")

@@ -2,20 +2,43 @@ package service
 
 import (
 	"encoding/json"
+	"testing"
+
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestAgentHistoryPreservesNumbersAfterDatabaseScan(t *testing.T) {
-	for _, number := range []string{"9007199254740993", "18446744073709551615", "0.12345678901234567890123456789", "1e400", "-0", "1.00", "42"} {
+	for _, number := range []string{
+		"9007199254740993",
+		"18446744073709551615",
+		"0.12345678901234567890123456789",
+		"1e400",
+		"-0",
+		"1.00",
+		"42",
+	} {
 		for _, scanString := range []bool{false, true} {
 			mode := "bytes"
 			if scanString {
 				mode = "string"
 			}
 			t.Run(number+"/"+mode, func(t *testing.T) {
-				original := types.AgentSteps{{ToolCalls: []types.ToolCall{{ID: "number-call", Name: "call_mcp_tool", Args: map[string]any{"tool_ref": "stable-ref", "arguments": map[string]any{"id": json.Number(number)}}, Result: &types.ToolResult{Success: true, Output: "done"}}}}}
+				original := types.AgentSteps{
+					{
+						ToolCalls: []types.ToolCall{
+							{
+								ID:   "number-call",
+								Name: "call_mcp_tool",
+								Args: map[string]any{
+									"tool_ref":  "stable-ref",
+									"arguments": map[string]any{"id": json.Number(number)},
+								},
+								Result: &types.ToolResult{Success: true, Output: "done"},
+							},
+						},
+					},
+				}
 				dbValue, err := original.Value()
 				require.NoError(t, err)
 				if scanString {

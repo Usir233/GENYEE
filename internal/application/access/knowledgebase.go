@@ -63,7 +63,9 @@ func callerMatchesContext(ctx context.Context, caller types.Caller) bool {
 	if userID, ok := types.UserIDFromContext(ctx); ok && userID != "" && userID != caller.UserID {
 		return false
 	}
-	if role, ok := ctx.Value(types.TenantRoleContextKey).(types.TenantRole); ok && role.IsValid() && role != caller.Role {
+	if role, ok := ctx.Value(
+		types.TenantRoleContextKey,
+	).(types.TenantRole); ok && role.IsValid() && role != caller.Role {
 		return false
 	}
 	return true

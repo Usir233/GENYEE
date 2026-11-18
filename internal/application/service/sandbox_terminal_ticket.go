@@ -54,7 +54,13 @@ func consumeTerminalTicketJTI(jti string, expiresAt time.Time) error {
 
 // IssueSandboxTerminalTicket mints a short-lived JWT for the browser
 // WebSocket handshake. It is not an access token: ValidateToken rejects it.
-func IssueSandboxTerminalTicket(userID string, tenantID uint64, sessionID, tokenID string, ttl time.Duration) (string, error) {
+func IssueSandboxTerminalTicket(
+	userID string,
+	tenantID uint64,
+	sessionID,
+	tokenID string,
+	ttl time.Duration,
+) (string, error) {
 	userID = strings.TrimSpace(userID)
 	sessionID = strings.TrimSpace(sessionID)
 	tokenID = strings.TrimSpace(tokenID)
@@ -113,7 +119,8 @@ func ParseSandboxTerminalTicket(raw string) (*SandboxTerminalTicketClaims, error
 	sessionID, _ := claims["session_id"].(string)
 	tokenID, _ := claims["token_id"].(string)
 	tenantID := tenantIDFromClaims(claims, 0)
-	if strings.TrimSpace(userID) == "" || strings.TrimSpace(sessionID) == "" || strings.TrimSpace(tokenID) == "" || tenantID == 0 {
+	if strings.TrimSpace(userID) == "" || strings.TrimSpace(sessionID) == "" || strings.TrimSpace(tokenID) == "" ||
+		tenantID == 0 {
 		return nil, errors.New("invalid terminal ticket claims")
 	}
 	if err := consumeTerminalTicketJTI(jti, expTime.Time); err != nil {

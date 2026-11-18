@@ -1,10 +1,11 @@
 package milvus
 
 import (
+	"testing"
+
 	"github.com/milvus-io/milvus/client/v2/column"
 	client "github.com/milvus-io/milvus/client/v2/milvusclient"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestCollectionDimensionForBase(t *testing.T) {

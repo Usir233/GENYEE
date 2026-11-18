@@ -49,7 +49,7 @@ func (p *PluginExtractEntity) ActivationEvents() []types.EventType {
 // OnEvent processes triggered events
 // When receiving a QUERY_UNDERSTAND event, it extracts entities from the query
 func (p *PluginExtractEntity) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	if strings.ToLower(os.Getenv("NEO4J_ENABLE")) != "true" {
 		logger.Debugf(ctx, "skipping extract entity, neo4j is disabled")
@@ -261,7 +261,7 @@ func NewQAPromptGenerator(formater *Formater, template *types.PromptTemplateStru
 }
 
 // System generates a system prompt
-func (qa *QAPromptGenerator) System(ctx context.Context) string {
+func (qa *QAPromptGenerator) System(_ context.Context) string {
 	promptLines := []string{}
 
 	if len(qa.Template.Tags) == 0 {
@@ -291,7 +291,7 @@ func (qa *QAPromptGenerator) System(ctx context.Context) string {
 }
 
 // User generates a user prompt
-func (qa *QAPromptGenerator) User(ctx context.Context, question string) string {
+func (qa *QAPromptGenerator) User(_ context.Context, question string) string {
 	promptLines := []string{}
 	promptLines = append(promptLines, qa.QuestionHeading)
 	promptLines = append(promptLines, fmt.Sprintf("%s%s", qa.QuestionPrefix, question))
@@ -324,15 +324,15 @@ const (
 )
 
 const (
-	_FENCE_START   = "```"
-	_LANGUAGE_TAG  = `(?P<lang>[A-Za-z0-9_+-]+)?`
-	_FENCE_NEWLINE = `(?:\s*\n)?`
-	_FENCE_BODY    = `(?P<body>[\s\S]*?)`
-	_FENCE_END     = "```"
+	fenceStart   = "```"
+	languageTag  = `(?P<lang>[A-Za-z0-9_+-]+)?`
+	fenceNewline = `(?:\s*\n)?`
+	fenceBody    = `(?P<body>[\s\S]*?)`
+	fenceEnd     = "```"
 )
 
-var _FENCE_RE = regexp.MustCompile(
-	_FENCE_START + _LANGUAGE_TAG + _FENCE_NEWLINE + _FENCE_BODY + _FENCE_END,
+var fenceRE = regexp.MustCompile(
+	fenceStart + languageTag + fenceNewline + fenceBody + fenceEnd,
 )
 
 // Formater is a struct for formatting entities
@@ -380,15 +380,11 @@ func (f *Formater) formatExtraction(nodes []*types.GraphNode, relations []*types
 		}
 		items = append(items, item)
 	}
-	formatted := ""
-	switch f.formatType {
-	default:
-		formattedBytes, err := json.MarshalIndent(items, "", "  ")
-		if err != nil {
-			return "", err
-		}
-		formatted = string(formattedBytes)
+	formattedBytes, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return "", err
 	}
+	formatted := string(formattedBytes)
 	if f.useFences {
 		formatted = f.addFences(formatted)
 	}
@@ -442,12 +438,13 @@ func (f *Formater) parseOutput(ctx context.Context, text string) ([]map[string]i
 		if itemMap, ok := item.(map[string]interface{}); ok {
 			itemsList = append(itemsList, itemMap)
 		} else {
-			return nil, fmt.Errorf("each item in the sequence must be a mapping.")
+			return nil, fmt.Errorf("each item in the sequence must be a mapping")
 		}
 	}
 	return itemsList, nil
 }
 
+// ParseGraph parses extracted graph entities and relations from raw LLM output.
 func (f *Formater) ParseGraph(ctx context.Context, text string) (*types.GraphData, error) {
 	matchData, err := f.parseOutput(ctx, text)
 	if err != nil {
@@ -553,7 +550,7 @@ func (f *Formater) extractContent(ctx context.Context, text string) string {
 		FormatTypeYAML: {"yaml": {}, "yml": {}},
 		FormatTypeJSON: {"json": {}},
 	}
-	matches := _FENCE_RE.FindAllStringSubmatch(text, -1)
+	matches := fenceRE.FindAllStringSubmatch(text, -1)
 	var candidates []string
 	for _, match := range matches {
 		lang := match[1]

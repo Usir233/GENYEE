@@ -111,7 +111,7 @@ func detectAnalyzerName(text string) string {
 	return milvusAnalyzerDefault
 }
 
-func analyzerNameForUpsert(embedding *MilvusVectorEmbedding) string {
+func analyzerNameForUpsert(embedding *VectorEmbedding) string {
 	if embedding == nil {
 		return milvusAnalyzerDefault
 	}

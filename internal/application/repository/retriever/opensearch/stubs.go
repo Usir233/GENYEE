@@ -13,12 +13,9 @@ import (
 // remaining stub returns ErrFeatureNotEnabled (or, for EstimateStorageSize, a
 // conservative lower-bound) so any accidental invocation surfaces loudly.
 
-// EstimateStorageSize: the real implementation that reads cluster
-// `_stats` for the per-dim alias arrives in a later change. For now we
-// return a conservative lower-bound estimate using the HNSW memory
-// formula so the upstream KB-delete guard fails-closed (treats non-empty
-// KBs as "may free non-trivial storage, force confirmation") rather than
-// failing open.
+// EstimateStorageSize returns a conservative lower-bound storage estimate using
+// the HNSW memory formula until the cluster `_stats` implementation lands, so
+// the upstream KB-delete guard fails-closed rather than failing open.
 //
 // Formula: N * (1024 content bytes + 4*dimGuess float + 128 HNSW M=16 overhead)
 // dimGuess = 768 (common embedding size; the real implementation reads

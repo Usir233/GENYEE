@@ -483,8 +483,8 @@ func (s *Service) callConsolidationModel(
 
 	var b strings.Builder
 	for _, item := range cluster {
-		b.WriteString(fmt.Sprintf("- (%s) %s\n",
-			item.ValidFrom.Format("2006-01-02"), types.SanitizeMemoryContent(item.Content)))
+		_, _ = fmt.Fprintf(&b, "- (%s) %s\n",
+			item.ValidFrom.Format("2006-01-02"), types.SanitizeMemoryContent(item.Content))
 	}
 
 	// Thinking off, for the reason given on completeExtraction: a reasoning

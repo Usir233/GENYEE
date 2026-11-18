@@ -56,14 +56,14 @@ func TestNormalizeAnalyzerName(t *testing.T) {
 
 func TestAnalyzerNameForUpsert(t *testing.T) {
 	require.Equal(t, milvusAnalyzerDefault, analyzerNameForUpsert(nil))
-	require.Equal(t, milvusAnalyzerChinese, analyzerNameForUpsert(&MilvusVectorEmbedding{
+	require.Equal(t, milvusAnalyzerChinese, analyzerNameForUpsert(&VectorEmbedding{
 		Content: "AI 注意力",
 	}))
-	require.Equal(t, milvusAnalyzerEnglish, analyzerNameForUpsert(&MilvusVectorEmbedding{
+	require.Equal(t, milvusAnalyzerEnglish, analyzerNameForUpsert(&VectorEmbedding{
 		Content:  "AI 注意力",
 		Language: "en",
 	}))
-	require.Equal(t, milvusAnalyzerEnglish, analyzerNameForUpsert(&MilvusVectorEmbedding{
+	require.Equal(t, milvusAnalyzerEnglish, analyzerNameForUpsert(&VectorEmbedding{
 		Content:  "hello",
 		Language: "  ",
 	}))

@@ -265,7 +265,10 @@ func (c *CompositeRetrieveEngine) concurrentExecWithError(
 
 	if len(errs) > 0 {
 		if len(succeeded) > 0 {
-			logger.Warnf(ctx, "Composite retriever partial write failure detected: succeeded on [%s], failed on [%s]. Potential index drift requires reconciliation.",
+			logger.Warnf(
+				ctx,
+				"Composite retriever partial write failure detected: succeeded on [%s], failed on [%s]. Potential "+
+					"index drift requires reconciliation.",
 				strings.Join(succeeded, ", "), strings.Join(failed, ", "))
 		}
 		if len(errs) == 1 {
@@ -325,7 +328,12 @@ func (c *CompositeRetrieveEngine) DeleteByChunkIDList(ctx context.Context,
 	chunkIDList []string, dimension int, knowledgeType string,
 ) error {
 	return c.concurrentExecWithError(ctx, func(ctx context.Context, engineInfo *engineInfo) error {
-		if err := engineInfo.retrieveEngine.DeleteByChunkIDList(ctx, chunkIDList, dimension, knowledgeType); err != nil {
+		if err := engineInfo.retrieveEngine.DeleteByChunkIDList(
+			ctx,
+			chunkIDList,
+			dimension,
+			knowledgeType,
+		); err != nil {
 			logger.GetLogger(ctx).Errorf("Repository %s failed to delete chunk ID list: %v",
 				engineInfo.retrieveEngine.EngineType(), err)
 			return err
@@ -339,7 +347,12 @@ func (c *CompositeRetrieveEngine) DeleteBySourceIDList(ctx context.Context,
 	sourceIDList []string, dimension int, knowledgeType string,
 ) error {
 	return c.concurrentExecWithError(ctx, func(ctx context.Context, engineInfo *engineInfo) error {
-		if err := engineInfo.retrieveEngine.DeleteBySourceIDList(ctx, sourceIDList, dimension, knowledgeType); err != nil {
+		if err := engineInfo.retrieveEngine.DeleteBySourceIDList(
+			ctx,
+			sourceIDList,
+			dimension,
+			knowledgeType,
+		); err != nil {
 			logger.GetLogger(ctx).Errorf("Repository %s failed to delete source ID list: %v",
 				engineInfo.retrieveEngine.EngineType(), err)
 			return err
@@ -380,7 +393,12 @@ func (c *CompositeRetrieveEngine) DeleteByKnowledgeIDList(ctx context.Context,
 	knowledgeIDList []string, dimension int, knowledgeType string,
 ) error {
 	return c.concurrentExecWithError(ctx, func(ctx context.Context, engineInfo *engineInfo) error {
-		if err := engineInfo.retrieveEngine.DeleteByKnowledgeIDList(ctx, knowledgeIDList, dimension, knowledgeType); err != nil {
+		if err := engineInfo.retrieveEngine.DeleteByKnowledgeIDList(
+			ctx,
+			knowledgeIDList,
+			dimension,
+			knowledgeType,
+		); err != nil {
 			logger.GetLogger(ctx).Errorf("Repository %s failed to delete knowledge ID list: %v",
 				engineInfo.retrieveEngine.EngineType(), err)
 			return err

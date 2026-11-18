@@ -10,7 +10,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrKnowledgeBaseNotFound = errors.New("knowledge base not found")
+// ErrRecordNotFound aliases the canonical domain record-not-found sentinel.
+var ErrRecordNotFound = types.ErrRecordNotFound
+
+// ErrKnowledgeBaseNotFound aliases the canonical knowledge-base not-found sentinel.
+var ErrKnowledgeBaseNotFound = types.ErrKnowledgeBaseNotFound
 
 // knowledgeBaseRepository implements the KnowledgeBaseRepository interface
 type knowledgeBaseRepository struct {
@@ -39,8 +43,13 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(ctx context.Context, id s
 	return &kb, nil
 }
 
-// GetKnowledgeBaseByIDAndTenant gets a knowledge base by id only if it belongs to the given tenant (enforces tenant isolation)
-func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDAndTenant(ctx context.Context, id string, tenantID uint64) (*types.KnowledgeBase, error) {
+// GetKnowledgeBaseByIDAndTenant gets a knowledge base by id only if it belongs to the given tenant (enforces tenant
+// isolation)
+func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDAndTenant(
+	ctx context.Context,
+	id string,
+	tenantID uint64,
+) (*types.KnowledgeBase, error) {
 	var kb types.KnowledgeBase
 	if err := r.db.WithContext(ctx).Where("id = ? AND tenant_id = ?", id, tenantID).First(&kb).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -52,7 +61,10 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDAndTenant(ctx context.Cont
 }
 
 // GetKnowledgeBaseByIDs gets knowledge bases by multiple ids
-func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDs(ctx context.Context, ids []string) ([]*types.KnowledgeBase, error) {
+func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDs(
+	ctx context.Context,
+	ids []string,
+) ([]*types.KnowledgeBase, error) {
 	if len(ids) == 0 {
 		return []*types.KnowledgeBase{}, nil
 	}

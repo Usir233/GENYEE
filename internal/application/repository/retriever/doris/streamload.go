@@ -59,7 +59,7 @@ func readStreamLoadResponse(body io.Reader) ([]byte, error) {
 // 关键字段：Status 应为 "Success" 或 "Publish Timeout"（后者表示数据已写入但发布事务超时，
 // 仍视为成功）。其它状态都视为失败。
 type streamLoadResponse struct {
-	TxnId                  int64  `json:"TxnId"`
+	TxnID                  int64  `json:"TxnId"`
 	Label                  string `json:"Label"`
 	Status                 string `json:"Status"`
 	Message                string `json:"Message"`
@@ -212,7 +212,7 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 		}
 		return fmt.Errorf("stream load HTTP: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode/100 != 2 {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, maxStreamLoadErrorPreviewBytes+1))
@@ -322,7 +322,7 @@ func (r *dorisRepository) BatchUpdateChunkEnabledStatus(ctx context.Context,
 		return r.batchUpdateChunkEnabledStatusLegacy(ctx, cleanedMap)
 	}
 
-	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
+	return r.rewriteChunkRows(ctx, chunkIDs, func(row *VectorEmbedding) bool {
 		enabled, ok := cleanedMap[row.ChunkID]
 		if !ok || row.IsEnabled == enabled {
 			return false
@@ -357,7 +357,7 @@ func (r *dorisRepository) BatchUpdateChunkTagID(ctx context.Context,
 		return r.batchUpdateChunkTagIDLegacy(ctx, cleanedMap)
 	}
 
-	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
+	return r.rewriteChunkRows(ctx, chunkIDs, func(row *VectorEmbedding) bool {
 		tagID, ok := cleanedMap[row.ChunkID]
 		if !ok || row.TagID == tagID {
 			return false
@@ -392,7 +392,7 @@ func (r *dorisRepository) BatchUpdateChunkContent(ctx context.Context,
 		return r.batchUpdateChunkContentLegacy(ctx, cleanedMap)
 	}
 
-	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
+	return r.rewriteChunkRows(ctx, chunkIDs, func(row *VectorEmbedding) bool {
 		if row.SourceID != row.ChunkID {
 			return false
 		}
@@ -411,7 +411,7 @@ func (r *dorisRepository) BatchUpdateChunkContent(ctx context.Context,
 
 func (r *dorisRepository) rewriteChunkRows(ctx context.Context,
 	chunkIDs []string,
-	mutate func(*DorisVectorEmbedding) bool,
+	mutate func(*VectorEmbedding) bool,
 	action string,
 ) error {
 	if len(chunkIDs) == 0 {
@@ -429,7 +429,7 @@ func (r *dorisRepository) rewriteChunkRows(ctx context.Context,
 			return fmt.Errorf("load chunk rows from %s: %w", table, err)
 		}
 
-		updated := make([]*DorisVectorEmbedding, 0, len(rows))
+		updated := make([]*VectorEmbedding, 0, len(rows))
 		for _, row := range rows {
 			if !mutate(row) {
 				continue
@@ -583,33 +583,41 @@ func (r *dorisRepository) lookupPrimaryChunkRowKeys(ctx context.Context,
 			fieldChunkID, inClause,
 			fieldSourceID, inClause,
 		)
-		rows, err := r.db.QueryContext(ctx, stmt, args...)
-		if err != nil {
-			return nil, fmt.Errorf("lookup primary chunk row keys in %s: %w", table, err)
-		}
-		for rows.Next() {
-			var id, chunkID, sourceID string
-			if err := rows.Scan(&id, &chunkID, &sourceID); err != nil {
-				_ = rows.Close()
-				return nil, fmt.Errorf("scan primary row keys: %w", err)
-			}
-			if sourceID != chunkID {
-				continue
-			}
-			out[chunkID] = append(out[chunkID], rowLocation{table: table, id: id})
-		}
-		if err := rows.Err(); err != nil {
-			_ = rows.Close()
+		if err := r.scanPrimaryChunkRowKeys(ctx, table, stmt, args, out); err != nil {
 			return nil, err
 		}
-		_ = rows.Close()
 	}
 	return out, nil
 }
 
+func (r *dorisRepository) scanPrimaryChunkRowKeys(
+	ctx context.Context,
+	table string,
+	stmt string,
+	args []any,
+	out map[string][]rowLocation,
+) error {
+	rows, err := r.db.QueryContext(ctx, stmt, args...)
+	if err != nil {
+		return fmt.Errorf("lookup primary chunk row keys in %s: %w", table, err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id, chunkID, sourceID string
+		if err := rows.Scan(&id, &chunkID, &sourceID); err != nil {
+			return fmt.Errorf("scan primary row keys: %w", err)
+		}
+		if sourceID != chunkID {
+			continue
+		}
+		out[chunkID] = append(out[chunkID], rowLocation{table: table, id: id})
+	}
+	return rows.Err()
+}
+
 func (r *dorisRepository) loadRowsByChunkIDs(ctx context.Context,
 	table string, chunkIDs []string,
-) ([]*DorisVectorEmbedding, error) {
+) ([]*VectorEmbedding, error) {
 	if len(chunkIDs) == 0 {
 		return nil, nil
 	}
@@ -635,12 +643,8 @@ func (r *dorisRepository) loadRowsByChunkIDs(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	batch, err := scanCopyRows(rows)
-	_ = rows.Close()
-	if err != nil {
-		return nil, err
-	}
-	return batch, nil
+	defer func() { _ = rows.Close() }()
+	return scanCopyRows(rows)
 }
 
 // rowLocation 表示某行在哪个表里、主键 id 是什么。
@@ -682,23 +686,31 @@ func (r *dorisRepository) lookupChunkRowKeys(ctx context.Context,
 			"SELECT %s, %s FROM `%s` WHERE %s IN (%s)",
 			fieldID, fieldChunkID, table, fieldChunkID, strings.Join(placeholders, ", "),
 		)
-		rows, err := r.db.QueryContext(ctx, stmt, args...)
-		if err != nil {
-			return nil, fmt.Errorf("lookup chunk row keys in %s: %w", table, err)
-		}
-		for rows.Next() {
-			var id, chunkID string
-			if err := rows.Scan(&id, &chunkID); err != nil {
-				_ = rows.Close()
-				return nil, fmt.Errorf("scan row keys: %w", err)
-			}
-			out[chunkID] = append(out[chunkID], rowLocation{table: table, id: id})
-		}
-		if err := rows.Err(); err != nil {
-			_ = rows.Close()
+		if err := r.scanChunkRowKeys(ctx, table, stmt, args, out); err != nil {
 			return nil, err
 		}
-		_ = rows.Close()
 	}
 	return out, nil
+}
+
+func (r *dorisRepository) scanChunkRowKeys(
+	ctx context.Context,
+	table string,
+	stmt string,
+	args []any,
+	out map[string][]rowLocation,
+) error {
+	rows, err := r.db.QueryContext(ctx, stmt, args...)
+	if err != nil {
+		return fmt.Errorf("lookup chunk row keys in %s: %w", table, err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id, chunkID string
+		if err := rows.Scan(&id, &chunkID); err != nil {
+			return fmt.Errorf("scan row keys: %w", err)
+		}
+		out[chunkID] = append(out[chunkID], rowLocation{table: table, id: id})
+	}
+	return rows.Err()
 }

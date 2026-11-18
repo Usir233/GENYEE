@@ -41,7 +41,7 @@ func (p *PluginWikiBoost) ActivationEvents() []types.EventType {
 // OnEvent boosts wiki page chunk scores after reranking
 func (p *PluginWikiBoost) OnEvent(
 	ctx context.Context,
-	eventType types.EventType,
+	_ types.EventType,
 	chatManage *types.ChatManage,
 	next func() *PluginError,
 ) *PluginError {

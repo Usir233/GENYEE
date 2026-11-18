@@ -20,6 +20,13 @@ func checkWikiPageWriteSnapshot(tx *gorm.DB, page *types.WikiPage) error {
 		page.Version != expected.Version {
 		return ErrWikiPageConflict
 	}
+	if err := acquireSQLiteWriteLock(
+		tx, &types.WikiPage{}, "version",
+		"id = ? AND tenant_id = ? AND knowledge_base_id = ?",
+		expected.ID, expected.TenantID, expected.KnowledgeBaseID,
+	); err != nil {
+		return err
+	}
 	var current types.WikiPage
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ? AND tenant_id = ? AND knowledge_base_id = ? AND slug = ?",

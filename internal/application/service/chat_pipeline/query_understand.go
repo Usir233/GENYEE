@@ -23,8 +23,6 @@ type PluginQueryUnderstand struct {
 	config         *config.Config
 }
 
-var rewriteImageSepPattern = regexp.MustCompile(`(?s)^(.*?)\s*\n?---\n(.*)$`)
-
 type queryUnderstandOutput struct {
 	RewriteQuery     string            `json:"rewrite_query"`
 	Intent           types.QueryIntent `json:"intent"`
@@ -59,7 +57,7 @@ func (p *PluginQueryUnderstand) ActivationEvents() []types.EventType {
 //   - Text + images: multimodal rewrite + intent + image description (uses VLM/vision model)
 //   - Images only: multimodal analysis + intent + image description (uses VLM/vision model)
 func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	chatManage.RewriteQuery = chatManage.Query
 
@@ -190,7 +188,12 @@ func (p *PluginQueryUnderstand) updateUserMessageImageCaption(ctx context.Contex
 
 	msg.Images[0].Caption = chatManage.ImageDescription
 
-	if err := p.messageService.UpdateMessageImages(ctx, chatManage.SessionID, chatManage.UserMessageID, msg.Images); err != nil {
+	if err := p.messageService.UpdateMessageImages(
+		ctx,
+		chatManage.SessionID,
+		chatManage.UserMessageID,
+		msg.Images,
+	); err != nil {
 		pipelineWarn(ctx, "QueryUnderstand", "update_image_caption", map[string]interface{}{
 			"session_id":      chatManage.SessionID,
 			"user_message_id": chatManage.UserMessageID,
@@ -235,7 +238,11 @@ func (p *PluginQueryUnderstand) loadHistory(ctx context.Context, chatManage *typ
 
 // selectModel picks the model for query understanding. When images are present
 // it prefers a vision-capable model. Returns (model, useImages).
-func (p *PluginQueryUnderstand) selectModel(ctx context.Context, chatManage *types.ChatManage, hasImages bool) (chat.Chat, bool) {
+func (p *PluginQueryUnderstand) selectModel(
+	ctx context.Context,
+	chatManage *types.ChatManage,
+	hasImages bool,
+) (chat.Chat, bool) {
 	if hasImages {
 		if chatManage.ChatModelSupportsVision {
 			m, err := p.modelService.GetChatModel(chatManage.ChatModelContext(ctx), chatManage.ChatModelID)

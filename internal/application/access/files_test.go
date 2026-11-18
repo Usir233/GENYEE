@@ -270,12 +270,26 @@ func TestMessageSameWorkspaceKBFilesEnforceCurrentAPIKeyScope(t *testing.T) {
 		fileCatalog: fileCatalog{resource: res},
 		origins:     &types.MessageFileBindings{KnowledgeBaseIDs: []string{"kb-allowed"}},
 	}
-	file, err := AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-allowed"}), msg, ref, nil, catalog, MessageKBShareAuthorizer{})
+	file, err := AuthorizeMessageFile(
+		scopedCtx(types.StringArray{"kb-allowed"}),
+		msg,
+		ref,
+		nil,
+		catalog,
+		MessageKBShareAuthorizer{},
+	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), file.OwnerTenantID)
 
 	// 2. Narrowed allow-list removes kb-allowed -> forbidden even for same-workspace resource.
-	_, err = AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-other"}), msg, ref, nil, catalog, MessageKBShareAuthorizer{})
+	_, err = AuthorizeMessageFile(
+		scopedCtx(types.StringArray{"kb-other"}),
+		msg,
+		ref,
+		nil,
+		catalog,
+		MessageKBShareAuthorizer{},
+	)
 	require.ErrorIs(t, err, ErrForbidden)
 
 	// 3. Raw path (resource == nil) is rejected for KB-restricted API keys when not a live MessageArtifact.
@@ -285,7 +299,14 @@ func TestMessageSameWorkspaceKBFilesEnforceCurrentAPIKeyScope(t *testing.T) {
 		Role:          "assistant",
 		Content:       "![raw](local://1/images/diagram.png)",
 	}
-	_, err = AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-allowed"}), rawMsg, "local://1/images/diagram.png", nil, fileCatalog{}, MessageKBShareAuthorizer{})
+	_, err = AuthorizeMessageFile(
+		scopedCtx(types.StringArray{"kb-allowed"}),
+		rawMsg,
+		"local://1/images/diagram.png",
+		nil,
+		fileCatalog{},
+		MessageKBShareAuthorizer{},
+	)
 	require.ErrorIs(t, err, ErrForbidden)
 
 	// 4. Live MessageArtifact of the session message stays accessible under KB-restricted API key.
@@ -296,6 +317,13 @@ func TestMessageSameWorkspaceKBFilesEnforceCurrentAPIKeyScope(t *testing.T) {
 		Content:       "![report](" + ref + ")",
 		Artifacts:     types.MessageArtifacts{{URL: ref, FileName: "report.pdf"}},
 	}
-	_, err = AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-other"}), artifactMsg, ref, nil, fileCatalog{resource: res}, MessageKBShareAuthorizer{})
+	_, err = AuthorizeMessageFile(
+		scopedCtx(types.StringArray{"kb-other"}),
+		artifactMsg,
+		ref,
+		nil,
+		fileCatalog{resource: res},
+		MessageKBShareAuthorizer{},
+	)
 	require.NoError(t, err)
 }

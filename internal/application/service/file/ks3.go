@@ -34,7 +34,14 @@ type ks3FileService struct {
 }
 
 // NewKS3FileService creates a KS3 file service and ensures the bucket exists.
-func NewKS3FileService(endpoint, region, accessKey, secretKey, bucketName, pathPrefix string) (interfaces.FileService, error) {
+func NewKS3FileService(
+	endpoint,
+	region,
+	accessKey,
+	secretKey,
+	bucketName,
+	pathPrefix string,
+) (interfaces.FileService, error) {
 	client, err := newKS3Client(endpoint, region, accessKey, secretKey)
 	if err != nil {
 		return nil, err
@@ -183,7 +190,12 @@ func (s *ks3FileService) objectKey(filePath string) (string, error) {
 	return objectKey, nil
 }
 
-func (s *ks3FileService) SaveFile(ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string) (string, error) {
+func (s *ks3FileService) SaveFile(
+	ctx context.Context,
+	file *multipart.FileHeader,
+	tenantID uint64,
+	knowledgeID string,
+) (string, error) {
 	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
 		return "", err
 	}
@@ -197,7 +209,7 @@ func (s *ks3FileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	contentType := file.Header.Get("Content-Type")
 	if contentType == "" {
@@ -219,7 +231,9 @@ func (s *ks3FileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 	return fmt.Sprintf("%s%s/%s", ks3Scheme, s.bucketName, objectKey), nil
 }
 
-func (s *ks3FileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+func (s *ks3FileService) SaveBytes(
+	ctx context.Context, data []byte, tenantID uint64, fileName string, _ bool,
+) (string, error) {
 	if err := validateTenantID(tenantID); err != nil {
 		return "", err
 	}
@@ -340,7 +354,7 @@ func (s *ks3FileService) CheckConnectivity(ctx context.Context) error {
 	return err
 }
 
-func (s *ks3FileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+func (s *ks3FileService) GetFileURL(_ context.Context, filePath string) (string, error) {
 	objectKey, err := s.objectKey(filePath)
 	if err != nil {
 		return "", err

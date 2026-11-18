@@ -47,7 +47,13 @@ func (r *memoryRepository) SaveItemWithPendingLimit(
 		if forgotten {
 			return types.ErrMemoryPreviouslyForgotten
 		}
-		query := func() *gorm.DB { return tx.Where("tenant_id = ? AND subject_id = ?", scope.TenantID, scope.SubjectID) }
+		query := func() *gorm.DB {
+			return tx.Where(
+				"tenant_id = ? AND subject_id = ?",
+				scope.TenantID,
+				scope.SubjectID,
+			)
+		}
 		trimPending := func() error {
 			if item.Status != types.MemoryStatusPending {
 				return nil
@@ -81,7 +87,11 @@ func (r *memoryRepository) SaveItemWithPendingLimit(
 				// A successfully applied decision may be replayed after a failed
 				// checkpoint. Return its replacement instead of writing it twice.
 				var replacement types.MemoryItem
-				if target.SupersededBy != "" && query().First(&replacement, "id = ?", target.SupersededBy).Error == nil &&
+				if target.SupersededBy != "" && query().First(
+					&replacement,
+					"id = ?",
+					target.SupersededBy,
+				).Error == nil &&
 					replacement.Status == item.Status && replacement.Content == item.Content {
 					*item = replacement
 					return trimPending()
@@ -150,7 +160,13 @@ func (r *memoryRepository) SaveItemWithPendingLimit(
 
 func (r *memoryRepository) ConfirmPendingItem(ctx context.Context, scope interfaces.MemoryScope, id string) error {
 	return r.withSubject(ctx, scope, func(tx *gorm.DB, _ *types.MemorySubject) error {
-		query := func() *gorm.DB { return tx.Where("tenant_id = ? AND subject_id = ?", scope.TenantID, scope.SubjectID) }
+		query := func() *gorm.DB {
+			return tx.Where(
+				"tenant_id = ? AND subject_id = ?",
+				scope.TenantID,
+				scope.SubjectID,
+			)
+		}
 		var item types.MemoryItem
 		if err := query().First(&item, "id = ?", id).Error; err != nil {
 			return err
@@ -173,9 +189,20 @@ func (r *memoryRepository) ConfirmPendingItem(ctx context.Context, scope interfa
 		}
 		now := time.Now()
 		if err := query().Model(&types.MemoryItem{}).
-			Where("id <> ? AND (normalized_key = ? OR id = ? OR (replaces_id <> '' AND replaces_id = ?)) AND status IN ?",
-				id, item.NormalizedKey, item.ReplacesID, item.ReplacesID, []string{types.MemoryStatusActive, types.MemoryStatusPending}).
-			Updates(map[string]interface{}{"status": types.MemoryStatusSuperseded, "invalid_at": now, "superseded_by": id, "updated_at": now}).Error; err != nil {
+			Where(
+				"id <> ? AND (normalized_key = ? OR id = ? OR (replaces_id <> '' AND replaces_id = ?)) AND status IN ?",
+				id, item.NormalizedKey, item.ReplacesID, item.ReplacesID, []string{
+					types.MemoryStatusActive,
+					types.MemoryStatusPending,
+				}).
+			Updates(
+				map[string]interface{}{
+					"status":        types.MemoryStatusSuperseded,
+					"invalid_at":    now,
+					"superseded_by": id,
+					"updated_at":    now,
+				},
+			).Error; err != nil {
 			return err
 		}
 		return query().Model(&types.MemoryItem{}).Where("id = ?", id).

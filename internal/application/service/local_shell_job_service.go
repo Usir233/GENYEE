@@ -36,7 +36,11 @@ const (
 
 type localJobStarter interface {
 	StartForSession(context.Context, localsandbox.RunRequest) (localsandbox.Process, error)
-	GuardForSession(context.Context, string, ...localsandbox.Grant) (*localsandbox.PathGuard, localsandbox.Workspace, error)
+	GuardForSession(
+		context.Context,
+		string,
+		...localsandbox.Grant,
+	) (*localsandbox.PathGuard, localsandbox.Workspace, error)
 }
 
 type localJob struct {

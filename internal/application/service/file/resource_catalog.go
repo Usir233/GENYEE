@@ -168,7 +168,11 @@ func (s *resourceCatalogFileService) register(
 	return ref, nil
 }
 
-func (s *resourceCatalogFileService) cleanupFailedUpload(ctx context.Context, remove func(context.Context, string) error, ref string) {
+func (s *resourceCatalogFileService) cleanupFailedUpload(
+	ctx context.Context,
+	remove func(context.Context, string) error,
+	ref string,
+) {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	_ = remove(cleanupCtx, ref)
@@ -189,7 +193,13 @@ func (s *resourceCatalogFileService) SaveFile(
 		return "", err
 	}
 	if knowledgeID != "" {
-		if err := s.catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, knowledgeID, types.ResourceRelationSourceFile); err != nil {
+		if err := s.catalog.Bind(
+			ctx,
+			ref,
+			types.ResourceOwnerKnowledge,
+			knowledgeID,
+			types.ResourceRelationSourceFile,
+		); err != nil {
 			s.cleanupFailedUpload(ctx, s.DeleteUnboundFile, ref)
 			return "", fmt.Errorf("bind stored resource: %w", err)
 		}
@@ -407,7 +417,13 @@ func (s *resourceCatalogFileService) CopyFile(
 		return "", err
 	}
 	if knowledgeID != "" {
-		if err := s.catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, knowledgeID, types.ResourceRelationSourceFile); err != nil {
+		if err := s.catalog.Bind(
+			ctx,
+			ref,
+			types.ResourceOwnerKnowledge,
+			knowledgeID,
+			types.ResourceRelationSourceFile,
+		); err != nil {
 			s.cleanupFailedUpload(ctx, s.DeleteUnboundFile, ref)
 			return "", fmt.Errorf("bind copied resource: %w", err)
 		}

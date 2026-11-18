@@ -83,7 +83,11 @@ type w3aKnowledgeRepoMem struct {
 	updatedCols   map[string]map[string]any
 }
 
-func (r *w3aKnowledgeRepoMem) GetKnowledgeByID(_ context.Context, tenantID uint64, id string) (*types.Knowledge, error) {
+func (r *w3aKnowledgeRepoMem) GetKnowledgeByID(
+	_ context.Context,
+	tenantID uint64,
+	id string,
+) (*types.Knowledge, error) {
 	if k, ok := r.rows[id]; ok && k.TenantID == tenantID {
 		cp := *k
 		return &cp, nil
@@ -123,7 +127,11 @@ type w3aChunkRepoTransferStub struct {
 	deleted     []string
 }
 
-func (r *w3aChunkRepoTransferStub) ListAllChunksByKnowledgeID(_ context.Context, _ uint64, kid string) ([]*types.Chunk, error) {
+func (r *w3aChunkRepoTransferStub) ListAllChunksByKnowledgeID(
+	_ context.Context,
+	_ uint64,
+	kid string,
+) ([]*types.Chunk, error) {
 	return r.byKnowledge[kid], nil
 }
 
@@ -142,7 +150,11 @@ func (r *w3aChunkRepoTransferStub) DeleteChunksByKnowledgeID(_ context.Context, 
 	return nil
 }
 
-func (r *w3aChunkRepoTransferStub) ListImageInfoByKnowledgeIDs(_ context.Context, _ uint64, _ []string) ([]interfaces.ChunkImageInfo, error) {
+func (r *w3aChunkRepoTransferStub) ListImageInfoByKnowledgeIDs(
+	_ context.Context,
+	_ uint64,
+	_ []string,
+) ([]interfaces.ChunkImageInfo, error) {
 	return nil, nil
 }
 
@@ -179,7 +191,9 @@ func TestAuditW3A_SharedKBStorageResolutionAndCrossBackendClone(t *testing.T) {
 			"k-src": {ID: "k-src", TenantID: 7, KnowledgeBaseID: "kb-src", ParseStatus: types.ParseStatusCompleted},
 			"k-dst": {ID: "k-dst", TenantID: 7, KnowledgeBaseID: "kb-dst", ParseStatus: types.ParseStatusProcessing},
 		}}
-		imgJSON, _ := json.Marshal([]types.ImageInfo{{URL: "local://7/exports/chart.png", OriginalURL: "local://7/exports/chart.png"}})
+		imgJSON, _ := json.Marshal(
+			[]types.ImageInfo{{URL: "local://7/exports/chart.png", OriginalURL: "local://7/exports/chart.png"}},
+		)
 		chunkRepo := &w3aChunkRepoTransferStub{byKnowledge: map[string][]*types.Chunk{
 			"k-src": {{
 				ID:              "c-src-1",
@@ -211,8 +225,17 @@ func TestAuditW3A_SharedKBStorageResolutionAndCrossBackendClone(t *testing.T) {
 		cfg := svc.buildStorageConfig(sharedCtx, srcKB)
 		assert.Equal(t, "bucket-src-backend", cfg.BucketName)
 
-		// 2) CloneChunk across two KBs with DIFFERENT storage backends must read image bytes from srcFiles and save to dstFiles!
-		transferCtx, err := access.WithKBTransferTask(context.Background(), srcKB, dstKB, 7, access.KBTransferClone, "task-clone", false)
+		// 2) CloneChunk across two KBs with DIFFERENT storage backends must read image bytes from srcFiles and save to
+		// dstFiles!
+		transferCtx, err := access.WithKBTransferTask(
+			context.Background(),
+			srcKB,
+			dstKB,
+			7,
+			access.KBTransferClone,
+			"task-clone",
+			false,
+		)
 		require.NoError(t, err)
 		require.NoError(t, svc.CloneChunk(transferCtx, kgRepo.rows["k-src"], kgRepo.rows["k-dst"]))
 		require.Len(t, dstFiles.saved, 1, "image must be copied into destination KB backend")
@@ -266,7 +289,9 @@ func TestAuditW3A_SharedKBStorageResolutionAndCrossBackendClone(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("cleanupKnowledgeResources_handles_missing_TenantInfo_and_mergeKnowledgeMetadata_strips_reserved_keys", func(t *testing.T) {
+	t.Run("cleanupKnowledgeResources_handles_missing_TenantInfo_and_mergeKnowledgeMetadata_strips_reserved_keys", func(
+		t *testing.T,
+	) {
 		kb := &types.KnowledgeBase{ID: "kb-clean", TenantID: 7}
 		chunkRepo := &w3aChunkRepoTransferStub{byKnowledge: map[string][]*types.Chunk{}}
 		sharedTenant := &types.Tenant{ID: 7, StorageUsed: 500}
@@ -288,7 +313,10 @@ func TestAuditW3A_SharedKBStorageResolutionAndCrossBackendClone(t *testing.T) {
 			ParseStatus:     types.ParseStatusCompleted,
 			StorageSize:     100,
 		}
-		base := types.WithCaller(context.Background(), types.Caller{TenantID: 7, UserID: "u", Role: types.TenantRoleAdmin})
+		base := types.WithCaller(
+			context.Background(),
+			types.Caller{TenantID: 7, UserID: "u", Role: types.TenantRoleAdmin},
+		)
 		// Deliberately omit TenantInfoContextKey from ctx: must NOT panic!
 		var err error
 		require.NotPanics(t, func() {
@@ -344,7 +372,12 @@ func (r *w3aDeleteIndexRecorder) DeleteBySourceIDList(_ context.Context, ids []s
 	return nil
 }
 
-func (r *w3aDeleteIndexRecorder) BatchIndex(_ context.Context, _ embedding.Embedder, _ []*types.IndexInfo, _ []types.RetrieverType) error {
+func (r *w3aDeleteIndexRecorder) BatchIndex(
+	_ context.Context,
+	_ embedding.Embedder,
+	_ []*types.IndexInfo,
+	_ []types.RetrieverType,
+) error {
 	if r.failIdx {
 		return errors.New("vector backend timeout")
 	}
@@ -371,6 +404,7 @@ type w3aSimpleVLM struct{}
 func (w3aSimpleVLM) Predict(_ context.Context, _ [][]byte, _ string) (string, error) {
 	return "contain.text: none\ncontain.data_visual: false\nDESCRIPTION: A clean diagram.", nil
 }
+
 func (w3aSimpleVLM) PredictWithOptions(_ context.Context, b [][]byte, p string, _ *vlm.PredictOptions) (string, error) {
 	return w3aSimpleVLM{}.Predict(context.Background(), b, p)
 }
@@ -418,45 +452,70 @@ func TestAuditW3A_AsyncRetryAndResourceCleanup(t *testing.T) {
 
 		after, err := f.svc.GetFAQImportProgress(ctx, "task-done")
 		require.NoError(t, err)
-		assert.Equal(t, types.FAQImportStatusCompleted, after.Status, "duplicate redelivery must not overwrite Completed status")
+		assert.Equal(
+			t,
+			types.FAQImportStatusCompleted,
+			after.Status,
+			"duplicate redelivery must not overwrite Completed status",
+		)
 		assert.Equal(t, 100, after.Progress)
 	})
 
-	t.Run("DataTableSummary_cleanupOnFailure_uses_WithoutCancel_and_respects_retry_budget_while_fencing_transfers", func(t *testing.T) {
-		kgRepo := &w3aKnowledgeRepoMem{
-			rows: map[string]*types.Knowledge{
-				"k-tbl": {ID: "k-tbl", TenantID: 7, KnowledgeBaseID: "kb-tbl", ParseStatus: types.ParseStatusProcessing},
-			},
-		}
-		chunkRepo := &w3aChunkRepoTransferStub{}
-		idx := &w3aDeleteIndexRecorder{}
-		compositeEngine, err := retriever.NewCompositeRetrieveEngine(
-			parentChildRetrieveRegistry{engine: idx},
-			[]types.RetrieverEngineParams{{
-				RetrieverEngineType: types.PostgresRetrieverEngineType,
-				RetrieverType:       types.VectorRetrieverType,
-			}},
-		)
-		require.NoError(t, err)
-		dtSvc := &DataTableSummaryService{
-			knowledgeService: &w3aKGSvcWithRepo{repo: kgRepo},
-			chunkService:     &w3aChunkSvcWithRepo{repo: chunkRepo},
-		}
-		res := &extractionResources{
-			knowledge:      kgRepo.rows["k-tbl"],
-			retrieveEngine: compositeEngine,
-			embeddingModel: w3aEmbedderStub{},
-		}
-		// Cancelled + retryable context (retried=0 < limit=3): chunks & vectors must still be cleaned up via WithoutCancel,
-		// and ParseStatus must remain processing rather than prematurely stamping ParseStatusFailed!
-		cancelledBase, cancel := context.WithCancel(context.Background())
-		cancel()
-		retryCtx := types.WithTaskRetryMetadata(cancelledBase, 0, 3)
-		dtSvc.cleanupOnFailure(retryCtx, res, []*types.Chunk{{ID: "tbl-c1"}}, errors.New("embed timeout"))
-		assert.Equal(t, []string{"tbl-c1"}, chunkRepo.deleted, "chunks must be deleted via WithoutCancel on retryable failure")
-		assert.Equal(t, []string{"tbl-c1"}, idx.deleted, "vector index must be deleted on failure")
-		assert.Equal(t, types.ParseStatusProcessing, kgRepo.rows["k-tbl"].ParseStatus, "non-final retry must not permanently stamp ParseStatusFailed")
-	})
+	t.Run(
+		"DataTableSummary_cleanupOnFailure_uses_WithoutCancel_and_respects_retry_budget_while_fencing_transfers",
+		func(
+			t *testing.T,
+		) {
+			kgRepo := &w3aKnowledgeRepoMem{
+				rows: map[string]*types.Knowledge{
+					"k-tbl": {
+						ID:              "k-tbl",
+						TenantID:        7,
+						KnowledgeBaseID: "kb-tbl",
+						ParseStatus:     types.ParseStatusProcessing,
+					},
+				},
+			}
+			chunkRepo := &w3aChunkRepoTransferStub{}
+			idx := &w3aDeleteIndexRecorder{}
+			compositeEngine, err := retriever.NewCompositeRetrieveEngine(
+				parentChildRetrieveRegistry{engine: idx},
+				[]types.RetrieverEngineParams{{
+					RetrieverEngineType: types.PostgresRetrieverEngineType,
+					RetrieverType:       types.VectorRetrieverType,
+				}},
+			)
+			require.NoError(t, err)
+			dtSvc := &DataTableSummaryService{
+				knowledgeService: &w3aKGSvcWithRepo{repo: kgRepo},
+				chunkService:     &w3aChunkSvcWithRepo{repo: chunkRepo},
+			}
+			res := &extractionResources{
+				knowledge:      kgRepo.rows["k-tbl"],
+				retrieveEngine: compositeEngine,
+				embeddingModel: w3aEmbedderStub{},
+			}
+			// Cancelled + retryable context (retried=0 < limit=3): chunks & vectors must still be cleaned up via
+			// WithoutCancel,
+			// and ParseStatus must remain processing rather than prematurely stamping ParseStatusFailed!
+			cancelledBase, cancel := context.WithCancel(context.Background())
+			cancel()
+			retryCtx := types.WithTaskRetryMetadata(cancelledBase, 0, 3)
+			dtSvc.cleanupOnFailure(retryCtx, res, []*types.Chunk{{ID: "tbl-c1"}}, errors.New("embed timeout"))
+			assert.Equal(
+				t,
+				[]string{"tbl-c1"},
+				chunkRepo.deleted,
+				"chunks must be deleted via WithoutCancel on retryable failure",
+			)
+			assert.Equal(t, []string{"tbl-c1"}, idx.deleted, "vector index must be deleted on failure")
+			assert.Equal(
+				t,
+				types.ParseStatusProcessing,
+				kgRepo.rows["k-tbl"].ParseStatus,
+				"non-final retry must not permanently stamp ParseStatusFailed",
+			)
+		})
 
 	t.Run("ImageMultimodal_bounds_readImageBytes_and_rolls_back_chunks_on_BatchIndex_failure", func(t *testing.T) {
 		t.Setenv("MAX_FILE_SIZE_MB", "1")
@@ -483,13 +542,15 @@ func TestAuditW3A_AsyncRetryAndResourceCleanup(t *testing.T) {
 			IndexingStrategy: types.IndexingStrategy{VectorEnabled: true},
 		}
 		mmRetrySvc := &ImageMultimodalService{
-			chunkService:   &w3aChunkSvcWithRepo{repo: chunkRepo},
-			kbService:      &w3aMultiKBServiceStub{kbs: map[string]*types.KnowledgeBase{"kb-mm": kb}},
-			modelService:   &w3aModelSvcStub{embedder: w3aEmbedderStub{}},
-			tenantRepo:     &w3aTenantRepoStub{tenants: map[uint64]*types.Tenant{7: {ID: 7}}},
-			retrieveEngine: &fakeFanoutRegistry{byStore: map[string]interfaces.RetrieveEngineService{storeID: failingEngine}},
-			ownership:      &fakeOwnership{owned: map[string]uint64{storeID: 7}},
-			fileSvc:        &attrsFileService{body: testPNG(t)},
+			chunkService: &w3aChunkSvcWithRepo{repo: chunkRepo},
+			kbService:    &w3aMultiKBServiceStub{kbs: map[string]*types.KnowledgeBase{"kb-mm": kb}},
+			modelService: &w3aModelSvcStub{embedder: w3aEmbedderStub{}},
+			tenantRepo:   &w3aTenantRepoStub{tenants: map[uint64]*types.Tenant{7: {ID: 7}}},
+			retrieveEngine: &fakeFanoutRegistry{
+				byStore: map[string]interfaces.RetrieveEngineService{storeID: failingEngine},
+			},
+			ownership: &fakeOwnership{owned: map[string]uint64{storeID: 7}},
+			fileSvc:   &attrsFileService{body: testPNG(t)},
 		}
 		err = mmRetrySvc.processImage(context.Background(), &types.ImageMultimodalPayload{
 			TenantID:          7,
@@ -504,41 +565,49 @@ func TestAuditW3A_AsyncRetryAndResourceCleanup(t *testing.T) {
 		require.NotEmpty(t, chunkRepo.deleted, "unindexed SQL chunks must be rolled back on BatchIndex failure")
 	})
 
-	t.Run("enqueueSummaryRefresh_preserves_completed_status_when_SummaryModelID_empty_and_RequestKnowledgeSummaryRefresh_checks_write_auth", func(t *testing.T) {
-		kgRepo := &w3aKnowledgeRepoMem{rows: map[string]*types.Knowledge{
-			"k-sum": {
-				ID:              "k-sum",
-				TenantID:        7,
-				KnowledgeBaseID: "kb-no-sum",
-				SummaryStatus:   types.SummaryStatusCompleted,
-			},
-		}}
-		kbNoSum := &types.KnowledgeBase{ID: "kb-no-sum", TenantID: 7, SummaryModelID: ""}
-		kbStub := &w3aMultiKBServiceStub{kbs: map[string]*types.KnowledgeBase{"kb-no-sum": kbNoSum}}
+	t.Run(
+		"enqueueSummaryRefresh_preserves_completed_status_when_SummaryModelID_empty_and_RequestKnowledgeSummaryRefre"+
+			"sh_checks_write_auth",
+		func(
+			t *testing.T,
+		) {
+			kgRepo := &w3aKnowledgeRepoMem{rows: map[string]*types.Knowledge{
+				"k-sum": {
+					ID:              "k-sum",
+					TenantID:        7,
+					KnowledgeBaseID: "kb-no-sum",
+					SummaryStatus:   types.SummaryStatusCompleted,
+				},
+			}}
+			kbNoSum := &types.KnowledgeBase{ID: "kb-no-sum", TenantID: 7, SummaryModelID: ""}
+			kbStub := &w3aMultiKBServiceStub{kbs: map[string]*types.KnowledgeBase{"kb-no-sum": kbNoSum}}
 
-		err := enqueueSummaryRefresh(
-			context.Background(),
-			kgRepo,
-			&metadataUpdateTaskEnqueuer{},
-			kbStub,
-			noopSpanTracker{},
-			kgRepo.rows["k-sum"],
-		)
-		require.Error(t, err)
-		assert.Equal(t, types.SummaryStatusCompleted, kgRepo.rows["k-sum"].SummaryStatus,
-			"missing SummaryModelID must not clobber an existing completed summary to failed")
+			err := enqueueSummaryRefresh(
+				context.Background(),
+				kgRepo,
+				&metadataUpdateTaskEnqueuer{},
+				kbStub,
+				noopSpanTracker{},
+				kgRepo.rows["k-sum"],
+			)
+			require.Error(t, err)
+			assert.Equal(t, types.SummaryStatusCompleted, kgRepo.rows["k-sum"].SummaryStatus,
+				"missing SummaryModelID must not clobber an existing completed summary to failed")
 
-		// Shared read-only viewer must NOT be allowed to trigger RequestKnowledgeSummaryRefresh!
-		svc := &knowledgeService{repo: kgRepo, kbService: kbStub, task: &metadataUpdateTaskEnqueuer{}}
-		viewerBase := types.WithCaller(context.Background(), types.Caller{TenantID: 1, UserID: "viewer", Role: types.TenantRoleViewer})
-		viewerGrant := &access.KBAccess{
-			KnowledgeBase:     kbNoSum,
-			Caller:            types.CallerFromContext(viewerBase),
-			EffectiveTenantID: 7,
-			Permission:        types.OrgRoleViewer,
-		}
-		require.Error(t, svc.RequestKnowledgeSummaryRefresh(viewerGrant.Context(viewerBase), "k-sum"))
-	})
+			// Shared read-only viewer must NOT be allowed to trigger RequestKnowledgeSummaryRefresh!
+			svc := &knowledgeService{repo: kgRepo, kbService: kbStub, task: &metadataUpdateTaskEnqueuer{}}
+			viewerBase := types.WithCaller(
+				context.Background(),
+				types.Caller{TenantID: 1, UserID: "viewer", Role: types.TenantRoleViewer},
+			)
+			viewerGrant := &access.KBAccess{
+				KnowledgeBase:     kbNoSum,
+				Caller:            types.CallerFromContext(viewerBase),
+				EffectiveTenantID: 7,
+				Permission:        types.OrgRoleViewer,
+			}
+			require.Error(t, svc.RequestKnowledgeSummaryRefresh(viewerGrant.Context(viewerBase), "k-sum"))
+		})
 
 	t.Run("spanTracker_cleans_starts_map_on_SkipSpan_FinalizeAttempt_and_AbortAttempt", func(t *testing.T) {
 		trackerIface, _ := setupSpanTrackerTest(t)
@@ -563,7 +632,9 @@ func TestAuditW3A_AsyncRetryAndResourceCleanup(t *testing.T) {
 		assert.Zero(t, remaining, "starts map must not leak entries across finalized/skipped/aborted spans")
 	})
 
-	t.Run("ArtifactCollector_hashStoredArtifact_bounds_reads_and_DispatchEmbedWebhook_protects_envelope", func(t *testing.T) {
+	t.Run("ArtifactCollector_hashStoredArtifact_bounds_reads_and_DispatchEmbedWebhook_protects_envelope", func(
+		t *testing.T,
+	) {
 		collector := NewArtifactCollector(
 			nil,
 			&attrsFileService{body: bytes.Repeat([]byte("X"), 2048)},
@@ -577,7 +648,7 @@ func TestAuditW3A_AsyncRetryAndResourceCleanup(t *testing.T) {
 		withSSRFWhitelist(t, "127.0.0.1")
 		received := make(chan map[string]any, 1)
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer r.Body.Close()
+			defer func() { _ = r.Body.Close() }()
 			var m map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&m)
 			received <- m

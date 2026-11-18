@@ -179,7 +179,10 @@ func (c *WorkspaceCleaner) execute(ctx context.Context, rows []*types.SessionSan
 	retry := func(row *types.SessionSandboxAssignment, reason string) {
 		failed++
 		logger.Warnf(ctx, "[sandbox-alloc] clean workspace of %s: %s", row.SessionID, reason)
-		_ = c.svc.repo.RetryWorkspaceCleanup(ctx, row.SessionID, c.now().Add(cleanupBackoff(row.ReleasedAt, c.now())))
+		nextDue := c.now().Add(cleanupBackoff(row.ReleasedAt, c.now()))
+		if retryErr := c.svc.repo.RetryWorkspaceCleanup(ctx, row.SessionID, nextDue); retryErr != nil {
+			logger.Warnf(ctx, "[sandbox-alloc] schedule workspace cleanup retry for %s: %v", row.SessionID, retryErr)
+		}
 	}
 	for digest, rows := range batches {
 		// The machine's identity is its registry row. A reclaimed machine took
@@ -193,7 +196,10 @@ func (c *WorkspaceCleaner) execute(ctx context.Context, rows []*types.SessionSan
 		}
 		if reg == nil {
 			for _, row := range rows {
-				_ = c.svc.repo.CompleteWorkspaceCleanup(ctx, row.SessionID)
+				if err := c.svc.repo.CompleteWorkspaceCleanup(ctx, row.SessionID); err != nil {
+					retry(row, err.Error())
+					continue
+				}
 				done++
 			}
 			continue
@@ -221,7 +227,10 @@ func (c *WorkspaceCleaner) execute(ctx context.Context, rows []*types.SessionSan
 		}
 		for _, row := range b.rows {
 			if gone[row.SessionID] {
-				_ = c.svc.repo.CompleteWorkspaceCleanup(ctx, row.SessionID)
+				if err := c.svc.repo.CompleteWorkspaceCleanup(ctx, row.SessionID); err != nil {
+					retry(row, err.Error())
+					continue
+				}
 				done++
 				continue
 			}

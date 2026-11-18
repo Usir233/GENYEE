@@ -20,7 +20,8 @@ type milvusRepository struct {
 	collectionAnalyzerModes sync.Map
 }
 
-type MilvusVectorEmbedding struct {
+// VectorEmbedding represents a Milvus collection row for an indexed chunk or question.
+type VectorEmbedding struct {
 	ID              string    `json:"id"`
 	Content         string    `json:"content"`
 	Language        string    `json:"language"`
@@ -34,7 +35,8 @@ type MilvusVectorEmbedding struct {
 	IsEnabled       bool      `json:"is_enabled"`
 }
 
-type MilvusVectorEmbeddingWithScore struct {
-	MilvusVectorEmbedding
+// VectorEmbeddingWithScore wraps VectorEmbedding with a retrieval score.
+type VectorEmbeddingWithScore struct {
+	VectorEmbedding
 	Score float64
 }

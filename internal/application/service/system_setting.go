@@ -760,11 +760,6 @@ func (s *systemSettingService) GetStringList(ctx context.Context, key string, en
 	return def
 }
 
-// List returns all known settings for the management UI. Persisted rows
-// are enriched with registry metadata. Registry keys without a saved DB
-// override are returned as virtual rows using the effective fallback
-// value (ENV/config/default), so merely migrating the schema never
-// changes runtime behaviour.
 // SummarizeSystemSettings excludes unknown rows and secrets. Registry metadata
 // is authoritative, so a stray database row cannot introduce arbitrary config
 // fields into the assistant's catalog. Values remain JSON to preserve type.

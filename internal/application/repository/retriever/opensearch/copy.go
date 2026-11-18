@@ -73,7 +73,10 @@ func (r *Repository) CopyIndices(
 	sourceKnowledgeBaseID = strings.TrimSpace(sourceKnowledgeBaseID)
 	targetKnowledgeBaseID = strings.TrimSpace(targetKnowledgeBaseID)
 	if sourceKnowledgeBaseID == "" || targetKnowledgeBaseID == "" {
-		return fmt.Errorf("opensearch: CopyIndices requires non-empty source and target knowledge_base_id: %w", ErrConfigInvalid)
+		return fmt.Errorf(
+			"opensearch: CopyIndices requires non-empty source and target knowledge_base_id: %w",
+			ErrConfigInvalid,
+		)
 	}
 	if len(sourceToTargetChunkIDMap) == 0 {
 		log.Warn("[OpenSearch] CopyIndices: empty chunk mapping, skipping")

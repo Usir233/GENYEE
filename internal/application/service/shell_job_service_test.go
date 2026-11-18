@@ -568,7 +568,7 @@ func TestBatchReadSandboxChangedIsPerIDLost(t *testing.T) {
 	) (*sandbox.ExecuteResult, error) {
 		if opts.ExpectedSandboxID == "sbx-gone" {
 			// SessionBoundManager 对 expected 不匹配返回真 Go 错误
-			//（session_manager.go:843-845），不包装进 ExecuteResult。
+			// （session_manager.go:843-845），不包装进 ExecuteResult。
 			return nil, sandbox.ErrBoundSandboxChanged
 		}
 		return &sandbox.ExecuteResult{

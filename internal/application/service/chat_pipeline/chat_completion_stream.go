@@ -53,7 +53,7 @@ func (p *PluginChatCompletionStream) ActivationEvents() []types.EventType {
 // OnEvent handles streaming chat completion events
 // It prepares the chat model, messages, and initiates streaming response
 func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	pipelineInfo(ctx, "Stream", "input", map[string]interface{}{
 		"session_id":     chatManage.SessionID,
@@ -146,7 +146,7 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 			if !thinkingOpen {
 				return
 			}
-			eventBus.Emit(ctx, types.Event{
+			_ = eventBus.Emit(ctx, types.Event{
 				ID:        thinkingID,
 				Type:      types.EventType(event.EventAgentThought),
 				SessionID: chatManage.SessionID,
@@ -264,7 +264,7 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 						"session_id": chatManage.SessionID,
 						"error":      response.Content,
 					})
-					eventBus.Emit(ctx, types.Event{
+					_ = eventBus.Emit(ctx, types.Event{
 						ID:        fmt.Sprintf("%s-error", uuid.New().String()[:8]),
 						Type:      types.EventType(event.EventError),
 						SessionID: chatManage.SessionID,
@@ -284,7 +284,7 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 					}
 					if response.Content != "" {
 						thinkingOpen = true
-						eventBus.Emit(ctx, types.Event{
+						_ = eventBus.Emit(ctx, types.Event{
 							ID:        thinkingID,
 							Type:      types.EventType(event.EventAgentThought),
 							SessionID: chatManage.SessionID,

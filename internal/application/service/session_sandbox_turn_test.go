@@ -84,7 +84,6 @@ type turnLeaseManager struct {
 	begins   int
 	ends     int
 	beginErr error
-	endErr   error
 }
 
 func (m *turnLeaseManager) BeginSessionTurn(ctx context.Context, _ string) (context.Context, func(), error) {

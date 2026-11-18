@@ -274,19 +274,20 @@ func tokenize(text string) []string {
 	}
 
 	for _, r := range text {
-		if unicode.Is(unicode.Han, r) {
+		switch {
+		case unicode.Is(unicode.Han, r):
 			if current.Len() > 0 && !currentIsHan {
 				flush()
 			}
 			currentIsHan = true
 			current.WriteRune(r)
-		} else if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
 			if current.Len() > 0 && currentIsHan {
 				flush()
 			}
 			currentIsHan = false
 			current.WriteRune(r)
-		} else {
+		default:
 			flush()
 		}
 	}

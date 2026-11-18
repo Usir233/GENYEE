@@ -133,7 +133,11 @@ func TestAssistantHistoryScopesArtifactVersionsToHistoricalTurn(t *testing.T) {
 		require.Equal(t, body, message.Content, "stored display content must remain unchanged")
 	}
 	result := &types.ToolResult{Success: true, Output: "command completed", OutputFiles: []string{"sandbox:deck.pptx"}}
-	require.Equal(t, "command completed", toolCallOutput(types.ToolCall{Name: agenttools.ToolShellExec, Result: result}))
+	require.Equal(
+		t,
+		"command completed",
+		toolCallOutput(types.ToolCall{Name: agenttools.ToolShellExec, Result: result}),
+	)
 	require.Contains(t, result.OutputFiles, "sandbox:deck.pptx")
 }
 
@@ -423,10 +427,12 @@ func TestBuildAssistantHistoryMessages_ReplaysReasoningContent(t *testing.T) {
 				Thought:          "Let me search.",
 				ReasoningContent: "model's chain of thought",
 				ToolCalls: []types.ToolCall{{
-					ID:               "call_1",
-					Name:             agenttools.ToolSearchKnowledge,
-					Args:             map[string]interface{}{"query": "foo"},
-					ProviderMetadata: types.ToolCallMetadata{"google": json.RawMessage(`{"thought_signature":"gemini-history-signature"}`)},
+					ID:   "call_1",
+					Name: agenttools.ToolSearchKnowledge,
+					Args: map[string]interface{}{"query": "foo"},
+					ProviderMetadata: types.ToolCallMetadata{
+						"google": json.RawMessage(`{"thought_signature":"gemini-history-signature"}`),
+					},
 					Result: &types.ToolResult{
 						Success: true,
 						Output:  "doc A",

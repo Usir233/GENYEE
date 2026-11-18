@@ -70,6 +70,7 @@ type UserEnvService struct {
 	hostOnly bool
 }
 
+// NewUserEnvService creates a UserEnvService for per-user skill and sandbox environment variables.
 func NewUserEnvService(
 	skills repository.TenantSkillRepository,
 	configs repository.TenantSandboxConfigRepository,

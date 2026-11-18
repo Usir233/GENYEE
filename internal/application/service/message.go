@@ -57,7 +57,8 @@ func NewMessageService(messageRepo interfaces.MessageRepository,
 }
 
 // sessionTenantIDForLookup returns the tenant ID to use for session lookup.
-// When SessionTenantIDContextKey is set (e.g. pipeline with shared agent), use it so session/message belong to session owner.
+// When SessionTenantIDContextKey is set (e.g. pipeline with shared agent), use it so session/message belong to session
+// owner.
 func sessionTenantIDForLookup(ctx context.Context) (uint64, bool) {
 	if v := ctx.Value(types.SessionTenantIDContextKey); v != nil {
 		if tid, ok := v.(uint64); ok && tid != 0 {
@@ -272,12 +273,22 @@ func (s *messageService) UpdateMessage(ctx context.Context, message *types.Messa
 }
 
 // UpdateMessageImages updates only the images JSONB column for a message.
-func (s *messageService) UpdateMessageImages(ctx context.Context, sessionID, messageID string, images types.MessageImages) error {
+func (s *messageService) UpdateMessageImages(
+	ctx context.Context,
+	sessionID,
+	messageID string,
+	images types.MessageImages,
+) error {
 	return s.messageRepo.UpdateMessageImages(ctx, sessionID, messageID, images)
 }
 
 // UpdateMessageRenderedContent updates the rendered_content column for a user message.
-func (s *messageService) UpdateMessageRenderedContent(ctx context.Context, sessionID, messageID string, renderedContent string) error {
+func (s *messageService) UpdateMessageRenderedContent(
+	ctx context.Context,
+	sessionID,
+	messageID string,
+	renderedContent string,
+) error {
 	return s.messageRepo.UpdateMessageRenderedContent(ctx, sessionID, messageID, renderedContent)
 }
 
@@ -406,7 +417,13 @@ func (s *messageService) getRetrievalConfig(ctx context.Context) *types.Retrieva
 // It creates a Knowledge entry (passage) containing both the user query and assistant answer,
 // then links the message to the Knowledge entry via the knowledge_id field.
 // The KB ID is read from the tenant's ChatHistoryConfig — if not configured, indexing is skipped.
-func (s *messageService) IndexMessageToKB(ctx context.Context, userQuery string, assistantAnswer string, messageID string, sessionID string) {
+func (s *messageService) IndexMessageToKB(
+	ctx context.Context,
+	userQuery string,
+	assistantAnswer string,
+	messageID string,
+	sessionID string,
+) {
 	// Strip thinking content (<think>...</think>) before indexing to avoid
 	// polluting the knowledge base with intermediate reasoning that would
 	// degrade retrieval quality.
@@ -629,7 +646,10 @@ func normalizeArtifactFileTypes(in []string) []string {
 
 // SearchMessages searches messages by keyword and/or vector similarity across all sessions of the current tenant.
 // Vector search is delegated to the chat history knowledge base's HybridSearch (configured via ChatHistoryConfig).
-func (s *messageService) SearchMessages(ctx context.Context, params *types.MessageSearchParams) (*types.MessageSearchResult, error) {
+func (s *messageService) SearchMessages(
+	ctx context.Context,
+	params *types.MessageSearchParams,
+) (*types.MessageSearchResult, error) {
 	logger.Infof(ctx, "Start searching messages, query: %s, mode: %s",
 		secutils.SanitizeForLog(params.Query), secutils.SanitizeForLog(string(params.Mode)))
 
@@ -752,7 +772,10 @@ func (s *messageService) restrictToOwnedSessions(
 
 // vectorSearchViaKB performs vector search using the chat history knowledge base's HybridSearch.
 // The KB ID is read from ChatHistoryConfig, search params from RetrievalConfig.
-func (s *messageService) vectorSearchViaKB(ctx context.Context, params *types.MessageSearchParams) ([]*types.MessageSearchResultItem, error) {
+func (s *messageService) vectorSearchViaKB(
+	ctx context.Context,
+	params *types.MessageSearchParams,
+) ([]*types.MessageSearchResultItem, error) {
 	cfg := s.getChatHistoryConfig(ctx)
 	if cfg == nil {
 		return nil, nil // Chat history KB not configured, skip vector search
@@ -827,7 +850,12 @@ func (s *messageService) vectorSearchViaKB(ctx context.Context, params *types.Me
 
 // rerankResults applies rerank model to search results if configured.
 // Returns reranked + filtered results, or original results if rerank is unavailable.
-func (s *messageService) rerankResults(ctx context.Context, rc *types.RetrievalConfig, query string, results []*types.SearchResult) []*types.SearchResult {
+func (s *messageService) rerankResults(
+	ctx context.Context,
+	rc *types.RetrievalConfig,
+	query string,
+	results []*types.SearchResult,
+) []*types.SearchResult {
 	if rc == nil || rc.RerankModelID == "" || len(results) == 0 {
 		return results
 	}
@@ -870,7 +898,14 @@ func (s *messageService) rerankResults(ctx context.Context, rc *types.RetrievalC
 		}
 	}
 
-	logger.Infof(ctx, "Rerank: %d -> %d results (threshold=%.2f, topK=%d)", len(results), len(reranked), threshold, topK)
+	logger.Infof(
+		ctx,
+		"Rerank: %d -> %d results (threshold=%.2f, topK=%d)",
+		len(results),
+		len(reranked),
+		threshold,
+		topK,
+	)
 	return reranked
 }
 
@@ -888,7 +923,10 @@ func convertKeywordResults(results []*types.MessageWithSession) []*types.Message
 }
 
 // rrfMerge merges keyword and vector search results using Reciprocal Rank Fusion (RRF)
-func rrfMerge(keywordResults []*types.MessageWithSession, vectorResults []*types.MessageSearchResultItem) []*types.MessageSearchResultItem {
+func rrfMerge(
+	keywordResults []*types.MessageWithSession,
+	vectorResults []*types.MessageSearchResultItem,
+) []*types.MessageSearchResultItem {
 	const k = 60.0
 
 	type scoredMsg struct {
@@ -947,7 +985,10 @@ func rrfMerge(keywordResults []*types.MessageWithSession, vectorResults []*types
 // fetchPartnerMessages looks at the search results and, for each request_id that
 // has only one role (Q-only or A-only), fetches the partner message from DB so
 // that groupByRequestID can produce complete Q&A pairs.
-func (s *messageService) fetchPartnerMessages(ctx context.Context, items []*types.MessageSearchResultItem) []*types.MessageSearchResultItem {
+func (s *messageService) fetchPartnerMessages(
+	ctx context.Context,
+	items []*types.MessageSearchResultItem,
+) []*types.MessageSearchResultItem {
 	// Collect request_ids and track which roles we already have
 	type roleSet struct {
 		hasUser      bool
@@ -966,9 +1007,10 @@ func (s *messageService) fetchPartnerMessages(ctx context.Context, items []*type
 			rs = &roleSet{}
 			seen[key] = rs
 		}
-		if item.Role == "user" {
+		switch item.Role {
+		case "user":
 			rs.hasUser = true
-		} else if item.Role == "assistant" {
+		case "assistant":
 			rs.hasAssistant = true
 		}
 	}

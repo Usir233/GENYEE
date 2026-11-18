@@ -15,7 +15,7 @@ import (
 )
 
 func TestGraphSearchLabelAndDisabledBackend(t *testing.T) {
-	repo := &Neo4jRepository{nodePrefix: "ENTITY"}
+	repo := &Repository{nodePrefix: "ENTITY"}
 	label, err := repo.graphSearchLabel(types.NameSpace{KnowledgeBase: "kb-`):MATCH (x)"})
 	require.NoError(t, err)
 	require.Equal(t, "`ENTITYkb_``):MATCH (x)`", label)
@@ -61,7 +61,7 @@ func TestGraphSearchIntegration(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, driver.Close(context.Background())) })
 	require.NoError(t, driver.VerifyConnectivity(ctx))
-	repo := NewGraphSearchRepository(driver).(*Neo4jRepository)
+	repo := NewGraphSearchRepository(driver).(*Repository)
 	// Exercise escaping against a real engine, not only a string assertion.
 	ns := types.NameSpace{KnowledgeBase: fmt.Sprintf("public_graph_%d_`", time.Now().UnixNano())}
 	label, err := repo.graphSearchLabel(ns)

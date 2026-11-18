@@ -99,7 +99,12 @@ func TestBuildIndexMapping_ReflectsHNSWConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(body)
-	for _, want := range []string{`"m":24`, `"ef_construction":200`, `"engine":"faiss"`, `"knn.algo_param.ef_search":128`} {
+	for _, want := range []string{
+		`"m":24`,
+		`"ef_construction":200`,
+		`"engine":"faiss"`,
+		`"knn.algo_param.ef_search":128`,
+	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("mapping JSON missing %q\n%s", want, s)
 		}
@@ -123,7 +128,7 @@ func TestWithAuditSink_SetsAndNilSafe(t *testing.T) {
 
 // TestAuditSink_NopByDefault verifies a Repository with no sink does not panic
 // when the audit accessor is used (nopSink fallback).
-func TestAuditSink_NopByDefault(t *testing.T) {
+func TestAuditSink_NopByDefault(_ *testing.T) {
 	var _ AuditSink = nopSink{} // compile-time assertion
 	r := &Repository{}          // sink left nil
 	// Must not panic.

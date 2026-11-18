@@ -51,9 +51,18 @@ func TestDatasetService_CustomAndInvalidDatasetID(t *testing.T) {
 	tmpRoot := t.TempDir()
 	customDir := filepath.Join(tmpRoot, "custom_eval")
 	require.NoError(t, os.MkdirAll(customDir, 0o755))
-	require.NoError(t, parquet.WriteFile(filepath.Join(customDir, "queries.parquet"), []TextInfo{{ID: 1, Text: "Custom question?"}}))
-	require.NoError(t, parquet.WriteFile(filepath.Join(customDir, "corpus.parquet"), []TextInfo{{ID: 0, Text: "Custom passage."}}))
-	require.NoError(t, parquet.WriteFile(filepath.Join(customDir, "answers.parquet"), []TextInfo{{ID: 10, Text: "Custom answer."}}))
+	require.NoError(
+		t,
+		parquet.WriteFile(filepath.Join(customDir, "queries.parquet"), []TextInfo{{ID: 1, Text: "Custom question?"}}),
+	)
+	require.NoError(
+		t,
+		parquet.WriteFile(filepath.Join(customDir, "corpus.parquet"), []TextInfo{{ID: 0, Text: "Custom passage."}}),
+	)
+	require.NoError(
+		t,
+		parquet.WriteFile(filepath.Join(customDir, "answers.parquet"), []TextInfo{{ID: 10, Text: "Custom answer."}}),
+	)
 	require.NoError(t, parquet.WriteFile(filepath.Join(customDir, "qrels.parquet"), []RelsInfo{{QID: 1, PID: 0}}))
 	require.NoError(t, parquet.WriteFile(filepath.Join(customDir, "qas.parquet"), []QaInfo{{QID: 1, AID: 10}}))
 
@@ -161,4 +170,3 @@ func TestEvaluationMemoryStorage_ConcurrentUpdateAndGet(t *testing.T) {
 		}
 	}
 }
-

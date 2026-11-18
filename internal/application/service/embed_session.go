@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/utils"
 	"github.com/redis/go-redis/v9"
@@ -23,6 +24,7 @@ const (
 	embedSessionTTL         = 30 * time.Minute
 )
 
+// ErrEmbedSessionUnavailable indicates that Redis-backed embed session tokens are unavailable.
 var ErrEmbedSessionUnavailable = errors.New("embed session tokens unavailable")
 
 func generateEmbedSessionToken() (string, error) {
@@ -111,7 +113,9 @@ func (s *embedChannelService) ResolveSessionToken(ctx context.Context, token str
 			return "", err
 		}
 		if ch == nil {
-			_ = s.redis.Del(ctx, redisKey).Err()
+			if delErr := s.redis.Del(ctx, redisKey).Err(); delErr != nil {
+				logger.Warnf(ctx, "Failed to delete stale embed session token: %v", delErr)
+			}
 			return "", ErrEmbedTokenInvalid
 		}
 		if !ch.Enabled {
@@ -120,7 +124,9 @@ func (s *embedChannelService) ResolveSessionToken(ctx context.Context, token str
 		expectedDigest := embedPublishTokenDigest(ch.PublishToken)
 		if !hasDigest || expectedDigest == "" ||
 			subtle.ConstantTimeCompare([]byte(expectedDigest), []byte(strings.TrimSpace(digest))) != 1 {
-			_ = s.redis.Del(ctx, redisKey).Err()
+			if delErr := s.redis.Del(ctx, redisKey).Err(); delErr != nil {
+				logger.Warnf(ctx, "Failed to delete rotated embed session token: %v", delErr)
+			}
 			return "", ErrEmbedTokenInvalid
 		}
 	}

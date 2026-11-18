@@ -62,7 +62,13 @@ type automationLifecycleResult struct {
 }
 
 func TestAutomationPostgresDeletionSerializesParentWriters(t *testing.T) {
-	for _, operation := range []string{"RunNow", "startRun", "runSession/per_run", "runSession/persistent", "AddGrant"} {
+	for _, operation := range []string{
+		"RunNow",
+		"startRun",
+		"runSession/per_run",
+		"runSession/persistent",
+		"AddGrant",
+	} {
 		for _, first := range []string{"delete", "writer"} {
 			t.Run(operation+"/"+first+"_first", func(t *testing.T) {
 				f, application := newAutomationPostgresFixture(t)
@@ -86,7 +92,8 @@ func TestAutomationPostgresDeletionSerializesParentWriters(t *testing.T) {
 					require.NoError(t, f.db.Model(run).Updates(map[string]any{
 						"status": types.AutomationRunSucceeded, "session_id": "approval-session",
 					}).Error)
-					require.NoError(t, f.db.Create(&types.AgentPrompt{ID: "approval", TenantID: a.TenantID,
+					require.NoError(t, f.db.Create(&types.AgentPrompt{
+						ID: "approval", TenantID: a.TenantID,
 						UserID: automationGrantUser(a.OwnerUserID), SessionID: "approval-session",
 						Kind: types.AgentPromptKindToolApproval,
 						Request: types.JSON(mustJSON(t, types.ToolApprovalPromptRequest{
@@ -104,7 +111,9 @@ func TestAutomationPostgresDeletionSerializesParentWriters(t *testing.T) {
 					workers.Wait()
 				}()
 				gate := func(tx *gorm.DB) {
-					if tx.Statement.Table != "automations" || tx.Statement.Context.Value(automationLifecycleActor{}) != first {
+					if tx.Statement.Table != "automations" || tx.Statement.Context.Value(
+						automationLifecycleActor{},
+					) != first {
 						return
 					}
 					gated.Do(func() {
@@ -112,12 +121,18 @@ func TestAutomationPostgresDeletionSerializesParentWriters(t *testing.T) {
 						select {
 						case <-release:
 						case <-ctx.Done():
-							tx.AddError(ctx.Err())
+							_ = tx.AddError(ctx.Err())
 						}
 					})
 				}
-				require.NoError(t, f.db.Callback().Update().After("gorm:update").Register("lifecycle:hold_writer", gate))
-				require.NoError(t, f.db.Callback().Delete().After("gorm:delete").Register("lifecycle:hold_delete", gate))
+				require.NoError(
+					t,
+					f.db.Callback().Update().After("gorm:update").Register("lifecycle:hold_writer", gate),
+				)
+				require.NoError(
+					t,
+					f.db.Callback().Delete().After("gorm:delete").Register("lifecycle:hold_delete", gate),
+				)
 				writerDone, deleteDone := make(chan automationLifecycleResult, 1), make(chan error, 1)
 				writer := func() {
 					workers.Add(1)
@@ -174,7 +189,8 @@ func TestAutomationPostgresDeletionSerializesParentWriters(t *testing.T) {
 				released.Do(func() { close(release) })
 				result := <-writerDone
 				require.NoError(t, <-deleteDone)
-				if first == "delete" {
+				switch {
+				case first == "delete":
 					if operation == "startRun" {
 						require.NoError(t, result.err)
 						require.False(t, result.started)
@@ -182,11 +198,11 @@ func TestAutomationPostgresDeletionSerializesParentWriters(t *testing.T) {
 						require.Error(t, result.err)
 						require.Nil(t, result.session)
 					}
-				} else if strings.HasPrefix(operation, "runSession/") {
+				case strings.HasPrefix(operation, "runSession/"):
 					// GetSession runs after the creation transaction commits; Delete
 					// may have already removed that session before this final read.
 					require.True(t, result.err == nil || errors.Is(result.err, gorm.ErrRecordNotFound), result.err)
-				} else {
+				default:
 					require.NoError(t, result.err)
 					if operation == "startRun" {
 						require.True(t, result.started)
@@ -250,16 +266,22 @@ func TestAutomationPostgresPruneRecoversChangedParentSnapshotAfterCleanupFailure
 	var session *types.Session
 	var createErr error
 	var changed sync.Once
-	require.NoError(t, f.db.Callback().Query().After("gorm:after_query").Register("lifecycle:change_persistent_snapshot", func(tx *gorm.DB) {
+	require.NoError(t, f.db.Callback().Query().After(
+		"gorm:after_query",
+	).Register("lifecycle:change_persistent_snapshot", func(
+		tx *gorm.DB,
+	) {
 		if tx.Statement.Table != "automations" || tx.Statement.Context.Value(automationLifecycleActor{}) != "delete" {
 			return
 		}
 		changed.Do(func() { session, createErr = f.svc.runSession(f.ctx, a, run) })
 	}))
 	cleanupErr := errors.New("injected conversation cleanup failure")
-	require.NoError(t, f.db.Callback().Delete().Before("gorm:delete").Register("lifecycle:fail_cleanup", func(tx *gorm.DB) {
+	require.NoError(t, f.db.Callback().Delete().Before("gorm:delete").Register("lifecycle:fail_cleanup", func(
+		tx *gorm.DB,
+	) {
 		if tx.Statement.Table == "sessions" && tx.Statement.Context.Value(automationLifecycleActor{}) == "delete" {
-			tx.AddError(cleanupErr)
+			_ = tx.AddError(cleanupErr)
 		}
 	}))
 	require.ErrorIs(t, f.svc.Delete(deleteCtx, a.ID), cleanupErr)

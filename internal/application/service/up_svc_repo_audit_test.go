@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/agent/tools"
+	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/mcp"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -85,12 +85,12 @@ func (r auditSyncTenantRepo) GetTenantByID(context.Context, uint64) (*types.Tena
 
 // TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndRetryCancelWrite
 // verifies UP-SVC-DATASOURCE-001:
-// 1. When a workspace is suspended/deleted and writing the canceled SyncLog fails,
-//    ProcessSync must return the write error for Asynq retry instead of acknowledging
-//    a SyncLog stuck in "running".
-// 2. When a finished round ("success" or "partial") is redelivered because LastSyncAt
-//    was not yet persisted, an inactive/deleted workspace or deleted KB must preserve
-//    the terminal SyncLog status rather than overwriting it to "canceled".
+//  1. When a workspace is suspended/deleted and writing the canceled SyncLog fails,
+//     ProcessSync must return the write error for Asynq retry instead of acknowledging
+//     a SyncLog stuck in "running".
+//  2. When a finished round ("success" or "partial") is redelivered because LastSyncAt
+//     was not yet persisted, an inactive/deleted workspace or deleted KB must preserve
+//     the terminal SyncLog status rather than overwriting it to "canceled".
 func TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndRetryCancelWrite(t *testing.T) {
 	writeErr := errors.New("sync_logs table temporarily unavailable")
 
@@ -149,7 +149,12 @@ func TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndR
 			require.NoError(t, err)
 
 			require.NoError(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)))
-			assert.Equal(t, status, syncLogRepo.logs[syncLog.ID].Status, "finished SyncLog must not be overwritten to canceled")
+			assert.Equal(
+				t,
+				status,
+				syncLogRepo.logs[syncLog.ID].Status,
+				"finished SyncLog must not be overwritten to canceled",
+			)
 		})
 
 		t.Run("deleted_kb_preserves_"+status, func(t *testing.T) {
@@ -173,7 +178,12 @@ func TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndR
 			require.NoError(t, err)
 
 			require.NoError(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)))
-			assert.Equal(t, status, syncLogRepo.logs[syncLog.ID].Status, "finished SyncLog must not be overwritten to canceled")
+			assert.Equal(
+				t,
+				status,
+				syncLogRepo.logs[syncLog.ID].Status,
+				"finished SyncLog must not be overwritten to canceled",
+			)
 		})
 	}
 }
@@ -185,8 +195,8 @@ func TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndR
 // across knowledge bases or workspaces.
 func TestUpSvcRepoAudit_WikiIngestRejectsForeignTenantAndMovedKnowledge(t *testing.T) {
 	cases := []struct {
-		name      string
-		makeDoc   func(page *types.WikiPage) *types.Knowledge
+		name    string
+		makeDoc func(page *types.WikiPage) *types.Knowledge
 	}{
 		{
 			name: "moved to another knowledge base",
@@ -223,7 +233,10 @@ func TestUpSvcRepoAudit_WikiIngestRejectsForeignTenantAndMovedKnowledge(t *testi
 			svc := &wikiIngestService{
 				wikiService: pageSvc,
 				chunkRepo:   &wikiReparseChunks{},
-				knowledgeSvc: &wikiKnowledgeLookupStub{lookup: func(_ context.Context, id string) (*types.Knowledge, error) {
+				knowledgeSvc: &wikiKnowledgeLookupStub{lookup: func(
+					_ context.Context,
+					id string,
+				) (*types.Knowledge, error) {
 					require.Equal(t, doc.ID, id)
 					return doc, nil
 				}},
@@ -231,7 +244,13 @@ func TestUpSvcRepoAudit_WikiIngestRejectsForeignTenantAndMovedKnowledge(t *testi
 
 			gone, err := svc.isKnowledgeGone(ctx, page.KnowledgeBaseID, doc.ID)
 			require.NoError(t, err)
-			assert.True(t, gone, "knowledge outside (tenant=%d, kb=%s) must be treated as gone", page.TenantID, page.KnowledgeBaseID)
+			assert.True(
+				t,
+				gone,
+				"knowledge outside (tenant=%d, kb=%s) must be treated as gone",
+				page.TenantID,
+				page.KnowledgeBaseID,
+			)
 
 			batchCtx := &WikiBatchContext{
 				SummaryContentByKnowledgeID: func(context.Context, string) string { return "" },
@@ -261,7 +280,11 @@ func TestUpSvcRepoAudit_WikiIngestRejectsForeignTenantAndMovedKnowledge(t *testi
 				page.TenantID, batchCtx, nil,
 			)
 			require.NoError(t, err)
-			assert.False(t, changed, "reduceSlugUpdates must drop updates whose source moved or belongs to another tenant")
+			assert.False(
+				t,
+				changed,
+				"reduceSlugUpdates must drop updates whose source moved or belongs to another tenant",
+			)
 			assert.Empty(t, model.messages, "editor LLM must not be invoked for dropped foreign/moved updates")
 
 			stored, err := pageSvc.GetPageBySlug(ctx, page.KnowledgeBaseID, page.Slug)

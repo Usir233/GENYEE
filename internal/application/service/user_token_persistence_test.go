@@ -80,7 +80,11 @@ func TestGenerateTokensFailsWhenEitherTokenCannotBePersisted(t *testing.T) {
 			require.Empty(t, access, "a token that was not persisted must not be handed out")
 			require.Empty(t, refresh, "a token that was not persisted must not be handed out")
 			for _, tok := range tokenRepo.tokens {
-				require.True(t, tok.IsRevoked, "any token persisted before a partial failure must becompensated/revoked")
+				require.True(
+					t,
+					tok.IsRevoked,
+					"any token persisted before a partial failure must becompensated/revoked",
+				)
 			}
 		})
 	}

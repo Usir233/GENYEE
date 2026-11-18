@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// PluginSearch implements search functionality for chat pipeline
+// PluginSearchEntity implements knowledge-graph entity search for the chat pipeline.
 type PluginSearchEntity struct {
 	graphRepo     interfaces.RetrieveGraphRepository
 	chunkRepo     interfaces.ChunkRepository
@@ -42,7 +42,7 @@ func (p *PluginSearchEntity) ActivationEvents() []types.EventType {
 
 // OnEvent processes triggered events
 func (p *PluginSearchEntity) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	entity := chatManage.Entity
 	if len(entity) == 0 {

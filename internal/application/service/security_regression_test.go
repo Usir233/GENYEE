@@ -40,7 +40,11 @@ func (r *memEmbedChannelRepo) GetByID(_ context.Context, id string) (*types.Embe
 	return &clone, nil
 }
 
-func (r *memEmbedChannelRepo) ListByAgent(_ context.Context, tenantID uint64, agentID string) ([]*types.EmbedChannel, error) {
+func (r *memEmbedChannelRepo) ListByAgent(
+	_ context.Context,
+	tenantID uint64,
+	agentID string,
+) ([]*types.EmbedChannel, error) {
 	var out []*types.EmbedChannel
 	for _, row := range r.rows {
 		if row.TenantID == tenantID && row.AgentID == agentID {
@@ -79,7 +83,7 @@ func TestEmbedSessionTokenInvalidatedOnRotateTokenAndWebhookSecretEncrypted(t *t
 	t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	repo := newMemEmbedChannelRepo()
 	repo.rows["ch-1"] = &types.EmbedChannel{
@@ -168,6 +172,7 @@ func TestParserEngineRejectsODLHybridURLOverride(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck // intentionally exercises deprecated legacy StorageConfig encryption compatibility
 func TestKnowledgeBaseSecretsEncryptedAtRestAndLegacyPlaintextCompatible(t *testing.T) {
 	t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
 	ctx := context.Background()
@@ -191,7 +196,11 @@ func TestKnowledgeBaseSecretsEncryptedAtRestAndLegacyPlaintextCompatible(t *test
 	if !strings.HasPrefix(stored.StorageConfig.SecretID, "enc:v1:") ||
 		!strings.HasPrefix(stored.StorageConfig.SecretKey, "enc:v1:") ||
 		!strings.HasPrefix(stored.VLMConfig.APIKey, "enc:v1:") {
-		t.Fatalf("expected all KB secrets to carry enc:v1: prefix, got %+v / %+v", stored.StorageConfig, stored.VLMConfig)
+		t.Fatalf(
+			"expected all KB secrets to carry enc:v1: prefix, got %+v / %+v",
+			stored.StorageConfig,
+			stored.VLMConfig,
+		)
 	}
 
 	loaded := decryptKBSecretsClone(ctx, stored)

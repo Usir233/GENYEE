@@ -16,7 +16,11 @@ type PluginMerge struct {
 }
 
 // NewPluginMerge creates and registers a new PluginMerge instance
-func NewPluginMerge(eventManager *EventManager, chunkRepo interfaces.ChunkRepository, chunkService interfaces.ChunkService) *PluginMerge {
+func NewPluginMerge(
+	eventManager *EventManager,
+	chunkRepo interfaces.ChunkRepository,
+	chunkService interfaces.ChunkService,
+) *PluginMerge {
 	res := &PluginMerge{
 		chunkRepo:    chunkRepo,
 		chunkService: chunkService,
@@ -42,7 +46,7 @@ func (p *PluginMerge) ActivationEvents() []types.EventType {
 //     7.5. Re-merge sequential or contained bodies introduced by expansion
 //  8. Final deduplication (ID + signature + partial content overlap)
 func (p *PluginMerge) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	if !chatManage.NeedsRetrieval() {
 		return next()
@@ -165,13 +169,18 @@ func (p *PluginMerge) injectHistoryResults(
 		"session_id":   chatManage.SessionID,
 		"history_hits": len(historyResults),
 	})
-	combined := append(current, historyResults...)
+	combined := make([]*types.SearchResult, 0, len(current)+len(historyResults))
+	combined = append(combined, current...)
+	combined = append(combined, historyResults...)
 	return removeDuplicateResults(combined)
 }
 
 // groupAndMergeCurrentContent groups chunks by KnowledgeID + ChunkType, then joins
 // sequential current bodies without consulting source character offsets.
-func (p *PluginMerge) groupAndMergeCurrentContent(ctx context.Context, results []*types.SearchResult) []*types.SearchResult {
+func (p *PluginMerge) groupAndMergeCurrentContent(
+	ctx context.Context,
+	results []*types.SearchResult,
+) []*types.SearchResult {
 	// Group by KnowledgeID → ChunkType
 	knowledgeGroup := make(map[string]map[string][]*types.SearchResult)
 	for _, chunk := range results {
@@ -242,7 +251,7 @@ func (p *PluginMerge) groupAndMergeCurrentContent(ctx context.Context, results [
 // durable URLs rather than parser coordinates.
 func (p *PluginMerge) resolveParentChunks(
 	ctx context.Context,
-	chatManage *types.ChatManage,
+	_ *types.ChatManage,
 	results []*types.SearchResult,
 ) []*types.SearchResult {
 	if len(results) == 0 || p.chunkRepo == nil {

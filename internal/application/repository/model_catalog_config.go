@@ -2,14 +2,13 @@ package repository
 
 import (
 	"context"
-	"errors"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"gorm.io/gorm"
 )
 
 // ErrCatalogVersionConflict reports a publish based on a stale version.
-var ErrCatalogVersionConflict = errors.New("model catalog changed; reload and preview again")
+var ErrCatalogVersionConflict = types.ErrCatalogVersionConflict
 
 // ModelCatalogRepository stores the singleton console overlay row.
 type ModelCatalogRepository struct{ db *gorm.DB }

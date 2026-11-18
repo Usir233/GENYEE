@@ -112,7 +112,7 @@ func TestNewQdrantValueMapPreservesValidUTF8(t *testing.T) {
 
 func TestCreatePayloadSanitizesAllStringFields(t *testing.T) {
 	malformed := "a" + string([]byte{0xff}) + "\x00b"
-	embedding := &QdrantVectorEmbedding{
+	embedding := &VectorEmbedding{
 		Content:         malformed,
 		SourceID:        malformed,
 		SourceType:      2,
@@ -588,7 +588,11 @@ func TestIsMissingCollectionErr(t *testing.T) {
 		{"generic", errors.New("qdrant unavailable"), false},
 		{"issue wording", fmt.Errorf(qdrantMissingCollectionErr, "vectors_1024"), true},
 		{"grpc not found", status.Error(codes.NotFound, "Not found: Collection vectors_1024 doesn't exist!"), true},
-		{"wrapped not found", fmt.Errorf("Delete() failed: vectors_1024: %w", status.Error(codes.NotFound, "Not found")), true},
+		{
+			"wrapped not found",
+			fmt.Errorf("Delete() failed: vectors_1024: %w", status.Error(codes.NotFound, "Not found")),
+			true,
+		},
 		{"other grpc", status.Error(codes.Unavailable, "qdrant down"), false},
 	}
 	for _, tc := range cases {

@@ -34,7 +34,8 @@ import (
 	"gorm.io/gorm"
 )
 
-const MAX_ITERATIONS = 100 // Max iterations for agent execution
+// MaxAgentIterations bounds the maximum tool-calling iterations per agent turn.
+const MaxAgentIterations = 100
 
 // dedupStrings removes duplicate strings while preserving the first occurrence order.
 func dedupStrings(in []string) []string {
@@ -336,7 +337,8 @@ func (s *agentService) CreateAgentEngine(
 	// The shell is registered above by registerSandboxShellIfAllowed and
 	// follows SkillsEnabled rather than requiring a ready skill to already
 	// exist. offerSkills only gates the skills manager that feeds the model
-	// the installed-skill list and the read_file / shell_exec environment. A sandbox whose skills are still installing —
+	// the installed-skill list and the read_file / shell_exec environment. A sandbox whose skills are still installing
+	// —
 	// or that simply has none yet — therefore gets a shell without an
 	// empty skills manager or skill tools that cannot succeed.
 	offerSkills := config.SkillsEnabled &&
@@ -1261,7 +1263,7 @@ func (s *agentService) registerTools(
 	registry *tools.ToolRegistry,
 	config *types.AgentConfig,
 	rerankModel rerank.Reranker,
-	chatModel chat.Chat,
+	_ chat.Chat,
 	sessionID string,
 ) error {
 	// Source of truth policy:
@@ -1526,7 +1528,13 @@ func (s *agentService) registerTools(
 			toolToRegister = tools.NewDatabaseQueryTool(s.db, config.SearchTargets)
 		case tools.ToolWebSearch:
 			toolToRegister = tools.NewWebSearchTool(webClient, config.WebSearchMaxResults)
-			logger.Infof(ctx, "Registered web_search tool for session: %s, maxResults: %d, providerID: %s", sessionID, config.WebSearchMaxResults, config.WebSearchProviderID)
+			logger.Infof(
+				ctx,
+				"Registered web_search tool for session: %s, maxResults: %d, providerID: %s",
+				sessionID,
+				config.WebSearchMaxResults,
+				config.WebSearchProviderID,
+			)
 
 		case tools.ToolWebFetch:
 			toolToRegister = tools.NewWebFetchTool(webClient)
@@ -1534,7 +1542,15 @@ func (s *agentService) registerTools(
 				sessionID, config.WebSearchProviderID)
 
 		case tools.ToolDataAnalysis:
-			toolToRegister = tools.NewDataAnalysisTool(s.knowledgeBaseService, s.knowledgeService, s.tenantService, s.fileService, s.duckdb, sessionID, s.storageResolver).
+			toolToRegister = tools.NewDataAnalysisTool(
+				s.knowledgeBaseService,
+				s.knowledgeService,
+				s.tenantService,
+				s.fileService,
+				s.duckdb,
+				sessionID,
+				s.storageResolver,
+			).
 				WithSearchTargets(config.SearchTargets)
 			logger.Infof(ctx, "Registered data_analysis tool for session: %s", sessionID)
 
@@ -1639,12 +1655,13 @@ func (s *agentService) ValidateConfig(config *types.AgentConfig) error {
 		return fmt.Errorf("config cannot be nil")
 	}
 
-	if config.MaxIterations < 0 {
+	switch {
+	case config.MaxIterations < 0:
 		config.MaxIterations = types.UnlimitedMaxIterations
-	} else if config.MaxIterations == 0 {
+	case config.MaxIterations == 0:
 		config.MaxIterations = 5
-	} else if config.MaxIterations > MAX_ITERATIONS {
-		return fmt.Errorf("max iterations too high: %d (max %d)", config.MaxIterations, MAX_ITERATIONS)
+	case config.MaxIterations > MaxAgentIterations:
+		return fmt.Errorf("max iterations too high: %d (max %d)", config.MaxIterations, MaxAgentIterations)
 	}
 
 	return nil
@@ -1653,7 +1670,11 @@ func (s *agentService) ValidateConfig(config *types.AgentConfig) error {
 // getKnowledgeBaseInfos retrieves detailed information for knowledge bases.
 // kbTenantMap carries the tenant each KB should be queried under (source tenant
 // for directly shared KBs); a missing entry falls back to the request tenant.
-func (s *agentService) getKnowledgeBaseInfos(ctx context.Context, kbIDs []string, kbTenantMap map[string]uint64) ([]*agent.KnowledgeBaseInfo, error) {
+func (s *agentService) getKnowledgeBaseInfos(
+	ctx context.Context,
+	kbIDs []string,
+	kbTenantMap map[string]uint64,
+) ([]*agent.KnowledgeBaseInfo, error) {
 	if len(kbIDs) == 0 {
 		return []*agent.KnowledgeBaseInfo{}, nil
 	}
@@ -2106,7 +2127,10 @@ func (s *agentService) pageContextIssues(
 	return kept
 }
 
-func (s *agentService) getSelectedDocumentInfos(ctx context.Context, knowledgeIDs []string) ([]*agent.SelectedDocumentInfo, error) {
+func (s *agentService) getSelectedDocumentInfos(
+	ctx context.Context,
+	knowledgeIDs []string,
+) ([]*agent.SelectedDocumentInfo, error) {
 	if len(knowledgeIDs) == 0 {
 		return []*agent.SelectedDocumentInfo{}, nil
 	}

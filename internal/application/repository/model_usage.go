@@ -58,10 +58,14 @@ func customAgentModelUsageBindings(agent *types.CustomAgent, modelID string) []t
 	return bindings
 }
 
+func sqliteSafeJSONExtract(col, path string) string {
+	return "(CASE WHEN json_valid(" + col + ") THEN json_extract(" + col + ", '" + path + "') END)"
+}
+
 // scopeKnowledgeBasesByModelID filters knowledge_bases rows that reference
 // modelID in any model-binding field.
 func scopeKnowledgeBasesByModelID(db *gorm.DB, modelID string) *gorm.DB {
-	if db.Dialector.Name() == "postgres" {
+	if db.Name() == "postgres" {
 		return db.Where(
 			"embedding_model_id = ? OR summary_model_id = ? OR "+
 				"image_processing_config->>'model_id' = ? OR "+
@@ -75,12 +79,12 @@ func scopeKnowledgeBasesByModelID(db *gorm.DB, modelID string) *gorm.DB {
 	}
 	return db.Where(
 		"embedding_model_id = ? OR summary_model_id = ? OR "+
-			"json_extract(image_processing_config, '$.model_id') = ? OR "+
-			"json_extract(vlm_config, '$.model_id') = ? OR "+
-			"json_extract(asr_config, '$.model_id') = ? OR "+
-			"json_extract(wiki_config, '$.synthesis_model_id') = ? OR "+
-			"json_extract(auto_tag_config, '$.model_id') = ? OR "+
-			"json_extract(question_generation_config, '$.model_id') = ?",
+			sqliteSafeJSONExtract("image_processing_config", "$.model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("vlm_config", "$.model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("asr_config", "$.model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("wiki_config", "$.synthesis_model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("auto_tag_config", "$.model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("question_generation_config", "$.model_id")+" = ?",
 		modelID, modelID, modelID, modelID, modelID, modelID, modelID, modelID,
 	)
 }
@@ -88,7 +92,7 @@ func scopeKnowledgeBasesByModelID(db *gorm.DB, modelID string) *gorm.DB {
 // scopeCustomAgentsByModelID filters custom_agents rows whose config JSON
 // references modelID in any model-binding field.
 func scopeCustomAgentsByModelID(db *gorm.DB, modelID string) *gorm.DB {
-	if db.Dialector.Name() == "postgres" {
+	if db.Name() == "postgres" {
 		return db.Where(
 			"config->>'model_id' = ? OR config->>'rerank_model_id' = ? OR "+
 				"config->>'vlm_model_id' = ? OR config->>'asr_model_id' = ? OR "+
@@ -98,19 +102,19 @@ func scopeCustomAgentsByModelID(db *gorm.DB, modelID string) *gorm.DB {
 		)
 	}
 	return db.Where(
-		"json_extract(config, '$.model_id') = ? OR "+
-			"json_extract(config, '$.rerank_model_id') = ? OR "+
-			"json_extract(config, '$.vlm_model_id') = ? OR "+
-			"json_extract(config, '$.asr_model_id') = ? OR "+
-			"json_extract(config, '$.query_understand_model_id') = ? OR "+
-			"json_extract(config, '$.question_suggestions.follow_ups.model_id') = ?",
+		sqliteSafeJSONExtract("config", "$.model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("config", "$.rerank_model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("config", "$.vlm_model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("config", "$.asr_model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("config", "$.query_understand_model_id")+" = ? OR "+
+			sqliteSafeJSONExtract("config", "$.question_suggestions.follow_ups.model_id")+" = ?",
 		modelID, modelID, modelID, modelID, modelID, modelID,
 	)
 }
 
 func scopeCustomAgentsBySandboxConfigID(db *gorm.DB, configID string) *gorm.DB {
-	if db.Dialector.Name() == "postgres" {
+	if db.Name() == "postgres" {
 		return db.Where("config->>'sandbox_config_id' = ?", configID)
 	}
-	return db.Where("json_extract(config, '$.sandbox_config_id') = ?", configID)
+	return db.Where(sqliteSafeJSONExtract("config", "$.sandbox_config_id")+" = ?", configID)
 }

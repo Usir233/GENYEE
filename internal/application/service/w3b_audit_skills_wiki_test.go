@@ -86,7 +86,8 @@ func TestW3BAudit_Skill_CrossReplicaStopInvalidatesStaleRunOwnership(t *testing.
 	require.Equal(t, skillID, retryID)
 
 	// Release holdKey so Replica A's superseded goroutine acquires the lock first (or races).
-	// Replica A's superseded attempt must detect it no longer owns the row and exit WITHOUT running its agent or stamping its error!
+	// Replica A's superseded attempt must detect it no longer owns the row and exit WITHOUT running its agent or
+	// stamping its error!
 	require.NoError(t, r1.Del(ctx, holdKey).Err())
 
 	require.Eventually(t, func() bool {
@@ -94,11 +95,20 @@ func TestW3BAudit_Skill_CrossReplicaStopInvalidatesStaleRunOwnership(t *testing.
 			fxB.svc.lookupSkillRun(7, "cfg-1", skillID) == nil
 	}, 5*time.Second, 10*time.Millisecond)
 
-	assert.Empty(t, fxA.agentPrompts, "superseded Replica A install run must not execute after Replica B stopped and retried")
+	assert.Empty(
+		t,
+		fxA.agentPrompts,
+		"superseded Replica A install run must not execute after Replica B stopped and retried",
+	)
 	row, err := fxA.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	require.NotNil(t, row)
-	assert.NotContains(t, row.Error, "replica A stale run", "superseded cross-replica run must not hijack or fail the retried row")
+	assert.NotContains(
+		t,
+		row.Error,
+		"replica A stale run",
+		"superseded cross-replica run must not hijack or fail the retried row",
+	)
 }
 
 func TestW3BAudit_SubscribeProgress_ReleaseUnblocksParkedPublisherGoroutine(t *testing.T) {
@@ -192,7 +202,8 @@ func w3bZipWithRawUint64Size(t *testing.T, entryName string, content []byte, spo
 	require.NoError(t, err)
 	require.NoError(t, zw2.Close())
 
-	// Patch the Central Directory header for entryName to 0xFFFFFFFF uncompressed & compressed size so Go's zip.NewReader reads ZIP64 Extra!
+	// Patch the Central Directory header for entryName to 0xFFFFFFFF uncompressed & compressed size so Go's
+	// zip.NewReader reads ZIP64 Extra!
 	b := patched.Bytes()
 	cdSig := []byte{0x50, 0x4b, 0x01, 0x02}
 	idx := bytes.LastIndex(b, cdSig)
@@ -260,10 +271,14 @@ func TestW3BAudit_SkillBundle_BackslashNormalization_Zip64Overflow_UTF8Trunc_And
 		require.ErrorIs(t, err, ErrSkillBundleInvalid)
 	})
 
-	t.Run("projectSkillFileContent truncates at UTF-8 rune boundary instead of splitting multi-byte rune", func(t *testing.T) {
+	t.Run("projectSkillFileContent truncates at UTF-8 rune boundary instead of splitting multi-byte rune", func(
+		t *testing.T,
+	) {
 		// Place a 3-byte CJK rune ('中' = E4 B8 AD) straddling byte index skillFileTextLimit (1<<20).
 		prefix := bytes.Repeat([]byte("a"), skillFileTextLimit-1)
-		body := append(prefix, []byte("中文")...)
+		body := make([]byte, 0, len(prefix)+len("中文"))
+		body = append(body, prefix...)
+		body = append(body, []byte("中文")...)
 		require.True(t, utf8.Valid(body))
 
 		proj := projectSkillFileContent("README.md", body)
@@ -272,7 +287,9 @@ func TestW3BAudit_SkillBundle_BackslashNormalization_Zip64Overflow_UTF8Trunc_And
 		assert.Equal(t, skillFileTextLimit-1, len(proj.Content))
 	})
 
-	t.Run("trySkillBundle singleflight does not fail second caller when first caller cancels context", func(t *testing.T) {
+	t.Run("trySkillBundle singleflight does not fail second caller when first caller cancels context", func(
+		t *testing.T,
+	) {
 		fx := newInstallFixture(t)
 		archive, err := zipSkillFiles(map[string][]byte{"SKILL.md": []byte(validSkillMD)})
 		require.NoError(t, err)
@@ -346,14 +363,16 @@ func (w3bSlowFileService) CheckConnectivity(context.Context) error { return nil 
 func (w3bSlowFileService) SaveFile(context.Context, *multipart.FileHeader, uint64, string) (string, error) {
 	return "", nil
 }
+
 func (w3bSlowFileService) SaveBytes(context.Context, []byte, uint64, string, bool) (string, error) {
 	return "", nil
 }
+
 func (s w3bSlowFileService) GetFile(ctx context.Context, ref string) (io.ReadCloser, error) {
 	return s.getFn(ctx, ref)
 }
 func (w3bSlowFileService) GetFileURL(context.Context, string) (string, error) { return "", nil }
-func (w3bSlowFileService) DeleteFile(context.Context, string) error            { return nil }
+func (w3bSlowFileService) DeleteFile(context.Context, string) error           { return nil }
 func (w3bSlowFileService) CopyFile(context.Context, string, uint64, string) (string, error) {
 	return "", nil
 }
@@ -392,7 +411,9 @@ func TestW3BAudit_Workspace_CheckpointerShellInjectionAndResetLayoutGuards(t *te
 		assert.True(t, os.IsNotExist(statErr), "injected shell command in messageID must NOT execute")
 	})
 
-	t.Run("resetWorkspaceToEmpty refuses non-versioned runner, host layout, root '/', and GitDir inside Root", func(t *testing.T) {
+	t.Run("resetWorkspaceToEmpty refuses non-versioned runner, host layout, root '/', and GitDir inside Root", func(
+		t *testing.T,
+	) {
 		nonVer := &w3bNonVersionedRunner{}
 		err := resetWorkspaceToEmpty(context.Background(), nonVer, "sess-1", "sbx-1")
 		require.Error(t, err)
@@ -437,7 +458,11 @@ func TestW3BAudit_WikiLint_AbortsOnTransientDBErrorAndRejectsCrossTenantSourceRe
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(
-		&types.KnowledgeBase{}, &types.WikiFolder{}, &types.WikiPage{}, &types.WikiPageRevision{}, &types.WikiPageIssue{},
+		&types.KnowledgeBase{},
+		&types.WikiFolder{},
+		&types.WikiPage{},
+		&types.WikiPageRevision{},
+		&types.WikiPageIssue{},
 	))
 
 	ctx := context.Background()
@@ -513,8 +538,16 @@ type w3bZeroTenantPendingRepo struct {
 	wikiTenantGuardPendingRepo
 }
 
-func (r *w3bZeroTenantPendingRepo) PeekBatch(_ context.Context, _, _, scopeID string, _ int) ([]*types.TaskPendingOp, error) {
-	return []*types.TaskPendingOp{{ID: 1, ScopeID: scopeID, Op: wikiFinalizeOpSlug, Payload: []byte(`{"slug":"s"}`)}}, nil
+func (r *w3bZeroTenantPendingRepo) PeekBatch(
+	_ context.Context,
+	_,
+	_,
+	scopeID string,
+	_ int,
+) ([]*types.TaskPendingOp, error) {
+	return []*types.TaskPendingOp{
+		{ID: 1, ScopeID: scopeID, Op: wikiFinalizeOpSlug, Payload: []byte(`{"slug":"s"}`)},
+	}, nil
 }
 
 func TestW3BAudit_WikiTasks_ZeroTenantPayloadStillEnforcesDeletedTenantAfterKBLoad(t *testing.T) {
@@ -562,7 +595,11 @@ func TestW3BAudit_WikiCreatePageSanitizesUserFields_AndSlugLockUsesTokenOwnershi
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = sqlDB.Close() })
 		require.NoError(t, db.AutoMigrate(
-			&types.KnowledgeBase{}, &types.WikiFolder{}, &types.WikiPage{}, &types.WikiPageRevision{}, &types.WikiPageIssue{},
+			&types.KnowledgeBase{},
+			&types.WikiFolder{},
+			&types.WikiPage{},
+			&types.WikiPageRevision{},
+			&types.WikiPageIssue{},
 		))
 		require.NoError(t, db.Create(&types.KnowledgeBase{ID: "kb-1", TenantID: 7, Name: "kb-1"}).Error)
 

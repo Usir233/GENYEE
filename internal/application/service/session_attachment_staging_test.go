@@ -92,12 +92,20 @@ func (m *stagingSandboxManager) ReadSessionFile(context.Context, string, string)
 func (m *stagingSandboxManager) ListSessionFiles(context.Context, string, string) ([]sandbox.RemoteDirEntry, error) {
 	entries := make([]sandbox.RemoteDirEntry, 0, len(m.files))
 	for filePath, content := range m.files {
-		entries = append(entries, sandbox.RemoteDirEntry{Path: filePath, Size: int64(len(content)), Type: sandbox.RemoteEntryFile})
+		entries = append(
+			entries,
+			sandbox.RemoteDirEntry{Path: filePath, Size: int64(len(content)), Type: sandbox.RemoteEntryFile},
+		)
 	}
 	return entries, nil
 }
 
-func (m *stagingSandboxManager) WriteSessionInputFile(_ context.Context, _ string, filePath string, content []byte) error {
+func (m *stagingSandboxManager) WriteSessionInputFile(
+	_ context.Context,
+	_ string,
+	filePath string,
+	content []byte,
+) error {
 	if m.files == nil {
 		m.files = make(map[string][]byte)
 	}
@@ -106,11 +114,20 @@ func (m *stagingSandboxManager) WriteSessionInputFile(_ context.Context, _ strin
 	return nil
 }
 
-func (m *stagingSandboxManager) WriteSessionWorkspaceFile(ctx context.Context, sessionID, filePath string, content []byte) error {
+func (m *stagingSandboxManager) WriteSessionWorkspaceFile(
+	ctx context.Context,
+	sessionID,
+	filePath string,
+	content []byte,
+) error {
 	return m.WriteSessionInputFile(ctx, sessionID, filePath, content)
 }
 
-func (m *stagingSandboxManager) WriteSessionWorkspaceFiles(ctx context.Context, sessionID string, files []sandbox.SessionWorkspaceFile) error {
+func (m *stagingSandboxManager) WriteSessionWorkspaceFiles(
+	ctx context.Context,
+	sessionID string,
+	files []sandbox.SessionWorkspaceFile,
+) error {
 	for _, file := range files {
 		if err := m.WriteSessionWorkspaceFile(ctx, sessionID, file.Path, file.Content); err != nil {
 			return err

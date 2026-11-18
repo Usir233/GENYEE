@@ -15,6 +15,7 @@ type messageSuggestionRepository struct {
 	db *gorm.DB
 }
 
+// NewMessageSuggestionRepository creates a new message suggestion repository.
 func NewMessageSuggestionRepository(db *gorm.DB) interfaces.MessageSuggestionRepository {
 	return &messageSuggestionRepository{db: db}
 }
@@ -94,7 +95,8 @@ func (r *messageSuggestionRepository) AcquireGeneration(
 	if existing.Status == types.SuggestionStatusSuppressed && !regenerate {
 		return existing, false, nil
 	}
-	if existing.Status == types.SuggestionStatusGenerating && existing.LeaseUntil != nil && existing.LeaseUntil.After(now) {
+	if existing.Status == types.SuggestionStatusGenerating && existing.LeaseUntil != nil &&
+		existing.LeaseUntil.After(now) {
 		return existing, false, nil
 	}
 
@@ -184,5 +186,18 @@ func (r *messageSuggestionRepository) DeleteBySessionID(
 ) error {
 	return r.db.WithContext(ctx).
 		Where("tenant_id = ? AND session_id = ?", tenantID, sessionID).
+		Delete(&types.MessageSuggestionSet{}).Error
+}
+
+func (r *messageSuggestionRepository) DeleteBySessionIDs(
+	ctx context.Context,
+	tenantID uint64,
+	sessionIDs []string,
+) error {
+	if len(sessionIDs) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Where("tenant_id = ? AND session_id IN ?", tenantID, sessionIDs).
 		Delete(&types.MessageSuggestionSet{}).Error
 }

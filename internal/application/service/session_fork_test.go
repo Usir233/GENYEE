@@ -1434,7 +1434,9 @@ func TestForkOnSharedMachineRechecksTheTurnInsideTheWindow(t *testing.T) {
 
 func TestForkOnSharedMachineRejectionIsAnErrorNotADegradedBranch(t *testing.T) {
 	turn := checkpointedTurn("u-msg-1", "a-msg-1", "sb-1", "sha1", 0)
-	messages := append(turn, userForkPoint())
+	messages := make([]*types.Message, 0, len(turn)+1)
+	messages = append(messages, turn...)
+	messages = append(messages, userForkPoint())
 	for _, beginErr := range []error{
 		sandbox.ErrUserAllocationRejected, sandbox.ErrSandboxSessionDeleted, admission.ErrLeaseLost,
 	} {

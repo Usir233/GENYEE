@@ -10,11 +10,11 @@ import (
 )
 
 func TestMoveRowsDrainsPagesAndRetriesPartialUpsert(t *testing.T) {
-	remaining := map[string]*MilvusVectorEmbeddingWithScore{}
-	moved := map[string]*MilvusVectorEmbedding{}
+	remaining := map[string]*VectorEmbeddingWithScore{}
+	moved := map[string]*VectorEmbedding{}
 	for i := range 205 {
 		id := fmt.Sprint(i)
-		remaining[id] = &MilvusVectorEmbeddingWithScore{MilvusVectorEmbedding: MilvusVectorEmbedding{
+		remaining[id] = &VectorEmbeddingWithScore{VectorEmbedding: VectorEmbedding{
 			ID:              id,
 			KnowledgeID:     "doc",
 			KnowledgeBaseID: "source",
@@ -27,9 +27,9 @@ func TestMoveRowsDrainsPagesAndRetriesPartialUpsert(t *testing.T) {
 	}
 	reads, writes := 0, 0
 	failure := errors.New("partial upsert")
-	read := func(context.Context) ([]*MilvusVectorEmbeddingWithScore, error) {
+	read := func(context.Context) ([]*VectorEmbeddingWithScore, error) {
 		reads++
-		var rows []*MilvusVectorEmbeddingWithScore
+		var rows []*VectorEmbeddingWithScore
 		for _, row := range remaining {
 			rows = append(rows, row)
 			if len(rows) == 100 {
@@ -38,7 +38,7 @@ func TestMoveRowsDrainsPagesAndRetriesPartialUpsert(t *testing.T) {
 		}
 		return rows, nil
 	}
-	write := func(_ context.Context, rows []*MilvusVectorEmbedding) error {
+	write := func(_ context.Context, rows []*VectorEmbedding) error {
 		writes++
 		for i, row := range rows {
 			original := remaining[row.ID]
@@ -46,7 +46,7 @@ func TestMoveRowsDrainsPagesAndRetriesPartialUpsert(t *testing.T) {
 			require.Equal(t, "source", original.KnowledgeBaseID, "read rows must not be mutated before acknowledgement")
 			require.Equal(t, "target", row.KnowledgeBaseID)
 			require.Empty(t, row.TagID)
-			expected := original.MilvusVectorEmbedding
+			expected := original.VectorEmbedding
 			expected.KnowledgeBaseID = "target"
 			expected.TagID = ""
 			require.Equal(t, expected, *row)
@@ -67,16 +67,16 @@ func TestMoveRowsDrainsPagesAndRetriesPartialUpsert(t *testing.T) {
 }
 
 func TestMoveRowsRejectsUnacknowledgedProgress(t *testing.T) {
-	row := &MilvusVectorEmbeddingWithScore{
-		MilvusVectorEmbedding: MilvusVectorEmbedding{ID: "id", KnowledgeBaseID: "source"},
+	row := &VectorEmbeddingWithScore{
+		VectorEmbedding: VectorEmbedding{ID: "id", KnowledgeBaseID: "source"},
 	}
 	err := drainMoveRows(
 		context.Background(),
 		"target",
-		func(context.Context) ([]*MilvusVectorEmbeddingWithScore, error) {
-			return []*MilvusVectorEmbeddingWithScore{row}, nil
+		func(context.Context) ([]*VectorEmbeddingWithScore, error) {
+			return []*VectorEmbeddingWithScore{row}, nil
 		},
-		func(context.Context, []*MilvusVectorEmbedding) error { return nil },
+		func(context.Context, []*VectorEmbedding) error { return nil },
 	)
 	require.ErrorContains(t, err, "repeated")
 }

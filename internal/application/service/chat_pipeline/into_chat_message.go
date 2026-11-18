@@ -37,7 +37,7 @@ func (p *PluginIntoChatMessage) ActivationEvents() []types.EventType {
 
 // OnEvent processes the INTO_CHAT_MESSAGE event to format chat message content
 func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	pipelineInfo(ctx, "IntoChatMessage", "input", map[string]interface{}{
 		"session_id":       chatManage.SessionID,
@@ -140,7 +140,9 @@ func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
 	// Collect unique document metadata (title + description), once per knowledge
 	allResults := chatManage.MergeResult
 	if chatManage.FAQPriorityEnabled && len(faqResults) > 0 {
-		allResults = append(faqResults, docResults...)
+		allResults = make([]*types.SearchResult, 0, len(faqResults)+len(docResults))
+		allResults = append(allResults, faqResults...)
+		allResults = append(allResults, docResults...)
 	}
 	docHeader := buildDocumentHeader(allResults)
 	if docHeader != "" {
@@ -155,9 +157,14 @@ func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
 			passage := getEnrichedPassageForChat(ctx, result)
 			contextOrder = append(contextOrder, result)
 			if i == exactFAQ {
-				contextsBuilder.WriteString(fmt.Sprintf("<context id=\"FAQ-%d\" match=\"exact\">%s</context>\n", i+1, passage))
+				_, _ = fmt.Fprintf(
+					&contextsBuilder,
+					"<context id=\"FAQ-%d\" match=\"exact\">%s</context>\n",
+					i+1,
+					passage,
+				)
 			} else {
-				contextsBuilder.WriteString(fmt.Sprintf("<context id=\"FAQ-%d\">%s</context>\n", i+1, passage))
+				_, _ = fmt.Fprintf(&contextsBuilder, "<context id=\"FAQ-%d\">%s</context>\n", i+1, passage)
 			}
 		}
 		contextsBuilder.WriteString("</source>\n")
@@ -167,7 +174,7 @@ func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
 			for i, result := range docResults {
 				passage := getEnrichedPassageForChat(ctx, result)
 				contextOrder = append(contextOrder, result)
-				contextsBuilder.WriteString(fmt.Sprintf("<context id=\"DOC-%d\">%s</context>\n", i+1, passage))
+				_, _ = fmt.Fprintf(&contextsBuilder, "<context id=\"DOC-%d\">%s</context>\n", i+1, passage)
 			}
 			contextsBuilder.WriteString("</source>")
 		}
@@ -178,7 +185,7 @@ func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
 			if i > 0 {
 				contextsBuilder.WriteString("\n")
 			}
-			contextsBuilder.WriteString(fmt.Sprintf("<context id=\"%d\">%s</context>", i+1, passage))
+			_, _ = fmt.Fprintf(&contextsBuilder, "<context id=\"%d\">%s</context>", i+1, passage)
 		}
 	}
 
@@ -330,12 +337,12 @@ func buildDocumentHeader(results []*types.SearchResult) string {
 	b.WriteString("<documents>\n")
 	for _, d := range docs {
 		b.WriteString("<document>\n")
-		b.WriteString(fmt.Sprintf("<title>%s</title>\n", html.EscapeString(d.title)))
+		_, _ = fmt.Fprintf(&b, "<title>%s</title>\n", html.EscapeString(d.title))
 		if d.description != "" {
-			b.WriteString(fmt.Sprintf("<description>%s</description>\n", html.EscapeString(d.description)))
+			_, _ = fmt.Fprintf(&b, "<description>%s</description>\n", html.EscapeString(d.description))
 		}
 		if d.metadata != "" {
-			b.WriteString(fmt.Sprintf("<metadata>%s</metadata>\n", html.EscapeString(d.metadata)))
+			_, _ = fmt.Fprintf(&b, "<metadata>%s</metadata>\n", html.EscapeString(d.metadata))
 		}
 		b.WriteString("</document>\n")
 	}

@@ -49,7 +49,14 @@ type KnowledgeSpanRepository interface {
 	// name for (knowledgeID, attempt). Used before re-opening a subspan
 	// after asynq retry or server restart so the trace tree does not
 	// accumulate duplicate postprocess.summary / question rows.
-	CancelOpenSpansByName(ctx context.Context, knowledgeID string, attempt int, name, errorCode, reason string) (int64, error)
+	CancelOpenSpansByName(
+		ctx context.Context,
+		knowledgeID string,
+		attempt int,
+		name,
+		errorCode,
+		reason string,
+	) (int64, error)
 	// LastActivity returns each knowledge's most recent span write, across
 	// attempts. Knowledge without spans is absent from the map.
 	LastActivity(ctx context.Context, knowledgeIDs []string) (map[string]time.Time, error)
@@ -121,27 +128,31 @@ func (r *knowledgeSpanRepository) Upsert(ctx context.Context, row *types.Knowled
 }
 
 func (r *knowledgeSpanRepository) NextAttempt(ctx context.Context, knowledgeID string) (int, error) {
-	var max int
+	var maxAttempt int
 	err := r.db.WithContext(ctx).Model(&types.KnowledgeProcessingSpan{}).
 		Where("knowledge_id = ?", knowledgeID).
 		Select("COALESCE(MAX(attempt), 0)").
-		Row().Scan(&max)
+		Row().Scan(&maxAttempt)
 	if err != nil {
 		return 0, err
 	}
-	return max + 1, nil
+	return maxAttempt + 1, nil
 }
 
 func (r *knowledgeSpanRepository) LatestAttempt(ctx context.Context, knowledgeID string) (int, error) {
-	var max int
+	var maxAttempt int
 	err := r.db.WithContext(ctx).Model(&types.KnowledgeProcessingSpan{}).
 		Where("knowledge_id = ?", knowledgeID).
 		Select("COALESCE(MAX(attempt), 0)").
-		Row().Scan(&max)
-	return max, err
+		Row().Scan(&maxAttempt)
+	return maxAttempt, err
 }
 
-func (r *knowledgeSpanRepository) ListByAttempt(ctx context.Context, knowledgeID string, attempt int) ([]types.KnowledgeProcessingSpan, error) {
+func (r *knowledgeSpanRepository) ListByAttempt(
+	ctx context.Context,
+	knowledgeID string,
+	attempt int,
+) ([]types.KnowledgeProcessingSpan, error) {
 	if knowledgeID == "" {
 		return nil, nil
 	}
@@ -157,7 +168,12 @@ func (r *knowledgeSpanRepository) ListByAttempt(ctx context.Context, knowledgeID
 	return rows, err
 }
 
-func (r *knowledgeSpanRepository) GetSpan(ctx context.Context, knowledgeID string, attempt int, spanID string) (*types.KnowledgeProcessingSpan, error) {
+func (r *knowledgeSpanRepository) GetSpan(
+	ctx context.Context,
+	knowledgeID string,
+	attempt int,
+	spanID string,
+) (*types.KnowledgeProcessingSpan, error) {
 	var row types.KnowledgeProcessingSpan
 	err := r.db.WithContext(ctx).
 		Where("knowledge_id = ? AND attempt = ? AND span_id = ?", knowledgeID, attempt, spanID).
@@ -178,7 +194,13 @@ func (r *knowledgeSpanRepository) GetSpan(ctx context.Context, knowledgeID strin
 //
 // Postgres-specific WITH RECURSIVE would be denser but harder to test on
 // the SQLite Lite backend. The iterative path stays portable.
-func (r *knowledgeSpanRepository) CancelDescendants(ctx context.Context, knowledgeID string, attempt int, parentSpanID, reason string) (int64, error) {
+func (r *knowledgeSpanRepository) CancelDescendants(
+	ctx context.Context,
+	knowledgeID string,
+	attempt int,
+	parentSpanID,
+	reason string,
+) (int64, error) {
 	reason = common.CleanInvalidUTF8(reason)
 	frontier := []string{parentSpanID}
 	var totalAffected int64

@@ -294,7 +294,12 @@ func TestResolveKBAndWithGrantRejectUnmaterializedCallerMismatchAndInvalidRole(t
 		nil,
 		nil,
 	)
-	require.ErrorIs(t, err, ErrForbidden, "ResolveKB must reject caller mismatch even before CallerContextKey is materialized")
+	require.ErrorIs(
+		t,
+		err,
+		ErrForbidden,
+		"ResolveKB must reject caller mismatch even before CallerContextKey is materialized",
+	)
 
 	grant, err := ResolveKB(
 		context.Background(),
@@ -307,11 +312,21 @@ func TestResolveKBAndWithGrantRejectUnmaterializedCallerMismatchAndInvalidRole(t
 	require.NoError(t, err)
 
 	untouched := grant.WithGrant(otherTenantCtx)
-	require.Equal(t, uint64(9), types.CallerFromContext(untouched).TenantID, "WithGrant must not overwrite an authenticated tenant")
+	require.Equal(
+		t,
+		uint64(9),
+		types.CallerFromContext(untouched).TenantID,
+		"WithGrant must not overwrite an authenticated tenant",
+	)
 	require.False(t, HasKBGrant(untouched, ownKB.ID, ownKB.TenantID, types.OrgRoleViewer))
 
 	scoped := grant.Context(otherTenantCtx)
-	require.Equal(t, uint64(9), types.CallerFromContext(scoped).TenantID, "Context must not switch execution tenant on caller mismatch")
+	require.Equal(
+		t,
+		uint64(9),
+		types.CallerFromContext(scoped).TenantID,
+		"Context must not switch execution tenant on caller mismatch",
+	)
 
 	_, err = ResolveKB(
 		context.Background(),

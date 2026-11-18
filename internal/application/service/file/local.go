@@ -93,7 +93,7 @@ func resolveLocalPathNoSymlinks(baseDir, candidate string) (string, error) {
 }
 
 // CheckConnectivity verifies the local storage directory exists and is accessible.
-func (s *localFileService) CheckConnectivity(ctx context.Context) error {
+func (s *localFileService) CheckConnectivity(_ context.Context) error {
 	info, err := os.Stat(s.baseDir)
 	if err != nil {
 		return fmt.Errorf("storage directory not accessible: %w", err)
@@ -112,6 +112,28 @@ func NewLocalFileService(baseDir, externalURL string) interfaces.FileService {
 		baseDir:     baseDir,
 		externalURL: strings.TrimRight(externalURL, "/"),
 	}
+}
+
+func writeReaderToLocalFile(filePath string, src io.Reader) error {
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	return writeLocalStreamToDest(dst, filePath, src)
+}
+
+func writeLocalStreamToDest(dst io.WriteCloser, filePath string, src io.Reader) error {
+	_, copyErr := io.Copy(dst, src)
+	closeErr := dst.Close()
+	if copyErr != nil {
+		_ = os.Remove(filePath)
+		return fmt.Errorf("failed to save file: %w", copyErr)
+	}
+	if closeErr != nil {
+		_ = os.Remove(filePath)
+		return fmt.Errorf("failed to close file: %w", closeErr)
+	}
+	return nil
 }
 
 // SaveFile stores an uploaded file to the local file system
@@ -155,22 +177,13 @@ func (s *localFileService) SaveFile(ctx context.Context,
 		logger.Errorf(ctx, "Failed to open source file: %v", err)
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
-	// Create destination file for writing
-	logger.Info(ctx, "Creating destination file")
-	dst, err := os.Create(filePath)
-	if err != nil {
-		logger.Errorf(ctx, "Failed to create destination file: %v", err)
-		return "", fmt.Errorf("failed to create file: %w", err)
-	}
-	defer dst.Close()
-
-	// Copy content from source to destination
-	logger.Info(ctx, "Copying file content")
-	if _, err := io.Copy(dst, src); err != nil {
-		logger.Errorf(ctx, "Failed to copy file content: %v", err)
-		return "", fmt.Errorf("failed to save file: %w", err)
+	// Copy content from source to destination and remove partial file on error.
+	logger.Info(ctx, "Saving file content")
+	if err := writeReaderToLocalFile(filePath, src); err != nil {
+		logger.Errorf(ctx, "Failed to write destination file %s: %v", filePath, err)
+		return "", err
 	}
 
 	logger.Infof(ctx, "File saved successfully: %s", filePath)
@@ -275,16 +288,10 @@ func (s *localFileService) CopyFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
-	dst, err := os.Create(dstPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, src); err != nil {
-		return "", fmt.Errorf("failed to copy file content: %w", err)
+	if err := writeReaderToLocalFile(dstPath, src); err != nil {
+		return "", err
 	}
 
 	relPath, _ := filepath.Rel(s.baseDir, dstPath)
@@ -296,8 +303,13 @@ func (s *localFileService) CopyFile(ctx context.Context,
 // SaveBytes saves bytes data to a file and returns the file path
 // temp parameter is ignored for local storage (no auto-expiration support)
 // fileName 仅允许安全文件名，禁止路径遍历（如 ../../）
-func (s *localFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
-	logger.Infof(ctx, "Saving bytes data: fileName=%s, size=%d, tenantID=%d, temp=%v", fileName, len(data), tenantID, temp)
+func (s *localFileService) SaveBytes(
+	ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool,
+) (string, error) {
+	logger.Infof(
+		ctx, "Saving bytes data: fileName=%s, size=%d, tenantID=%d, temp=%v",
+		fileName, len(data), tenantID, temp,
+	)
 	if err := validateTenantID(tenantID); err != nil {
 		return "", err
 	}

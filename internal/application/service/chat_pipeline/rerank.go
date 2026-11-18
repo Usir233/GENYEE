@@ -37,7 +37,7 @@ func (p *PluginRerank) ActivationEvents() []types.EventType {
 
 // OnEvent handles reranking events in the chat pipeline
 func (p *PluginRerank) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	if !chatManage.NeedsRetrieval() {
 		return next()

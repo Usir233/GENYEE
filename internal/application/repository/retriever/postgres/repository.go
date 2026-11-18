@@ -78,12 +78,12 @@ func (g *pgRepository) resolveKeywordScoreFunction(ctx context.Context) (string,
 }
 
 // EngineType returns the retriever engine type (PostgreSQL)
-func (r *pgRepository) EngineType() types.RetrieverEngineType {
+func (g *pgRepository) EngineType() types.RetrieverEngineType {
 	return types.PostgresRetrieverEngineType
 }
 
 // Support returns supported retriever types (keywords and vector)
-func (r *pgRepository) Support() []types.RetrieverType {
+func (g *pgRepository) Support() []types.RetrieverType {
 	return []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType}
 }
 
@@ -93,7 +93,7 @@ func (g *pgRepository) calculateIndexStorageSize(embeddingDB *pgVector) int64 {
 	contentSizeBytes := int64(len(embeddingDB.Content))
 
 	// 2. Vector storage size (2 bytes per dimension for half-precision float)
-	var vectorSizeBytes int64 = 0
+	var vectorSizeBytes int64
 	if embeddingDB.Dimension > 0 {
 		vectorSizeBytes = int64(embeddingDB.Dimension * 2)
 	}
@@ -114,7 +114,7 @@ func (g *pgRepository) calculateIndexStorageSize(embeddingDB *pgVector) int64 {
 func (g *pgRepository) EstimateStorageSize(
 	ctx context.Context, indexInfoList []*types.IndexInfo, additionalParams map[string]any,
 ) int64 {
-	var totalStorageSize int64 = 0
+	var totalStorageSize int64
 	for _, indexInfo := range indexInfoList {
 		if indexInfo == nil {
 			continue
@@ -210,7 +210,9 @@ func (g *pgRepository) BatchSave(
 }
 
 // DeleteByChunkIDList deletes indices by chunk IDs
-func (g *pgRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+func (g *pgRepository) DeleteByChunkIDList(
+	ctx context.Context, chunkIDList []string, _ int, _ string,
+) error {
 	if len(chunkIDList) == 0 {
 		return nil
 	}
@@ -225,7 +227,9 @@ func (g *pgRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []st
 }
 
 // DeleteBySourceIDList deletes indices by source IDs
-func (g *pgRepository) DeleteBySourceIDList(ctx context.Context, sourceIDList []string, dimension int, knowledgeType string) error {
+func (g *pgRepository) DeleteBySourceIDList(
+	ctx context.Context, sourceIDList []string, _ int, _ string,
+) error {
 	if len(sourceIDList) == 0 {
 		return nil
 	}
@@ -240,7 +244,9 @@ func (g *pgRepository) DeleteBySourceIDList(ctx context.Context, sourceIDList []
 }
 
 // DeleteByKnowledgeIDList deletes indices by knowledge IDs
-func (g *pgRepository) DeleteByKnowledgeIDList(ctx context.Context, knowledgeIDList []string, dimension int, knowledgeType string) error {
+func (g *pgRepository) DeleteByKnowledgeIDList(
+	ctx context.Context, knowledgeIDList []string, _ int, _ string,
+) error {
 	if len(knowledgeIDList) == 0 {
 		return nil
 	}
@@ -273,7 +279,9 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d", params.Query, params.TopK)
-	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyPostgresKBScope(params.KnowledgeBaseIDs) {
+	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyPostgresKBScope(
+		params.KnowledgeBaseIDs,
+	) {
 		return emptyPostgresRetrieveResult(types.KeywordsRetrieverType), nil
 	}
 	scoreFunction, err := g.resolveKeywordScoreFunction(ctx)
@@ -659,8 +667,8 @@ func (g *pgRepository) CopyIndices(ctx context.Context,
 	sourceToTargetKBIDMap map[string]string,
 	sourceToTargetChunkIDMap map[string]string,
 	targetKnowledgeBaseID string,
-	dimension int,
-	knowledgeType string,
+	_ int,
+	_ string,
 ) error {
 	logger.GetLogger(ctx).Infof(
 		"[Postgres] Copying indices, source knowledge base: %s, target knowledge base: %s, mapping count: %d",
@@ -743,14 +751,15 @@ func (g *pgRepository) CopyIndices(ctx context.Context,
 			// Generated questions have SourceID format: {chunkID}-{questionID}
 			// Regular chunks have SourceID == ChunkID
 			var targetSourceID string
-			if sourceVector.SourceID == sourceVector.ChunkID {
+			switch {
+			case sourceVector.SourceID == sourceVector.ChunkID:
 				// Regular chunk, use targetChunkID as SourceID
 				targetSourceID = targetChunkID
-			} else if strings.HasPrefix(sourceVector.SourceID, sourceVector.ChunkID+"-") {
+			case strings.HasPrefix(sourceVector.SourceID, sourceVector.ChunkID+"-"):
 				// This is a generated question, preserve the questionID part
 				questionID := strings.TrimPrefix(sourceVector.SourceID, sourceVector.ChunkID+"-")
 				targetSourceID = fmt.Sprintf("%s-%s", targetChunkID, questionID)
-			} else {
+			default:
 				// For other complex scenarios, generate new unique SourceID
 				targetSourceID = uuid.New().String()
 			}
@@ -831,7 +840,11 @@ func (g *pgRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkS
 				return result.Error
 			}
 			logger.GetLogger(ctx).
-				Infof("[Postgres] Updated %d chunks to enabled, rows affected: %d", len(enabledChunkIDs), result.RowsAffected)
+				Infof(
+					"[Postgres] Updated %d chunks to enabled, rows affected: %d",
+					len(enabledChunkIDs),
+					result.RowsAffected,
+				)
 		}
 		if len(disabledChunkIDs) > 0 {
 			result := tx.Model(&pgVector{}).
@@ -842,7 +855,11 @@ func (g *pgRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkS
 				return result.Error
 			}
 			logger.GetLogger(ctx).
-				Infof("[Postgres] Updated %d chunks to disabled, rows affected: %d", len(disabledChunkIDs), result.RowsAffected)
+				Infof(
+					"[Postgres] Updated %d chunks to disabled, rows affected: %d",
+					len(disabledChunkIDs),
+					result.RowsAffected,
+				)
 		}
 		return nil
 	}); err != nil {
@@ -881,11 +898,20 @@ func (g *pgRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap ma
 				Where("chunk_id IN ?", chunkIDs).
 				Update("tag_id", tagID)
 			if result.Error != nil {
-				logger.GetLogger(ctx).Errorf("[Postgres] Failed to update chunks with tag_id %s: %v", tagID, result.Error)
+				logger.GetLogger(ctx).Errorf(
+					"[Postgres] Failed to update chunks with tag_id %s: %v",
+					tagID,
+					result.Error,
+				)
 				return result.Error
 			}
 			logger.GetLogger(ctx).
-				Infof("[Postgres] Updated %d chunks to tag_id=%s, rows affected: %d", len(chunkIDs), tagID, result.RowsAffected)
+				Infof(
+					"[Postgres] Updated %d chunks to tag_id=%s, rows affected: %d",
+					len(chunkIDs),
+					tagID,
+					result.RowsAffected,
+				)
 		}
 		return nil
 	}); err != nil {

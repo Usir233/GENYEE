@@ -223,7 +223,11 @@ func TestGetSessionAllowsAdminToOpenAPIKeySessions(t *testing.T) {
 	require.ErrorIs(t, err, apperrors.ErrSessionNotFound)
 
 	// An admin can open the API-key session.
-	adminCtx := context.WithValue(testSessionScopeContext(1, "alice"), types.TenantRoleContextKey, types.TenantRoleAdmin)
+	adminCtx := context.WithValue(
+		testSessionScopeContext(1, "alice"),
+		types.TenantRoleContextKey,
+		types.TenantRoleAdmin,
+	)
 	got, err := svc.GetSession(adminCtx, apiSession.ID)
 	require.NoError(t, err)
 	require.Equal(t, apiSession.ID, got.ID)
@@ -284,7 +288,11 @@ func TestListSessionsAPISourceRequiresAdminAndReturnsAllKeys(t *testing.T) {
 	require.Equal(t, apperrors.ErrForbidden, appErr.Code)
 
 	// An admin sees every API-key session in the tenant, not just their own.
-	adminCtx := context.WithValue(testSessionScopeContext(1, "alice"), types.TenantRoleContextKey, types.TenantRoleAdmin)
+	adminCtx := context.WithValue(
+		testSessionScopeContext(1, "alice"),
+		types.TenantRoleContextKey,
+		types.TenantRoleAdmin,
+	)
 	result, err := svc.ListSessions(adminCtx, &types.SessionListQuery{Source: types.SessionSourceAPI})
 	require.NoError(t, err)
 	require.EqualValues(t, 3, result.Total)
@@ -328,7 +336,11 @@ func TestListSessionsIMSourceRequiresAdmin(t *testing.T) {
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, apperrors.ErrForbidden, appErr.Code)
 
-	adminCtx := context.WithValue(testSessionScopeContext(1, "alice"), types.TenantRoleContextKey, types.TenantRoleAdmin)
+	adminCtx := context.WithValue(
+		testSessionScopeContext(1, "alice"),
+		types.TenantRoleContextKey,
+		types.TenantRoleAdmin,
+	)
 	result, err := svc.ListSessions(adminCtx, &types.SessionListQuery{Source: "feishu"})
 	require.NoError(t, err)
 	require.EqualValues(t, 1, result.Total)
@@ -353,7 +365,11 @@ func TestListSessionsEmbedSourceRequiresAdmin(t *testing.T) {
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, apperrors.ErrForbidden, appErr.Code)
 
-	adminCtx := context.WithValue(testSessionScopeContext(1, "alice"), types.TenantRoleContextKey, types.TenantRoleAdmin)
+	adminCtx := context.WithValue(
+		testSessionScopeContext(1, "alice"),
+		types.TenantRoleContextKey,
+		types.TenantRoleAdmin,
+	)
 	result, err := svc.ListSessions(adminCtx, &types.SessionListQuery{Source: "embed:ch-1"})
 	require.NoError(t, err)
 	require.EqualValues(t, 1, result.Total)
@@ -373,7 +389,11 @@ func TestGetSessionDeniesViewerOnIMSession(t *testing.T) {
 	_, err := svc.GetSession(viewerCtx, imSession.ID)
 	require.ErrorIs(t, err, apperrors.ErrSessionNotFound)
 
-	adminCtx := context.WithValue(testSessionScopeContext(1, "alice"), types.TenantRoleContextKey, types.TenantRoleAdmin)
+	adminCtx := context.WithValue(
+		testSessionScopeContext(1, "alice"),
+		types.TenantRoleContextKey,
+		types.TenantRoleAdmin,
+	)
 	got, err := svc.GetSession(adminCtx, imSession.ID)
 	require.NoError(t, err)
 	require.Equal(t, imSession.ID, got.ID)

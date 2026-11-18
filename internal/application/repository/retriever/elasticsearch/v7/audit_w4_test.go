@@ -24,7 +24,9 @@ func newAuditTestV7Repo(t *testing.T, handler http.HandlerFunc) (*elasticsearchR
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Elastic-Product", "Elasticsearch")
 		if r.URL.Path == "/" {
-			_, _ = w.Write([]byte(`{"version":{"number":"7.17.0","build_flavor":"default"},"tagline":"You Know, for Search"}`))
+			_, _ = w.Write(
+				[]byte(`{"version":{"number":"7.17.0","build_flavor":"default"},"tagline":"You Know, for Search"}`),
+			)
 			return
 		}
 		handler(w, r)
@@ -43,7 +45,7 @@ func newAuditTestV7Repo(t *testing.T, handler http.HandlerFunc) (*elasticsearchR
 }
 
 func TestV7Retrieve_RejectsEmptyKnowledgeBaseIDsFailClosed(t *testing.T) {
-	repo, _ := newAuditTestV7Repo(t, func(w http.ResponseWriter, r *http.Request) {
+	repo, _ := newAuditTestV7Repo(t, func(_ http.ResponseWriter, r *http.Request) {
 		t.Fatalf("unexpected cross-tenant search call: %s %s", r.Method, r.URL.Path)
 	})
 
@@ -93,8 +95,13 @@ func TestV7KeywordSearch_PropagatesTopKAndThresholdViaStructuredJSON(t *testing.
 }
 
 func TestV7VectorRetrieve_SetsEmbeddingMatchTypeAndRejectsInvalidVector(t *testing.T) {
-	repo, _ := newAuditTestV7Repo(t, func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"hits":{"hits":[{"_id":"doc-1","_score":0.88,"_source":{"chunk_id":"c1","source_id":"c1","knowledge_id":"k1","knowledge_base_id":"kb-1","content":"vec","is_enabled":true}}]}}`))
+	repo, _ := newAuditTestV7Repo(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(
+			[]byte(
+				`{"hits":{"hits":[{"_id":"doc-1","_score":0.88,"_source":{"chunk_id":"c1","source_id":"c1",` +
+					`"knowledge_id":"k1","knowledge_base_id":"kb-1","content":"vec","is_enabled":true}}]}}`,
+			),
+		)
 	})
 
 	res, err := repo.VectorRetrieve(context.Background(), typesLocal.RetrieveParams{
@@ -150,14 +157,30 @@ func TestV7Save_AllowsKeywordOnlyDocAndRejectsNaNVector(t *testing.T) {
 }
 
 func TestV7DeleteAndByQuery_RejectsBlankTargetsAndSurfacesFailuresWithoutLeakingReason(t *testing.T) {
-	repo, _ := newAuditTestV7Repo(t, func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"deleted":0,"failures":[{"id":"doc-9","cause":{"type":"version_conflict_engine_exception","reason":"SENSITIVE-CHUNK-TEXT"}}]}`))
+	repo, _ := newAuditTestV7Repo(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(
+			[]byte(
+				`{"deleted":0,"failures":[{"id":"doc-9","cause":{"type":"version_conflict_engine_exception",` +
+					`"reason":"SENSITIVE-CHUNK-TEXT"}}]}`,
+			),
+		)
 	})
 
 	// Blank target IDs must fail closed before issuing _delete_by_query.
 	require.Error(t, repo.DeleteByChunkIDList(context.Background(), []string{"  "}, 768, ""))
 	require.Error(t, repo.MoveKnowledgeIndices(context.Background(), "", "kb-dst", "k-1", nil, 768, ""))
-	require.Error(t, repo.CopyIndices(context.Background(), "", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "kb-dst", 768, ""))
+	require.Error(
+		t,
+		repo.CopyIndices(
+			context.Background(),
+			"",
+			map[string]string{"k1": "k2"},
+			map[string]string{"c1": "c2"},
+			"kb-dst",
+			768,
+			"",
+		),
+	)
 
 	// Partial failure in HTTP 200 _delete_by_query body must return an error without leaking reason.
 	err := repo.DeleteByChunkIDList(context.Background(), []string{"c-1"}, 768, "")

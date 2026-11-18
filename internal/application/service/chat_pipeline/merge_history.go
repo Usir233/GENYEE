@@ -143,7 +143,7 @@ func filterHistoryResults(
 			continue
 		}
 		r.MatchType = types.MatchTypeHistory
-		r.Score = r.Score * historyScoreDiscount
+		r.Score *= historyScoreDiscount
 		if r.Metadata == nil {
 			r.Metadata = make(map[string]string)
 		}

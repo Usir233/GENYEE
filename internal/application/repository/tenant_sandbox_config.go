@@ -136,7 +136,7 @@ func (r *tenantSandboxConfigRepository) SoftDelete(
 
 // ErrSandboxConfigCordoned is returned by SetCordon when another request
 // already holds a fresh cordon lease on the same config row.
-var ErrSandboxConfigCordoned = errors.New("sandbox config is being modified by another request")
+var ErrSandboxConfigCordoned = types.ErrSandboxConfigCordoned
 
 // SetCordon must be committed before the caller lists provider sandboxes:
 // resolution paths only stop creating sandboxes once they can see it.

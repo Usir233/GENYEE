@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -28,7 +29,7 @@ const fallbackVectorScanCap = 5000
 // with every vector crossing the wire.
 func (r *memoryRepository) vectorColumnReady() bool {
 	r.vectorOnce.Do(func() {
-		if r.db == nil || r.db.Dialector == nil || r.db.Dialector.Name() != "postgres" {
+		if r.db == nil || r.db.Dialector == nil || r.db.Name() != "postgres" {
 			return
 		}
 		r.vectorColumn = r.db.Migrator().HasColumn(&types.MemoryItemEmbedding{}, "embedding")
@@ -247,8 +248,36 @@ func (r *memoryRepository) SyncVectorColumn(
 	if err != nil {
 		return 0, err
 	}
-	moved := 0
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	placeholders := make([]string, 0, len(rows))
+	args := make([]any, 0, len(rows)*2+2)
+	validRows := make([]pending, 0, len(rows))
 	for _, row := range rows {
+		if row.ItemID == "" {
+			continue
+		}
+		literal := types.FormatEmbeddingLiteral(types.DecodeEmbedding(row.Vector))
+		if literal == "" {
+			continue
+		}
+		placeholders = append(placeholders, "(?, ?)")
+		args = append(args, row.ItemID, literal)
+		validRows = append(validRows, row)
+	}
+	if len(placeholders) == 0 {
+		return 0, nil
+	}
+	args = append(args, scope.TenantID, scope.SubjectID)
+	batchSQL := "UPDATE memory_item_embeddings AS m SET embedding = v.embedding::halfvec " +
+		"FROM (VALUES " + strings.Join(placeholders, ", ") + ") AS v(item_id, embedding) " +
+		"WHERE m.tenant_id = ? AND m.subject_id = ? AND m.item_id = v.item_id"
+	if res := r.db.WithContext(ctx).Exec(batchSQL, args...); res.Error == nil {
+		return int(res.RowsAffected), nil
+	}
+	moved := 0
+	for _, row := range validRows {
 		if err := r.writeVectorColumn(r.db.WithContext(ctx), row.ItemID, row.Vector); err != nil {
 			logger.Warnf(ctx, "memory: sync vector column failed for %s: %v", row.ItemID, err)
 			continue

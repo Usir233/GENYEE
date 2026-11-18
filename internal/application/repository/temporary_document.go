@@ -12,6 +12,7 @@ import (
 
 type temporaryDocumentRepository struct{ db *gorm.DB }
 
+// NewTemporaryDocumentRepository creates a new temporary document repository.
 func NewTemporaryDocumentRepository(db *gorm.DB) interfaces.TemporaryDocumentRepository {
 	return &temporaryDocumentRepository{db: db}
 }
@@ -20,7 +21,11 @@ func (r *temporaryDocumentRepository) Create(ctx context.Context, document *type
 	return r.db.WithContext(ctx).Create(document).Error
 }
 
-func (r *temporaryDocumentRepository) GetByID(ctx context.Context, tenantID uint64, documentID string) (*types.TemporaryDocument, error) {
+func (r *temporaryDocumentRepository) GetByID(
+	ctx context.Context,
+	tenantID uint64,
+	documentID string,
+) (*types.TemporaryDocument, error) {
 	var document types.TemporaryDocument
 	err := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, documentID).First(&document).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -29,28 +34,68 @@ func (r *temporaryDocumentRepository) GetByID(ctx context.Context, tenantID uint
 	return &document, err
 }
 
-func (r *temporaryDocumentRepository) GetScoped(ctx context.Context, tenantID uint64, sessionID, documentID string) (*types.TemporaryDocument, error) {
+func (r *temporaryDocumentRepository) GetScoped(
+	ctx context.Context,
+	tenantID uint64,
+	sessionID,
+	documentID string,
+) (*types.TemporaryDocument, error) {
 	var document types.TemporaryDocument
-	err := r.db.WithContext(ctx).Where("tenant_id = ? AND session_id = ? AND id = ?", tenantID, sessionID, documentID).First(&document).Error
+	err := r.db.WithContext(ctx).Where(
+		"tenant_id = ? AND session_id = ? AND id = ?",
+		tenantID,
+		sessionID,
+		documentID,
+	).First(&document).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &document, err
 }
 
-func (r *temporaryDocumentRepository) ListScoped(ctx context.Context, tenantID uint64, sessionID string) ([]*types.TemporaryDocument, error) {
+func (r *temporaryDocumentRepository) ListScoped(
+	ctx context.Context,
+	tenantID uint64,
+	sessionID string,
+) ([]*types.TemporaryDocument, error) {
 	var documents []*types.TemporaryDocument
-	err := r.db.WithContext(ctx).Where("tenant_id = ? AND session_id = ?", tenantID, sessionID).Order("created_at ASC").Find(&documents).Error
+	err := r.db.WithContext(ctx).Where(
+		"tenant_id = ? AND session_id = ?",
+		tenantID,
+		sessionID,
+	).Order("created_at ASC").Find(&documents).Error
 	return documents, err
 }
 
-func (r *temporaryDocumentRepository) MarkProcessing(ctx context.Context, tenantID uint64, documentID string, startedAt time.Time) error {
+func (r *temporaryDocumentRepository) MarkProcessing(
+	ctx context.Context,
+	tenantID uint64,
+	documentID string,
+	startedAt time.Time,
+) error {
 	return r.db.WithContext(ctx).Model(&types.TemporaryDocument{}).
 		Where("tenant_id = ? AND id = ?", tenantID, documentID).
-		Updates(map[string]interface{}{"status": types.TemporaryDocumentStatusProcessing, "started_at": startedAt, "error_message": ""}).Error
+		Updates(
+			map[string]interface{}{
+				"status":        types.TemporaryDocumentStatusProcessing,
+				"started_at":    startedAt,
+				"error_message": "",
+			},
+		).Error
 }
 
-func (r *temporaryDocumentRepository) MarkReady(ctx context.Context, tenantID uint64, documentID, content string, chunks, imageRefs, metadata types.JSON, tokenCount, chunkCount int, readyAt time.Time) error {
+func (r *temporaryDocumentRepository) MarkReady(
+	ctx context.Context,
+	tenantID uint64,
+	documentID,
+	content string,
+	chunks,
+	imageRefs,
+	metadata types.JSON,
+	tokenCount,
+	chunkCount int,
+	readyAt time.Time,
+) error {
 	return r.db.WithContext(ctx).Model(&types.TemporaryDocument{}).
 		Where("tenant_id = ? AND id = ?", tenantID, documentID).
 		Updates(map[string]interface{}{
@@ -60,17 +105,36 @@ func (r *temporaryDocumentRepository) MarkReady(ctx context.Context, tenantID ui
 		}).Error
 }
 
-func (r *temporaryDocumentRepository) MarkFailed(ctx context.Context, tenantID uint64, documentID, message string) error {
+func (r *temporaryDocumentRepository) MarkFailed(
+	ctx context.Context,
+	tenantID uint64,
+	documentID,
+	message string,
+) error {
 	return r.db.WithContext(ctx).Model(&types.TemporaryDocument{}).
 		Where("tenant_id = ? AND id = ?", tenantID, documentID).
 		Updates(map[string]interface{}{"status": types.TemporaryDocumentStatusFailed, "error_message": message}).Error
 }
 
-func (r *temporaryDocumentRepository) DeleteScoped(ctx context.Context, tenantID uint64, sessionID, documentID string) error {
-	return r.db.WithContext(ctx).Where("tenant_id = ? AND session_id = ? AND id = ?", tenantID, sessionID, documentID).Delete(&types.TemporaryDocument{}).Error
+func (r *temporaryDocumentRepository) DeleteScoped(
+	ctx context.Context,
+	tenantID uint64,
+	sessionID,
+	documentID string,
+) error {
+	return r.db.WithContext(ctx).Where(
+		"tenant_id = ? AND session_id = ? AND id = ?",
+		tenantID,
+		sessionID,
+		documentID,
+	).Delete(&types.TemporaryDocument{}).Error
 }
 
-func (r *temporaryDocumentRepository) ListExpired(ctx context.Context, before time.Time, limit int) ([]*types.TemporaryDocument, error) {
+func (r *temporaryDocumentRepository) ListExpired(
+	ctx context.Context,
+	before time.Time,
+	limit int,
+) ([]*types.TemporaryDocument, error) {
 	var documents []*types.TemporaryDocument
 	err := r.expiredQuery(ctx, before, limit).Find(&documents).Error
 	return documents, err
@@ -90,19 +154,25 @@ func (r *temporaryDocumentRepository) expiredQuery(ctx context.Context, before t
 		// lookup; IS NOT NULL avoids NOT IN's NULL trap. Tenant IDs are numeric,
 		// so the ':' separator cannot collide across tenants.
 		referenced := r.db.Table("messages m").
-			Select("CAST(s.tenant_id AS TEXT) || ':' || json_extract(a.value, '$.id')").
+			Select("CAST(s.tenant_id AS TEXT) || ':' || " +
+				"(CASE WHEN json_valid(a.value) AND json_type(a.value) = 'object' " +
+				"THEN json_extract(a.value, '$.id') END)").
 			Joins("JOIN sessions s ON s.id = m.session_id").
-			Joins("JOIN json_each(CAST(m.attachments AS TEXT)) a").
+			Joins("JOIN json_each(" +
+				"CASE WHEN json_valid(m.attachments) AND json_type(m.attachments) = 'array' " +
+				"THEN CAST(m.attachments AS TEXT) ELSE '[]' END) a").
 			Where("m.role = 'user' AND m.deleted_at IS NULL AND s.deleted_at IS NULL").
-			Where("json_extract(a.value, '$.id') IS NOT NULL")
+			Where(
+				"json_valid(a.value) = 1 AND json_type(a.value) = 'object' AND " +
+					"json_extract(a.value, '$.id') IS NOT NULL",
+			)
 		return query.Where("(CAST(temporary_documents.tenant_id AS TEXT) || ':' || temporary_documents.id) NOT IN (?)",
 			referenced)
 	}
 	// PostgreSQL uses the partial GIN attachments index for this containment
 	// predicate; its live-user predicate must match the index predicate.
 	containsAttachment := "m.attachments @> jsonb_build_array(jsonb_build_object('id', temporary_documents.id))"
-	switch r.db.Name() {
-	case "mysql":
+	if r.db.Name() == "mysql" {
 		containsAttachment = "JSON_CONTAINS(m.attachments, JSON_OBJECT('id', temporary_documents.id))"
 	}
 	referenced := r.db.Table("messages m").Select("1").

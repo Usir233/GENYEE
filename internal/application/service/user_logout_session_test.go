@@ -22,10 +22,14 @@ func logoutSessionService(t *testing.T) (*userService, *types.User, *gorm.DB) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
-	user := &types.User{ID: "session-user", Username: "session-user", Email: "session@example.com",
-		PasswordHash: "unused", IsActive: true, CanAccessAllTenants: true, TenantID: 1}
-	svc := &userService{userRepo: repository.NewUserRepository(db), tokenRepo: repository.NewAuthTokenRepository(db),
-		config: &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}}
+	user := &types.User{
+		ID: "session-user", Username: "session-user", Email: "session@example.com",
+		PasswordHash: "unused", IsActive: true, CanAccessAllTenants: true, TenantID: 1,
+	}
+	svc := &userService{
+		userRepo: repository.NewUserRepository(db), tokenRepo: repository.NewAuthTokenRepository(db),
+		config: &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}},
+	}
 	require.NoError(t, svc.userRepo.CreateUser(context.Background(), user))
 	return svc, user, db
 }
@@ -92,7 +96,13 @@ func TestSwitchTenantRejectsOtherUsersRefreshBeforePreferenceWrite(t *testing.T)
 	ctx := context.Background()
 	svc, user, _ := logoutSessionService(t)
 	svc.tenantService = &provisioningTenantService{}
-	other := &types.User{ID: "other-user", Username: "other", Email: "other@example.com", PasswordHash: "unused", IsActive: true}
+	other := &types.User{
+		ID:           "other-user",
+		Username:     "other",
+		Email:        "other@example.com",
+		PasswordHash: "unused",
+		IsActive:     true,
+	}
 	require.NoError(t, svc.userRepo.CreateUser(ctx, other))
 	_, refresh, err := svc.GenerateTokens(ctx, other)
 	require.NoError(t, err)
@@ -111,12 +121,19 @@ type failingSessionRepo struct {
 	err error
 }
 
-func (r *failingSessionRepo) RotateRefreshToken(context.Context, *types.AuthToken, *types.AuthToken, *types.AuthToken) error {
+func (r *failingSessionRepo) RotateRefreshToken(
+	context.Context,
+	*types.AuthToken,
+	*types.AuthToken,
+	*types.AuthToken,
+) error {
 	return r.err
 }
+
 func (r *failingSessionRepo) RevokeTokenSession(context.Context, *types.AuthToken) error {
 	return r.err
 }
+
 func (r *failingSessionRepo) IssueSessionAccessToken(context.Context, *types.AuthToken, *types.AuthToken) error {
 	return r.err
 }
@@ -182,14 +199,26 @@ func TestSwitchTenantWithoutRefreshInheritsSessionAndExpiryAndHonorsLogout(t *te
 
 	switchedRecord, err := svc.tokenRepo.GetTokenByValue(ctx, resp.Token)
 	require.NoError(t, err)
-	require.Equal(t, initialRecord.SessionID, switchedRecord.SessionID, "switched access token must stay in original session")
-	require.WithinDuration(t, shortExpiry, switchedRecord.ExpiresAt, time.Second, "switched access token must inherit original session expiry")
+	require.Equal(
+		t,
+		initialRecord.SessionID,
+		switchedRecord.SessionID,
+		"switched access token must stay in original session",
+	)
+	require.WithinDuration(
+		t,
+		shortExpiry,
+		switchedRecord.ExpiresAt,
+		time.Second,
+		"switched access token must inherit original session expiry",
+	)
 
 	var refreshCount int64
 	require.NoError(t, db.Model(&types.AuthToken{}).Where("token_type = ?", "refresh_token").Count(&refreshCount).Error)
 	require.EqualValues(t, 1, refreshCount, "no second refresh_token row may be created")
 
-	// Logout with original access token immediately revokes both the switched access token and the session refresh token.
+	// Logout with original access token immediately revokes both the switched access token and the session refresh
+	// token.
 	require.NoError(t, svc.Logout(ctx, initialAccess))
 	_, _, err = svc.ValidateToken(ctx, resp.Token)
 	require.Error(t, err, "switched access token must not survive session logout")

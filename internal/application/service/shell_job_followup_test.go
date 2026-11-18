@@ -74,7 +74,10 @@ func TestShellJobHeartbeatRefreshesProvidersWhileReadsAndAnotherProviderBlock(t 
 		releaseLock()
 		require.NoError(t, <-lockDone)
 		select {
-		case <-done:
+		case sweepErr := <-done:
+			if sweepErr != nil {
+				t.Logf("sweep exited: %v", sweepErr)
+			}
 		case <-time.After(2 * time.Second):
 			t.Error("heartbeat did not stop with the sweep")
 		}

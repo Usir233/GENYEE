@@ -24,7 +24,10 @@ func (r *Repository) MoveKnowledgeIndices(
 	targetKB = strings.TrimSpace(targetKB)
 	knowledgeID = strings.TrimSpace(knowledgeID)
 	if sourceKB == "" || targetKB == "" || knowledgeID == "" {
-		return fmt.Errorf("opensearch: MoveKnowledgeIndices requires non-empty sourceKB, targetKB, and knowledgeID: %w", ErrConfigInvalid)
+		return fmt.Errorf(
+			"opensearch: MoveKnowledgeIndices requires non-empty sourceKB, targetKB, and knowledgeID: %w",
+			ErrConfigInvalid,
+		)
 	}
 	body, err := json.Marshal(map[string]any{
 		"query": map[string]any{"bool": map[string]any{"filter": []any{

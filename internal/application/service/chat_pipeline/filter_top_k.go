@@ -26,7 +26,7 @@ func (p *PluginFilterTopK) ActivationEvents() []types.EventType {
 // OnEvent handles the FILTER_TOP_K event by filtering results to keep only the top K items
 // It can filter MergeResult, RerankResult, or SearchResult depending on which is available
 func (p *PluginFilterTopK) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	if !chatManage.NeedsRetrieval() {
 		return next()
@@ -69,13 +69,14 @@ func (p *PluginFilterTopK) OnEvent(ctx context.Context,
 		return searchResult
 	}
 
-	if len(chatManage.MergeResult) > 0 {
+	switch {
+	case len(chatManage.MergeResult) > 0:
 		chatManage.MergeResult = filterTopK(chatManage.MergeResult, chatManage.RerankTopK)
-	} else if len(chatManage.RerankResult) > 0 {
+	case len(chatManage.RerankResult) > 0:
 		chatManage.RerankResult = filterTopK(chatManage.RerankResult, chatManage.RerankTopK)
-	} else if len(chatManage.SearchResult) > 0 {
+	case len(chatManage.SearchResult) > 0:
 		chatManage.SearchResult = filterTopK(chatManage.SearchResult, chatManage.RerankTopK)
-	} else {
+	default:
 		pipelineWarn(ctx, "FilterTopK", "skip", map[string]interface{}{
 			"reason": "no_results",
 		})

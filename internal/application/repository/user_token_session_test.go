@@ -15,8 +15,10 @@ import (
 func sessionTestPair(userID, sessionID string) (*types.AuthToken, *types.AuthToken) {
 	makeToken := func(kind string) *types.AuthToken {
 		id := uuid.NewString()
-		return &types.AuthToken{ID: id, UserID: userID, SessionID: sessionID, Token: id,
-			TokenType: kind, ExpiresAt: time.Now().Add(time.Hour)}
+		return &types.AuthToken{
+			ID: id, UserID: userID, SessionID: sessionID, Token: id,
+			TokenType: kind, ExpiresAt: time.Now().Add(time.Hour),
+		}
 	}
 	return makeToken("access_token"), makeToken("refresh_token")
 }
@@ -186,7 +188,7 @@ func TestAuthSessionLogoutRollsBackIfRefreshRevocationFails(t *testing.T) {
 		access, refresh := sessionTestPair("revoke-rollback-owner", uuid.NewString())
 		require.NoError(t, repo.CreateToken(ctx, access))
 		require.NoError(t, repo.CreateToken(ctx, refresh))
-		if db.Dialector.Name() == "sqlite" {
+		if db.Name() == "sqlite" {
 			require.NoError(t, db.Exec(`CREATE TRIGGER reject_session_revoke BEFORE UPDATE OF is_revoked ON auth_tokens
 				WHEN NEW.is_revoked = 1 AND OLD.token_type = 'refresh_token'
 				BEGIN SELECT RAISE(ABORT, 'simulated session revoke failure'); END`).Error)

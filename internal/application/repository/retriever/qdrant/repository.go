@@ -36,7 +36,10 @@ const (
 
 // NewQdrantRetrieveEngineRepository creates and initializes a new Qdrant repository.
 // indexCfg is optional — pass nil to use env var / default values (env path).
-func NewQdrantRetrieveEngineRepository(client *qdrant.Client, indexCfg *types.IndexConfig) interfaces.RetrieveEngineRepository {
+func NewQdrantRetrieveEngineRepository(
+	client *qdrant.Client,
+	indexCfg *types.IndexConfig,
+) interfaces.RetrieveEngineRepository {
 	log := logger.GetLogger(context.Background())
 	log.Info("[Qdrant] Initializing Qdrant retriever engine repository")
 
@@ -134,7 +137,12 @@ func isMissingCollectionErr(err error) bool {
 // When that happens the process-local initialized cache is dropped so the
 // following write (ensureCollection) will recreate the collection instead of
 // skipping create and failing the upsert.
-func (q *qdrantRepository) deletePoints(ctx context.Context, dimension int, collectionName string, points *qdrant.PointsSelector) error {
+func (q *qdrantRepository) deletePoints(
+	ctx context.Context,
+	dimension int,
+	collectionName string,
+	points *qdrant.PointsSelector,
+) error {
 	wait := true
 	_, err := q.client.Delete(ctx, &qdrant.DeletePoints{
 		CollectionName: collectionName,
@@ -392,7 +400,9 @@ func (q *qdrantRepository) BatchSave(ctx context.Context,
 }
 
 // DeleteByChunkIDList removes points from the collection based on chunk IDs
-func (q *qdrantRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+func (q *qdrantRepository) DeleteByChunkIDList(
+	ctx context.Context, chunkIDList []string, dimension int, _ string,
+) error {
 	log := logger.GetLogger(ctx)
 	if len(chunkIDList) == 0 {
 		log.Warn("[Qdrant] Empty chunk ID list provided for deletion, skipping")
@@ -426,7 +436,7 @@ func (q *qdrantRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList 
 
 // DeleteByKnowledgeIDList removes points from the collection based on knowledge IDs
 func (q *qdrantRepository) DeleteByKnowledgeIDList(ctx context.Context,
-	knowledgeIDList []string, dimension int, knowledgeType string,
+	knowledgeIDList []string, dimension int, _ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	if len(knowledgeIDList) == 0 {
@@ -461,7 +471,7 @@ func (q *qdrantRepository) DeleteByKnowledgeIDList(ctx context.Context,
 
 // DeleteBySourceIDList removes points from the collection based on source IDs
 func (q *qdrantRepository) DeleteBySourceIDList(ctx context.Context,
-	sourceIDList []string, dimension int, knowledgeType string,
+	sourceIDList []string, dimension int, _ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	if len(sourceIDList) == 0 {
@@ -553,7 +563,10 @@ func (q *qdrantRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, ch
 			})
 			if err != nil {
 				log.Warnf("[Qdrant] Failed to update enabled chunks in %s: %v", collectionName, err)
-				updateErr = errors.Join(updateErr, fmt.Errorf("enable chunks in collection %s: %w", collectionName, err))
+				updateErr = errors.Join(
+					updateErr,
+					fmt.Errorf("enable chunks in collection %s: %w", collectionName, err),
+				)
 			}
 		}
 
@@ -575,7 +588,10 @@ func (q *qdrantRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, ch
 			})
 			if err != nil {
 				log.Warnf("[Qdrant] Failed to update disabled chunks in %s: %v", collectionName, err)
-				updateErr = errors.Join(updateErr, fmt.Errorf("disable chunks in collection %s: %w", collectionName, err))
+				updateErr = errors.Join(
+					updateErr,
+					fmt.Errorf("disable chunks in collection %s: %w", collectionName, err),
+				)
 			}
 		}
 	}
@@ -825,8 +841,8 @@ func (q *qdrantRepository) VectorRetrieve(ctx context.Context,
 	var results []*types.IndexWithScore
 	for _, point := range searchResult {
 		payload := point.Payload
-		embedding := &QdrantVectorEmbeddingWithScore{
-			QdrantVectorEmbedding: QdrantVectorEmbedding{
+		embedding := &VectorEmbeddingWithScore{
+			VectorEmbedding: VectorEmbedding{
 				Content:         payload[fieldContent].GetStringValue(),
 				SourceID:        payload[fieldSourceID].GetStringValue(),
 				SourceType:      int(payload[fieldSourceType].GetIntegerValue()),
@@ -867,7 +883,9 @@ func (q *qdrantRepository) KeywordsRetrieve(ctx context.Context,
 	log := logger.GetLogger(ctx)
 	log.Infof("[Qdrant] Performing keywords retrieval with query: %s, topK: %d", params.Query, params.TopK)
 
-	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyQdrantKBScope(params.KnowledgeBaseIDs) {
+	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyQdrantKBScope(
+		params.KnowledgeBaseIDs,
+	) {
 		return buildRetrieveResult(nil, types.KeywordsRetrieverType), nil
 	}
 
@@ -898,7 +916,11 @@ func (q *qdrantRepository) KeywordsRetrieve(ctx context.Context,
 	for _, collectionName := range collections {
 		log.Debugf("[Qdrant] Checking collection: %s", collectionName)
 		if !q.matchesCollectionName(collectionName) {
-			log.Debugf("[Qdrant] Skipping collection %s (doesn't match base name %s)", collectionName, q.collectionBaseName)
+			log.Debugf(
+				"[Qdrant] Skipping collection %s (doesn't match base name %s)",
+				collectionName,
+				q.collectionBaseName,
+			)
 			continue
 		}
 		matchedCollections++
@@ -937,8 +959,8 @@ func (q *qdrantRepository) KeywordsRetrieve(ctx context.Context,
 
 		for _, point := range scrollResult {
 			payload := point.Payload
-			embedding := &QdrantVectorEmbeddingWithScore{
-				QdrantVectorEmbedding: QdrantVectorEmbedding{
+			embedding := &VectorEmbeddingWithScore{
+				VectorEmbedding: VectorEmbedding{
 					Content:         payload[fieldContent].GetStringValue(),
 					SourceID:        payload[fieldSourceID].GetStringValue(),
 					SourceType:      int(payload[fieldSourceType].GetIntegerValue()),
@@ -1030,7 +1052,7 @@ func (q *qdrantRepository) CopyIndices(ctx context.Context,
 	sourceToTargetChunkIDMap map[string]string,
 	targetKnowledgeBaseID string,
 	dimension int,
-	knowledgeType string,
+	_ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	log.Infof(
@@ -1057,7 +1079,7 @@ func (q *qdrantRepository) CopyIndices(ctx context.Context,
 	}
 
 	batchSize := uint32(64)
-	var offset *qdrant.PointId = nil
+	var offset *qdrant.PointId
 	totalCopied := 0
 	seenCursors := make(map[string]struct{})
 
@@ -1123,14 +1145,15 @@ func (q *qdrantRepository) CopyIndices(ctx context.Context,
 			// Generated questions have SourceID format: {chunkID}-{questionID}
 			// Regular chunks have SourceID == ChunkID
 			var targetSourceID string
-			if originalSourceID == sourceChunkID {
+			switch {
+			case originalSourceID == sourceChunkID:
 				// Regular chunk, use targetChunkID as SourceID
 				targetSourceID = targetChunkID
-			} else if strings.HasPrefix(originalSourceID, sourceChunkID+"-") {
+			case strings.HasPrefix(originalSourceID, sourceChunkID+"-"):
 				// This is a generated question, preserve the questionID part
 				questionID := strings.TrimPrefix(originalSourceID, sourceChunkID+"-")
 				targetSourceID = fmt.Sprintf("%s-%s", targetChunkID, questionID)
-			} else {
+			default:
 				// For other complex scenarios, generate new unique SourceID
 				targetSourceID = uuid.New().String()
 			}
@@ -1198,7 +1221,7 @@ func (q *qdrantRepository) CopyIndices(ctx context.Context,
 	return nil
 }
 
-func createPayload(embedding *QdrantVectorEmbedding) map[string]*qdrant.Value {
+func createPayload(embedding *VectorEmbedding) map[string]*qdrant.Value {
 	payload := map[string]any{
 		fieldContent:         embedding.Content,
 		fieldSourceID:        embedding.SourceID,
@@ -1237,7 +1260,7 @@ func buildRetrieveResult(results []*types.IndexWithScore, retrieverType types.Re
 }
 
 // Ref: https://github.com/qdrant/qdrant-sizing-calculator
-func (q *qdrantRepository) calculateStorageSize(embedding *QdrantVectorEmbedding) int64 {
+func (q *qdrantRepository) calculateStorageSize(embedding *VectorEmbedding) int64 {
 	// Payload fields
 	payloadSizeBytes := int64(0)
 	payloadSizeBytes += int64(len(embedding.Content))         // content string
@@ -1248,8 +1271,8 @@ func (q *qdrantRepository) calculateStorageSize(embedding *QdrantVectorEmbedding
 	payloadSizeBytes += 8                                     // source_type int64
 
 	// Vector storage and index
-	var vectorSizeBytes int64 = 0
-	var hnswIndexBytes int64 = 0
+	var vectorSizeBytes int64
+	var hnswIndexBytes int64
 	if embedding.Embedding != nil {
 		dimensions := int64(len(embedding.Embedding))
 		vectorSizeBytes = dimensions * 4
@@ -1270,8 +1293,11 @@ func (q *qdrantRepository) calculateStorageSize(embedding *QdrantVectorEmbedding
 }
 
 // toQdrantVectorEmbedding converts IndexInfo to Qdrant payload format
-func toQdrantVectorEmbedding(embedding *types.IndexInfo, additionalParams map[string]interface{}) *QdrantVectorEmbedding {
-	vector := &QdrantVectorEmbedding{
+func toQdrantVectorEmbedding(
+	embedding *types.IndexInfo,
+	additionalParams map[string]interface{},
+) *VectorEmbedding {
+	vector := &VectorEmbedding{
 		Content:         embedding.Content,
 		SourceID:        embedding.SourceID,
 		SourceType:      int(embedding.SourceType),
@@ -1293,7 +1319,7 @@ func toQdrantVectorEmbedding(embedding *types.IndexInfo, additionalParams map[st
 
 // fromQdrantVectorEmbedding converts Qdrant point to IndexWithScore domain model
 func fromQdrantVectorEmbedding(id string,
-	embedding *QdrantVectorEmbeddingWithScore,
+	embedding *VectorEmbeddingWithScore,
 	matchType types.MatchType,
 ) *types.IndexWithScore {
 	return &types.IndexWithScore{

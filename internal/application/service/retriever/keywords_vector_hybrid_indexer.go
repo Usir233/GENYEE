@@ -155,7 +155,11 @@ func (v *KeywordsVectorHybridRetrieveEngineService) BatchIndex(ctx context.Conte
 // batchEmbedWithBackoff calls BatchEmbedWithPool with exponential backoff on
 // transient failures (200 / 400 / 800 / 1600 / 3200 ms). It returns the last
 // embedding result on success or the last error if every attempt failed.
-func batchEmbedWithBackoff(ctx context.Context, embedder embedding.Embedder, contentList []string) ([][]float32, error) {
+func batchEmbedWithBackoff(
+	ctx context.Context,
+	embedder embedding.Embedder,
+	contentList []string,
+) ([][]float32, error) {
 	delay := embedRetryBaseDelay
 	var (
 		embeddings [][]float32
@@ -322,7 +326,13 @@ func (v *KeywordsVectorHybridRetrieveEngineService) CopyIndices(
 		sourceKnowledgeBaseID, targetKnowledgeBaseID, len(sourceToTargetChunkIDMap),
 	)
 	return v.indexRepository.CopyIndices(
-		ctx, sourceKnowledgeBaseID, sourceToTargetKBIDMap, sourceToTargetChunkIDMap, targetKnowledgeBaseID, dimension, knowledgeType,
+		ctx,
+		sourceKnowledgeBaseID,
+		sourceToTargetKBIDMap,
+		sourceToTargetChunkIDMap,
+		targetKnowledgeBaseID,
+		dimension,
+		knowledgeType,
 	)
 }
 

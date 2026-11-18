@@ -15,6 +15,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/automation"
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/event"
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/google/uuid"
@@ -767,14 +768,22 @@ func (s *AutomationService) closePrompt(ctx context.Context, id, status, reason 
 	if err != nil || !ok {
 		return
 	}
-	state, _ := s.broker.Suspensions().Get(ctx, row.AssistantMessageID)
+	state, getErr := s.broker.Suspensions().Get(ctx, row.AssistantMessageID)
+	if getErr != nil {
+		logger.Warnf(ctx, "Load prompt suspension for %s: %v", id, getErr)
+		return
+	}
 	if state == nil || state.PromptID != id {
 		return
 	}
 	if s.runs != nil {
-		_ = s.runs.Close(ctx, row, state, reason)
+		if closeErr := s.runs.Close(ctx, row, state, reason); closeErr != nil {
+			logger.Warnf(ctx, "Close suspended run for prompt %s: %v", id, closeErr)
+		}
 	}
-	_ = s.broker.Suspensions().Delete(ctx, row.AssistantMessageID, id)
+	if delErr := s.broker.Suspensions().Delete(ctx, row.AssistantMessageID, id); delErr != nil {
+		logger.Warnf(ctx, "Delete suspension for prompt %s: %v", id, delErr)
+	}
 }
 
 // AutomationGrant is a standing grant of an automation, with why it no

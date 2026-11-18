@@ -35,7 +35,10 @@ func (m *tenantRecordingModelService) ListModels(ctx context.Context) ([]*types.
 	return m.stubModelService.ListModels(ctx)
 }
 
-func (m *tenantRecordingModelService) GetEmbeddingModel(ctx context.Context, modelID string) (embedding.Embedder, error) {
+func (m *tenantRecordingModelService) GetEmbeddingModel(
+	ctx context.Context,
+	modelID string,
+) (embedding.Embedder, error) {
 	m.record(ctx, 7)
 	return m.stubModelService.GetEmbeddingModel(ctx, modelID)
 }
@@ -124,7 +127,11 @@ func TestExecutionTenant_ModelLookupsAndScheduledExtractionUseCallerWorkspace(t 
 	var payload types.MemoryExtractPayload
 	require.NoError(t, json.Unmarshal(enqueuer.tasks[0].Payload(), &payload))
 	assert.Equal(t, uint64(7), payload.TenantID)
-	assert.Empty(t, payload.ChatModelID, "foreign workspace chat model ID must not be persisted into caller extraction task")
+	assert.Empty(
+		t,
+		payload.ChatModelID,
+		"foreign workspace chat model ID must not be persisted into caller extraction task",
+	)
 
 	recorder.mu.Lock()
 	seenIDs := append([]uint64(nil), recorder.seenTenantIDs...)

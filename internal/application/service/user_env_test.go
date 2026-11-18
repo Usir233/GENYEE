@@ -433,17 +433,6 @@ func TestSetMineKeepsTheTwoScopesApart(t *testing.T) {
 	require.Len(t, repo.userEnvs, 2)
 }
 
-func userEnvByName(t *testing.T, rows []*types.TenantUserEnvVar, name string) *types.TenantUserEnvVar {
-	t.Helper()
-	for _, row := range rows {
-		if row != nil && row.Name == name && row.SkillID == "sk-ready" {
-			return row
-		}
-	}
-	t.Fatalf("no skill-scoped row for %q (%+v)", name, rows)
-	return nil
-}
-
 func TestCaptureSkillEnvWritesDeclaredNamesForTheSpeaker(t *testing.T) {
 	svc, repo := newUserEnvFixture(t)
 	ctx := userEnvCtx(userEnvTenantID, "alice")
@@ -466,9 +455,9 @@ func TestCaptureSkillEnvSkipsUndeclaredAndReservedNames(t *testing.T) {
 
 	require.NoError(t, svc.CaptureSkillEnv(
 		userEnvCtx(userEnvTenantID, "alice"), "cfg-1", "pdf-tools", map[string]string{
-			"USER_TOKEN":        "keep-me",
-			"INVENTED":          "no",
-			"PATH":              "/bin",
+			"USER_TOKEN":       "keep-me",
+			"INVENTED":         "no",
+			"PATH":             "/bin",
 			"GENYEE_SKILL_DIR": "no",
 		}))
 

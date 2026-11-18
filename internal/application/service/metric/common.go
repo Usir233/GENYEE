@@ -15,25 +15,11 @@ func sum(m map[string]int) int {
 	return s
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func abs(a int) int {
 	if a < 0 {
 		return -a
 	}
 	return a
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func splitSentences(text string) []string {
@@ -77,6 +63,7 @@ func splitIntoWords(sentences []string) []string {
 	return tokens
 }
 
+// ToSet converts a slice into a set keyed by element value.
 func ToSet[T comparable](li []T) map[T]struct{} {
 	res := make(map[T]struct{}, len(li))
 	for _, v := range li {
@@ -85,6 +72,7 @@ func ToSet[T comparable](li []T) map[T]struct{} {
 	return res
 }
 
+// SliceMap transforms each element of li using fn.
 func SliceMap[T any, Y any](li []T, fn func(T) Y) []Y {
 	res := make([]Y, len(li))
 	for i, v := range li {
@@ -111,6 +99,7 @@ func Hit[T comparable](li []T, set map[T]struct{}) int {
 	return count
 }
 
+// Fold reduces slice left-to-right starting from initial using f.
 func Fold[T any, Y any](slice []T, initial Y, f func(Y, T) Y) Y {
 	accumulator := initial
 	for _, item := range slice {

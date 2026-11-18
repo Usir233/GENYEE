@@ -15,7 +15,8 @@ type qdrantRepository struct {
 	initializedCollections sync.Map
 }
 
-type QdrantVectorEmbedding struct {
+// VectorEmbedding represents the Qdrant point payload and vector for an indexed item.
+type VectorEmbedding struct {
 	Content         string    `json:"content"`
 	SourceID        string    `json:"source_id"`
 	SourceType      int       `json:"source_type"`
@@ -27,7 +28,8 @@ type QdrantVectorEmbedding struct {
 	IsEnabled       bool      `json:"is_enabled"`
 }
 
-type QdrantVectorEmbeddingWithScore struct {
-	QdrantVectorEmbedding
+// VectorEmbeddingWithScore wraps VectorEmbedding with a retrieval score.
+type VectorEmbeddingWithScore struct {
+	VectorEmbedding
 	Score float64
 }

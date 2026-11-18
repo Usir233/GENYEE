@@ -14,14 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrChunkRevisionConflict indicates an optimistic revision conflict on chunk updates.
 var ErrChunkRevisionConflict = errors.New("chunk revision conflict")
 
-// ErrChunkNotFound is returned when a chunk lookup finds no row. A typed
-// sentinel (matching the ErrXNotFound convention used by the other repos)
-// so callers can errors.Is it safely through wrapping — replacing the
-// previous bare errors.New("chunk not found") that forced fragile
-// string-equality matching in the service layer.
-var ErrChunkNotFound = errors.New("chunk not found")
+// ErrChunkNotFound is returned when a chunk lookup finds no row.
+var ErrChunkNotFound = types.ErrChunkNotFound
 
 // chunkRepository implements the ChunkRepository interface
 type chunkRepository struct {
@@ -122,7 +119,11 @@ func (r *chunkRepository) GetChunkByIDOnly(ctx context.Context, id string) (*typ
 // GetChunkBySeqID retrieves a chunk by its seq_id and tenant ID
 func (r *chunkRepository) GetChunkBySeqID(ctx context.Context, tenantID uint64, seqID int64) (*types.Chunk, error) {
 	var chunk types.Chunk
-	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND seq_id = ?", tenantID, seqID).First(&chunk).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where(
+		"tenant_id = ? AND seq_id = ?",
+		tenantID,
+		seqID,
+	).First(&chunk).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrChunkNotFound
 		}
@@ -267,41 +268,46 @@ func (r *chunkRepository) ListPagedChunksByKnowledgeID(
 			}
 
 			// FAQ type: search based on searchField
-			// 根据数据库类型使用不同的 JSON 查询语法
-			isPostgres := db.Dialector.Name() == "postgres"
+			isPostgres := db.Name() == "postgres"
 
 			switch searchField {
 			case "standard_question":
-				// Search only in standard_question field of metadata
 				if isPostgres {
 					db = db.Where("metadata->>'standard_question' ILIKE ? ESCAPE ?", like, likeEscapeChar)
 				} else {
-					// MySQL: metadata->>'$.standard_question' (MySQL 5.7.13+)
-					// 也可以用 JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.standard_question'))
-					db = db.Where("metadata->>'$.standard_question' LIKE ? ESCAPE ?", like, likeEscapeChar)
+					db = db.Where(
+						"(CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.standard_question') END) "+
+							"LIKE ? ESCAPE ?",
+						like, likeEscapeChar,
+					)
 				}
 			case "similar_questions":
-				// Search in similar_questions array of metadata
 				if isPostgres {
 					db = db.Where("(metadata->'similar_questions')::text ILIKE ? ESCAPE ?", like, likeEscapeChar)
 				} else {
-					db = db.Where("JSON_EXTRACT(metadata, '$.similar_questions') LIKE ? ESCAPE ?",
-						like, likeEscapeChar)
+					db = db.Where(
+						"(CASE WHEN json_valid(metadata) THEN CAST(json_extract(metadata, '$.similar_questions') AS "+
+							"TEXT) END) "+
+							"LIKE ? ESCAPE ?",
+						like, likeEscapeChar,
+					)
 				}
 			case "answers":
-				// Search in answers array of metadata
 				if isPostgres {
 					db = db.Where("(metadata->'answers')::text ILIKE ? ESCAPE ?", like, likeEscapeChar)
 				} else {
-					db = db.Where("JSON_EXTRACT(metadata, '$.answers') LIKE ? ESCAPE ?", like, likeEscapeChar)
+					db = db.Where(
+						"(CASE WHEN json_valid(metadata) THEN CAST(json_extract(metadata, '$.answers') AS TEXT) END) "+
+							"LIKE ? ESCAPE ?",
+						like, likeEscapeChar,
+					)
 				}
 			default:
-				// Search in all fields (content and metadata)
 				if isPostgres {
 					db = db.Where("(content ILIKE ? ESCAPE ? OR metadata::text ILIKE ? ESCAPE ?)",
 						like, likeEscapeChar, like, likeEscapeChar)
 				} else {
-					db = db.Where("(content LIKE ? ESCAPE ? OR CAST(metadata AS CHAR) LIKE ? ESCAPE ?)",
+					db = db.Where("(content LIKE ? ESCAPE ? OR CAST(metadata AS TEXT) LIKE ? ESCAPE ?)",
 						like, likeEscapeChar, like, likeEscapeChar)
 				}
 			}
@@ -677,23 +683,22 @@ func (r *chunkRepository) DeleteChunk(ctx context.Context, tenantID uint64, id s
 	return r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).Delete(&types.Chunk{}).Error
 }
 
-// DeleteChunks deletes chunks by IDs in batch.
-// To avoid MySQL Error 1390 (too many placeholders), IDs are split into batches.
+// DeleteChunks deletes chunks by IDs in batch inside a single transaction.
 func (r *chunkRepository) DeleteChunks(ctx context.Context, tenantID uint64, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	const batchSize = 5000
-	for i := 0; i < len(ids); i += batchSize {
-		end := i + batchSize
-		if end > len(ids) {
-			end = len(ids)
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for i := 0; i < len(ids); i += batchSize {
+			end := min(i+batchSize, len(ids))
+			if err := tx.Where("tenant_id = ? AND id IN ?", tenantID, ids[i:end]).
+				Delete(&types.Chunk{}).Error; err != nil {
+				return err
+			}
 		}
-		if err := r.db.WithContext(ctx).Where("tenant_id = ? AND id IN ?", tenantID, ids[i:end]).Delete(&types.Chunk{}).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // DeleteChunksByKnowledgeID soft-deletes all active chunks for a knowledge ID.
@@ -788,7 +793,12 @@ func (r *chunkRepository) DeleteByKnowledgeList(ctx context.Context, tenantID ui
 }
 
 // MoveChunksByKnowledgeID updates knowledge_base_id for all chunks of a knowledge item
-func (r *chunkRepository) MoveChunksByKnowledgeID(ctx context.Context, tenantID uint64, knowledgeID string, targetKBID string) error {
+func (r *chunkRepository) MoveChunksByKnowledgeID(
+	ctx context.Context,
+	tenantID uint64,
+	knowledgeID string,
+	targetKBID string,
+) error {
 	return r.db.WithContext(ctx).Model(&types.Chunk{}).
 		Where("tenant_id = ? AND knowledge_id = ?", tenantID, knowledgeID).
 		Updates(map[string]any{"knowledge_base_id": targetKBID, "tag_id": ""}).Error
@@ -796,7 +806,13 @@ func (r *chunkRepository) MoveChunksByKnowledgeID(ctx context.Context, tenantID 
 
 // DeleteChunksByTagID deletes all chunks with the specified tag ID
 // Returns the IDs of deleted chunks for index cleanup
-func (r *chunkRepository) DeleteChunksByTagID(ctx context.Context, tenantID uint64, kbID string, tagID string, excludeIDs []string) ([]string, error) {
+func (r *chunkRepository) DeleteChunksByTagID(
+	ctx context.Context,
+	tenantID uint64,
+	kbID string,
+	tagID string,
+	excludeIDs []string,
+) ([]string, error) {
 	// Build exclude set for O(1) lookup
 	excludeSet := make(map[string]struct{}, len(excludeIDs))
 	for _, id := range excludeIDs {
@@ -1012,9 +1028,9 @@ func (r *chunkRepository) FindFAQChunkWithDuplicateQuestion(
 			questions, questions)
 	default: // sqlite
 		db = db.Where(
-			"(json_extract(metadata, '$.standard_question') IN ? OR EXISTS ("+
+			"((CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.standard_question') END) IN ? OR EXISTS ("+
 				"SELECT 1 FROM json_each("+
-				"CASE WHEN json_extract(metadata, '$.similar_questions') IS NOT NULL "+
+				"CASE WHEN json_valid(metadata) AND json_type(metadata, '$.similar_questions') = 'array' "+
 				"THEN json_extract(metadata, '$.similar_questions') ELSE '[]' END) "+
 				"WHERE value IN ?))",
 			questions, questions)
@@ -1137,7 +1153,7 @@ func (r *chunkRepository) UpdateChunkFlagsBatch(
 	}
 
 	nowFunc := "NOW()"
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		nowFunc = "datetime('now')"
 	}
 	sql := fmt.Sprintf(`
@@ -1421,7 +1437,10 @@ func (r *chunkRepository) ListRecommendedFAQChunks(
 	query := r.db.WithContext(ctx).
 		Select("id, knowledge_id, knowledge_base_id, chunk_type, metadata, flags, updated_at").
 		Where("tenant_id = ? AND chunk_type = ? AND status IN ? AND is_enabled = ? AND flags & ? != 0",
-			tenantID, types.ChunkTypeFAQ, []int{int(types.ChunkStatusIndexed), int(types.ChunkStatusDefault)}, true, int(types.ChunkFlagRecommended))
+			tenantID, types.ChunkTypeFAQ, []int{
+				int(types.ChunkStatusIndexed),
+				int(types.ChunkStatusDefault),
+			}, true, int(types.ChunkFlagRecommended))
 	var scopeClauses []string
 	var scopeArgs []interface{}
 	if len(kbIDs) > 0 {
@@ -1439,7 +1458,7 @@ func (r *chunkRepository) ListRecommendedFAQChunks(
 	query = query.Where("("+strings.Join(scopeClauses, " OR ")+")", scopeArgs...)
 
 	orderClause := "RANDOM()"
-	if r.db.Dialector.Name() == "mysql" {
+	if r.db.Name() == "mysql" {
 		orderClause = "RAND()"
 	}
 
@@ -1475,17 +1494,18 @@ func (r *chunkRepository) ListRecentDocumentChunksWithQuestions(
 		Where("tenant_id = ? AND chunk_type = ? AND status IN ? AND is_enabled = ?",
 			tenantID, types.ChunkTypeText, []int{int(types.ChunkStatusIndexed), int(types.ChunkStatusDefault)}, true)
 
-	if len(kbIDs) > 0 && len(knowledgeIDs) > 0 {
+	switch {
+	case len(kbIDs) > 0 && len(knowledgeIDs) > 0:
 		baseQuery = baseQuery.Where("knowledge_base_id IN ? OR knowledge_id IN ?", kbIDs, knowledgeIDs)
-	} else if len(knowledgeIDs) > 0 {
+	case len(knowledgeIDs) > 0:
 		// 指定了具体知识文档，直接按 knowledge_id 过滤（忽略 kbIDs）
 		baseQuery = baseQuery.Where("knowledge_id IN ?", knowledgeIDs)
-	} else if len(kbIDs) > 0 {
+	case len(kbIDs) > 0:
 		baseQuery = baseQuery.Where("knowledge_base_id IN ?", kbIDs)
 	}
 
 	orderClause := "RANDOM()"
-	if r.db.Dialector.Name() == "mysql" {
+	if r.db.Name() == "mysql" {
 		orderClause = "RAND()"
 	}
 
@@ -1493,7 +1513,10 @@ func (r *chunkRepository) ListRecentDocumentChunksWithQuestions(
 	switch r.db.Name() {
 	case "postgres":
 		if err := baseQuery.
-			Where("metadata IS NOT NULL AND metadata::text != '{}' AND jsonb_array_length(COALESCE(metadata->'generated_questions', '[]'::jsonb)) > 0").
+			Where(
+				"metadata IS NOT NULL AND metadata::text != '{}' AND jsonb_array_length(COALESCE(metadata-" +
+					">'generated_questions', '[]'::jsonb)) > 0",
+			).
 			Order(orderClause).
 			Limit(limit).
 			Find(&chunks).Error; err != nil {
@@ -1509,7 +1532,11 @@ func (r *chunkRepository) ListRecentDocumentChunksWithQuestions(
 		}
 	default: // sqlite
 		if err := baseQuery.
-			Where("metadata IS NOT NULL AND json_array_length(json_extract(metadata, '$.generated_questions')) > 0").
+			Where(
+				"metadata IS NOT NULL AND " +
+					"(CASE WHEN json_valid(metadata) AND json_type(metadata, '$.generated_questions') = 'array' " +
+					"THEN json_array_length(json_extract(metadata, '$.generated_questions')) ELSE 0 END) > 0",
+			).
 			Order(orderClause).
 			Limit(limit).
 			Find(&chunks).Error; err != nil {

@@ -61,7 +61,7 @@ type fakeMilvusCopyService struct {
 	drift int
 	// reads and upserted are the observations the tests assert on.
 	reads    []copyTestRead
-	upserted []MilvusVectorEmbedding
+	upserted []VectorEmbedding
 }
 
 func (s *fakeMilvusCopyService) DescribeCollection(
@@ -83,7 +83,12 @@ func (s *fakeMilvusCopyService) DescribeCollection(
 						{Key: "dim", Value: strconv.Itoa(copyTestDim)},
 					},
 				},
-				{FieldID: 102, Name: fieldContent, DataType: schemapb.DataType_VarChar, TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}}},
+				{
+					FieldID:    102,
+					Name:       fieldContent,
+					DataType:   schemapb.DataType_VarChar,
+					TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}},
+				},
 				{FieldID: 110, Name: fieldLanguage, DataType: schemapb.DataType_VarChar},
 				{FieldID: 103, Name: fieldSourceID, DataType: schemapb.DataType_VarChar},
 				{FieldID: 104, Name: fieldSourceType, DataType: schemapb.DataType_Int64},
@@ -197,7 +202,7 @@ func (s *fakeMilvusCopyService) Upsert(
 	knowledgeIDs := copyTestStringColumn(request, fieldKnowledgeID)
 	knowledgeBaseIDs := copyTestStringColumn(request, fieldKnowledgeBaseID)
 	for i, id := range ids {
-		s.upserted = append(s.upserted, MilvusVectorEmbedding{
+		s.upserted = append(s.upserted, VectorEmbedding{
 			ID:              id,
 			ChunkID:         chunks[i],
 			KnowledgeID:     knowledgeIDs[i],

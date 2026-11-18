@@ -96,12 +96,28 @@ func ossEnsureBucket(client *oss.Client, bucketName string) error {
 
 // NewOssFileService creates an Aliyun OSS file service.
 // It verifies that the bucket exists and creates it if missing.
-func NewOssFileService(endpoint, region, accessKey, secretKey, bucketName, pathPrefix string) (interfaces.FileService, error) {
+func NewOssFileService(
+	endpoint,
+	region,
+	accessKey,
+	secretKey,
+	bucketName,
+	pathPrefix string,
+) (interfaces.FileService, error) {
 	return NewOssFileServiceWithTempBucket(endpoint, region, accessKey, secretKey, bucketName, pathPrefix, "", "")
 }
 
 // NewOssFileServiceWithTempBucket creates an Aliyun OSS file service with optional temp bucket.
-func NewOssFileServiceWithTempBucket(endpoint, region, accessKey, secretKey, bucketName, pathPrefix, tempBucketName, tempRegion string) (interfaces.FileService, error) {
+func NewOssFileServiceWithTempBucket(
+	endpoint,
+	region,
+	accessKey,
+	secretKey,
+	bucketName,
+	pathPrefix,
+	tempBucketName,
+	tempRegion string,
+) (interfaces.FileService, error) {
 	client, err := newOSSClient(endpoint, region, accessKey, secretKey)
 	if err != nil {
 		return nil, err
@@ -207,7 +223,7 @@ func (s *ossFileService) SaveFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	contentType := file.Header.Get("Content-Type")
 	if contentType == "" {
@@ -254,7 +270,13 @@ func (s *ossFileService) SaveFile(ctx context.Context,
 // SaveBytes saves bytes data to OSS.
 // If temp is true and temp bucket is configured, saves to temp bucket.
 // Otherwise saves to main bucket.
-func (s *ossFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+func (s *ossFileService) SaveBytes(
+	ctx context.Context,
+	data []byte,
+	tenantID uint64,
+	fileName string,
+	temp bool,
+) (string, error) {
 	if err := validateTenantID(tenantID); err != nil {
 		return "", err
 	}

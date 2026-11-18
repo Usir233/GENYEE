@@ -17,14 +17,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// ErrWikiPageNotFound is returned when a wiki page is not found
-var ErrWikiPageNotFound = errors.New("wiki page not found")
+// ErrWikiPageNotFound is returned when a wiki page is not found.
+var ErrWikiPageNotFound = types.ErrWikiPageNotFound
 
 // ErrWikiIssueNotFound means no issue with that ID belongs to the knowledge base.
-var ErrWikiIssueNotFound = errors.New("wiki issue not found")
+var ErrWikiIssueNotFound = types.ErrWikiIssueNotFound
 
-// ErrWikiPageConflict is returned when an optimistic lock conflict is detected
-var ErrWikiPageConflict = errors.New("wiki page version conflict")
+// ErrWikiPageConflict is returned when an optimistic lock conflict is detected.
+var ErrWikiPageConflict = types.ErrWikiPageConflict
 
 // wikiPageRepository implements the WikiPageRepository interface
 type wikiPageRepository struct {
@@ -44,10 +44,12 @@ func (r *wikiPageRepository) wikiDialect() string {
 }
 
 func (r *wikiPageRepository) wikiCategoryRankOrder() string {
-	if r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() == "sqlite" {
-		return "CASE WHEN COALESCE(json_array_length(category_path), 0) > 0 THEN 0 ELSE 1 END ASC"
+	if r.db != nil && r.db.Dialector != nil && r.db.Name() == "sqlite" {
+		return "CASE WHEN (CASE WHEN json_valid(category_path) AND json_type(category_path) = 'array' " +
+			"THEN json_array_length(category_path) ELSE 0 END) > 0 THEN 0 ELSE 1 END ASC"
 	}
-	return "CASE WHEN COALESCE(jsonb_array_length(category_path), 0) > 0 THEN 0 ELSE 1 END ASC"
+	return "CASE WHEN (CASE WHEN jsonb_typeof(category_path) = 'array' " +
+		"THEN jsonb_array_length(category_path) ELSE 0 END) > 0 THEN 0 ELSE 1 END ASC"
 }
 
 // wikiPageListSortColumn maps a caller-supplied sort_by to a quoted identifier.
@@ -87,8 +89,9 @@ func (r *wikiPageRepository) applyWikiPageListOrder(query *gorm.DB, sortBy, sort
 }
 
 func (r *wikiPageRepository) wikiEmptyInLinksPredicate() string {
-	if r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() == "sqlite" {
-		return "(in_links IS NULL OR json_array_length(in_links) = 0)"
+	if r.db != nil && r.db.Dialector != nil && r.db.Name() == "sqlite" {
+		return "(in_links IS NULL OR NOT json_valid(in_links) OR " +
+			"json_type(in_links) != 'array' OR json_array_length(in_links) = 0)"
 	}
 	return "(in_links IS NULL OR in_links IN ('[]'::JSONB, 'null'::JSONB))"
 }
@@ -98,6 +101,11 @@ func (r *wikiPageRepository) Create(ctx context.Context, page *types.WikiPage) e
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// An in-flight Wiki worker may finish after the KB cleanup has run.
 		// Serialize the active check and insert against the KB soft-delete.
+		if err := acquireSQLiteWriteLock(
+			tx, &types.KnowledgeBase{}, "id", "id = ? AND tenant_id = ?", page.KnowledgeBaseID, page.TenantID,
+		); err != nil {
+			return err
+		}
 		var kb types.KnowledgeBase
 		err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Select("id").
 			Where("id = ? AND tenant_id = ?", page.KnowledgeBaseID, page.TenantID).
@@ -379,7 +387,10 @@ func (r *wikiPageRepository) GetBySlug(ctx context.Context, kbID string, slug st
 }
 
 // List retrieves wiki pages with filtering and pagination
-func (r *wikiPageRepository) List(ctx context.Context, req *types.WikiPageListRequest) ([]*types.WikiPage, int64, error) {
+func (r *wikiPageRepository) List(
+	ctx context.Context,
+	req *types.WikiPageListRequest,
+) ([]*types.WikiPage, int64, error) {
 	if req == nil {
 		return nil, 0, nil
 	}
@@ -544,7 +555,8 @@ func (r *wikiPageRepository) ListByTypeLight(
 func (r *wikiPageRepository) buildWikiSourceRefPredicate(sourceKnowledgeID string) (string, []interface{}, error) {
 	if r.wikiDialect() == "sqlite" {
 		prefixPattern := escapeLikePattern(sourceKnowledgeID+"|") + "%"
-		clause := "EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(CAST(wiki_pages.source_refs AS TEXT)) THEN CAST(wiki_pages.source_refs AS TEXT) ELSE '[]' END) WHERE value = ? OR value LIKE ? ESCAPE ?)"
+		clause := "EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(CAST(wiki_pages.source_refs AS TEXT)) THEN " +
+			"CAST(wiki_pages.source_refs AS TEXT) ELSE '[]' END) WHERE value = ? OR value LIKE ? ESCAPE ?)"
 		return clause, []interface{}{sourceKnowledgeID, prefixPattern, likeEscapeChar}, nil
 	}
 
@@ -561,12 +573,20 @@ func (r *wikiPageRepository) buildWikiSourceRefPredicate(sourceKnowledgeID strin
 		prefixStr = prefixStr[:len(prefixStr)-1]
 	}
 	likePattern := "%" + escapeLikePattern(prefixStr) + "%"
-	return "(source_refs @> ?::jsonb OR source_refs::text LIKE ? ESCAPE ?)", []interface{}{string(needle), likePattern, likeEscapeChar}, nil
+	return "(source_refs @> ?::jsonb OR source_refs::text LIKE ? ESCAPE ?)", []interface{}{
+		string(needle),
+		likePattern,
+		likeEscapeChar,
+	}, nil
 }
 
 // ListBySourceRef retrieves all wiki pages that reference a given source knowledge ID.
 // Handles both old format ("knowledgeID") and new format ("knowledgeID|title") in source_refs JSON array.
-func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]*types.WikiPage, error) {
+func (r *wikiPageRepository) ListBySourceRef(
+	ctx context.Context,
+	kbID string,
+	sourceKnowledgeID string,
+) ([]*types.WikiPage, error) {
 	pred, predArgs, err := r.buildWikiSourceRefPredicate(sourceKnowledgeID)
 	if err != nil {
 		return nil, err
@@ -591,7 +611,11 @@ func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, s
 // Backed by idx_wiki_pages_source_refs (GIN jsonb_path_ops) for the
 // containment branch and idx_wiki_pages_source_refs_text for the legacy
 // text-LIKE branch — both added in migration 000041.
-func (r *wikiPageRepository) ListSlugsBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]string, error) {
+func (r *wikiPageRepository) ListSlugsBySourceRef(
+	ctx context.Context,
+	kbID string,
+	sourceKnowledgeID string,
+) ([]string, error) {
 	pred, predArgs, err := r.buildWikiSourceRefPredicate(sourceKnowledgeID)
 	if err != nil {
 		return nil, err
@@ -674,15 +698,15 @@ func (r *wikiPageRepository) ListDistinctCategoryPaths(
 // --- Folder tree (wiki_folders) ---
 
 // ErrWikiFolderNotFound is returned when a wiki folder is not found.
-var ErrWikiFolderNotFound = errors.New("wiki folder not found")
+var ErrWikiFolderNotFound = types.ErrWikiFolderNotFound
 
 // ErrWikiFolderConflict is returned when a sibling folder with the same name
 // already exists under the same parent.
-var ErrWikiFolderConflict = errors.New("wiki folder name conflict")
+var ErrWikiFolderConflict = types.ErrWikiFolderConflict
 
 // ErrWikiFolderNotEmpty is returned when a folder still has a live page or
 // child folder at the instant an atomic delete is attempted.
-var ErrWikiFolderNotEmpty = errors.New("wiki folder is not empty")
+var ErrWikiFolderNotEmpty = types.ErrWikiFolderNotEmpty
 
 func (r *wikiPageRepository) CreateFolder(ctx context.Context, folder *types.WikiFolder) error {
 	return r.db.WithContext(ctx).Create(folder).Error
@@ -1214,11 +1238,12 @@ func wikiTrigramJaccard(left, right map[string]struct{}) float64 {
 }
 
 func wikiNormalizedTitleSQL(db *gorm.DB) string {
-	if db != nil && db.Dialector != nil && db.Dialector.Name() == "sqlite" {
+	if db != nil && db.Dialector != nil && db.Name() == "sqlite" {
 		// SQLite has no POSIX [[:space:]]. Strip the common separators that
 		// model formatting drift actually produces; callers still re-check
 		// with the Go identity fold so extras cannot leak through.
-		return "lower(replace(replace(replace(replace(replace(replace(title, ' ', ''), char(9), ''), char(10), ''), char(13), ''), char(160), ''), char(12288), ''))"
+		return "lower(replace(replace(replace(replace(replace(replace(title, ' ', ''), char(9), ''), char(10), ''), " +
+			"char(13), ''), char(160), ''), char(12288), ''))"
 	}
 	return "regexp_replace(lower(title), '[[:space:]]+', '', 'g')"
 }
@@ -1593,7 +1618,12 @@ func (r *wikiPageRepository) CreateIssue(ctx context.Context, issue *types.WikiP
 	return r.db.WithContext(ctx).Create(issue).Error
 }
 
-func (r *wikiPageRepository) ListIssues(ctx context.Context, kbID string, slug string, status string) ([]*types.WikiPageIssue, error) {
+func (r *wikiPageRepository) ListIssues(
+	ctx context.Context,
+	kbID string,
+	slug string,
+	status string,
+) ([]*types.WikiPageIssue, error) {
 	query := r.db.WithContext(ctx).Where("knowledge_base_id = ?", kbID)
 	if slug != "" {
 		query = query.Where("slug = ?", slug)

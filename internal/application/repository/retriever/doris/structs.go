@@ -1,3 +1,4 @@
+// Package doris implements the Apache Doris retrieve engine repository.
 package doris
 
 import (
@@ -46,11 +47,11 @@ type dorisRepository struct {
 	initializedTables sync.Map
 }
 
-// DorisVectorEmbedding 是落到 Doris 表里的一行的领域模型。
+// VectorEmbedding 是落到 Doris 表里的一行的领域模型。
 //
 // 字段顺序与 schema.go 中的 INSERT 列序保持一致，
 // 调整时需要同时更新 createInsert 与 columns。
-type DorisVectorEmbedding struct {
+type VectorEmbedding struct {
 	ID              string
 	Content         string
 	SourceID        string
@@ -63,9 +64,9 @@ type DorisVectorEmbedding struct {
 	Embedding       []float32
 }
 
-// DorisVectorEmbeddingWithScore 是检索结果的领域模型，
+// VectorEmbeddingWithScore 是检索结果的领域模型，
 // Score 在向量检索时按当前 compat mode 计算，在关键词检索时统一赋 1.0。
-type DorisVectorEmbeddingWithScore struct {
-	DorisVectorEmbedding
+type VectorEmbeddingWithScore struct {
+	VectorEmbedding
 	Score float64
 }

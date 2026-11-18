@@ -301,7 +301,11 @@ func TestTenantAPIKeyServiceCreatesPlatformKeyWithoutTenant(t *testing.T) {
 		t.Fatalf("CreateAPIKey returned error: %v", err)
 	}
 	if !created.APIKey.IsPlatform() || created.APIKey.TenantID != nil {
-		t.Fatalf("created key scope = %q tenant=%v, want platform with nil tenant", created.APIKey.ScopeType, created.APIKey.TenantID)
+		t.Fatalf(
+			"created key scope = %q tenant=%v, want platform with nil tenant",
+			created.APIKey.ScopeType,
+			created.APIKey.TenantID,
+		)
 	}
 	if created.APIKey.FullAccess {
 		t.Fatal("platform API key must not be full-access")

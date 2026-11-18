@@ -171,7 +171,11 @@ func (s *customAgentService) GetAgentByID(ctx context.Context, id string) (*type
 }
 
 // GetAgentByIDAndTenant retrieves an agent by ID and tenant (for shared agents; does not resolve built-in)
-func (s *customAgentService) GetAgentByIDAndTenant(ctx context.Context, id string, tenantID uint64) (*types.CustomAgent, error) {
+func (s *customAgentService) GetAgentByIDAndTenant(
+	ctx context.Context,
+	id string,
+	tenantID uint64,
+) (*types.CustomAgent, error) {
 	if id == "" {
 		logger.Error(ctx, "Agent ID is empty")
 		return nil, errors.New("agent ID cannot be empty")
@@ -357,7 +361,11 @@ func (s *customAgentService) checkSharedAgentKBScope(
 }
 
 // updateBuiltinAgent updates a built-in agent's configuration (but not basic info)
-func (s *customAgentService) updateBuiltinAgent(ctx context.Context, agent *types.CustomAgent, tenantID uint64) (*types.CustomAgent, error) {
+func (s *customAgentService) updateBuiltinAgent(
+	ctx context.Context,
+	agent *types.CustomAgent,
+	tenantID uint64,
+) (*types.CustomAgent, error) {
 	// Persist locale-independent display fields (the YAML "default" locale) so
 	// read paths that skip builtin localization see a stable language.
 	defaultAgent := types.GetBuiltinAgent(agent.ID, tenantID)
@@ -773,7 +781,13 @@ func (s *customAgentService) getSuggestedQuestions(
 	// Collect Document chunks with generated questions
 	for groupTenantID, groupKBIDs := range kbGroups {
 		explicitGroupKBIDs := intersectSuggestionStrings(groupKBIDs, queryKBIDs)
-		docChunks, err := s.chunkRepo.ListRecentDocumentChunksWithQuestions(ctx, groupTenantID, explicitGroupKBIDs, queryKnowledgeIDs, fetchLimit)
+		docChunks, err := s.chunkRepo.ListRecentDocumentChunksWithQuestions(
+			ctx,
+			groupTenantID,
+			explicitGroupKBIDs,
+			queryKnowledgeIDs,
+			fetchLimit,
+		)
 		if err != nil {
 			logger.ErrorWithFields(ctx, err, map[string]interface{}{
 				"agent_id":  agentID,
@@ -819,7 +833,12 @@ func (s *customAgentService) getSuggestedQuestions(
 			if len(explicitGroupKBIDs) == 0 {
 				continue
 			}
-			wikiPages, err := s.wikiPageRepo.ListRecentForSuggestions(ctx, groupTenantID, explicitGroupKBIDs, fetchLimit)
+			wikiPages, err := s.wikiPageRepo.ListRecentForSuggestions(
+				ctx,
+				groupTenantID,
+				explicitGroupKBIDs,
+				fetchLimit,
+			)
 			if err != nil {
 				logger.ErrorWithFields(ctx, err, map[string]interface{}{
 					"agent_id":  agentID,
@@ -1033,10 +1052,10 @@ func mergeHybridStarterSuggestions(
 	curatedSlots := limit - knowledgeSlots
 	result := make([]types.SuggestedQuestion, 0, limit)
 	seen := make(map[string]bool, limit)
-	appendFrom := func(items []types.SuggestedQuestion, max int) {
+	appendFrom := func(items []types.SuggestedQuestion, maxItems int) {
 		added := 0
 		for _, item := range items {
-			if len(result) == limit || (max >= 0 && added == max) {
+			if len(result) == limit || (maxItems >= 0 && added == maxItems) {
 				return
 			}
 			key := strings.ToLower(strings.TrimSpace(item.Question))
@@ -1086,7 +1105,10 @@ func mergeUniqueStrings(base, extra []string) []string {
 }
 
 // truncateQuestions truncates the question list to the specified limit
-func (s *customAgentService) truncateQuestions(questions []types.SuggestedQuestion, limit int) []types.SuggestedQuestion {
+func (s *customAgentService) truncateQuestions(
+	questions []types.SuggestedQuestion,
+	limit int,
+) []types.SuggestedQuestion {
 	if len(questions) > limit {
 		return questions[:limit]
 	}

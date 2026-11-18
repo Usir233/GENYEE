@@ -32,7 +32,7 @@ func (p *PluginChatCompletion) ActivationEvents() []types.EventType {
 // OnEvent handles chat completion events
 // It prepares the chat model, messages, and calls the model to generate responses
 func (p *PluginChatCompletion) OnEvent(
-	ctx context.Context, eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	ctx context.Context, _ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	pipelineInfo(ctx, "Completion", "input", map[string]interface{}{
 		"session_id":     chatManage.SessionID,

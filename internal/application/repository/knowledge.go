@@ -13,10 +13,16 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrKnowledgeNotFound = errors.New("knowledge not found")
+// ErrKnowledgeNotFound aliases the canonical knowledge-document not-found sentinel.
+var ErrKnowledgeNotFound = types.ErrKnowledgeNotFound
 
 // likeEscapeChar is the SQL ESCAPE character paired with escapeLikeKeyword.
 const likeEscapeChar = `\`
+
+func sqliteJSONTextField(col, field string) string {
+	escaped := strings.ReplaceAll(field, "'", "''")
+	return "(CASE WHEN json_valid(" + col + ") THEN " + col + "->>'" + escaped + "' END)"
+}
 
 // escapeLikeKeyword escapes SQL LIKE wildcards (%, _) in a keyword
 // so they are treated as literal characters.
@@ -67,7 +73,11 @@ func (r *knowledgeRepository) GetKnowledgeByID(
 	id string,
 ) (*types.Knowledge, error) {
 	var knowledge types.Knowledge
-	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).First(&knowledge).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where(
+		"tenant_id = ? AND id = ?",
+		tenantID,
+		id,
+	).First(&knowledge).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrKnowledgeNotFound
 		}
@@ -450,8 +460,16 @@ func (r *knowledgeRepository) CheckKnowledgeExists(
 	switch params.Type {
 	case "file":
 		if params.DataSourceID != "" && params.ExternalID != "" {
-			query = query.Where("metadata->>'datasource_id' = ? AND metadata->>'external_id' = ?",
-				params.DataSourceID, params.ExternalID)
+			if r.db.Name() == "sqlite" {
+				query = query.Where(
+					sqliteJSONTextField("metadata", "datasource_id")+" = ? AND "+
+						sqliteJSONTextField("metadata", "external_id")+" = ?",
+					params.DataSourceID, params.ExternalID,
+				)
+			} else {
+				query = query.Where("metadata->>'datasource_id' = ? AND metadata->>'external_id' = ?",
+					params.DataSourceID, params.ExternalID)
+			}
 		}
 		// File content is only a duplicate within the same file type. This keeps
 		// same-content documents with distinct formats (for example, .md and
@@ -544,8 +562,8 @@ func (r *knowledgeRepository) CheckKnowledgeExists(
 // avoid collapsing distinct rows into one.
 func (r *knowledgeRepository) AminusB(
 	ctx context.Context,
-	Atenant uint64, A string,
-	Btenant uint64, B string,
+	aTenant uint64, aKBID string,
+	bTenant uint64, bKBID string,
 ) ([]string, error) {
 	type hashRow struct {
 		ID       string
@@ -557,7 +575,7 @@ func (r *knowledgeRepository) AminusB(
 	if err := r.db.WithContext(ctx).
 		Model(&types.Knowledge{}).
 		Select("id, file_hash").
-		Where("tenant_id = ? AND knowledge_base_id = ?", Atenant, A).
+		Where("tenant_id = ? AND knowledge_base_id = ?", aTenant, aKBID).
 		Order("file_hash, created_at, id").
 		Find(&aRows).Error; err != nil {
 		return nil, err
@@ -571,7 +589,7 @@ func (r *knowledgeRepository) AminusB(
 	if err := r.db.WithContext(ctx).
 		Model(&types.Knowledge{}).
 		Select("file_hash, COUNT(*) AS cnt").
-		Where("tenant_id = ? AND knowledge_base_id = ?", Btenant, B).
+		Where("tenant_id = ? AND knowledge_base_id = ?", bTenant, bKBID).
 		Group("file_hash").
 		Find(&bCounts).Error; err != nil {
 		return nil, err
@@ -893,10 +911,14 @@ func (r *knowledgeRepository) FindByMetadataKey(
 	value string,
 ) (*types.Knowledge, error) {
 	var knowledge types.Knowledge
-	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND knowledge_base_id = ? AND deleted_at IS NULL", tenantID, kbID).
-		Where("metadata->>? = ?", key, value).
-		First(&knowledge).Error
+	q := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND knowledge_base_id = ? AND deleted_at IS NULL", tenantID, kbID)
+	if r.db.Name() == "sqlite" {
+		q = q.Where("(CASE WHEN json_valid(metadata) THEN metadata->>? END) = ?", key, value)
+	} else {
+		q = q.Where("metadata->>? = ?", key, value)
+	}
+	err := q.First(&knowledge).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -931,6 +953,9 @@ func (r *knowledgeRepository) FindByMetadataKeyPrefix(
 	// prefix and drives the index. The explicit ESCAPE '\' keeps backslash-escaped
 	// wildcards (e.g. \_) literal on both PostgreSQL and SQLite.
 	keyExpr := "metadata->>'" + strings.ReplaceAll(key, "'", "''") + "'"
+	if r.db.Name() == "sqlite" {
+		keyExpr = sqliteJSONTextField("metadata", key)
+	}
 	err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND knowledge_base_id = ? AND deleted_at IS NULL", tenantID, kbID).
 		Where(keyExpr+" LIKE ? ESCAPE ?", escaped+"%", `\`).
@@ -949,9 +974,14 @@ func (r *knowledgeRepository) FindByDataSourceExternalID(
 	kbID, dataSourceID, externalID string,
 ) (*types.Knowledge, error) {
 	var knowledge types.Knowledge
+	metaPredicate := "metadata->>'datasource_id' = ? AND metadata->>'external_id' = ?"
+	if r.db.Name() == "sqlite" {
+		metaPredicate = sqliteJSONTextField("metadata", "datasource_id") + " = ? AND " +
+			sqliteJSONTextField("metadata", "external_id") + " = ?"
+	}
 	err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND knowledge_base_id = ? AND deleted_at IS NULL", tenantID, kbID).
-		Where("metadata->>'datasource_id' = ? AND metadata->>'external_id' = ?", dataSourceID, externalID).
+		Where(metaPredicate, dataSourceID, externalID).
 		First(&knowledge).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1062,7 +1092,10 @@ func (r *knowledgeRepository) SearchKnowledge(
 	query := r.db.WithContext(ctx).
 		Table("knowledges").
 		Select("knowledges.*, knowledge_bases.name as knowledge_base_name").
-		Joins("JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND knowledge_bases.tenant_id = knowledges.tenant_id AND knowledge_bases.deleted_at IS NULL").
+		Joins(
+			"JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND "+
+				"knowledge_bases.tenant_id = knowledges.tenant_id AND knowledge_bases.deleted_at IS NULL",
+		).
 		Where("knowledges.tenant_id = ?", tenantID).
 		Where("knowledge_bases.type = ?", types.KnowledgeBaseTypeDocument).
 		Where("knowledges.deleted_at IS NULL")
@@ -1108,7 +1141,8 @@ func (r *knowledgeRepository) SearchKnowledge(
 	return knowledges, hasMore, nil
 }
 
-// SearchKnowledgeInScopes searches knowledge items by keyword within the given (tenant_id, kb_id) scopes (e.g. own + shared KBs).
+// SearchKnowledgeInScopes searches knowledge items by keyword within the given (tenant_id, kb_id) scopes (e.g. own +
+// shared KBs).
 func (r *knowledgeRepository) SearchKnowledgeInScopes(
 	ctx context.Context,
 	scopes []types.KnowledgeSearchScope,
@@ -1131,7 +1165,8 @@ func (r *knowledgeRepository) SearchKnowledgeInScopes(
 		placeholders[i] = "(?,?)"
 		args = append(args, s.TenantID, s.KBID)
 	}
-	scopeCondition := "(knowledges.tenant_id, knowledges.knowledge_base_id) IN (" + strings.Join(placeholders, ",") + ")"
+	scopeCondition := "(knowledges.tenant_id, knowledges.knowledge_base_id) IN (" +
+		strings.Join(placeholders, ",") + ")"
 
 	if offset < 0 {
 		offset = 0
@@ -1140,7 +1175,10 @@ func (r *knowledgeRepository) SearchKnowledgeInScopes(
 	query := r.db.WithContext(ctx).
 		Table("knowledges").
 		Select("knowledges.*, knowledge_bases.name as knowledge_base_name").
-		Joins("JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND knowledge_bases.tenant_id = knowledges.tenant_id AND knowledge_bases.deleted_at IS NULL").
+		Joins(
+			"JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND "+
+				"knowledge_bases.tenant_id = knowledges.tenant_id AND knowledge_bases.deleted_at IS NULL",
+		).
 		Where(scopeCondition, args...).
 		Where("knowledge_bases.type = ?", types.KnowledgeBaseTypeDocument).
 		Where("knowledges.deleted_at IS NULL")

@@ -58,9 +58,9 @@ func TestTencentVectorDBFilterEscapingAndEmptyScopeFailClosed(t *testing.T) {
 		injChunk := `chk-1")` + "\n" + ` or 1=1`
 
 		cond := repo.baseFilter(types.RetrieveParams{
-			KnowledgeBaseIDs:    []string{injKB},
-			KnowledgeIDs:        []string{injDoc},
-			ExcludeChunkIDs:     []string{injChunk},
+			KnowledgeBaseIDs: []string{injKB},
+			KnowledgeIDs:     []string{injDoc},
+			ExcludeChunkIDs:  []string{injChunk},
 		}).Cond()
 
 		outside, literals := stripEscapedFilterLiterals(t, cond)
@@ -82,8 +82,19 @@ func TestTencentVectorDBFilterEscapingAndEmptyScopeFailClosed(t *testing.T) {
 	t.Run("Retrieve and baseFilter fail closed on empty or blank KB and Knowledge scope", func(t *testing.T) {
 		for _, params := range []types.RetrieveParams{
 			{RetrieverType: types.VectorRetrieverType, Embedding: []float32{0.1, 0.2}, TopK: 5},
-			{RetrieverType: types.VectorRetrieverType, Embedding: []float32{0.1, 0.2}, KnowledgeBaseIDs: []string{"", "  "}, TopK: 5},
-			{RetrieverType: types.VectorRetrieverType, Embedding: []float32{0.1, 0.2}, KnowledgeBaseIDs: []string{"kb-1"}, TagIDs: []string{"   "}, TopK: 5},
+			{
+				RetrieverType:    types.VectorRetrieverType,
+				Embedding:        []float32{0.1, 0.2},
+				KnowledgeBaseIDs: []string{"", "  "},
+				TopK:             5,
+			},
+			{
+				RetrieverType:    types.VectorRetrieverType,
+				Embedding:        []float32{0.1, 0.2},
+				KnowledgeBaseIDs: []string{"kb-1"},
+				TagIDs:           []string{"   "},
+				TopK:             5,
+			},
 			{RetrieverType: types.KeywordsRetrieverType, Query: "离线交付", TopK: 5},
 			{RetrieverType: types.KeywordsRetrieverType, Query: "离线交付", KnowledgeIDs: []string{"   "}, TopK: 5},
 		} {
@@ -110,8 +121,14 @@ func TestTencentVectorDBFilterEscapingAndEmptyScopeFailClosed(t *testing.T) {
 		// CopyIndices and MoveKnowledgeIndices fail closed on empty KB / knowledge IDs
 		_, err := copySourceQueryParams("", []string{"c1"}, 0)
 		require.Error(t, err, "copySourceQueryParams must not omit knowledge_base_id filter")
-		require.Error(t, repo.CopyIndices(ctx, "", map[string]string{"d1": "d2"}, map[string]string{"c1": "c2"}, "kb-dst", 1024, ""))
-		require.Error(t, repo.CopyIndices(ctx, "kb-src", map[string]string{"d1": "d2"}, map[string]string{"c1": "c2"}, "", 1024, ""))
+		require.Error(
+			t,
+			repo.CopyIndices(ctx, "", map[string]string{"d1": "d2"}, map[string]string{"c1": "c2"}, "kb-dst", 1024, ""),
+		)
+		require.Error(
+			t,
+			repo.CopyIndices(ctx, "kb-src", map[string]string{"d1": "d2"}, map[string]string{"c1": "c2"}, "", 1024, ""),
+		)
 		require.Error(t, repo.MoveKnowledgeIndices(ctx, "", "kb-dst", "doc-1", nil, 1024, ""))
 		require.Error(t, repo.MoveKnowledgeIndices(ctx, "kb-src", "", "doc-1", nil, 1024, ""))
 		require.Error(t, repo.MoveKnowledgeIndices(ctx, "kb-src", "kb-dst", "", nil, 1024, ""))
@@ -123,12 +140,19 @@ func TestTencentVectorDBRedactsCredentialsIsolatesCollectionsAndFiltersQuestions
 	repo := NewTencentVectorDBRetrieveEngineRepository(nil, "", nil).(*repository)
 
 	t.Run("API keys and Bearer headers are redacted from wrapped SDK errors", func(t *testing.T) {
-		rawErr := errors.New(`post http://10.0.0.8:80/document/search: Authorization: Bearer account=root&api_key=sk-live-secret-998877 failed (code: 15202)`)
+		rawErr := errors.New(
+			`post http://10.0.0.8:80/document/search: Authorization: Bearer account=root&api_key=sk-live-secret-` +
+				`998877 failed (code: 15202)`,
+		)
 		safeErr := redactTencentErr(rawErr)
 		require.Error(t, safeErr)
 		assert.NotContains(t, safeErr.Error(), "sk-live-secret-998877")
 		assert.Contains(t, safeErr.Error(), "[REDACTED]")
-		assert.True(t, isCollectionAlreadyExistsErr(safeErr), "error code detection must continue working after redaction")
+		assert.True(
+			t,
+			isCollectionAlreadyExistsErr(safeErr),
+			"error code detection must continue working after redaction",
+		)
 	})
 
 	t.Run("matchesCollection isolates sibling collection prefixes", func(t *testing.T) {

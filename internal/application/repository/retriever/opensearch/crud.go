@@ -385,12 +385,14 @@ func (r *Repository) DeleteByChunkIDList(
 	return r.deleteByList(ctx, chunkIDs, dim, "chunk_id")
 }
 
+// DeleteBySourceIDList removes indexed documents matching sourceIDs.
 func (r *Repository) DeleteBySourceIDList(
 	ctx context.Context, sourceIDs []string, dim int, _ string,
 ) error {
 	return r.deleteByList(ctx, sourceIDs, dim, "source_id")
 }
 
+// DeleteByKnowledgeIDList removes indexed documents matching knowledgeIDs.
 func (r *Repository) DeleteByKnowledgeIDList(
 	ctx context.Context, knowledgeIDs []string, dim int, _ string,
 ) error {

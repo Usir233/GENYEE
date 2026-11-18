@@ -212,7 +212,10 @@ func TestRepositoryAudit_KnowledgeSearchExcludesDeletedKBAndEscapesFileTypeWildc
 
 	seedLikeEscapeKnowledgeBase(t, db, tenantID, activeKB)
 	seedLikeEscapeKnowledgeBase(t, db, tenantID, deletedKB)
-	require.NoError(t, db.Exec(`UPDATE knowledge_bases SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, deletedKB).Error)
+	require.NoError(
+		t,
+		db.Exec(`UPDATE knowledge_bases SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, deletedKB).Error,
+	)
 
 	literalExtID := uuid.New().String()
 	decoyExtID := uuid.New().String()

@@ -35,7 +35,12 @@ func TestAutomationCancellationSurvivesStateTransition(t *testing.T) {
 			if states[1] == types.AutomationRunRunning {
 				require.True(t, actual.CancelRequested, "running worker must observe the cancellation")
 			} else {
-				require.Equal(t, types.AutomationRunCancelled, actual.Status, "queued/waiting work should stop immediately")
+				require.Equal(
+					t,
+					types.AutomationRunCancelled,
+					actual.Status,
+					"queued/waiting work should stop immediately",
+				)
 			}
 		})
 	}
@@ -98,7 +103,12 @@ func TestAutomationRecordAwaitingApprovalFencesCancelRequestedAndClosesPrompt(t 
 
 			prompt, err := f.broker.Store().Get(f.ctx, out.promptID)
 			require.NoError(t, err)
-			require.Equal(t, types.AgentPromptCanceled, prompt.Status, "suspended prompt must be closed when cancellation fence misses")
+			require.Equal(
+				t,
+				types.AgentPromptCanceled,
+				prompt.Status,
+				"suspended prompt must be closed when cancellation fence misses",
+			)
 
 			var notices int64
 			require.NoError(t, f.db.Model(&types.Notification{}).Count(&notices).Error)
@@ -106,8 +116,14 @@ func TestAutomationRecordAwaitingApprovalFencesCancelRequestedAndClosesPrompt(t 
 
 			if deleted {
 				var runs, sessions int64
-				require.NoError(t, f.db.Model(&types.AutomationRun{}).Where("automation_id = ?", a.ID).Count(&runs).Error)
-				require.NoError(t, f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error)
+				require.NoError(
+					t,
+					f.db.Model(&types.AutomationRun{}).Where("automation_id = ?", a.ID).Count(&runs).Error,
+				)
+				require.NoError(
+					t,
+					f.db.Model(&types.Session{}).Where("kind = ?", types.SessionKindAutomation).Count(&sessions).Error,
+				)
 				require.Zero(t, runs, "converged run of deleted automation must be cleaned up")
 				require.Zero(t, sessions, "session of deleted automation must be cleaned up")
 			} else {

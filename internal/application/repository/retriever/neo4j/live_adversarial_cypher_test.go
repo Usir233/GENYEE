@@ -20,7 +20,10 @@ import (
 func TestLive_AdversarialCypherInjectionEngine(t *testing.T) {
 	uri := strings.TrimSpace(os.Getenv("GENYEE_TEST_NEO4J_URI"))
 	if uri == "" {
-		t.Skip("optional integration test: set GENYEE_TEST_NEO4J_URI, GENYEE_TEST_NEO4J_USER and GENYEE_TEST_NEO4J_PASSWORD for an isolated test database")
+		t.Skip(
+			"optional integration test: set GENYEE_TEST_NEO4J_URI, GENYEE_TEST_NEO4J_USER and " +
+				"GENYEE_TEST_NEO4J_PASSWORD for an isolated test database",
+		)
 	}
 	user := strings.TrimSpace(os.Getenv("GENYEE_TEST_NEO4J_USER"))
 	password := os.Getenv("GENYEE_TEST_NEO4J_PASSWORD")
@@ -31,12 +34,12 @@ func TestLive_AdversarialCypherInjectionEngine(t *testing.T) {
 
 	driver, err := neo4j.NewDriver(uri, neo4j.BasicAuth(user, password, ""))
 	require.NoError(t, err)
-	defer driver.Close(ctx)
+	defer func() { _ = driver.Close(ctx) }()
 
 	err = driver.VerifyConnectivity(ctx)
 	require.NoError(t, err)
 
-	repo := &Neo4jRepository{nodePrefix: "ENTITY", driver: driver}
+	repo := &Repository{nodePrefix: "ENTITY", driver: driver}
 
 	adversarialCases := []struct {
 		name        string
@@ -101,7 +104,7 @@ func TestLive_AdversarialCypherInjectionEngine(t *testing.T) {
 	}
 
 	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
-	defer session.Close(ctx)
+	defer func() { _ = session.Close(ctx) }()
 
 	for _, tc := range adversarialCases {
 		t.Run(tc.name, func(t *testing.T) {

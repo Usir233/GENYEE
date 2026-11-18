@@ -396,7 +396,8 @@ func (s *AgentCollaboration) workerContext(ctx context.Context, scope collaborat
 	if err != nil {
 		return nil, err
 	}
-	if tenant == nil || (w3aIsWorkspaceInactiveStatus(tenant.Status) && !user.IsSystemAdmin && !user.CanAccessAllTenants) {
+	if tenant == nil || (w3aIsWorkspaceInactiveStatus(tenant.Status) && !user.IsSystemAdmin &&
+		!user.CanAccessAllTenants) {
 		return nil, errors.New("delegating workspace is unavailable")
 	}
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, scope.TenantID)

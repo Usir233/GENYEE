@@ -27,6 +27,7 @@ type tenantAPIKeyService struct {
 	lastUsedTouch sync.Map // key ID (uint64) -> time.Time of last persisted touch
 }
 
+// NewTenantAPIKeyService creates a TenantAPIKeyService instance.
 func NewTenantAPIKeyService(repo interfaces.TenantAPIKeyRepository) interfaces.TenantAPIKeyService {
 	return &tenantAPIKeyService{repo: repo}
 }

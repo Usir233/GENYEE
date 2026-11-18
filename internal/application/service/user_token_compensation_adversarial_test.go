@@ -71,7 +71,7 @@ func TestAdversarial_Compensation_RealDB_NoTokenLeakOnRefreshTokenFailure(t *tes
 
 	mockRepo := &decoratingTokenRepo{
 		AuthTokenRepository: realTokenRepo,
-		onCreateToken: func(ctx context.Context, token *types.AuthToken) error {
+		onCreateToken: func(_ context.Context, token *types.AuthToken) error {
 			if token.TokenType == "refresh_token" {
 				return errSimulatedRefresh
 			}
@@ -149,7 +149,7 @@ func TestAdversarial_Compensation_ContextCancellationGuarantees(t *testing.T) {
 				cancel()
 				return callCtx.Err() // returns context.Canceled
 			},
-			onRevokeToken: func(callCtx context.Context, id string) error {
+			onRevokeToken: func(callCtx context.Context, _ string) error {
 				capturedRevokeCtx = callCtx
 				capturedRevokeCtxErr = callCtx.Err()
 				return nil
@@ -171,7 +171,12 @@ func TestAdversarial_Compensation_ContextCancellationGuarantees(t *testing.T) {
 		require.NotNil(t, capturedRevokeCtx, "RevokeToken must be called")
 		assert.NoError(t, capturedRevokeCtxErr, "Revoke context must NOT be canceled during RevokeToken call")
 		// Also verify that defer revokeCancel() properly cancels the context after return
-		assert.Equal(t, context.Canceled, capturedRevokeCtx.Err(), "Revoke context should be cleanly canceled by defer revokeCancel on return")
+		assert.Equal(
+			t,
+			context.Canceled,
+			capturedRevokeCtx.Err(),
+			"Revoke context should be cleanly canceled by defer revokeCancel on return",
+		)
 		deadline, hasDeadline := capturedRevokeCtx.Deadline()
 		assert.True(t, hasDeadline, "Revoke context must have a deadline bounded by short timeout")
 		assert.True(t, time.Until(deadline) > 0, "Revoke context deadline must be in the future")
@@ -234,7 +239,7 @@ func TestAdversarial_Compensation_ContextCancellationGuarantees(t *testing.T) {
 			AuthTokenRepository: &mockCompensationTokenRepo{
 				createErrs: []error{nil, errors.New("refresh fail")},
 			},
-			onRevokeToken: func(callCtx context.Context, id string) error {
+			onRevokeToken: func(callCtx context.Context, _ string) error {
 				capturedVal = callCtx.Value(testKey)
 				return nil
 			},
@@ -245,7 +250,12 @@ func TestAdversarial_Compensation_ContextCancellationGuarantees(t *testing.T) {
 
 		_, _, err := svc.GenerateTokens(ctx, user)
 		require.Error(t, err)
-		assert.Equal(t, testVal, capturedVal, "Detached context via context.WithoutCancel must preserve parent context values")
+		assert.Equal(
+			t,
+			testVal,
+			capturedVal,
+			"Detached context via context.WithoutCancel must preserve parent context values",
+		)
 	})
 }
 
@@ -326,7 +336,7 @@ func TestAdversarial_Compensation_ConcurrentFailuresStress(t *testing.T) {
 
 	mockRepo := &decoratingTokenRepo{
 		AuthTokenRepository: realTokenRepo,
-		onCreateToken: func(ctx context.Context, token *types.AuthToken) error {
+		onCreateToken: func(_ context.Context, token *types.AuthToken) error {
 			if token.TokenType == "refresh_token" {
 				return errors.New("concurrent refresh failure injection")
 			}

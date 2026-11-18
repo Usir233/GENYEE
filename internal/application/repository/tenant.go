@@ -24,6 +24,7 @@ func safePaginationOffset(page, pageSize int) int {
 	return int(p * ps)
 }
 
+// Tenant repository sentinel errors.
 var (
 	ErrTenantNotFound         = errors.New("tenant not found")
 	ErrTenantHasKnowledgeBase = errors.New("tenant has associated knowledge bases")
@@ -87,21 +88,28 @@ func (r *tenantRepository) ListTenants(ctx context.Context) ([]*types.Tenant, er
 }
 
 // SearchTenants searches tenants with pagination and filters
-func (r *tenantRepository) SearchTenants(ctx context.Context, keyword string, tenantID uint64, page, pageSize int) ([]*types.Tenant, int64, error) {
+func (r *tenantRepository) SearchTenants(
+	ctx context.Context,
+	keyword string,
+	tenantID uint64,
+	page,
+	pageSize int,
+) ([]*types.Tenant, int64, error) {
 	var tenants []*types.Tenant
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&types.Tenant{})
 
 	// Build search conditions
-	if tenantID > 0 && keyword != "" {
+	switch {
+	case tenantID > 0 && keyword != "":
 		escaped := escapeLikeKeyword(keyword)
 		query = query.Where(
 			"id = ? OR LOWER(name) LIKE LOWER(?) ESCAPE ? OR LOWER(description) LIKE LOWER(?) ESCAPE ?",
 			tenantID, "%"+escaped+"%", likeEscapeChar, "%"+escaped+"%", likeEscapeChar)
-	} else if tenantID > 0 {
+	case tenantID > 0:
 		query = query.Where("id = ?", tenantID)
-	} else if keyword != "" {
+	case keyword != "":
 		escaped := escapeLikeKeyword(keyword)
 		query = query.Where(
 			"LOWER(name) LIKE LOWER(?) ESCAPE ? OR LOWER(description) LIKE LOWER(?) ESCAPE ?",

@@ -158,8 +158,10 @@ func (s *AutomationService) record(ctx context.Context, run *types.AutomationRun
 		if out.promptID != "" {
 			s.closePrompt(ctx, out.promptID, types.AgentPromptCanceled, reason)
 		}
-		_ = owned(s.db.WithContext(ctx).Model(&types.AutomationRun{}).
-			Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning)).Updates(updates).Error
+		if updErr := owned(s.db.WithContext(ctx).Model(&types.AutomationRun{}).
+			Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning)).Updates(updates).Error; updErr != nil {
+			logger.Warnf(ctx, "Record cancelled waiting automation run %s: %v", run.ID, updErr)
+		}
 		ok, err := s.finishRun(ctx, run, running, types.AutomationRunCancelled, reason, ownedCancelled)
 		if err != nil {
 			logger.Warnf(ctx, "Finish cancelled waiting automation run %s: %v", run.ID, err)
@@ -223,13 +225,18 @@ func (s *AutomationService) record(ctx context.Context, run *types.AutomationRun
 				logger.Warnf(ctx, "Clean deleted automation %s after run %s: %v", a.ID, run.ID, cleanErr)
 			}
 		} else if out.pause != "" {
-			_ = s.pause(ctx, a, out.pause)
+			if pauseErr := s.pause(ctx, a, out.pause); pauseErr != nil {
+				logger.Warnf(ctx, "Pause automation %s after run %s: %v", a.ID, run.ID, pauseErr)
+			}
 		}
 	}
 	s.Wake()
 }
 
-func (s *AutomationService) cancellationReason(ctx context.Context, run *types.AutomationRun) (string, *types.Automation) {
+func (s *AutomationService) cancellationReason(
+	ctx context.Context,
+	run *types.AutomationRun,
+) (string, *types.Automation) {
 	a, err := s.automationOf(ctx, run)
 	if err != nil {
 		return "cancelled by the owner", nil
@@ -287,7 +294,8 @@ func (s *AutomationService) ownerContext(ctx context.Context, a *types.Automatio
 	if err != nil {
 		return nil, err
 	}
-	if tenant == nil || (w3aIsWorkspaceInactiveStatus(tenant.Status) && !user.IsSystemAdmin && !user.CanAccessAllTenants) {
+	if tenant == nil || (w3aIsWorkspaceInactiveStatus(tenant.Status) && !user.IsSystemAdmin &&
+		!user.CanAccessAllTenants) {
 		return nil, fmt.Errorf("%w: the workspace is unavailable", errOwnerUnavailable)
 	}
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, a.TenantID)
@@ -402,7 +410,11 @@ func (s *AutomationService) runOnce(ctx context.Context, run *types.AutomationRu
 	}
 	out := s.agentQA(ctx, req, session, answer)
 	if resume != nil && out.status != types.AutomationRunAwaitingApproval {
-		_ = s.broker.Suspensions().Delete(context.WithoutCancel(ctx), answer.ID, resume.Prompt.ID)
+		if delErr := s.broker.Suspensions().Delete(
+			context.WithoutCancel(ctx), answer.ID, resume.Prompt.ID,
+		); delErr != nil {
+			logger.Warnf(ctx, "Delete prompt suspension %s after automation resume: %v", resume.Prompt.ID, delErr)
+		}
 	}
 	if out.status == types.AutomationRunFailed && errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		out.reason = fmt.Sprintf("the run took longer than %s", limit)
@@ -459,7 +471,11 @@ func (s *AutomationService) runSession(
 			}
 			if current.PersistentSessionID != "" {
 				err := tx.Where("id = ? AND tenant_id = ? AND user_id = ? AND kind = ?",
-					current.PersistentSessionID, a.TenantID, a.OwnerUserID, types.SessionKindAutomation).Take(&session).Error
+					current.PersistentSessionID,
+					a.TenantID,
+					a.OwnerUserID,
+					types.SessionKindAutomation,
+				).Take(&session).Error
 				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 					return err
 				}
@@ -602,7 +618,9 @@ func (s *AutomationService) agentQA(
 			}
 		}()
 		if req.Resume != nil {
-			_ = s.streams.ResetEvents(ctx, session.ID, answer.ID)
+			if resetErr := s.streams.ResetEvents(ctx, session.ID, answer.ID); resetErr != nil {
+				logger.Warnf(ctx, "Reset automation stream events for %s: %v", answer.ID, resetErr)
+			}
 		}
 		answer.Content = ""
 		finishStream = s.Events(ctx, session, answer, bus)

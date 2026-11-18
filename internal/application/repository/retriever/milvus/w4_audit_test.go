@@ -67,7 +67,8 @@ func (s *w4MilvusServer) DescribeCollection(
 		if !ok {
 			return &milvuspb.DescribeCollectionResponse{
 				Status: &commonpb.Status{
-					Code:      100,
+					Code: 100,
+					//nolint:staticcheck // Milvus v2 client checks legacy ErrorCode
 					ErrorCode: commonpb.ErrorCode_CollectionNotExists,
 					Reason:    "collection not found",
 				},
@@ -80,7 +81,12 @@ func (s *w4MilvusServer) DescribeCollection(
 			Name: req.GetCollectionName(),
 			Fields: []*schemapb.FieldSchema{
 				{FieldID: 100, Name: fieldID, DataType: schemapb.DataType_VarChar, IsPrimaryKey: true},
-				{FieldID: 101, Name: fieldContent, DataType: schemapb.DataType_VarChar, TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}}},
+				{
+					FieldID:    101,
+					Name:       fieldContent,
+					DataType:   schemapb.DataType_VarChar,
+					TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}},
+				},
 				{FieldID: 103, Name: fieldLanguage, DataType: schemapb.DataType_VarChar},
 				{FieldID: 102, Name: fieldContentSparse, DataType: schemapb.DataType_SparseFloatVector},
 				{FieldID: 104, Name: fieldSourceID, DataType: schemapb.DataType_VarChar},
@@ -90,7 +96,12 @@ func (s *w4MilvusServer) DescribeCollection(
 				{FieldID: 108, Name: fieldKnowledgeBaseID, DataType: schemapb.DataType_VarChar},
 				{FieldID: 109, Name: fieldTagID, DataType: schemapb.DataType_VarChar},
 				{FieldID: 110, Name: fieldIsEnabled, DataType: schemapb.DataType_Bool},
-				{FieldID: 111, Name: fieldEmbedding, DataType: schemapb.DataType_FloatVector, TypeParams: []*commonpb.KeyValuePair{{Key: "dim", Value: "2"}}},
+				{
+					FieldID:    111,
+					Name:       fieldEmbedding,
+					DataType:   schemapb.DataType_FloatVector,
+					TypeParams: []*commonpb.KeyValuePair{{Key: "dim", Value: "2"}},
+				},
 			},
 		},
 	}, nil
@@ -298,7 +309,11 @@ func TestW4MilvusAudit_DeleteEscapesQuotesBackslashesAndRejectsControlChars(t *t
 	require.NoError(t, repo.DeleteBySourceIDList(ctx, []string{`src\1`}, 4, ""))
 
 	require.Len(t, srv.deleteReqs, 3)
-	assert.Equal(t, `chunk_id in ["id\" ] || knowledge_base_id != \"\" || chunk_id in [\"x\\y"]`, srv.deleteReqs[0].GetExpr())
+	assert.Equal(
+		t,
+		`chunk_id in ["id\" ] || knowledge_base_id != \"\" || chunk_id in [\"x\\y"]`,
+		srv.deleteReqs[0].GetExpr(),
+	)
 	assert.Equal(t, `knowledge_id in ["know\"1"]`, srv.deleteReqs[1].GetExpr())
 	assert.Equal(t, `source_id in ["src\\1"]`, srv.deleteReqs[2].GetExpr())
 
@@ -383,7 +398,7 @@ func TestW4MilvusAudit_CollectionNameStrictDigitsAndRetrieveWriteGuards(t *testi
 
 	srv := &w4MilvusServer{
 		collections: []string{"genyee_embeddings_2"},
-		searchFn: func(req *milvuspb.SearchRequest) (*milvuspb.SearchResults, error) {
+		searchFn: func(_ *milvuspb.SearchRequest) (*milvuspb.SearchResults, error) {
 			return &milvuspb.SearchResults{
 				Status: &commonpb.Status{},
 				Results: &schemapb.SearchResultData{
@@ -394,31 +409,75 @@ func TestW4MilvusAudit_CollectionNameStrictDigitsAndRetrieveWriteGuards(t *testi
 					FieldsData: []*schemapb.FieldData{
 						{
 							FieldName: fieldID, Type: schemapb.DataType_VarChar,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_StringData{StringData: &schemapb.StringArray{Data: []string{"r1", "r2"}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_StringData{
+										StringData: &schemapb.StringArray{Data: []string{"r1", "r2"}},
+									},
+								},
+							},
 						},
 						{
 							FieldName: fieldChunkID, Type: schemapb.DataType_VarChar,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_StringData{StringData: &schemapb.StringArray{Data: []string{"chunk-1", "chunk-1"}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_StringData{
+										StringData: &schemapb.StringArray{Data: []string{"chunk-1", "chunk-1"}},
+									},
+								},
+							},
 						},
 						{
 							FieldName: fieldKnowledgeID, Type: schemapb.DataType_VarChar,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_StringData{StringData: &schemapb.StringArray{Data: []string{"doc-1", "doc-1"}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_StringData{
+										StringData: &schemapb.StringArray{Data: []string{"doc-1", "doc-1"}},
+									},
+								},
+							},
 						},
 						{
 							FieldName: fieldKnowledgeBaseID, Type: schemapb.DataType_VarChar,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_StringData{StringData: &schemapb.StringArray{Data: []string{"kb-off", "kb-off"}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_StringData{
+										StringData: &schemapb.StringArray{Data: []string{"kb-off", "kb-off"}},
+									},
+								},
+							},
 						},
 						{
 							FieldName: fieldSourceID, Type: schemapb.DataType_VarChar,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_StringData{StringData: &schemapb.StringArray{Data: []string{"chunk-1-q1", "chunk-1"}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_StringData{
+										StringData: &schemapb.StringArray{Data: []string{"chunk-1-q1", "chunk-1"}},
+									},
+								},
+							},
 						},
 						{
 							FieldName: fieldSourceType, Type: schemapb.DataType_Int64,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_LongData{LongData: &schemapb.LongArray{Data: []int64{0, 0}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_LongData{
+										LongData: &schemapb.LongArray{Data: []int64{0, 0}},
+									},
+								},
+							},
 						},
 						{
 							FieldName: fieldContent, Type: schemapb.DataType_VarChar,
-							Field: &schemapb.FieldData_Scalars{Scalars: &schemapb.ScalarField{Data: &schemapb.ScalarField_StringData{StringData: &schemapb.StringArray{Data: []string{"generated question?", "body text"}}}}},
+							Field: &schemapb.FieldData_Scalars{
+								Scalars: &schemapb.ScalarField{
+									Data: &schemapb.ScalarField_StringData{
+										StringData: &schemapb.StringArray{
+											Data: []string{"generated question?", "body text"},
+										},
+									},
+								},
+							},
 						},
 					},
 				},

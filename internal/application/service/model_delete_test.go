@@ -33,7 +33,11 @@ func (s *stubKBRepoForModelDelete) GetKnowledgeBaseByID(context.Context, string)
 	return nil, nil
 }
 
-func (s *stubKBRepoForModelDelete) GetKnowledgeBaseByIDAndTenant(context.Context, string, uint64) (*types.KnowledgeBase, error) {
+func (s *stubKBRepoForModelDelete) GetKnowledgeBaseByIDAndTenant(
+	context.Context,
+	string,
+	uint64,
+) (*types.KnowledgeBase, error) {
 	return nil, nil
 }
 
@@ -45,7 +49,10 @@ func (s *stubKBRepoForModelDelete) ListKnowledgeBases(context.Context) ([]*types
 	return nil, nil
 }
 
-func (s *stubKBRepoForModelDelete) ListKnowledgeBasesByTenantID(context.Context, uint64) ([]*types.KnowledgeBase, error) {
+func (s *stubKBRepoForModelDelete) ListKnowledgeBasesByTenantID(
+	context.Context,
+	uint64,
+) ([]*types.KnowledgeBase, error) {
 	return nil, nil
 }
 
@@ -99,7 +106,9 @@ func (s *stubAgentRepoForModelDelete) ListAgentsByTenantID(context.Context, uint
 func (s *stubAgentRepoForModelDelete) UpdateAgent(context.Context, *types.CustomAgent) error {
 	return nil
 }
+
 func (s *stubAgentRepoForModelDelete) DeleteAgent(context.Context, string, uint64) error { return nil }
+
 func (s *stubAgentRepoForModelDelete) CountByModelID(context.Context, uint64, string) (int64, error) {
 	if s.count != nil {
 		return *s.count, s.usageErr
@@ -135,7 +144,12 @@ func (s *stubModelRepoForDelete) GetByID(_ context.Context, _ uint64, id string)
 	return nil, nil
 }
 
-func (s *stubModelRepoForDelete) List(context.Context, uint64, types.ModelType, types.ModelSource) ([]*types.Model, error) {
+func (s *stubModelRepoForDelete) List(
+	context.Context,
+	uint64,
+	types.ModelType,
+	types.ModelSource,
+) ([]*types.Model, error) {
 	return nil, nil
 }
 
@@ -338,6 +352,7 @@ func (s *stubTenantServiceForModelDelete) ListTenants(context.Context) ([]*types
 func (s *stubTenantServiceForModelDelete) UpdateTenant(context.Context, *types.Tenant) (*types.Tenant, error) {
 	return nil, nil
 }
+
 func (s *stubTenantServiceForModelDelete) SetChatHistoryConfig(
 	context.Context, uint64, *types.ChatHistoryConfig,
 ) error {
@@ -352,7 +367,13 @@ func (s *stubTenantServiceForModelDelete) BulkSetStorageQuota(context.Context, i
 	return 0, nil
 }
 
-func (s *stubTenantServiceForModelDelete) SearchTenants(context.Context, string, uint64, int, int) ([]*types.Tenant, int64, error) {
+func (s *stubTenantServiceForModelDelete) SearchTenants(
+	context.Context,
+	string,
+	uint64,
+	int,
+	int,
+) ([]*types.Tenant, int64, error) {
 	return nil, 0, nil
 }
 

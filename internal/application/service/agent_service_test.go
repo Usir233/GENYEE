@@ -110,6 +110,7 @@ func (stubSessionFileStore) WriteSessionWorkspaceFile(context.Context, string, s
 func (stubSessionFileStore) WriteSessionWorkspaceFiles(context.Context, string, []sandbox.SessionWorkspaceFile) error {
 	return nil
 }
+
 func (stubSessionFileStore) RemoveSessionInputPath(context.Context, string, string) error { return nil }
 
 func (s *fakeAgentKnowledgeService) ListPagedKnowledgeByKnowledgeBaseID(
@@ -223,7 +224,9 @@ func TestCreateAgentEngineOpensSandboxToolsOnlyForInstallMode(t *testing.T) {
 		require.Nil(t, engine.(*agent.AgentEngine).GetSkillsManager())
 	})
 
-	t.Run("skills disabled without skills or install mode gets no shell or skill tools but keeps file tools", func(t *testing.T) {
+	t.Run("skills disabled without skills or install mode gets no shell or skill tools but keeps file tools", func(
+		t *testing.T,
+	) {
 		chatModel := &fakeAgentChatModel{}
 		svc := &agentService{
 			sandboxResolver: stubSandboxResolver{
@@ -696,7 +699,11 @@ func TestGetKnowledgeBaseInfos_SharedKnowledgeBaseUsesSourceTenant(t *testing.T)
 	}
 	ctx := context.WithValue(context.Background(), types.TenantIDContextKey, receiverTenantID)
 
-	infos, err := service.getKnowledgeBaseInfos(ctx, []string{"shared-kb"}, map[string]uint64{"shared-kb": sourceTenantID})
+	infos, err := service.getKnowledgeBaseInfos(
+		ctx,
+		[]string{"shared-kb"},
+		map[string]uint64{"shared-kb": sourceTenantID},
+	)
 
 	require.NoError(t, err)
 	require.Len(t, infos, 1)
@@ -910,7 +917,7 @@ func TestValidateConfigMaxIterationsUnlimited(t *testing.T) {
 	require.NoError(t, s.ValidateConfig(unset))
 	assert.Equal(t, 5, unset.MaxIterations)
 
-	tooHigh := &types.AgentConfig{MaxIterations: MAX_ITERATIONS + 1}
+	tooHigh := &types.AgentConfig{MaxIterations: MaxAgentIterations + 1}
 	require.Error(t, s.ValidateConfig(tooHigh))
 }
 

@@ -215,7 +215,7 @@ func TestOssEnsureBucket_CreateFails(t *testing.T) {
 }
 
 func TestOssConnectivityRejectsInvalidCredentials(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte("<Error><Code>InvalidAccessKeyId</Code><Message>invalid key</Message></Error>"))
 	}))
@@ -223,10 +223,12 @@ func TestOssConnectivityRejectsInvalidCredentials(t *testing.T) {
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
 	utils.ResetSSRFWhitelistForTest()
 	t.Cleanup(utils.ResetSSRFWhitelistForTest)
-	if err := CheckOssConnectivity(context.Background(), server.URL, "cn-hangzhou", "bad-key", "bad-secret", "bucket"); err == nil {
+	if err := CheckOssConnectivity(
+		context.Background(), server.URL, "cn-hangzhou", "bad-key", "bad-secret", "bucket",
+	); err == nil {
 		t.Fatal("invalid credentials must fail the configuration connectivity check")
 	}
-	client := ossBucketTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := ossBucketTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte("<Error><Code>AccessDenied</Code><Message>denied</Message></Error>"))
 	}))
@@ -253,7 +255,12 @@ func TestOssEnsureBucketConflictRequiresAccess(t *testing.T) {
 					_, _ = w.Write([]byte("<Error><Code>BucketAlreadyExists</Code></Error>"))
 				default:
 					if accessible {
-						_, _ = w.Write([]byte("<AccessControlPolicy><AccessControlList><Grant>private</Grant></AccessControlList></AccessControlPolicy>"))
+						_, _ = w.Write(
+							[]byte(
+								"<AccessControlPolicy><AccessControlList><Grant>private</Grant></" +
+									"AccessControlList></AccessControlPolicy>",
+							),
+						)
 					} else {
 						w.WriteHeader(http.StatusForbidden)
 						_, _ = w.Write([]byte("<Error><Code>AccessDenied</Code></Error>"))
@@ -264,7 +271,8 @@ func TestOssEnsureBucketConflictRequiresAccess(t *testing.T) {
 			if (err == nil) != accessible {
 				t.Fatalf("accessible=%v, got error %v", accessible, err)
 			}
-			if len(methods) != 3 || <-methods != http.MethodGet || <-methods != http.MethodPut || <-methods != http.MethodGet {
+			if len(methods) != 3 || <-methods != http.MethodGet || <-methods != http.MethodPut || <-methods !=
+				http.MethodGet {
 				t.Fatal("expected ACL check, create, then ACL recheck")
 			}
 		})

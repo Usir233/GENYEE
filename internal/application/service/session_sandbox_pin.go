@@ -1,4 +1,4 @@
-// Package service: session -> sandbox config pin.
+// Package service implements application services, including session-to-sandbox config pinning.
 //
 // A session's remote sandbox is long-lived (created with onTimeout=pause, so
 // its TTL pauses rather than destroys it), while the operations around it -

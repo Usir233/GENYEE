@@ -90,7 +90,12 @@ func DispatchEmbedWebhook(ch *types.EmbedChannel, eventType, sessionID string, p
 	if rawSecret := strings.TrimSpace(ch.WebhookSecret); rawSecret != "" {
 		decrypted, decErr := secutils.DecryptStoredSecret(rawSecret)
 		if decErr != nil {
-			logger.Warnf(context.Background(), "[embed_webhook] skip dispatch %s: decrypt webhook secret failed: %v", eventType, decErr)
+			logger.Warnf(
+				context.Background(),
+				"[embed_webhook] skip dispatch %s: decrypt webhook secret failed: %v",
+				eventType,
+				decErr,
+			)
 			return
 		}
 		secret = strings.TrimSpace(decrypted)
@@ -122,7 +127,7 @@ func DispatchEmbedWebhook(ch *types.EmbedChannel, eventType, sessionID string, p
 			logger.Warnf(context.Background(), "[embed_webhook] dispatch %s failed: %v", eventType, err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 		if resp.StatusCode >= 300 {
 			logger.Warnf(context.Background(), "[embed_webhook] dispatch %s HTTP %d", eventType, resp.StatusCode)

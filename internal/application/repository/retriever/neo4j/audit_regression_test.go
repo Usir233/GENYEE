@@ -17,12 +17,12 @@ type recordedCypherCall struct {
 
 type captureTx struct {
 	driver.ManagedTransaction
-	calls       []recordedCypherCall
-	consumed    int
-	records     []*driver.Record
-	runErr      error
-	consumeErr  error
-	failOnCall  int
+	calls      []recordedCypherCall
+	consumed   int
+	records    []*driver.Record
+	runErr     error
+	consumeErr error
+	failOnCall int
 }
 
 func (tx *captureTx) Run(_ context.Context, cypher string, params map[string]any) (driver.Result, error) {
@@ -73,13 +73,21 @@ type captureSession struct {
 	closed      bool
 }
 
-func (s *captureSession) ExecuteWrite(_ context.Context, work driver.ManagedTransactionWork, _ ...func(*driver.TransactionConfig)) (any, error) {
+func (s *captureSession) ExecuteWrite(
+	_ context.Context,
+	work driver.ManagedTransactionWork,
+	_ ...func(*driver.TransactionConfig),
+) (any, error) {
 	v, err := work(s.tx)
 	s.callbackErr = err
 	return v, err
 }
 
-func (s *captureSession) ExecuteRead(_ context.Context, work driver.ManagedTransactionWork, _ ...func(*driver.TransactionConfig)) (any, error) {
+func (s *captureSession) ExecuteRead(
+	_ context.Context,
+	work driver.ManagedTransactionWork,
+	_ ...func(*driver.TransactionConfig),
+) (any, error) {
 	v, err := work(s.tx)
 	s.callbackErr = err
 	return v, err
@@ -238,7 +246,9 @@ func TestNeo4jOperationsFailClosedOnEmptyNamespaceAndEmptySearchTerms(t *testing
 		assert.Empty(t, tx.calls, "mixed valid/invalid namespaces must fail closed before any write")
 	})
 
-	t.Run("SearchNode and SearchGraph reject empty KB and never run CONTAINS empty-string wildcard", func(t *testing.T) {
+	t.Run("SearchNode and SearchGraph reject empty KB and never run CONTAINS empty-string wildcard", func(
+		t *testing.T,
+	) {
 		tx := &captureTx{}
 		sess := &captureSession{tx: tx}
 		drv := &captureDriver{session: sess}

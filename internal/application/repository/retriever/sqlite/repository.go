@@ -50,8 +50,11 @@ type sqliteRepository struct {
 	ftsUnavailable bool
 }
 
+// NewSQLiteRetrieveEngineRepository creates a SQLite retrieve engine repository backed by sqlite-vec and FTS5.
 func NewSQLiteRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineRepository {
-	logger.GetLogger(context.Background()).Info("[SQLite] Initializing SQLite retriever engine repository with sqlite-vec")
+	logger.GetLogger(context.Background()).Info(
+		"[SQLite] Initializing SQLite retriever engine repository with sqlite-vec",
+	)
 
 	if err := db.AutoMigrate(&sqliteEmbedding{}); err != nil {
 		logger.GetLogger(context.Background()).Errorf("[SQLite] Failed to auto-migrate lite_embeddings: %v", err)
@@ -289,7 +292,11 @@ func (r *sqliteRepository) Save(ctx context.Context, indexInfo *types.IndexInfo,
 // content to win; ON CONFLICT DO NOTHING kept the stale row instead, and the
 // skipped rows also shifted the RETURNING ids GORM assigns back to the slice,
 // attaching vectors and FTS entries to the wrong rows.
-func (r *sqliteRepository) BatchSave(ctx context.Context, indexInfoList []*types.IndexInfo, params map[string]any) error {
+func (r *sqliteRepository) BatchSave(
+	ctx context.Context,
+	indexInfoList []*types.IndexInfo,
+	params map[string]any,
+) error {
 	if len(indexInfoList) == 0 {
 		return nil
 	}
@@ -378,7 +385,11 @@ func (r *sqliteRepository) BatchSave(ctx context.Context, indexInfoList []*types
 	})
 }
 
-func (r *sqliteRepository) EstimateStorageSize(_ context.Context, indexInfoList []*types.IndexInfo, _ map[string]any) int64 {
+func (r *sqliteRepository) EstimateStorageSize(
+	_ context.Context,
+	indexInfoList []*types.IndexInfo,
+	_ map[string]any,
+) int64 {
 	var total int64
 	for _, info := range indexInfoList {
 		if info == nil {
@@ -397,7 +408,12 @@ func (r *sqliteRepository) DeleteBySourceIDList(ctx context.Context, sourceIDLis
 	return r.deleteByIDs(ctx, "source_id", sourceIDList)
 }
 
-func (r *sqliteRepository) DeleteByKnowledgeIDList(ctx context.Context, knowledgeIDList []string, _ int, _ string) error {
+func (r *sqliteRepository) DeleteByKnowledgeIDList(
+	ctx context.Context,
+	knowledgeIDList []string,
+	_ int,
+	_ string,
+) error {
 	return r.deleteByIDs(ctx, "knowledge_id", knowledgeIDList)
 }
 
@@ -463,6 +479,14 @@ func (r *sqliteRepository) CopyIndices(ctx context.Context,
 			if !ok || targetKnowledgeID == "" {
 				continue
 			}
+			if src.Dimension > 0 {
+				if err := r.ensureVecTable(src.Dimension); err != nil {
+					copyErrs = append(copyErrs, fmt.Errorf(
+						"[SQLite] CopyIndices: failed to prepare vector table for source %s (chunk %s -> %s): %w",
+						src.SourceID, src.ChunkID, targetChunkID, err))
+					continue
+				}
+			}
 			newRow := sqliteEmbedding{
 				SourceID:        copiedSourceID(src.SourceID, src.ChunkID, targetChunkID),
 				SourceType:      src.SourceType,
@@ -474,25 +498,30 @@ func (r *sqliteRepository) CopyIndices(ctx context.Context,
 				Dimension:       src.Dimension,
 				IsEnabled:       src.IsEnabled,
 			}
-			// The source and target chunk IDs locate the lost row without
-			// quoting its content into the error.
-			if err := r.db.WithContext(ctx).Create(&newRow).Error; err != nil {
-				copyErrs = append(copyErrs, fmt.Errorf(
-					"[SQLite] CopyIndices: failed to copy source %s (chunk %s -> %s): %w",
-					src.SourceID, src.ChunkID, targetChunkID, err))
-				continue
-			}
-			if err := r.syncFTS5Insert(r.db.WithContext(ctx), &newRow); err != nil {
-				copyErrs = append(copyErrs, fmt.Errorf(
-					"[SQLite] CopyIndices: failed to copy keyword index of source %s (chunk %s -> %s): %w",
-					src.SourceID, src.ChunkID, targetChunkID, err))
-			}
-			if src.Dimension > 0 {
-				if err := r.copyVec(ctx, src.ID, newRow.ID, src.Dimension); err != nil {
-					copyErrs = append(copyErrs, fmt.Errorf(
-						"[SQLite] CopyIndices: failed to copy vector of source %s (chunk %s -> %s): %w",
-						src.SourceID, src.ChunkID, targetChunkID, err))
+			// Copy metadata row, keyword index row, and vector row atomically so a
+			// partial failure rolls back instead of leaving half-indexed orphans.
+			err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				if err := tx.Create(&newRow).Error; err != nil {
+					return fmt.Errorf(
+						"[SQLite] CopyIndices: failed to copy source %s (chunk %s -> %s): %w",
+						src.SourceID, src.ChunkID, targetChunkID, err)
 				}
+				if err := r.syncFTS5Insert(tx, &newRow); err != nil {
+					return fmt.Errorf(
+						"[SQLite] CopyIndices: failed to copy keyword index of source %s (chunk %s -> %s): %w",
+						src.SourceID, src.ChunkID, targetChunkID, err)
+				}
+				if src.Dimension > 0 {
+					if err := r.copyVecTx(tx, src.ID, newRow.ID, src.Dimension); err != nil {
+						return fmt.Errorf(
+							"[SQLite] CopyIndices: failed to copy vector of source %s (chunk %s -> %s): %w",
+							src.SourceID, src.ChunkID, targetChunkID, err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				copyErrs = append(copyErrs, err)
 			}
 		}
 	}
@@ -518,23 +547,96 @@ func copiedSourceID(sourceID, sourceChunkID, targetChunkID string) string {
 // attempted (like the Milvus and Qdrant engines do) instead of stopping at the
 // first failure and leaving an arbitrary prefix of the map applied, only to be
 // reported as a blanket failure.
+func (r *sqliteRepository) warnMissingBatchChunks(ctx context.Context, column string, batch []string, affected int64) {
+	if affected == 0 {
+		for _, chunkID := range batch {
+			logger.GetLogger(ctx).Warnf(
+				"[SQLite] update of %s.%s matched 0 rows for chunk %s",
+				sqliteEmbedding{}.TableName(), column, chunkID,
+			)
+		}
+		return
+	}
+	var present []string
+	if err := r.db.WithContext(ctx).Model(&sqliteEmbedding{}).
+		Distinct("chunk_id").
+		Where("chunk_id IN ?", batch).
+		Pluck("chunk_id", &present).Error; err != nil || len(present) == len(batch) {
+		return
+	}
+	seen := make(map[string]struct{}, len(present))
+	for _, id := range present {
+		seen[id] = struct{}{}
+	}
+	for _, chunkID := range batch {
+		if _, ok := seen[chunkID]; !ok {
+			logger.GetLogger(ctx).Warnf(
+				"[SQLite] update of %s.%s matched 0 rows for chunk %s",
+				sqliteEmbedding{}.TableName(), column, chunkID,
+			)
+		}
+	}
+}
+
 func (r *sqliteRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkStatusMap map[string]bool) error {
-	var updateErrs []error
+	if len(chunkStatusMap) == 0 {
+		return nil
+	}
+	byStatus := map[bool][]string{}
 	for chunkID, enabled := range chunkStatusMap {
-		if err := r.updateChunkIndexColumn(ctx, "is_enabled", chunkID, enabled); err != nil {
-			updateErrs = append(updateErrs,
-				fmt.Errorf("[SQLite] failed to update is_enabled for chunk %s: %w", chunkID, err))
+		byStatus[enabled] = append(byStatus[enabled], chunkID)
+	}
+	const batchSize = 500
+	var updateErrs []error
+	for enabled, ids := range byStatus {
+		for start := 0; start < len(ids); start += batchSize {
+			end := min(start+batchSize, len(ids))
+			batch := ids[start:end]
+			res := r.db.WithContext(ctx).Model(&sqliteEmbedding{}).
+				Where("chunk_id IN ?", batch).
+				Update("is_enabled", enabled)
+			if res.Error != nil {
+				for _, chunkID := range batch {
+					if err := r.updateChunkIndexColumn(ctx, "is_enabled", chunkID, enabled); err != nil {
+						updateErrs = append(updateErrs,
+							fmt.Errorf("[SQLite] failed to update is_enabled for chunk %s: %w", chunkID, err))
+					}
+				}
+				continue
+			}
+			r.warnMissingBatchChunks(ctx, "is_enabled", batch, res.RowsAffected)
 		}
 	}
 	return errors.Join(updateErrs...)
 }
 
 func (r *sqliteRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[string]string) error {
-	var updateErrs []error
+	if len(chunkTagMap) == 0 {
+		return nil
+	}
+	byTag := make(map[string][]string)
 	for chunkID, tagID := range chunkTagMap {
-		if err := r.updateChunkIndexColumn(ctx, "tag_id", chunkID, tagID); err != nil {
-			updateErrs = append(updateErrs,
-				fmt.Errorf("[SQLite] failed to update tag_id for chunk %s: %w", chunkID, err))
+		byTag[tagID] = append(byTag[tagID], chunkID)
+	}
+	const batchSize = 500
+	var updateErrs []error
+	for tagID, ids := range byTag {
+		for start := 0; start < len(ids); start += batchSize {
+			end := min(start+batchSize, len(ids))
+			batch := ids[start:end]
+			res := r.db.WithContext(ctx).Model(&sqliteEmbedding{}).
+				Where("chunk_id IN ?", batch).
+				Update("tag_id", tagID)
+			if res.Error != nil {
+				for _, chunkID := range batch {
+					if err := r.updateChunkIndexColumn(ctx, "tag_id", chunkID, tagID); err != nil {
+						updateErrs = append(updateErrs,
+							fmt.Errorf("[SQLite] failed to update tag_id for chunk %s: %w", chunkID, err))
+					}
+				}
+				continue
+			}
+			r.warnMissingBatchChunks(ctx, "tag_id", batch, res.RowsAffected)
 		}
 	}
 	return errors.Join(updateErrs...)
@@ -630,7 +732,10 @@ func (r *sqliteRepository) Retrieve(ctx context.Context, params types.RetrievePa
 }
 
 // --- Keywords retrieval via FTS5 ---
-func (r *sqliteRepository) keywordsRetrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
+func (r *sqliteRepository) keywordsRetrieve(
+	ctx context.Context,
+	params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
 	if params.Query == "" {
 		return nil, nil
 	}
@@ -683,7 +788,12 @@ func (r *sqliteRepository) keywordsRetrieve(ctx context.Context, params types.Re
 		return nil, fmt.Errorf("FTS5 query failed: %w", err)
 	}
 
-	logger.GetLogger(ctx).Infof("[SQLite] keywordsRetrieve: query=%q, ftsQuery=%q, matched=%d rows", params.Query, ftsQuery, len(rows))
+	logger.GetLogger(ctx).Infof(
+		"[SQLite] keywordsRetrieve: query=%q, ftsQuery=%q, matched=%d rows",
+		params.Query,
+		ftsQuery,
+		len(rows),
+	)
 
 	items := make([]*types.IndexWithScore, len(rows))
 	for i, row := range rows {
@@ -716,7 +826,10 @@ func (r *sqliteRepository) keywordsRetrieve(ctx context.Context, params types.Re
 	}}, nil
 }
 
-func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
+func (r *sqliteRepository) vectorRetrieve(
+	ctx context.Context,
+	params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
 	if len(params.Embedding) == 0 {
 		return emptySQLiteRetrieveResult(params.RetrieverType, types.VectorRetrieverType), nil
 	}
@@ -788,7 +901,12 @@ func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.Retr
 		return nil, fmt.Errorf("sqlite-vec query failed: %w", err)
 	}
 
-	logger.GetLogger(ctx).Infof("[SQLite] vectorRetrieve: query_dim=%d, threshold=%.4f, matched=%d rows", dim, params.Threshold, len(rows))
+	logger.GetLogger(ctx).Infof(
+		"[SQLite] vectorRetrieve: query_dim=%d, threshold=%.4f, matched=%d rows",
+		dim,
+		params.Threshold,
+		len(rows),
+	)
 
 	items := make([]*types.IndexWithScore, 0, len(rows))
 
@@ -802,7 +920,8 @@ func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.Retr
 			continue
 		}
 
-		logger.GetLogger(ctx).Infof("[SQLite] vectorRetrieve: #%d chunk_id=%s, distance=%.4f, score=%.4f, content_preview=%.60s",
+		logger.GetLogger(ctx).Infof(
+			"[SQLite] vectorRetrieve: #%d chunk_id=%s, distance=%.4f, score=%.4f, content_preview=%.60s",
 			i+1, v.ChunkID, v.Distance, score, v.Content)
 
 		items = append(items, &types.IndexWithScore{
@@ -879,8 +998,14 @@ func (r *sqliteRepository) insertVec(db *gorm.DB, rowID uint, dim int, emb []flo
 // failure is returned: deleting only the lite_embeddings rows would leave the
 // retrieval indexes holding rows that no longer exist.
 func (r *sqliteRepository) deleteRowsAndVecs(db *gorm.DB, rows []sqliteEmbedding) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	const batchSize = 500
 	dimIDs := make(map[int][]uint)
+	rowIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
+		rowIDs = append(rowIDs, row.ID)
 		if row.Dimension > 0 {
 			dimIDs[row.Dimension] = append(dimIDs[row.Dimension], row.ID)
 		}
@@ -890,32 +1015,31 @@ func (r *sqliteRepository) deleteRowsAndVecs(db *gorm.DB, rows []sqliteEmbedding
 			continue
 		}
 		tbl := vecTableName(dim)
-		for _, id := range ids {
-			if err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE rowid = ?", tbl), id).Error; err != nil {
-				return fmt.Errorf("[SQLite] failed to delete vector row %d from %s: %w", id, tbl, err)
+		for start := 0; start < len(ids); start += batchSize {
+			end := min(start+batchSize, len(ids))
+			if err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE rowid IN ?", tbl), ids[start:end]).Error; err != nil {
+				return fmt.Errorf("[SQLite] failed to delete vector rows from %s: %w", tbl, err)
 			}
 		}
 	}
 	if r.ftsUnavailable {
 		return nil
 	}
-	for _, row := range rows {
-		if err := db.Exec("DELETE FROM lite_embeddings_fts WHERE rowid = ?", row.ID).Error; err != nil {
-			return fmt.Errorf("[SQLite] failed to delete keyword index row %d: %w", row.ID, err)
+	for start := 0; start < len(rowIDs); start += batchSize {
+		end := min(start+batchSize, len(rowIDs))
+		if err := db.Exec("DELETE FROM lite_embeddings_fts WHERE rowid IN ?", rowIDs[start:end]).Error; err != nil {
+			return fmt.Errorf("[SQLite] failed to delete keyword index rows: %w", err)
 		}
 	}
 	return nil
 }
 
-// copyVec duplicates a vector row for a copied chunk. It reports an error when
-// the destination table cannot be prepared or the source row has no vector
-// row, so a clone cannot silently end up without vectors.
-func (r *sqliteRepository) copyVec(ctx context.Context, srcID, dstID uint, dim int) error {
-	if err := r.ensureVecTable(dim); err != nil {
-		return err
-	}
+// copyVecTx duplicates a vector row inside tx for a copied chunk. The vec0
+// table for dim must already exist (ensureVecTable). It reports an error when
+// the source row has no vector row so a clone cannot silently end up without vectors.
+func (r *sqliteRepository) copyVecTx(tx *gorm.DB, srcID, dstID uint, dim int) error {
 	tbl := vecTableName(dim)
-	result := r.db.WithContext(ctx).Exec(fmt.Sprintf(
+	result := tx.Exec(fmt.Sprintf(
 		"INSERT INTO %s(rowid, embedding) SELECT ?, embedding FROM %s WHERE rowid = ?",
 		tbl, tbl,
 	), dstID, srcID)
@@ -1043,15 +1167,16 @@ func tokenizeCJKBigram(text string) string {
 	}
 
 	for _, r := range text {
-		// unicode.Han covers Chinese characters
-		if unicode.Is(unicode.Han, r) {
+		switch {
+		case unicode.Is(unicode.Han, r):
+			// unicode.Han covers Chinese characters
 			flushNonCJK()
 			currentCJK = append(currentCJK, r)
-		} else if unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) || unicode.IsControl(r) {
+		case unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) || unicode.IsControl(r):
 			// Delimiters (including NUL and ASCII/Unicode control characters)
 			flushCJK()
 			flushNonCJK()
-		} else {
+		default:
 			// Alphanumeric or other languages
 			flushCJK()
 			currentNonCJK.WriteRune(r)

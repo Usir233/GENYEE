@@ -1,4 +1,4 @@
-// Package service: session sandbox terminal.
+// Package service implements application services, including session sandbox terminal management.
 //
 // The interactive terminal is a lookup-only entry point into the sandbox
 // bound to a session: it resolves the session's pinned config exactly like
@@ -160,11 +160,11 @@ func (s *SandboxTerminalService) EnsureSessionTerminal(
 		// nothing left to connect to.
 		if errors.Is(terr, sandbox.ErrNoLiveSessionSandbox) {
 			if perr := s.provisionOnManager(ctx, mgr, sessionID); perr == nil {
-				if terminal, retryErr := s.openOnManager(ctx, mgr, sessionID, opts); retryErr == nil {
-					return terminal, nil
-				} else {
-					terr = retryErr
+				retryTerminal, retryErr := s.openOnManager(ctx, mgr, sessionID, opts)
+				if retryErr == nil {
+					return retryTerminal, nil
 				}
+				terr = retryErr
 			}
 		}
 		return nil, terr

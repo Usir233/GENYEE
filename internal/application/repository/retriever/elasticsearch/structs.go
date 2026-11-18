@@ -1,3 +1,4 @@
+// Package elasticsearch provides shared types and helpers for Elasticsearch retriever repositories.
 package elasticsearch
 
 import (
@@ -15,16 +16,16 @@ var urlCredentialsPattern = regexp.MustCompile(`://[^/@\s]+@`)
 
 // VectorEmbedding defines the Elasticsearch document structure for vector embeddings
 type VectorEmbedding struct {
-	Content         string    `json:"content"           gorm:"column:content;not null"`     // Text content of the chunk
-	SourceID        string    `json:"source_id"         gorm:"column:source_id;not null"`   // ID of the source document
-	SourceType      int       `json:"source_type"       gorm:"column:source_type;not null"` // Type of the source document
-	ChunkID         string    `json:"chunk_id"          gorm:"column:chunk_id"`             // Unique ID of the text chunk
-	KnowledgeID     string    `json:"knowledge_id"      gorm:"column:knowledge_id"`         // ID of the knowledge item
-	KnowledgeBaseID string    `json:"knowledge_base_id" gorm:"column:knowledge_base_id"`    // ID of the knowledge base
-	TagID           string    `json:"tag_id"            gorm:"column:tag_id"`               // Tag ID for categorization
-	Embedding       []float32 `json:"embedding,omitempty" gorm:"column:embedding;not null"` // Vector embedding of the content
-	IsEnabled       bool      `json:"is_enabled"`                                           // Whether the chunk is enabled
-	IsRecommended   bool      `json:"is_recommended"`                                       // Whether the chunk is recommended
+	Content         string    `json:"content"             gorm:"column:content;not null"`
+	SourceID        string    `json:"source_id"           gorm:"column:source_id;not null"`
+	SourceType      int       `json:"source_type"         gorm:"column:source_type;not null"`
+	ChunkID         string    `json:"chunk_id"            gorm:"column:chunk_id"`
+	KnowledgeID     string    `json:"knowledge_id"        gorm:"column:knowledge_id"`
+	KnowledgeBaseID string    `json:"knowledge_base_id"   gorm:"column:knowledge_base_id"`
+	TagID           string    `json:"tag_id"              gorm:"column:tag_id"`
+	Embedding       []float32 `json:"embedding,omitempty" gorm:"column:embedding;not null"`
+	IsEnabled       bool      `json:"is_enabled"`
+	IsRecommended   bool      `json:"is_recommended"`
 }
 
 // VectorEmbeddingWithScore extends VectorEmbedding with similarity score

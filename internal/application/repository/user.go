@@ -17,17 +17,17 @@ var (
 	// ErrCannotDisableLastAdmin preserves at least one active system administrator.
 	ErrCannotDisableLastAdmin = errors.New("cannot disable the last system administrator")
 	// ErrUserNotFound indicates that the requested user does not exist.
-	ErrUserNotFound = errors.New("user not found")
+	ErrUserNotFound = types.ErrUserNotFound
 	// ErrUserAlreadyExists indicates a duplicate user account.
 	ErrUserAlreadyExists = errors.New("user already exists")
 	// ErrTokenNotFound indicates that the requested token does not exist.
 	ErrTokenNotFound = errors.New("token not found")
 	// ErrCannotRevokeSelf prevents administrators from revoking their own role.
-	ErrCannotRevokeSelf = errors.New("cannot revoke your own system admin privileges")
+	ErrCannotRevokeSelf = types.ErrCannotRevokeSelf
 	// ErrLastSystemAdmin prevents revoking the last active system administrator's role.
-	ErrLastSystemAdmin = errors.New("cannot revoke the last remaining system administrator")
+	ErrLastSystemAdmin = types.ErrLastSystemAdmin
 	// ErrUserNotSystemAdmin indicates that the user has no system-admin role to revoke.
-	ErrUserNotSystemAdmin = errors.New("user is not a system administrator")
+	ErrUserNotSystemAdmin = types.ErrUserNotSystemAdmin
 )
 
 // userRepository implements user repository interface
@@ -112,7 +112,10 @@ func (r *userRepository) GetUserByUsername(ctx context.Context, username string)
 // GetUserByTenantID gets the first user (owner) of a tenant
 func (r *userRepository) GetUserByTenantID(ctx context.Context, tenantID uint64) (*types.User, error) {
 	var user types.User
-	if err := r.db.WithContext(ctx).Where("tenant_id = ?", tenantID).Order("created_at ASC").First(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where(
+		"tenant_id = ?",
+		tenantID,
+	).Order("created_at ASC").First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
 		}
@@ -526,7 +529,9 @@ func lockAuthUser(tx *gorm.DB, userID string) error {
 // user lock. A service-layer validation alone can become stale before commit.
 func consumeLiveToken(tx *gorm.DB, token *types.AuthToken, tokenType string) error {
 	result := tx.Model(&types.AuthToken{}).
-		Where("id = ? AND user_id = ? AND session_id = ? AND token = ? AND token_type = ? AND is_revoked = ? AND expires_at > ?",
+		Where(
+			"id = ? AND user_id = ? AND session_id = ? AND token = ? AND token_type = ? AND is_revoked = ? AND "+
+				"expires_at > ?",
 			token.ID, token.UserID, token.SessionID, token.Token, tokenType, false, time.Now()).
 		Updates(map[string]interface{}{"is_revoked": true, "updated_at": time.Now()})
 	if result.Error != nil {
@@ -546,7 +551,12 @@ func validSessionToken(token *types.AuthToken, tokenType string) bool {
 // RotateRefreshToken commits consumption and the replacement pair together.
 // Logout takes the same lock, so it either revokes the newly issued pair or
 // wins first and causes this transaction to reject its revoked source token.
-func (r *authTokenRepository) RotateRefreshToken(ctx context.Context, previous, access, refresh *types.AuthToken) error {
+func (r *authTokenRepository) RotateRefreshToken(
+	ctx context.Context,
+	previous,
+	access,
+	refresh *types.AuthToken,
+) error {
 	if !validSessionToken(previous, "refresh_token") ||
 		!validSessionToken(access, "access_token") || !validSessionToken(refresh, "refresh_token") ||
 		previous.UserID != access.UserID || previous.UserID != refresh.UserID ||
@@ -591,7 +601,11 @@ func (r *authTokenRepository) RevokeTokenSession(ctx context.Context, access *ty
 // login session without issuing a refresh token or starting a new session.
 // Under lockAuthUser it re-verifies that currentAccess is still live so a
 // concurrent Logout or SetUserActive(false) cannot leave a usable token behind.
-func (r *authTokenRepository) IssueSessionAccessToken(ctx context.Context, currentAccess, replacementAccess *types.AuthToken) error {
+func (r *authTokenRepository) IssueSessionAccessToken(
+	ctx context.Context,
+	currentAccess,
+	replacementAccess *types.AuthToken,
+) error {
 	if !validSessionToken(currentAccess, "access_token") ||
 		!validSessionToken(replacementAccess, "access_token") ||
 		currentAccess.UserID != replacementAccess.UserID ||
@@ -606,8 +620,17 @@ func (r *authTokenRepository) IssueSessionAccessToken(ctx context.Context, curre
 		}
 		var liveCount int64
 		if err := tx.Model(&types.AuthToken{}).
-			Where("id = ? AND user_id = ? AND session_id = ? AND token = ? AND token_type = ? AND is_revoked = ? AND expires_at > ?",
-				currentAccess.ID, currentAccess.UserID, currentAccess.SessionID, currentAccess.Token, "access_token", false, time.Now()).
+			Where(
+				"id = ? AND user_id = ? AND session_id = ? AND token = ? AND token_type = ? AND is_revoked = ? AND "+
+					"expires_at > ?",
+				currentAccess.ID,
+				currentAccess.UserID,
+				currentAccess.SessionID,
+				currentAccess.Token,
+				"access_token",
+				false,
+				time.Now(),
+			).
 			Count(&liveCount).Error; err != nil {
 			return err
 		}

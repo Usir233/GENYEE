@@ -721,11 +721,7 @@ func (s *sessionService) BatchDeleteSessions(ctx context.Context, ids []string) 
 		return err
 	}
 	if s.suggestionRepo != nil {
-		for _, id := range visibleIDs {
-			if err := s.suggestionRepo.DeleteBySessionID(ctx, tenantID, id); err != nil {
-				logger.Warnf(ctx, "Failed to delete suggestions for session %s: %v", id, err)
-			}
-		}
+		s.deleteSessionSuggestionsBatch(ctx, tenantID, visibleIDs)
 	}
 
 	s.releaseForkSnapshots(ctx, visible)
@@ -737,6 +733,28 @@ func (s *sessionService) BatchDeleteSessions(ctx context.Context, ids []string) 
 }
 
 // DeleteAllSessions deletes all sessions for the current tenant
+func (s *sessionService) deleteSessionSuggestionsBatch(
+	ctx context.Context, tenantID uint64, sessionIDs []string,
+) {
+	if s.suggestionRepo == nil || len(sessionIDs) == 0 {
+		return
+	}
+	type batchSessionSuggestionDeleter interface {
+		DeleteBySessionIDs(ctx context.Context, tenantID uint64, sessionIDs []string) error
+	}
+	if batcher, ok := s.suggestionRepo.(batchSessionSuggestionDeleter); ok {
+		if err := batcher.DeleteBySessionIDs(ctx, tenantID, sessionIDs); err != nil {
+			logger.Warnf(ctx, "Failed to batch delete suggestions for %d sessions: %v", len(sessionIDs), err)
+		}
+		return
+	}
+	for _, id := range sessionIDs {
+		if err := s.suggestionRepo.DeleteBySessionID(ctx, tenantID, id); err != nil {
+			logger.Warnf(ctx, "Failed to delete suggestions for session %s: %v", id, err)
+		}
+	}
+}
+
 func (s *sessionService) DeleteAllSessions(ctx context.Context) (deleteErr error) {
 	tenantID := types.MustTenantIDFromContext(ctx)
 	userID := sessionUserIDFromContext(ctx)
@@ -810,14 +828,7 @@ func (s *sessionService) DeleteAllSessions(ctx context.Context) (deleteErr error
 		return err
 	}
 	if s.suggestionRepo != nil {
-		for _, session := range sessions {
-			if session == nil || session.ID == "" {
-				continue
-			}
-			if err := s.suggestionRepo.DeleteBySessionID(ctx, tenantID, session.ID); err != nil {
-				logger.Warnf(ctx, "Failed to delete suggestions for session %s: %v", session.ID, err)
-			}
-		}
+		s.deleteSessionSuggestionsBatch(ctx, tenantID, ids)
 	}
 
 	s.releaseForkSnapshots(ctx, sessions)
@@ -1110,9 +1121,11 @@ func (s *sessionService) GenerateTitle(ctx context.Context,
 	}
 
 	// Prepare messages for title generation
-	titlePrompt := types.RenderPromptPlaceholders(s.cfg.Conversation.GenerateSessionTitlePrompt, types.PlaceholderValues{
-		"language": types.LanguageNameFromContext(ctx),
-	})
+	titlePrompt := types.RenderPromptPlaceholders(
+		s.cfg.Conversation.GenerateSessionTitlePrompt,
+		types.PlaceholderValues{
+			"language": types.LanguageNameFromContext(ctx),
+		})
 	chatMessages := buildSessionTitleMessages(titlePrompt, message.Content)
 
 	// Call model to generate title
@@ -1221,7 +1234,12 @@ func (s *sessionService) GenerateTitleAsync(
 					"session_id": cloned.ID,
 				})
 			} else {
-				logger.Infof(bgCtx, "Title update event emitted successfully, session ID: %s, title: %s", cloned.ID, title)
+				logger.Infof(
+					bgCtx,
+					"Title update event emitted successfully, session ID: %s, title: %s",
+					cloned.ID,
+					title,
+				)
 			}
 		}
 	}()

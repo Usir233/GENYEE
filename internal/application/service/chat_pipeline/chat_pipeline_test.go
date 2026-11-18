@@ -16,8 +16,8 @@ type testPlugin struct {
 	errorToReturn *PluginError
 }
 
-func (p *testPlugin) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+func (p *testPlugin) OnEvent(_ context.Context,
+	_ types.EventType, _ *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	if p.shouldError {
 		return p.errorToReturn

@@ -140,7 +140,12 @@ func (r *resourceRepository) CreateBinding(ctx context.Context, binding *types.R
 				return err
 			}
 			var parent types.StoredResource
-			if err := tx.Where("handle = ? AND tenant_id = ? AND state = ?", handle, binding.TenantID, types.ResourceStateActive).
+			if err := tx.Where(
+				"handle = ? AND tenant_id = ? AND state = ?",
+				handle,
+				binding.TenantID,
+				types.ResourceStateActive,
+			).
 				First(&parent).Error; err != nil {
 				return err
 			}
@@ -199,7 +204,9 @@ func (r *resourceRepository) ClaimUnboundDeletion(ctx context.Context, handle st
 				}
 			}
 			if err := tx.Model(&types.StoredResource{}).Where("id = ?", resource.ID).
-				Updates(map[string]interface{}{"state": types.ResourceStateDeleted, "deleted_at": time.Now()}).Error; err != nil {
+				Updates(
+					map[string]interface{}{"state": types.ResourceStateDeleted, "deleted_at": time.Now()},
+				).Error; err != nil {
 				return err
 			}
 		}
@@ -234,7 +241,12 @@ func (r *resourceRepository) ReleaseDeletionDependent(ctx context.Context, handl
 
 // ReleaseBindingByHandle includes tombstones so a failed physical deletion can
 // be retried through the same owner-release API after its first attempt.
-func (r *resourceRepository) ReleaseBindingByHandle(ctx context.Context, handle, ownerType, ownerID string) (int64, error) {
+func (r *resourceRepository) ReleaseBindingByHandle(
+	ctx context.Context,
+	handle,
+	ownerType,
+	ownerID string,
+) (int64, error) {
 	var resource types.StoredResource
 	if err := r.db.WithContext(ctx).Unscoped().Where("handle = ?", handle).First(&resource).Error; err != nil {
 		return -1, err

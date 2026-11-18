@@ -29,6 +29,7 @@ type PluginSearch struct {
 	webSearchProviderRepo interfaces.WebSearchProviderRepository
 }
 
+// NewPluginSearch creates a new PluginSearch and registers it with eventManager.
 func NewPluginSearch(eventManager *EventManager,
 	knowledgeBaseService interfaces.KnowledgeBaseService,
 	knowledgeService interfaces.KnowledgeService,
@@ -62,7 +63,7 @@ func (p *PluginSearch) ActivationEvents() []types.EventType {
 
 // OnEvent handles search events in the chat pipeline
 func (p *PluginSearch) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	// Check if we have search targets or web search enabled
 	hasKBTargets := types.HasKnowledgeRetrievalScope(
@@ -576,7 +577,9 @@ func (p *PluginSearch) searchByTargets(
 							searchableTargets = append(searchableTargets, target)
 							continue
 						}
-						recordError(fmt.Errorf("knowledge base %s has no keyword fallback: %w", target.KnowledgeBaseID, err))
+						recordError(
+							fmt.Errorf("knowledge base %s has no keyword fallback: %w", target.KnowledgeBaseID, err),
+						)
 					}
 					pipelineWarn(ctx, "Search", "group_embed_degrade_keyword", map[string]interface{}{
 						"model_key":        modelKey,

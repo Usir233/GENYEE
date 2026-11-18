@@ -1,3 +1,4 @@
+// Package retriever provides composite and hybrid retrieval engine services and registries.
 package retriever
 
 import (
@@ -14,7 +15,12 @@ type batchNoopEngine struct {
 	fakeEngine
 }
 
-func (b *batchNoopEngine) BatchIndex(_ context.Context, _ embedding.Embedder, _ []*types.IndexInfo, _ []types.RetrieverType) error {
+func (b *batchNoopEngine) BatchIndex(
+	_ context.Context,
+	_ embedding.Embedder,
+	_ []*types.IndexInfo,
+	_ []types.RetrieverType,
+) error {
 	return nil
 }
 
@@ -43,7 +49,12 @@ func TestFactoryAndOwnership_FailClosedOnZeroTenantBlankStoreNilDepsAndTypedNilT
 
 	blankStore := "   "
 	_, err = CreateRetrieveEngineForKB(ctx, registry, ownership, 1, &blankStore)
-	assert.ErrorIs(t, err, ErrVectorStoreForbidden, "whitespace storeID must not bypass unbound normalization into GetOrLoad")
+	assert.ErrorIs(
+		t,
+		err,
+		ErrVectorStoreForbidden,
+		"whitespace storeID must not bypass unbound normalization into GetOrLoad",
+	)
 
 	ownedBy1 := &fakeOwnership{owned: map[string]uint64{"store-A": 1}}
 	require.NotPanics(t, func() {

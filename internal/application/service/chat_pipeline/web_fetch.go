@@ -38,7 +38,7 @@ func (p *PluginWebFetch) ActivationEvents() []types.EventType {
 // OnEvent handles the WEB_FETCH event
 func (p *PluginWebFetch) OnEvent(
 	ctx context.Context,
-	eventType types.EventType,
+	_ types.EventType,
 	chatManage *types.ChatManage,
 	next func() *PluginError,
 ) *PluginError {

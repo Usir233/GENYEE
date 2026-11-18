@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
-
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -346,7 +345,7 @@ func loadParquet[T any](filePath string) ([]T, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	info, err := f.Stat()
 	if err != nil {
 		return nil, err
@@ -375,7 +374,7 @@ func loadParquet[T any](filePath string) ([]T, error) {
 	// null IDs must not be projected to valid zero IDs either. Scan in bounded
 	// batches before projecting into non-nullable Go fields.
 	reader := parquet.NewReader(file)
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	rows := make([]parquet.Row, 64)
 	for {
 		n, err := reader.ReadRows(rows)

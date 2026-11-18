@@ -14,7 +14,7 @@ import (
 // 1. Every label starts with ` and ends with `
 // 2. Colons separating labels only occur OUTSIDE backticks
 // 3. No unquoted characters exist outside backticks except the separating colons
-// 4. Any backtick inside a quoted label is properly escaped as ``
+// 4. Any backtick inside a quoted label is properly escaped as “
 func parseCypherLabels(t *testing.T, labelExpr string) []string {
 	var tokens []string
 	var current strings.Builder
@@ -44,14 +44,15 @@ func parseCypherLabels(t *testing.T, labelExpr string) []string {
 			current.WriteRune(ch)
 			i++
 		} else {
-			if ch == '`' {
+			switch ch {
+			case '`':
 				inBackticks = true
 				current.WriteRune('`')
 				i++
-			} else if ch == ':' {
+			case ':':
 				// Colon outside backtick separates labels
 				i++
-			} else {
+			default:
 				t.Fatalf("Syntax error: unquoted character %q outside backticks in labelExpr: %s", ch, labelExpr)
 			}
 		}
@@ -64,7 +65,7 @@ func parseCypherLabels(t *testing.T, labelExpr string) []string {
 // TestBE01_AdversarialCypherLabelInjection stress-tests Neo4j label construction
 // against a wide array of adversarial injection payloads.
 func TestBE01_AdversarialCypherLabelInjection(t *testing.T) {
-	repo := &Neo4jRepository{nodePrefix: "ENTITY"}
+	repo := &Repository{nodePrefix: "ENTITY"}
 
 	adversarialPayloads := []struct {
 		name        string
@@ -169,7 +170,11 @@ func TestBE01_AdversarialCypherLabelInjection(t *testing.T) {
 				inner := part[1 : len(part)-1]
 				remainingBackticks := strings.ReplaceAll(inner, "``", "")
 				assert.False(t, strings.Contains(remainingBackticks, "`"),
-					"Unescaped single backtick found in label part %d: %s (from payload: %s)", idx, part, tc.description)
+					"Unescaped single backtick found in label part %d: %s (from payload: %s)",
+					idx,
+					part,
+					tc.description,
+				)
 			}
 
 			// 2. Test query generation in graphSearchCypher
@@ -188,7 +193,7 @@ func TestBE01_AdversarialCypherLabelInjection(t *testing.T) {
 
 // TestBE01_ApocPeriodicIterateDelGraphStringEscaping tests DelGraph query string interpolation
 func TestBE01_ApocPeriodicIterateDelGraphStringEscaping(t *testing.T) {
-	repo := &Neo4jRepository{nodePrefix: "ENTITY"}
+	repo := &Repository{nodePrefix: "ENTITY"}
 
 	maliciousNS := types.NameSpace{
 		KnowledgeBase: `test" {kg: ""}) DETACH DELETE n; //`,

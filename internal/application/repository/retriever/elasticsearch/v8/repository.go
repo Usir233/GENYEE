@@ -32,7 +32,7 @@ type elasticsearchRepository struct {
 // NewElasticsearchEngineRepository creates and initializes a new Elasticsearch v8 repository.
 // indexCfg is optional — pass nil to use env var / default values (env path).
 func NewElasticsearchEngineRepository(client *elasticsearch.TypedClient,
-	config *config.Config,
+	_ *config.Config,
 	indexCfg *typesLocal.IndexConfig,
 ) interfaces.RetrieveEngineRepository {
 	log := logger.GetLogger(context.Background())
@@ -121,7 +121,7 @@ func (e *elasticsearchRepository) calculateStorageSize(embedding *elasticsearchR
 	contentSizeBytes := int64(len(embedding.Content))
 
 	// 2. Vector embedding size
-	var vectorSizeBytes int64 = 0
+	var vectorSizeBytes int64
 	if embedding.Embedding != nil {
 		// 4 bytes per dimension (full precision float)
 		vectorSizeBytes = int64(len(embedding.Embedding) * 4)
@@ -143,7 +143,7 @@ func (e *elasticsearchRepository) calculateStorageSize(embedding *elasticsearchR
 func (e *elasticsearchRepository) EstimateStorageSize(ctx context.Context,
 	indexInfoList []*typesLocal.IndexInfo, params map[string]any,
 ) int64 {
-	var totalStorageSize int64 = 0
+	var totalStorageSize int64
 	for _, embedding := range indexInfoList {
 		embeddingDB := elasticsearchRetriever.ToDBVectorEmbedding(embedding, params)
 		totalStorageSize += e.calculateStorageSize(embeddingDB)
@@ -323,20 +323,24 @@ func (e *elasticsearchRepository) deleteByFieldListV8(ctx context.Context, field
 
 // DeleteByChunkIDList removes documents from the index based on chunk IDs
 // Returns an error if the delete operation fails
-func (e *elasticsearchRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+func (e *elasticsearchRepository) DeleteByChunkIDList(
+	ctx context.Context, chunkIDList []string, _ int, _ string,
+) error {
 	return e.deleteByFieldListV8(ctx, e.idField("chunk_id"), chunkIDList)
 }
 
 // DeleteBySourceIDList removes documents from the index based on source IDs
 // Returns an error if the delete operation fails
-func (e *elasticsearchRepository) DeleteBySourceIDList(ctx context.Context, sourceIDList []string, dimension int, knowledgeType string) error {
+func (e *elasticsearchRepository) DeleteBySourceIDList(
+	ctx context.Context, sourceIDList []string, _ int, _ string,
+) error {
 	return e.deleteByFieldListV8(ctx, e.idField("source_id"), sourceIDList)
 }
 
 // DeleteByKnowledgeIDList removes documents from the index based on knowledge IDs
 // Returns an error if the delete operation fails
 func (e *elasticsearchRepository) DeleteByKnowledgeIDList(ctx context.Context,
-	knowledgeIDList []string, dimension int, knowledgeType string,
+	knowledgeIDList []string, _ int, _ string,
 ) error {
 	return e.deleteByFieldListV8(ctx, e.idField("knowledge_id"), knowledgeIDList)
 }
@@ -674,8 +678,8 @@ func (e *elasticsearchRepository) CopyIndices(ctx context.Context,
 	sourceToTargetKBIDMap map[string]string,
 	sourceToTargetChunkIDMap map[string]string,
 	targetKnowledgeBaseID string,
-	dimension int,
-	knowledgeType string,
+	_ int,
+	_ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	log.Infof(
@@ -760,14 +764,15 @@ func (e *elasticsearchRepository) CopyIndices(ctx context.Context,
 			// Generated questions have SourceID format: {chunkID}-{questionID}
 			// Regular chunks have SourceID == ChunkID
 			var targetSourceID string
-			if sourceDoc.SourceID == sourceDoc.ChunkID {
+			switch {
+			case sourceDoc.SourceID == sourceDoc.ChunkID:
 				// Regular chunk, use targetChunkID as SourceID
 				targetSourceID = targetChunkID
-			} else if strings.HasPrefix(sourceDoc.SourceID, sourceDoc.ChunkID+"-") {
+			case strings.HasPrefix(sourceDoc.SourceID, sourceDoc.ChunkID+"-"):
 				// This is a generated question, preserve the questionID part
 				questionID := strings.TrimPrefix(sourceDoc.SourceID, sourceDoc.ChunkID+"-")
 				targetSourceID = fmt.Sprintf("%s-%s", targetChunkID, questionID)
-			} else {
+			default:
 				// For other complex scenarios, generate new unique SourceID
 				targetSourceID = uuid.New().String()
 			}

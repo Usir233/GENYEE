@@ -2,13 +2,14 @@ package repository
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/driver/postgres"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,10 @@ func resourceCleanupTestDB(t *testing.T, backend string) *gorm.DB {
 		})
 		db, err = gorm.Open(postgres.Open(dsn+" search_path="+schema), &gorm.Config{})
 	} else {
-		db, err = gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "resources.db")+"?_busy_timeout=5000&_journal_mode=WAL"), &gorm.Config{})
+		db, err = gorm.Open(
+			sqlite.Open(filepath.Join(t.TempDir(), "resources.db")+"?_busy_timeout=5000&_journal_mode=WAL"),
+			&gorm.Config{},
+		)
 	}
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
@@ -82,7 +86,16 @@ func testResourceCleanupWaitsForConcurrentBinding(t *testing.T, db *gorm.DB) {
 	}))
 	bindDone := make(chan error, 1)
 	go func() {
-		bindDone <- repo.CreateBinding(context.Background(), &types.ResourceBinding{ResourceID: resource.ID, TenantID: 7, OwnerType: types.ResourceOwnerKnowledge, OwnerID: "concurrent", Relation: types.ResourceRelationExtractedImage})
+		bindDone <- repo.CreateBinding(
+			context.Background(),
+			&types.ResourceBinding{
+				ResourceID: resource.ID,
+				TenantID:   7,
+				OwnerType:  types.ResourceOwnerKnowledge,
+				OwnerID:    "concurrent",
+				Relation:   types.ResourceRelationExtractedImage,
+			},
+		)
 	}()
 	<-bindingStarted
 	type cleanupResult struct {
@@ -91,14 +104,19 @@ func testResourceCleanupWaitsForConcurrentBinding(t *testing.T, db *gorm.DB) {
 	}
 	cleanupDone := make(chan cleanupResult, 1)
 	go func() {
-		r, err := repo.ClaimUnboundDeletion(context.WithValue(context.Background(), cleanupContextKey{}, true), resource.Handle)
+		r, err := repo.ClaimUnboundDeletion(
+			context.WithValue(context.Background(), cleanupContextKey{}, true),
+			resource.Handle,
+		)
 		cleanupDone <- cleanupResult{r, err}
 	}()
 	<-cleanupStarted
 	select {
 	case result := <-cleanupDone:
 		close(resumeBinding)
-		<-bindDone
+		if bindErr := <-bindDone; bindErr != nil {
+			t.Logf("bind err: %v", bindErr)
+		}
 		t.Fatalf("cleanup must wait for the in-flight binding transaction, got %+v", result)
 	case <-time.After(50 * time.Millisecond):
 	}
@@ -125,7 +143,19 @@ func TestResourceCleanupRejectsStaleConcurrentBinding(t *testing.T) {
 			cleaned, err := repo.ClaimUnboundDeletion(context.Background(), resource.Handle)
 			require.NoError(t, err)
 			require.NotNil(t, cleaned)
-			require.Error(t, repo.CreateBinding(context.Background(), &types.ResourceBinding{ResourceID: stale.ID, TenantID: 7, OwnerType: types.ResourceOwnerKnowledge, OwnerID: "late", Relation: types.ResourceRelationExtractedImage}))
+			require.Error(
+				t,
+				repo.CreateBinding(
+					context.Background(),
+					&types.ResourceBinding{
+						ResourceID: stale.ID,
+						TenantID:   7,
+						OwnerType:  types.ResourceOwnerKnowledge,
+						OwnerID:    "late",
+						Relation:   types.ResourceRelationExtractedImage,
+					},
+				),
+			)
 			count, err := repo.CountBindings(context.Background(), resource.ID)
 			require.NoError(t, err)
 			require.Zero(t, count)

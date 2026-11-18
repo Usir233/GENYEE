@@ -243,6 +243,7 @@ func (c *filter) convertParamName(field string, counter *int) string {
 	return fmt.Sprintf("%s_%d", strings.ReplaceAll(field, ".", "_"), *counter)
 }
 
+//nolint:lll // Go struct field tags cannot wrap across lines and jsonschema requires single-tag metadata.
 type universalFilterCondition struct {
 	Field    string `json:"field,omitempty" jsonschema:"description=The metadata field to filter on (required for comparison operators)"`
 	Operator string `json:"operator" jsonschema:"description=The operator to use,enum=eq,enum=ne,enum=gt,enum=gte,enum=lt,enum=lte,enum=in,enum=not in,enum=like,enum=not like,enum=between,enum=and,enum=or"`

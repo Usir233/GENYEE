@@ -73,8 +73,15 @@ func TestV8BatchUpdateChunkTagID_EscapesSpecialCharsWithoutJSONInjection(t *test
 }
 
 func TestV8Retrieve_RejectsEmptyKnowledgeBaseIDsAndHandlesNilHitScore(t *testing.T) {
-	repo, _ := newAuditTestV8Repo(t, func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"took":1,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_index":"genyee_v8_test","_id":"doc-nil-score","_score":null,"_source":{"chunk_id":"c1","source_id":"c1","knowledge_id":"k1","knowledge_base_id":"kb-1","content":"hello","is_enabled":true}}]}}`))
+	repo, _ := newAuditTestV8Repo(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(
+			[]byte(
+				`{"took":1,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":` +
+					`{"total":{"value":1,"relation":"eq"},"hits":[{"_index":"genyee_v8_test","_id":"doc-nil-score",` +
+					`"_score":null,"_source":{"chunk_id":"c1","source_id":"c1","knowledge_id":"k1",` +
+					`"knowledge_base_id":"kb-1","content":"hello","is_enabled":true}}]}}`,
+			),
+		)
 	})
 
 	_, err := repo.Retrieve(context.Background(), typesLocal.RetrieveParams{
@@ -107,9 +114,22 @@ func TestV8SaveKeywordOnlyAndCopyIndicesPreservesTagAndRecommended(t *testing.T)
 		switch {
 		case strings.Contains(r.URL.Path, "/_doc"):
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"_index":"genyee_v8_test","_id":"id-1","_version":1,"result":"created","_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"_index":"genyee_v8_test","_id":"id-1","_version":1,"result":"created","_shards":{"total":1,` +
+						`"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}`,
+				),
+			)
 		case strings.HasSuffix(r.URL.Path, "/_search"):
-			_, _ = w.Write([]byte(`{"took":1,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_index":"genyee_v8_test","_id":"d1","_score":1.0,"_source":{"content":"tagged","source_id":"c1","source_type":0,"chunk_id":"c1","knowledge_id":"k1","knowledge_base_id":"kb-src","tag_id":"tag-keep","is_enabled":true,"is_recommended":true,"embedding":[0.2,0.4]}}]}}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"took":1,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":` +
+						`{"total":{"value":1,"relation":"eq"},"hits":[{"_index":"genyee_v8_test","_id":"d1",` +
+						`"_score":1.0,"_source":{"content":"tagged","source_id":"c1","source_type":0,"chunk_id":` +
+						`"c1","knowledge_id":"k1","knowledge_base_id":"kb-src","tag_id":"tag-keep","is_enabled":` +
+						`true,"is_recommended":true,"embedding":[0.2,0.4]}}]}}`,
+				),
+			)
 		case strings.HasSuffix(r.URL.Path, "/_bulk"):
 			sc := bufio.NewScanner(bytes.NewReader(body))
 			for sc.Scan() {
@@ -156,13 +176,31 @@ func TestV8SaveKeywordOnlyAndCopyIndicesPreservesTagAndRecommended(t *testing.T)
 }
 
 func TestV8DeleteAndMove_RejectBlankScopeAndSurfaceByQueryFailures(t *testing.T) {
-	repo, _ := newAuditTestV8Repo(t, func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"took":1,"timed_out":false,"total":1,"deleted":0,"batches":1,"version_conflicts":0,"noops":0,"retries":{"bulk":0,"search":0},"throttled_millis":0,"requests_per_second":-1.0,"throttled_until_millis":0,"failures":[{"index":"genyee_v8_test","id":"doc-5","status":409,"cause":{"type":"version_conflict_engine_exception","reason":"PRIVATE-DOC-CONTENT"}}]}`))
+	repo, _ := newAuditTestV8Repo(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(
+			[]byte(
+				`{"took":1,"timed_out":false,"total":1,"deleted":0,"batches":1,"version_conflicts":0,"noops":0,` +
+					`"retries":{"bulk":0,"search":0},"throttled_millis":0,"requests_per_second":-1.0,` +
+					`"throttled_until_millis":0,"failures":[{"index":"genyee_v8_test","id":"doc-5","status":409,` +
+					`"cause":{"type":"version_conflict_engine_exception","reason":"PRIVATE-DOC-CONTENT"}}]}`,
+			),
+		)
 	})
 
 	require.Error(t, repo.DeleteByChunkIDList(context.Background(), []string{""}, 768, ""))
 	require.Error(t, repo.MoveKnowledgeIndices(context.Background(), "kb-src", "", "k-1", nil, 768, ""))
-	require.Error(t, repo.CopyIndices(context.Background(), "kb-src", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "", 768, ""))
+	require.Error(
+		t,
+		repo.CopyIndices(
+			context.Background(),
+			"kb-src",
+			map[string]string{"k1": "k2"},
+			map[string]string{"c1": "c2"},
+			"",
+			768,
+			"",
+		),
+	)
 
 	err := repo.DeleteByChunkIDList(context.Background(), []string{"c-1"}, 768, "")
 	require.Error(t, err)

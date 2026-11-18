@@ -266,18 +266,34 @@ func (r *memoryRepository) UpdateItemContent(
 ) error {
 	return r.withSubject(ctx, scope, func(tx *gorm.DB, _ *types.MemorySubject) error {
 		var current types.MemoryItem
-		if err := tx.Where("tenant_id = ? AND subject_id = ? AND id = ?", scope.TenantID, scope.SubjectID, id).First(&current).Error; err != nil {
+		if err := tx.Where(
+			"tenant_id = ? AND subject_id = ? AND id = ?",
+			scope.TenantID,
+			scope.SubjectID,
+			id,
+		).First(&current).Error; err != nil {
 			return err
 		}
 		if current.Content != content {
-			if err := tx.Where("tenant_id = ? AND subject_id = ? AND item_id = ?", scope.TenantID, scope.SubjectID, id).Delete(&types.MemoryItemEmbedding{}).Error; err != nil {
+			if err := tx.Where(
+				"tenant_id = ? AND subject_id = ? AND item_id = ?",
+				scope.TenantID,
+				scope.SubjectID,
+				id,
+			).Delete(&types.MemoryItemEmbedding{}).Error; err != nil {
 				return err
 			}
 			// Editing a confirmed fact invalidates proposals based on its old wording.
 			if err := tx.Model(&types.MemoryItem{}).
 				Where("tenant_id = ? AND subject_id = ? AND replaces_id = ? AND status = ?",
 					scope.TenantID, scope.SubjectID, id, types.MemoryStatusPending).
-				Updates(map[string]interface{}{"status": types.MemoryStatusSuperseded, "invalid_at": time.Now(), "superseded_by": id}).Error; err != nil {
+				Updates(
+					map[string]interface{}{
+						"status":        types.MemoryStatusSuperseded,
+						"invalid_at":    time.Now(),
+						"superseded_by": id,
+					},
+				).Error; err != nil {
 				return err
 			}
 		}
@@ -513,7 +529,12 @@ func (r *memoryRepository) UpsertItemEmbedding(
 	return r.withSubject(ctx, scope, func(tx *gorm.DB, _ *types.MemorySubject) error {
 		if embedding.SourceContent != "" {
 			var current types.MemoryItem
-			err := tx.Where("tenant_id = ? AND subject_id = ? AND id = ?", scope.TenantID, scope.SubjectID, embedding.ItemID).First(&current).Error
+			err := tx.Where(
+				"tenant_id = ? AND subject_id = ? AND id = ?",
+				scope.TenantID,
+				scope.SubjectID,
+				embedding.ItemID,
+			).First(&current).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
 			}
@@ -680,17 +701,16 @@ func (r *memoryRepository) BumpTopic(
 		// resolves by exact match next time instead of being re-adjudicated.
 		if alias != "" && !updated.Aliases.Has(alias) &&
 			types.NormalizeTopicKey(alias) != updated.NormalizedKey {
-			aliases := append(updated.Aliases, alias)
-			if len(aliases) > 12 {
-				aliases = aliases[len(aliases)-12:]
+			updated.Aliases = append(updated.Aliases, alias)
+			if len(updated.Aliases) > 12 {
+				updated.Aliases = updated.Aliases[len(updated.Aliases)-12:]
 			}
 			if err := r.scoped(ctx, scope).
 				Model(&types.MemoryTopicStat{}).
 				Where("normalized_key = ?", normalizedKey).
-				Updates(map[string]interface{}{"aliases": aliases, "updated_at": now}).Error; err != nil {
+				Updates(map[string]interface{}{"aliases": updated.Aliases, "updated_at": now}).Error; err != nil {
 				return nil, err
 			}
-			updated.Aliases = aliases
 		}
 		return &updated, nil
 	})

@@ -47,9 +47,21 @@ func TestDatasetRejectsInvalidRelationsAndText(t *testing.T) {
 		{"unknown answer", func(d *evaluationDatasetFixture) { d.qas[0].AID = 9 }, "answer 9"},
 		{"unknown query in qrels", func(d *evaluationDatasetFixture) { d.qrels[0].QID = 9 }, "query 9"},
 		{"unknown query in qas", func(d *evaluationDatasetFixture) { d.qas[0].QID = 9 }, "query 9"},
-		{"duplicate query ID", func(d *evaluationDatasetFixture) { d.queries = append(d.queries, TextInfo{ID: 0, Text: "overwritten"}) }, "duplicate queries ID 0"},
-		{"duplicate passage ID", func(d *evaluationDatasetFixture) { d.corpus = append(d.corpus, TextInfo{ID: -1, Text: "overwritten"}) }, "duplicate corpus ID -1"},
-		{"duplicate answer ID", func(d *evaluationDatasetFixture) { d.answers = append(d.answers, TextInfo{ID: 0, Text: "overwritten"}) }, "duplicate answers ID 0"},
+		{"duplicate query ID", func(
+			d *evaluationDatasetFixture,
+		) {
+			d.queries = append(d.queries, TextInfo{ID: 0, Text: "overwritten"})
+		}, "duplicate queries ID 0"},
+		{"duplicate passage ID", func(
+			d *evaluationDatasetFixture,
+		) {
+			d.corpus = append(d.corpus, TextInfo{ID: -1, Text: "overwritten"})
+		}, "duplicate corpus ID -1"},
+		{"duplicate answer ID", func(
+			d *evaluationDatasetFixture,
+		) {
+			d.answers = append(d.answers, TextInfo{ID: 0, Text: "overwritten"})
+		}, "duplicate answers ID 0"},
 		{"multiple answers for query", func(d *evaluationDatasetFixture) {
 			d.answers = append(d.answers, TextInfo{ID: 1, Text: "other"})
 			d.qas = append(d.qas, QaInfo{QID: 0, AID: 1})

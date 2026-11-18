@@ -28,6 +28,7 @@ func TestSavedHandleRechecksVaultDomainsWithoutWideningApproval(t *testing.T) {
 	secret, err := store.Resolve(ctx, alice.TenantID, alice.UserID, "session", handle)
 	require.NoError(t, err)
 	require.Equal(t, []string{"example.com"}, secret.Domains,
-		"a live handle must neither retain a revoked domain nor acquire a destination absent from its original approval")
+		"a live handle must neither retain a revoked domain nor acquire a destination absent from its original "+
+			"approval")
 	require.Equal(t, "test-password", secret.Fields[0].Value)
 }

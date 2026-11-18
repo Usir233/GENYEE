@@ -19,7 +19,8 @@ type weaviateRepository struct {
 	initializedCollections sync.Map
 }
 
-type WeaviateVectorEmbedding struct {
+// VectorEmbedding represents the Weaviate object properties and vector for an indexed item.
+type VectorEmbedding struct {
 	Content         string    `json:"content"`
 	SourceID        string    `json:"source_id"`
 	SourceType      int       `json:"source_type"`
@@ -31,7 +32,8 @@ type WeaviateVectorEmbedding struct {
 	IsEnabled       bool      `json:"is_enabled"`
 }
 
-type WeaviateVectorEmbeddingWithScore struct {
-	WeaviateVectorEmbedding
+// VectorEmbeddingWithScore wraps VectorEmbedding with a retrieval score.
+type VectorEmbeddingWithScore struct {
+	VectorEmbedding
 	Score float64
 }

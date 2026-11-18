@@ -5,7 +5,6 @@ import (
 	stderrors "errors"
 
 	"github.com/Usir233/GENYEE/internal/application/access"
-	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/config"
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -37,7 +36,7 @@ func KBAccessFromContext(c *gin.Context) (*KBAccess, bool) {
 
 // KBLookup is the minimum surface the guard needs from the
 // knowledge-base service: a single method that turns an ID into a
-// KnowledgeBase pointer (or repo.ErrKnowledgeBaseNotFound). Defining
+// KnowledgeBase pointer (or types.ErrKnowledgeBaseNotFound). Defining
 // it as a tiny dedicated interface keeps the guard testable without
 // forcing test stubs to satisfy the full KnowledgeBaseService surface.
 type KBLookup interface {
@@ -146,12 +145,11 @@ func KBIDFromChunkIDParam(param string, chunkService ChunkLookup) KBIDResolver {
 // from forcing every service to standardise on a single error type
 // before this refactor is useful.
 func isResourceNotFound(err error) bool {
-	// ErrChunkNotFound is defined in the repository layer and aliased by the
-	// service; match the canonical repo sentinel so this predicate depends
-	// only on the repository package (KB / Knowledge / Chunk are all here).
-	return stderrors.Is(err, apprepo.ErrKnowledgeBaseNotFound) ||
-		stderrors.Is(err, apprepo.ErrKnowledgeNotFound) ||
-		stderrors.Is(err, apprepo.ErrChunkNotFound) ||
+	// Match the canonical domain sentinels shared across repository and service
+	// layers so middleware stays decoupled from concrete repository packages.
+	return stderrors.Is(err, types.ErrKnowledgeBaseNotFound) ||
+		stderrors.Is(err, types.ErrKnowledgeNotFound) ||
+		stderrors.Is(err, types.ErrChunkNotFound) ||
 		stderrors.Is(err, ErrResourceNotFound)
 }
 
@@ -281,7 +279,7 @@ func resolveKBAccess(
 	}
 	kb, err := kbService.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
-		if stderrors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
 			return nil, access.ErrNotFound
 		}
 		return nil, err

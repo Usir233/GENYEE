@@ -444,7 +444,10 @@ func desktopTestConn(t *testing.T) (client, server *websocket.Conn) {
 		accepted <- conn
 	}))
 	t.Cleanup(srv.Close)
-	client, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	client, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = client.Close() })
 	server = <-accepted

@@ -117,7 +117,14 @@ func setupFinalizingPendingOpTest(t *testing.T) (*gorm.DB, interfaces.TaskPendin
 
 func TestTaskPendingOps_SeedKnowledgeFinalizingWithPendingOpCommitsTogether(t *testing.T) {
 	db, seeder := setupFinalizingPendingOpTest(t)
-	op := makePendingOp(types.TypeWikiIngest, types.TaskScopeKnowledgeBase, "kb-1", "ingest", "knowledge-1", []byte(`{}`))
+	op := makePendingOp(
+		types.TypeWikiIngest,
+		types.TaskScopeKnowledgeBase,
+		"kb-1",
+		"ingest",
+		"knowledge-1",
+		[]byte(`{}`),
+	)
 
 	promoted, err := seeder.SeedKnowledgeFinalizingWithPendingOp(
 		context.Background(), "knowledge-1", 3, op,
@@ -126,7 +133,10 @@ func TestTaskPendingOps_SeedKnowledgeFinalizingWithPendingOpCommitsTogether(t *t
 	require.NoError(t, err)
 	require.True(t, promoted)
 	var knowledge types.Knowledge
-	require.NoError(t, db.Select("parse_status", "pending_subtasks_count").First(&knowledge, "id = ?", "knowledge-1").Error)
+	require.NoError(
+		t,
+		db.Select("parse_status", "pending_subtasks_count").First(&knowledge, "id = ?", "knowledge-1").Error,
+	)
 	assert.Equal(t, types.ParseStatusFinalizing, knowledge.ParseStatus)
 	assert.Equal(t, 3, knowledge.PendingSubtasksCount)
 	var count int64
@@ -137,7 +147,14 @@ func TestTaskPendingOps_SeedKnowledgeFinalizingWithPendingOpCommitsTogether(t *t
 func TestTaskPendingOps_SeedKnowledgeFinalizingRollsBackWhenPendingOpInsertFails(t *testing.T) {
 	db, seeder := setupFinalizingPendingOpTest(t)
 	require.NoError(t, db.Exec(`DROP TABLE task_pending_ops`).Error)
-	op := makePendingOp(types.TypeWikiIngest, types.TaskScopeKnowledgeBase, "kb-1", "ingest", "knowledge-1", []byte(`{}`))
+	op := makePendingOp(
+		types.TypeWikiIngest,
+		types.TaskScopeKnowledgeBase,
+		"kb-1",
+		"ingest",
+		"knowledge-1",
+		[]byte(`{}`),
+	)
 
 	promoted, err := seeder.SeedKnowledgeFinalizingWithPendingOp(
 		context.Background(), "knowledge-1", 3, op,
@@ -146,7 +163,10 @@ func TestTaskPendingOps_SeedKnowledgeFinalizingRollsBackWhenPendingOpInsertFails
 	require.Error(t, err)
 	assert.False(t, promoted)
 	var knowledge types.Knowledge
-	require.NoError(t, db.Select("parse_status", "pending_subtasks_count").First(&knowledge, "id = ?", "knowledge-1").Error)
+	require.NoError(
+		t,
+		db.Select("parse_status", "pending_subtasks_count").First(&knowledge, "id = ?", "knowledge-1").Error,
+	)
 	assert.Equal(t, types.ParseStatusProcessing, knowledge.ParseStatus)
 	assert.Zero(t, knowledge.PendingSubtasksCount)
 }
@@ -156,7 +176,14 @@ func TestTaskPendingOps_SeedKnowledgeFinalizingSkipsNonProcessingKnowledge(t *te
 	require.NoError(t, db.Model(&types.Knowledge{}).
 		Where("id = ?", "knowledge-1").
 		Update("parse_status", types.ParseStatusCancelled).Error)
-	op := makePendingOp(types.TypeWikiIngest, types.TaskScopeKnowledgeBase, "kb-1", "ingest", "knowledge-1", []byte(`{}`))
+	op := makePendingOp(
+		types.TypeWikiIngest,
+		types.TaskScopeKnowledgeBase,
+		"kb-1",
+		"ingest",
+		"knowledge-1",
+		[]byte(`{}`),
+	)
 
 	promoted, err := seeder.SeedKnowledgeFinalizingWithPendingOp(
 		context.Background(), "knowledge-1", 3, op,
@@ -174,7 +201,14 @@ func TestTaskPendingOps_SeedKnowledgeFinalizingSkipsDeletedKnowledgeBase(t *test
 	require.NoError(t, db.Exec(
 		`UPDATE knowledge_bases SET deleted_at = ? WHERE id = ?`, time.Now(), "kb-1",
 	).Error)
-	op := makePendingOp(types.TypeWikiIngest, types.TaskScopeKnowledgeBase, "kb-1", "ingest", "knowledge-1", []byte(`{}`))
+	op := makePendingOp(
+		types.TypeWikiIngest,
+		types.TaskScopeKnowledgeBase,
+		"kb-1",
+		"ingest",
+		"knowledge-1",
+		[]byte(`{}`),
+	)
 
 	promoted, err := seeder.SeedKnowledgeFinalizingWithPendingOp(
 		context.Background(), "knowledge-1", 3, op,
@@ -183,7 +217,10 @@ func TestTaskPendingOps_SeedKnowledgeFinalizingSkipsDeletedKnowledgeBase(t *test
 	require.NoError(t, err)
 	assert.False(t, promoted)
 	var knowledge types.Knowledge
-	require.NoError(t, db.Select("parse_status", "pending_subtasks_count").First(&knowledge, "id = ?", "knowledge-1").Error)
+	require.NoError(
+		t,
+		db.Select("parse_status", "pending_subtasks_count").First(&knowledge, "id = ?", "knowledge-1").Error,
+	)
 	assert.Equal(t, types.ParseStatusProcessing, knowledge.ParseStatus)
 	assert.Zero(t, knowledge.PendingSubtasksCount)
 	var count int64

@@ -98,7 +98,11 @@ func prepareMessagesWithModelContext(
 	replaced := false
 	for _, index := range []int{0, last} {
 		if chatManage.RenderedContexts != "" && strings.Contains(messages[index].Content, chatManage.RenderedContexts) {
-			messages[index].Content = strings.ReplaceAll(messages[index].Content, chatManage.RenderedContexts, modelContexts)
+			messages[index].Content = strings.ReplaceAll(
+				messages[index].Content,
+				chatManage.RenderedContexts,
+				modelContexts,
+			)
 			replaced = true
 		}
 	}

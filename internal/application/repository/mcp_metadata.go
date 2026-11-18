@@ -30,9 +30,9 @@ func (r *mcpServiceRepository) GetMetadata(
 
 func metadataToolCountExpr(db *gorm.DB) string {
 	if db.Name() == "postgres" {
-		return "jsonb_array_length(tools)"
+		return "CASE WHEN jsonb_typeof(tools) = 'array' THEN jsonb_array_length(tools) ELSE 0 END"
 	}
-	return "json_array_length(tools)"
+	return "CASE WHEN json_valid(tools) AND json_type(tools) = 'array' THEN json_array_length(tools) ELSE 0 END"
 }
 
 func (r *mcpServiceRepository) ListMetadataSummaries(

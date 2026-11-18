@@ -88,7 +88,7 @@ func (p *PluginSearchParallel) ActivationEvents() []types.EventType {
 
 // OnEvent handles parallel search events - runs chunk search and entity search concurrently
 func (p *PluginSearchParallel) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	// Intent-based skip: query-understand step determined KB retrieval is unnecessary
 	if !chatManage.NeedsRetrieval() {
@@ -153,8 +153,10 @@ func (p *PluginSearchParallel) OnEvent(ctx context.Context,
 	errs := RunParallel(tasks...)
 
 	// Merge results from both searches
-	chatManage.SearchResult = append(chunkCM.SearchResult, entityCM.SearchResult...)
-	chatManage.SearchResult = removeDuplicateResults(chatManage.SearchResult)
+	merged := make([]*types.SearchResult, 0, len(chunkCM.SearchResult)+len(entityCM.SearchResult))
+	merged = append(merged, chunkCM.SearchResult...)
+	merged = append(merged, entityCM.SearchResult...)
+	chatManage.SearchResult = removeDuplicateResults(merged)
 
 	for name, err := range errs {
 		logger.Warnf(ctx, "[SearchParallel] %s error: %v", name, err.Err)

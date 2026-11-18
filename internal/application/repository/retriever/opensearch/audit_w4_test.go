@@ -74,7 +74,12 @@ func TestDeleteByList_InspectsPartialFailuresAndRejectsBlankTargets(t *testing.T
 		case r.Method == http.MethodHead:
 			w.WriteHeader(http.StatusOK)
 		case strings.Contains(r.URL.Path, "_delete_by_query"):
-			_, _ = w.Write([]byte(`{"deleted":0,"version_conflicts":0,"failures":[{"id":"c9","cause":{"type":"version_conflict_engine_exception","reason":"SECRET-DOC-FRAGMENT"}}]}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"deleted":0,"version_conflicts":0,"failures":[{"id":"c9","cause":{"type":` +
+						`"version_conflict_engine_exception","reason":"SECRET-DOC-FRAGMENT"}}]}`,
+				),
+			)
 		default:
 			_, _ = w.Write([]byte(`{}`))
 		}
@@ -87,7 +92,15 @@ func TestDeleteByList_InspectsPartialFailuresAndRejectsBlankTargets(t *testing.T
 	if err := repo.MoveKnowledgeIndices(context.Background(), "", "kb-dst", "k1", nil, 768, ""); err == nil {
 		t.Fatal("empty sourceKB in MoveKnowledgeIndices must fail closed")
 	}
-	if err := repo.CopyIndices(context.Background(), "kb-src", map[string]string{"k1": "k2"}, map[string]string{"c1": "c2"}, "", 768, ""); err == nil {
+	if err := repo.CopyIndices(
+		context.Background(),
+		"kb-src",
+		map[string]string{"k1": "k2"},
+		map[string]string{"c1": "c2"},
+		"",
+		768,
+		"",
+	); err == nil {
 		t.Fatal("empty targetKB in CopyIndices must fail closed")
 	}
 
@@ -120,8 +133,11 @@ func TestBatchSaveAndCopyIndices_PreservesDistinctIDsForGeneratedQuestionsAndLeg
 			if first {
 				// Primary chunk (missing legacy is_enabled) + generated question sharing chunk_id.
 				_, _ = w.Write([]byte(`{"hits":{"hits":[
-					{"_source":{"content":"primary","source_id":"c1","source_type":0,"chunk_id":"c1","knowledge_id":"k1","knowledge_base_id":"kbSrc","embedding":[0.1,0.2]}},
-					{"_source":{"content":"question?","source_id":"c1-q1","source_type":0,"chunk_id":"c1","knowledge_id":"k1","knowledge_base_id":"kbSrc","is_enabled":true,"embedding":[0.3,0.4]}}
+					{"_source":{"content":"primary","source_id":"c1","source_type":0,
+						"chunk_id":"c1","knowledge_id":"k1","knowledge_base_id":"kbSrc","embedding":[0.1,0.2]}},
+					{"_source":{"content":"question?","source_id":"c1-q1","source_type":0,
+						"chunk_id":"c1","knowledge_id":"k1","knowledge_base_id":"kbSrc",
+						"is_enabled":true,"embedding":[0.3,0.4]}}
 				]}}`))
 			} else {
 				_, _ = w.Write([]byte(`{"hits":{"hits":[]}}`))

@@ -60,7 +60,7 @@ func TestClearFencesExtractionModelResults(t *testing.T) {
 		t.Run(response, func(t *testing.T) {
 			svc, tenants, messages, models, _ := newExtractionHarness(t)
 			ctx := enabledCtx(t, tenants, 1, "alice")
-			scope := scopeFor(t, ctx)
+			scope := scopeFor(ctx, t)
 			messages.messages = []*types.Message{{
 				ID: "old", SessionID: "session", Role: "user",
 				Content: "old-secret is PostgreSQL", CreatedAt: time.Now().Add(-time.Minute),
@@ -86,10 +86,10 @@ func TestClearFencesExtractionModelResults(t *testing.T) {
 func TestClearFencesConsolidationModelResults(t *testing.T) {
 	svc, tenants, models := newConsolidationHarness(t)
 	ctx := enabledCtx(t, tenants, 1, "alice")
-	scope := scopeFor(t, ctx)
+	scope := scopeFor(ctx, t)
 	_, err := svc.repo.EnsureSubject(ctx, scope)
 	require.NoError(t, err)
-	seedSimilarPreferences(t, svc, ctx, scope)
+	seedSimilarPreferences(ctx, t, svc, scope)
 	cleared := false
 	svc.modelService = &clearingModelService{ModelService: models, beforeReturn: func() {
 		_, err := svc.repo.ClearSubjectMemory(ctx, scope)
@@ -122,7 +122,7 @@ func (r *clearingResidentRepo) ListActiveResident(
 func TestClearFencesLateProfileSnapshot(t *testing.T) {
 	svc, _, tenants := newMemoryHarness(t)
 	ctx := enabledCtx(t, tenants, 1, "alice")
-	scope := scopeFor(t, ctx)
+	scope := scopeFor(ctx, t)
 	_, err := svc.Remember(ctx, types.MemoryItem{Kind: types.MemoryKindProfile, Content: "old private biography"})
 	require.NoError(t, err)
 	repo := svc.repo
@@ -140,7 +140,7 @@ func TestClearCutsOffExtractionHistoryAndPriorContext(t *testing.T) {
 		t.Run(map[bool]string{true: "queued session", false: "unknown legacy payload"}[known], func(t *testing.T) {
 			svc, tenants, messages, models, _ := newExtractionHarness(t)
 			ctx := enabledCtx(t, tenants, 1, "alice")
-			scope := scopeFor(t, ctx)
+			scope := scopeFor(ctx, t)
 			_, err := svc.repo.EnsureSubject(ctx, scope)
 			require.NoError(t, err)
 			if known {
@@ -176,7 +176,7 @@ func TestClearCutsOffExtractionHistoryAndPriorContext(t *testing.T) {
 func TestClearCutoffIncludesEqualTimestampMessages(t *testing.T) {
 	svc, tenants, messages, models, _ := newExtractionHarness(t)
 	ctx := enabledCtx(t, tenants, 1, "alice")
-	scope := scopeFor(t, ctx)
+	scope := scopeFor(ctx, t)
 	_, err := svc.repo.EnsureSubject(ctx, scope)
 	require.NoError(t, err)
 	_, err = svc.repo.ClearSubjectMemory(ctx, scope)
@@ -202,7 +202,7 @@ func TestClearCutoffIncludesEqualTimestampMessages(t *testing.T) {
 func TestDisableFencesRunningExtractionWithoutClearingHistory(t *testing.T) {
 	svc, tenants, messages, models, _ := newExtractionHarness(t)
 	ctx := enabledCtx(t, tenants, 1, "alice")
-	scope := scopeFor(t, ctx)
+	scope := scopeFor(ctx, t)
 	retained := seedAdminItem(t, svc, scope, types.MemoryStatusPending, "retained proposal")
 	messages.messages = []*types.Message{{
 		ID: "old", SessionID: "session", Role: "user",
@@ -235,7 +235,7 @@ func TestDisableFencesRunningExtractionWithoutClearingHistory(t *testing.T) {
 func TestClearOldWorkerCannotReleaseNewLeaseAndFutureWritesWork(t *testing.T) {
 	svc, tenants, messages, models, _ := newExtractionHarness(t)
 	ctx := enabledCtx(t, tenants, 1, "alice")
-	scope := scopeFor(t, ctx)
+	scope := scopeFor(ctx, t)
 	messages.messages = []*types.Message{{
 		ID: "old", SessionID: "session", Role: "user",
 		Content: "old memory", CreatedAt: time.Now().Add(-time.Minute),

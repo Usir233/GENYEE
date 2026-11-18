@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Default invite code validity in days; allowed values: 0 (never), 1, 7, 30
+// DefaultInviteCodeValidityDays is the default invite code validity in days; allowed values: 0 (never), 1, 7, 30.
 const DefaultInviteCodeValidityDays = 7
 
 // DefaultMemberLimit is the default max tenant-members per organization (0 = unlimited)
@@ -24,6 +26,7 @@ const DefaultMemberLimit = 200
 // ValidInviteCodeValidityDays are the allowed values for invite_code_validity_days
 var ValidInviteCodeValidityDays = map[int]bool{0: true, 1: true, 7: true, 30: true}
 
+// Sentinel errors returned by organizationService operations.
 var (
 	ErrOrgNotFound           = errors.New("organization not found")
 	ErrOrgPermissionDenied   = errors.New("permission denied for this organization")
@@ -76,7 +79,12 @@ func resolveInviteExpiry(validityDays int, now time.Time) *time.Time {
 
 // CreateOrganization creates a new organization. The creator's tenant
 // is enrolled at admin role and userID is recorded as the representative.
-func (s *organizationService) CreateOrganization(ctx context.Context, userID string, tenantID uint64, req *types.CreateOrganizationRequest) (*types.Organization, error) {
+func (s *organizationService) CreateOrganization(
+	ctx context.Context,
+	userID string,
+	tenantID uint64,
+	req *types.CreateOrganizationRequest,
+) (*types.Organization, error) {
 	logger.Infof(ctx, "Creating organization: %s by user: %s in tenant: %d", req.Name, userID, tenantID)
 
 	validityDays := DefaultInviteCodeValidityDays
@@ -94,6 +102,11 @@ func (s *organizationService) CreateOrganization(ctx context.Context, userID str
 		memberLimit = *req.MemberLimit
 	}
 
+	inviteCode, err := generateInviteCode()
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	org := &types.Organization{
 		ID:          uuid.New().String(),
@@ -105,7 +118,7 @@ func (s *organizationService) CreateOrganization(ctx context.Context, userID str
 		// the owner user later moves to another tenant. See migration
 		// 000046 and the isOwnerTenant helper below.
 		OwnerTenantID:          tenantID,
-		InviteCode:             generateInviteCode(),
+		InviteCode:             inviteCode,
 		InviteCodeExpiresAt:    resolveInviteExpiry(validityDays, now),
 		InviteCodeValidityDays: validityDays,
 		MemberLimit:            memberLimit,
@@ -137,7 +150,9 @@ func (s *organizationService) CreateOrganization(ctx context.Context, userID str
 	if err := s.orgRepo.AddTenantMember(ctx, member, 0); err != nil {
 		logger.Errorf(ctx, "Failed to add creator tenant as member: %v", err)
 		// Rollback organization creation
-		_ = s.orgRepo.Delete(ctx, org.ID)
+		if delErr := s.orgRepo.Delete(ctx, org.ID); delErr != nil {
+			logger.Warnf(ctx, "Failed to rollback organization %s after member error: %v", org.ID, delErr)
+		}
 		return nil, err
 	}
 
@@ -158,7 +173,10 @@ func (s *organizationService) GetOrganization(ctx context.Context, id string) (*
 }
 
 // GetOrganizationByInviteCode gets an organization by invite code
-func (s *organizationService) GetOrganizationByInviteCode(ctx context.Context, inviteCode string) (*types.Organization, error) {
+func (s *organizationService) GetOrganizationByInviteCode(
+	ctx context.Context,
+	inviteCode string,
+) (*types.Organization, error) {
 	org, err := s.orgRepo.GetByInviteCode(ctx, inviteCode)
 	if err != nil {
 		if errors.Is(err, repository.ErrInviteCodeNotFound) {
@@ -173,14 +191,23 @@ func (s *organizationService) GetOrganizationByInviteCode(ctx context.Context, i
 }
 
 // ListTenantOrganizations lists all organizations the tenant participates in.
-func (s *organizationService) ListTenantOrganizations(ctx context.Context, tenantID uint64) ([]*types.Organization, error) {
+func (s *organizationService) ListTenantOrganizations(
+	ctx context.Context,
+	tenantID uint64,
+) ([]*types.Organization, error) {
 	return s.orgRepo.ListByTenantID(ctx, tenantID)
 }
 
 // UpdateOrganization updates an organization. Operator's tenant must be
 // admin in this org; the operator user identity is logged for audit but
 // not used as the permission key.
-func (s *organizationService) UpdateOrganization(ctx context.Context, id string, userID string, tenantID uint64, req *types.UpdateOrganizationRequest) (*types.Organization, error) {
+func (s *organizationService) UpdateOrganization(
+	ctx context.Context,
+	id string,
+	userID string,
+	tenantID uint64,
+	req *types.UpdateOrganizationRequest,
+) (*types.Organization, error) {
 	isAdmin, err := s.IsTenantOrgAdmin(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
@@ -240,9 +267,15 @@ func (s *organizationService) UpdateOrganization(ctx context.Context, id string,
 	return org, nil
 }
 
+type batchOrgMemberCounter interface {
+	CountTenantMembersByOrganizations(ctx context.Context, orgIDs []string) (map[string]int64, error)
+}
+
 // SearchSearchableOrganizations returns searchable (discoverable) organizations
 // keyed on the caller's tenant — IsAlreadyMember reflects tenant-level membership.
-func (s *organizationService) SearchSearchableOrganizations(ctx context.Context, tenantID uint64, query string, limit int) (*types.ListSearchableOrganizationsResponse, error) {
+func (s *organizationService) SearchSearchableOrganizations(
+	ctx context.Context, tenantID uint64, query string, limit int,
+) (*types.ListSearchableOrganizationsResponse, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -250,21 +283,57 @@ func (s *organizationService) SearchSearchableOrganizations(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	memberCounts := make(map[string]int64)
-	shareCounts := make(map[string]int64)
-	agentShareCounts := make(map[string]int)
-	memberOrgIDs := make(map[string]bool)
+	if len(orgs) == 0 {
+		return &types.ListSearchableOrganizationsResponse{
+			Organizations: []types.SearchableOrganizationItem{},
+			Total:         0,
+		}, nil
+	}
+	orgIDs := make([]string, 0, len(orgs))
 	for _, org := range orgs {
-		if mc, err := s.orgRepo.CountTenantMembers(ctx, org.ID); err == nil {
-			memberCounts[org.ID] = mc
+		orgIDs = append(orgIDs, org.ID)
+	}
+	memberCounts := make(map[string]int64, len(orgs))
+	if batcher, ok := s.orgRepo.(batchOrgMemberCounter); ok {
+		if counts, countErr := batcher.CountTenantMembersByOrganizations(ctx, orgIDs); countErr == nil {
+			memberCounts = counts
+		} else {
+			logger.Warnf(ctx, "Failed to batch count organization members: %v", countErr)
 		}
-		shares, _ := s.shareRepo.ListByOrganization(ctx, org.ID)
-		shareCounts[org.ID] = int64(len(shares))
-		if agentShares, err := s.agentShareRepo.ListByOrganization(ctx, org.ID); err == nil {
-			agentShareCounts[org.ID] = len(agentShares)
+	} else {
+		for _, org := range orgs {
+			if mc, countErr := s.orgRepo.CountTenantMembers(ctx, org.ID); countErr == nil {
+				memberCounts[org.ID] = mc
+			}
 		}
-		_, err := s.orgRepo.GetTenantMember(ctx, org.ID, tenantID)
-		memberOrgIDs[org.ID] = (err == nil)
+	}
+	shareCounts := make(map[string]int64, len(orgs))
+	if s.shareRepo != nil {
+		if counts, shareErr := s.shareRepo.CountByOrganizations(ctx, orgIDs); shareErr == nil {
+			shareCounts = counts
+		} else {
+			logger.Warnf(ctx, "Failed to batch count KB shares: %v", shareErr)
+		}
+	}
+	agentShareCounts := make(map[string]int, len(orgs))
+	if s.agentShareRepo != nil {
+		if counts, agentErr := s.agentShareRepo.CountByOrganizations(ctx, orgIDs); agentErr == nil {
+			for orgID, cnt := range counts {
+				agentShareCounts[orgID] = int(cnt)
+			}
+		} else {
+			logger.Warnf(ctx, "Failed to batch count agent shares: %v", agentErr)
+		}
+	}
+	memberOrgIDs := make(map[string]bool, len(orgs))
+	if memberships, memErr := s.orgRepo.ListTenantMembersByTenantForOrgs(ctx, tenantID, orgIDs); memErr == nil {
+		for orgID, m := range memberships {
+			if m != nil {
+				memberOrgIDs[orgID] = true
+			}
+		}
+	} else {
+		logger.Warnf(ctx, "Failed to batch list tenant memberships: %v", memErr)
 	}
 	items := make([]types.SearchableOrganizationItem, 0, len(orgs))
 	for _, org := range orgs {
@@ -290,7 +359,14 @@ func (s *organizationService) SearchSearchableOrganizations(ctx context.Context,
 // JoinByOrganizationID joins a searchable organization by ID (no invite
 // code required). Plan 3: the *tenant* joins, with the calling user as
 // representative.
-func (s *organizationService) JoinByOrganizationID(ctx context.Context, orgID string, userID string, tenantID uint64, message string, requestedRole types.OrgMemberRole) (*types.Organization, error) {
+func (s *organizationService) JoinByOrganizationID(
+	ctx context.Context,
+	orgID string,
+	userID string,
+	tenantID uint64,
+	message string,
+	requestedRole types.OrgMemberRole,
+) (*types.Organization, error) {
 	org, err := s.orgRepo.GetByID(ctx, orgID)
 	if err != nil {
 		if errors.Is(err, repository.ErrOrganizationNotFound) {
@@ -353,7 +429,13 @@ func (s *organizationService) DeleteOrganization(ctx context.Context, id string,
 }
 
 // AddTenantMember enrols a tenant as a member of an organization.
-func (s *organizationService) AddTenantMember(ctx context.Context, orgID string, tenantID uint64, representativeUserID string, role types.OrgMemberRole) error {
+func (s *organizationService) AddTenantMember(
+	ctx context.Context,
+	orgID string,
+	tenantID uint64,
+	representativeUserID string,
+	role types.OrgMemberRole,
+) error {
 	if !role.IsValid() {
 		return ErrInvalidRole
 	}
@@ -393,7 +475,13 @@ func (s *organizationService) addTenantMemberWithinLimit(
 // RemoveTenantMember removes a tenant from an organization.
 // When operatorTenantID == memberTenantID, it's "leave" (self-removal).
 // Otherwise the operator's tenant must be admin in the org.
-func (s *organizationService) RemoveTenantMember(ctx context.Context, orgID string, memberTenantID uint64, operatorUserID string, operatorTenantID uint64) error {
+func (s *organizationService) RemoveTenantMember(
+	ctx context.Context,
+	orgID string,
+	memberTenantID uint64,
+	operatorUserID string,
+	operatorTenantID uint64,
+) error {
 	org, err := s.orgRepo.GetByID(ctx, orgID)
 	if err != nil {
 		return err
@@ -439,7 +527,14 @@ func (s *organizationService) revokeTenantShares(ctx context.Context, orgID stri
 }
 
 // UpdateTenantMemberRole updates the role for a (org, tenant) membership.
-func (s *organizationService) UpdateTenantMemberRole(ctx context.Context, orgID string, memberTenantID uint64, role types.OrgMemberRole, operatorUserID string, operatorTenantID uint64) error {
+func (s *organizationService) UpdateTenantMemberRole(
+	ctx context.Context,
+	orgID string,
+	memberTenantID uint64,
+	role types.OrgMemberRole,
+	operatorUserID string,
+	operatorTenantID uint64,
+) error {
 	if !role.IsValid() {
 		return ErrInvalidRole
 	}
@@ -465,12 +560,19 @@ func (s *organizationService) UpdateTenantMemberRole(ctx context.Context, orgID 
 }
 
 // ListTenantMembers lists all tenant memberships for an organization.
-func (s *organizationService) ListTenantMembers(ctx context.Context, orgID string) ([]*types.OrganizationTenantMember, error) {
+func (s *organizationService) ListTenantMembers(
+	ctx context.Context,
+	orgID string,
+) ([]*types.OrganizationTenantMember, error) {
 	return s.orgRepo.ListTenantMembers(ctx, orgID)
 }
 
 // GetTenantMember returns the (org, tenant) membership row.
-func (s *organizationService) GetTenantMember(ctx context.Context, orgID string, tenantID uint64) (*types.OrganizationTenantMember, error) {
+func (s *organizationService) GetTenantMember(
+	ctx context.Context,
+	orgID string,
+	tenantID uint64,
+) (*types.OrganizationTenantMember, error) {
 	member, err := s.orgRepo.GetTenantMember(ctx, orgID, tenantID)
 	if err != nil {
 		if errors.Is(err, repository.ErrOrgMemberNotFound) {
@@ -483,7 +585,12 @@ func (s *organizationService) GetTenantMember(ctx context.Context, orgID string,
 
 // GenerateInviteCode generates a new invite code for an organization.
 // Operator's tenant must be admin in the org.
-func (s *organizationService) GenerateInviteCode(ctx context.Context, orgID string, userID string, tenantID uint64) (string, error) {
+func (s *organizationService) GenerateInviteCode(
+	ctx context.Context,
+	orgID string,
+	userID string,
+	tenantID uint64,
+) (string, error) {
 	isAdmin, err := s.IsTenantOrgAdmin(ctx, orgID, tenantID)
 	if err != nil {
 		return "", err
@@ -502,7 +609,10 @@ func (s *organizationService) GenerateInviteCode(ctx context.Context, orgID stri
 		validityDays = DefaultInviteCodeValidityDays
 	}
 
-	inviteCode := generateInviteCode()
+	inviteCode, err := generateInviteCode()
+	if err != nil {
+		return "", err
+	}
 	now := time.Now()
 	expiresAt := resolveInviteExpiry(validityDays, now)
 	if err := s.orgRepo.UpdateInviteCode(ctx, orgID, inviteCode, expiresAt); err != nil {
@@ -516,7 +626,12 @@ func (s *organizationService) GenerateInviteCode(ctx context.Context, orgID stri
 // joinAsViewerWithChecks adds the tenant as viewer when not already a
 // member (enforces member limit). representativeUserID is the user
 // kicking off the join; recorded for audit only.
-func (s *organizationService) joinAsViewerWithChecks(ctx context.Context, org *types.Organization, representativeUserID string, tenantID uint64) error {
+func (s *organizationService) joinAsViewerWithChecks(
+	ctx context.Context,
+	org *types.Organization,
+	representativeUserID string,
+	tenantID uint64,
+) error {
 	_, err := s.orgRepo.GetTenantMember(ctx, org.ID, tenantID)
 	if err == nil {
 		return nil
@@ -541,7 +656,12 @@ func (s *organizationService) joinAsViewerWithChecks(ctx context.Context, org *t
 }
 
 // JoinByInviteCode allows a tenant to join via invite code.
-func (s *organizationService) JoinByInviteCode(ctx context.Context, inviteCode string, userID string, tenantID uint64) (*types.Organization, error) {
+func (s *organizationService) JoinByInviteCode(
+	ctx context.Context,
+	inviteCode string,
+	userID string,
+	tenantID uint64,
+) (*types.Organization, error) {
 	org, err := s.orgRepo.GetByInviteCode(ctx, inviteCode)
 	if err != nil {
 		if errors.Is(err, repository.ErrInviteCodeNotFound) {
@@ -579,7 +699,11 @@ func (s *organizationService) IsTenantOrgAdmin(ctx context.Context, orgID string
 }
 
 // GetTenantRoleInOrg gets a tenant's role in an organization.
-func (s *organizationService) GetTenantRoleInOrg(ctx context.Context, orgID string, tenantID uint64) (types.OrgMemberRole, error) {
+func (s *organizationService) GetTenantRoleInOrg(
+	ctx context.Context,
+	orgID string,
+	tenantID uint64,
+) (types.OrgMemberRole, error) {
 	member, err := s.orgRepo.GetTenantMember(ctx, orgID, tenantID)
 	if err != nil {
 		if errors.Is(err, repository.ErrOrgMemberNotFound) {
@@ -616,17 +740,20 @@ func (s *organizationService) isOwnerTenant(_ context.Context, org *types.Organi
 	return org.OwnerTenantID == tenantID
 }
 
-// generateInviteCode generates a random 16-character invite code
-func generateInviteCode() string {
-	bytes := make([]byte, 8)
-	_, _ = rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+// generateInviteCode generates a cryptographically random 16-character invite code.
+func generateInviteCode() (string, error) {
+	buf := make([]byte, 8)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return "", fmt.Errorf("generate invite code: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
 }
 
 // ----------------
 // Join Requests
 // ----------------
 
+// Sentinel errors returned by organization join request operations.
 var (
 	ErrPendingRequestExists    = errors.New("pending request already exists")
 	ErrJoinRequestNotFound     = errors.New("join request not found")
@@ -637,7 +764,14 @@ var (
 // SubmitJoinRequest submits a request for the caller's tenant to join an organization.
 // Dedup is now per-tenant: any user from a tenant already with a pending join
 // request is rejected (the same tenant can't queue two simultaneous joins).
-func (s *organizationService) SubmitJoinRequest(ctx context.Context, orgID string, userID string, tenantID uint64, message string, requestedRole types.OrgMemberRole) (*types.OrganizationJoinRequest, error) {
+func (s *organizationService) SubmitJoinRequest(
+	ctx context.Context,
+	orgID string,
+	userID string,
+	tenantID uint64,
+	message string,
+	requestedRole types.OrgMemberRole,
+) (*types.OrganizationJoinRequest, error) {
 	logger.Infof(ctx, "Tenant %d (rep user %s) submitting join request for organization %s", tenantID, userID, orgID)
 
 	existing, err := s.orgRepo.GetPendingRequestByTenantAndType(ctx, orgID, tenantID, types.JoinRequestTypeJoin)
@@ -688,7 +822,10 @@ func (s *organizationService) SubmitJoinRequest(ctx context.Context, orgID strin
 }
 
 // ListJoinRequests lists all join requests for an organization
-func (s *organizationService) ListJoinRequests(ctx context.Context, orgID string) ([]*types.OrganizationJoinRequest, error) {
+func (s *organizationService) ListJoinRequests(
+	ctx context.Context,
+	orgID string,
+) ([]*types.OrganizationJoinRequest, error) {
 	return s.orgRepo.ListJoinRequests(ctx, orgID, "")
 }
 
@@ -700,7 +837,16 @@ func (s *organizationService) CountPendingJoinRequests(ctx context.Context, orgI
 // ReviewJoinRequest reviews a join request or upgrade request (approve or reject).
 // On approve the targeted tenant gets the assigned role; reviewerTenantID is
 // only used for audit (the gate is the route-level Admin guard).
-func (s *organizationService) ReviewJoinRequest(ctx context.Context, orgID string, requestID string, approved bool, reviewerID string, reviewerTenantID uint64, message string, assignRole *types.OrgMemberRole) error {
+func (s *organizationService) ReviewJoinRequest(
+	ctx context.Context,
+	orgID string,
+	requestID string,
+	approved bool,
+	reviewerID string,
+	reviewerTenantID uint64,
+	message string,
+	assignRole *types.OrgMemberRole,
+) error {
 	request, err := s.orgRepo.GetJoinRequestByID(ctx, requestID)
 	if err != nil {
 		return ErrJoinRequestNotFound
@@ -725,10 +871,22 @@ func (s *organizationService) ReviewJoinRequest(ctx context.Context, orgID strin
 		}
 
 		if request.RequestType == types.JoinRequestTypeUpgrade {
-			if err := s.orgRepo.UpdateTenantMemberRole(ctx, request.OrganizationID, request.TenantID, role); err != nil {
+			if err := s.orgRepo.UpdateTenantMemberRole(
+				ctx,
+				request.OrganizationID,
+				request.TenantID,
+				role,
+			); err != nil {
 				return err
 			}
-			logger.Infof(ctx, "Upgrade request %s approved, tenant %d role updated to %s in organization %s", requestID, request.TenantID, role, request.OrganizationID)
+			logger.Infof(
+				ctx,
+				"Upgrade request %s approved, tenant %d role updated to %s in organization %s",
+				requestID,
+				request.TenantID,
+				role,
+				request.OrganizationID,
+			)
 		} else {
 			org, errOrg := s.orgRepo.GetByID(ctx, request.OrganizationID)
 			if errOrg != nil {
@@ -748,7 +906,14 @@ func (s *organizationService) ReviewJoinRequest(ctx context.Context, orgID strin
 			if err := s.addTenantMemberWithinLimit(ctx, member, org.MemberLimit); err != nil {
 				return err
 			}
-			logger.Infof(ctx, "Join request %s approved, tenant %d added to organization %s with role %s", requestID, request.TenantID, request.OrganizationID, role)
+			logger.Infof(
+				ctx,
+				"Join request %s approved, tenant %d added to organization %s with role %s",
+				requestID,
+				request.TenantID,
+				request.OrganizationID,
+				role,
+			)
 		}
 	} else {
 		status = types.JoinRequestStatusRejected
@@ -760,8 +925,22 @@ func (s *organizationService) ReviewJoinRequest(ctx context.Context, orgID strin
 }
 
 // RequestRoleUpgrade submits a request to upgrade the caller's tenant's role.
-func (s *organizationService) RequestRoleUpgrade(ctx context.Context, orgID string, userID string, tenantID uint64, requestedRole types.OrgMemberRole, message string) (*types.OrganizationJoinRequest, error) {
-	logger.Infof(ctx, "Tenant %d (rep user %s) requesting role upgrade for organization %s to role %s", tenantID, userID, orgID, requestedRole)
+func (s *organizationService) RequestRoleUpgrade(
+	ctx context.Context,
+	orgID string,
+	userID string,
+	tenantID uint64,
+	requestedRole types.OrgMemberRole,
+	message string,
+) (*types.OrganizationJoinRequest, error) {
+	logger.Infof(
+		ctx,
+		"Tenant %d (rep user %s) requesting role upgrade for organization %s to role %s",
+		tenantID,
+		userID,
+		orgID,
+		requestedRole,
+	)
 
 	member, err := s.orgRepo.GetTenantMember(ctx, orgID, tenantID)
 	if err != nil {
@@ -806,12 +985,24 @@ func (s *organizationService) RequestRoleUpgrade(ctx context.Context, orgID stri
 		return nil, err
 	}
 
-	logger.Infof(ctx, "Role upgrade request %s created for organization %s by tenant %d (from %s to %s)", request.ID, orgID, tenantID, member.Role, requestedRole)
+	logger.Infof(
+		ctx,
+		"Role upgrade request %s created for organization %s by tenant %d (from %s to %s)",
+		request.ID,
+		orgID,
+		tenantID,
+		member.Role,
+		requestedRole,
+	)
 	return request, nil
 }
 
 // GetPendingUpgradeRequest gets a pending upgrade request for a tenant in an organization
-func (s *organizationService) GetPendingUpgradeRequest(ctx context.Context, orgID string, tenantID uint64) (*types.OrganizationJoinRequest, error) {
+func (s *organizationService) GetPendingUpgradeRequest(
+	ctx context.Context,
+	orgID string,
+	tenantID uint64,
+) (*types.OrganizationJoinRequest, error) {
 	request, err := s.orgRepo.GetPendingRequestByTenantAndType(ctx, orgID, tenantID, types.JoinRequestTypeUpgrade)
 	if err != nil {
 		if errors.Is(err, repository.ErrJoinRequestNotFound) {

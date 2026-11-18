@@ -320,7 +320,13 @@ func (s *Service) write(
 	return s.writeReplacing(ctx, scope, cfg, item, "")
 }
 
-func (s *Service) writeReplacing(ctx context.Context, scope interfaces.MemoryScope, cfg *types.MemoryConfig, item types.MemoryItem, targetID string) (*types.MemoryItem, error) {
+func (s *Service) writeReplacing(
+	ctx context.Context,
+	scope interfaces.MemoryScope,
+	cfg *types.MemoryConfig,
+	item types.MemoryItem,
+	targetID string,
+) (*types.MemoryItem, error) {
 	var err error
 	scope, err = s.captureGeneration(ctx, scope)
 	if err != nil {
@@ -386,7 +392,8 @@ func (s *Service) writeReplacing(ctx context.Context, scope interfaces.MemorySco
 	if err != nil {
 		return nil, fmt.Errorf("find conflicting memory: %w", err)
 	}
-	if existing != nil && existing.Status == types.MemoryStatusActive && types.SanitizeMemoryContent(existing.Content) == content {
+	if existing != nil && existing.Status == types.MemoryStatusActive &&
+		types.SanitizeMemoryContent(existing.Content) == content {
 		// Same statement about the same topic: nothing changed, so keep the
 		// original timestamps instead of churning the row on every turn.
 		return existing, nil
@@ -401,7 +408,8 @@ func (s *Service) writeReplacing(ctx context.Context, scope interfaces.MemorySco
 		if err != nil {
 			return nil, err
 		}
-		if duplicate != nil && !longer && (duplicate.Status == types.MemoryStatusActive || statusForWrite(item) == types.MemoryStatusPending) {
+		if duplicate != nil && !longer && (duplicate.Status == types.MemoryStatusActive || statusForWrite(item) ==
+			types.MemoryStatusPending) {
 			if duplicate.Status == types.MemoryStatusPending {
 				if err := s.repo.SaveItemWithPendingLimit(
 					ctx, scope, duplicate, "", cfg.EffectiveMaxItems(),

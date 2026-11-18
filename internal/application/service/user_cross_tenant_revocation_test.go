@@ -28,7 +28,9 @@ func TestSwitchTenantRequiresEnabledCrossTenantPrivilege(t *testing.T) {
 			svc, user, db := logoutSessionService(t)
 			svc.config = tc.cfg
 			svc.tenantService = &provisioningTenantService{}
-			members := &membershipLookupService{byTenant: map[uint64]*types.TenantMember{1: {TenantID: 1, Status: types.TenantMemberStatusActive}}}
+			members := &membershipLookupService{
+				byTenant: map[uint64]*types.TenantMember{1: {TenantID: 1, Status: types.TenantMemberStatusActive}},
+			}
 			if tc.member {
 				members.byTenant[42] = &types.TenantMember{TenantID: 42, Status: types.TenantMemberStatusActive}
 			}
@@ -68,7 +70,9 @@ func TestLoginAndRefreshDiscardRevokedCrossTenantPreference(t *testing.T) {
 			svc, user, _ := logoutSessionService(t)
 			svc.config = &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}
 			svc.tenantService = &provisioningTenantService{}
-			svc.memberService = &membershipLookupService{byTenant: map[uint64]*types.TenantMember{1: {TenantID: 1, Status: types.TenantMemberStatusActive}}}
+			svc.memberService = &membershipLookupService{
+				byTenant: map[uint64]*types.TenantMember{1: {TenantID: 1, Status: types.TenantMemberStatusActive}},
+			}
 			preferred := uint64(42)
 			user.Preferences.LastActiveTenantID = &preferred
 			require.NoError(t, svc.userRepo.UpdateUser(ctx, user))

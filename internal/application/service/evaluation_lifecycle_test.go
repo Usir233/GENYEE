@@ -72,7 +72,12 @@ type evaluationTestKnowledge struct {
 	passages []string
 }
 
-func (k *evaluationTestKnowledge) CreateKnowledgeFromPassageSync(_ context.Context, _ string, passages []string, _ string) (*types.Knowledge, error) {
+func (k *evaluationTestKnowledge) CreateKnowledgeFromPassageSync(
+	_ context.Context,
+	_ string,
+	passages []string,
+	_ string,
+) (*types.Knowledge, error) {
 	k.created = true
 	k.passages = append([]string(nil), passages...)
 	return &types.Knowledge{ID: "knowledge"}, nil
@@ -142,7 +147,11 @@ type evaluationTestSessions struct {
 	qa func(context.Context, *types.ChatManage) error
 }
 
-func (s *evaluationTestSessions) KnowledgeQAByEvent(ctx context.Context, chat *types.ChatManage, _ []types.EventType) error {
+func (s *evaluationTestSessions) KnowledgeQAByEvent(
+	ctx context.Context,
+	chat *types.ChatManage,
+	_ []types.EventType,
+) error {
 	return s.qa(ctx, chat)
 }
 
@@ -150,25 +159,46 @@ type evaluationTestModels struct{ interfaces.ModelService }
 
 func (*evaluationTestModels) ListModels(context.Context) ([]*types.Model, error) { return nil, nil }
 
-func newEvaluationLifecycleTest(t *testing.T, questions ...string) (*EvaluationService, *types.EvaluationDetail, *evaluationTestKBs, *evaluationTestKnowledge) {
+func newEvaluationLifecycleTest(
+	t *testing.T,
+	questions ...string,
+) (*EvaluationService, *types.EvaluationDetail, *evaluationTestKBs, *evaluationTestKnowledge) {
 	t.Helper()
 	pairs := make([]*types.QAPair, len(questions))
 	for i, question := range questions {
-		pairs[i] = &types.QAPair{QID: i, Question: question, PIDs: []int{i}, Passages: []string{question}, Answer: "answer"}
+		pairs[i] = &types.QAPair{
+			QID:      i,
+			Question: question,
+			PIDs:     []int{i},
+			Passages: []string{question},
+			Answer:   "answer",
+		}
 	}
 	kbs := &evaluationTestKBs{}
 	knowledge := &evaluationTestKnowledge{}
 	e := &EvaluationService{
-		config:                  &config.Config{Conversation: &config.ConversationConfig{Summary: &config.SummaryConfig{}}},
-		dataset:                 &evaluationTestDataset{pairs: pairs},
-		knowledgeBaseService:    kbs,
-		knowledgeService:        knowledge,
-		modelService:            &evaluationTestModels{},
-		sessionService:          &evaluationTestSessions{qa: func(context.Context, *types.ChatManage) error { return nil }},
+		config: &config.Config{
+			Conversation: &config.ConversationConfig{Summary: &config.SummaryConfig{}},
+		},
+		dataset:              &evaluationTestDataset{pairs: pairs},
+		knowledgeBaseService: kbs,
+		knowledgeService:     knowledge,
+		modelService:         &evaluationTestModels{},
+		sessionService: &evaluationTestSessions{qa: func(
+			context.Context,
+			*types.ChatManage,
+		) error {
+			return nil
+		}},
 		evaluationMemoryStorage: newEvaluationMemoryStorageWithPath(filepath.Join(t.TempDir(), "tasks.json")),
 	}
 	detail := &types.EvaluationDetail{
-		Task:   &types.EvaluationTask{ID: "evaluation-test", TenantID: 1, DatasetID: "test", Status: types.EvaluationStatuePending},
+		Task: &types.EvaluationTask{
+			ID:        "evaluation-test",
+			TenantID:  1,
+			DatasetID: "test",
+			Status:    types.EvaluationStatuePending,
+		},
 		Params: &types.ChatManage{},
 	}
 	e.evaluationMemoryStorage.register(detail)

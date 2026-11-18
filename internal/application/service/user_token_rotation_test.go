@@ -21,7 +21,14 @@ func TestRefreshTokenImmediateRotationsAreDistinctAndSingleUse(t *testing.T) {
 	tokens := repository.NewAuthTokenRepository(db)
 	svc := &userService{userRepo: users, tokenRepo: tokens}
 	ctx := context.Background()
-	user := &types.User{ID: "rotation-user", Username: "rotation", Email: "rotation@example.com", TenantID: 1, IsActive: true, PasswordHash: "unused"}
+	user := &types.User{
+		ID:           "rotation-user",
+		Username:     "rotation",
+		Email:        "rotation@example.com",
+		TenantID:     1,
+		IsActive:     true,
+		PasswordHash: "unused",
+	}
 	require.NoError(t, users.CreateUser(ctx, user))
 	access, refresh, err := svc.GenerateTokens(ctx, user)
 	require.NoError(t, err)
@@ -73,21 +80,27 @@ func (m *mockCompensationTokenRepo) RevokeToken(ctx context.Context, id string) 
 func (m *mockCompensationTokenRepo) GetTokenByValue(context.Context, string) (*types.AuthToken, error) {
 	return nil, nil
 }
+
 func (m *mockCompensationTokenRepo) GetTokenByID(context.Context, string) (*types.AuthToken, error) {
 	return nil, nil
 }
+
 func (m *mockCompensationTokenRepo) GetTokensByUserID(context.Context, string) ([]*types.AuthToken, error) {
 	return nil, nil
 }
+
 func (m *mockCompensationTokenRepo) UpdateToken(context.Context, *types.AuthToken) error {
 	return nil
 }
+
 func (m *mockCompensationTokenRepo) DeleteToken(context.Context, string) error {
 	return nil
 }
+
 func (m *mockCompensationTokenRepo) DeleteExpiredTokens(context.Context) error {
 	return nil
 }
+
 func (m *mockCompensationTokenRepo) RevokeTokensByUserID(context.Context, string) error {
 	return nil
 }

@@ -1,3 +1,4 @@
+// Package chatpipeline implements event-driven RAG and chat completion pipeline plugins.
 package chatpipeline
 
 import (

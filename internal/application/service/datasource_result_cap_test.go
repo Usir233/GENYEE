@@ -21,7 +21,7 @@ func TestApplyFetchedItem_CapsErrorSampleButKeepsAccurateFailedCount(t *testing.
 
 	const failures = 5000
 	for i := 0; i < failures; i++ {
-		s.applyFetchedItem(ctx, ds, &types.FetchedItem{
+		_, _ = s.applyFetchedItem(ctx, ds, &types.FetchedItem{
 			ExternalID: "node",
 			Title:      "doc",
 			Metadata:   map[string]string{"error": "export failed: rate limited"},
@@ -44,7 +44,7 @@ func TestApplyFetchedItem_ProducesLocalisableStructuredError(t *testing.T) {
 	ds := &types.DataSource{}
 	result := &types.SyncResult{}
 
-	s.applyFetchedItem(context.Background(), ds, &types.FetchedItem{
+	_, _ = s.applyFetchedItem(context.Background(), ds, &types.FetchedItem{
 		ExternalID: "nt1",
 		Title:      "季度报告",
 		Metadata: map[string]string{

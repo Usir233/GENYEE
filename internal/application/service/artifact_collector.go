@@ -375,7 +375,9 @@ func (c *ArtifactCollector) collect(
 		// exactly this branch: either the sandbox was already reaped or
 		// the skill wrote to a different directory. Logging the exact
 		// (session, dir) pair makes it a 30-second grep to confirm.
-		logger.Infof(ctx, "[ArtifactCollector] no entries under %s (session=%s) — sandbox reaped or skill wrote elsewhere",
+		logger.Infof(
+			ctx,
+			"[ArtifactCollector] no entries under %s (session=%s) — sandbox reaped or skill wrote elsewhere",
 			outputDir, sessionID)
 		return nil, nil
 	}
@@ -518,7 +520,14 @@ func (c *ArtifactCollector) persistBytes(
 	hash string,
 ) (types.MessageArtifact, bool) {
 	storageName := "artifact_" + uuid.NewString() + "_" + safeFileName(entry.Name)
-	storagePath, created, err := interfaces.SaveBytesWithOwnership(ctx, c.fileService, data, tenantID, storageName, false)
+	storagePath, created, err := interfaces.SaveBytesWithOwnership(
+		ctx,
+		c.fileService,
+		data,
+		tenantID,
+		storageName,
+		false,
+	)
 	if err != nil {
 		logger.Warnf(ctx, "[ArtifactCollector] upload artifact failed: session=%s path=%s err=%v",
 			sessionID, entry.Path, err)
@@ -584,7 +593,7 @@ func (c *ArtifactCollector) hashStoredArtifact(ctx context.Context, art types.Me
 	if err != nil || file == nil {
 		return ""
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	limit := c.config.MaxFileBytes
 	if limit <= 0 {
 		limit = defaultMaxArtifactFileBytes

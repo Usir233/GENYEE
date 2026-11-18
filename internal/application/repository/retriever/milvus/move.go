@@ -28,10 +28,10 @@ func (m *milvusRepository) MoveKnowledgeIndices(
 	if _, err := m.collectionAnalyzerMode(ctx, collection); err != nil {
 		return err
 	}
-	return drainMoveRows(ctx, targetKB, func(ctx context.Context) ([]*MilvusVectorEmbeddingWithScore, error) {
+	return drainMoveRows(ctx, targetKB, func(ctx context.Context) ([]*VectorEmbeddingWithScore, error) {
 		rows, _, err := m.searchByFilter(ctx, collection, filter, &size, &offset)
 		return rows, err
-	}, func(ctx context.Context, rows []*MilvusVectorEmbedding) error {
+	}, func(ctx context.Context, rows []*VectorEmbedding) error {
 		_, err := m.client.Upsert(ctx, createUpsert(collection, rows))
 		return err
 	})
@@ -41,8 +41,8 @@ func (m *milvusRepository) MoveKnowledgeIndices(
 // backend has not made the acknowledged update visible; fail for retry instead
 // of advancing the document checkpoint or silently omitting remaining vectors.
 func drainMoveRows(ctx context.Context, targetKB string,
-	read func(context.Context) ([]*MilvusVectorEmbeddingWithScore, error),
-	write func(context.Context, []*MilvusVectorEmbedding) error,
+	read func(context.Context) ([]*VectorEmbeddingWithScore, error),
+	write func(context.Context, []*VectorEmbedding) error,
 ) error {
 	seen := map[string]bool{}
 	for {
@@ -53,13 +53,13 @@ func drainMoveRows(ctx context.Context, targetKB string,
 		if len(rows) == 0 {
 			return nil
 		}
-		batch := make([]*MilvusVectorEmbedding, 0, len(rows))
+		batch := make([]*VectorEmbedding, 0, len(rows))
 		for _, row := range rows {
 			if row == nil || row.ID == "" || seen[row.ID] {
 				return fmt.Errorf("invalid or repeated move index")
 			}
 			seen[row.ID] = true
-			copyOfRow := row.MilvusVectorEmbedding
+			copyOfRow := row.VectorEmbedding
 			copyOfRow.KnowledgeBaseID = targetKB
 			copyOfRow.TagID = ""
 			batch = append(batch, &copyOfRow)

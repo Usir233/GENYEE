@@ -13,6 +13,13 @@ import (
 // Lock in a stable order before updating any row so concurrent OCR/caption
 // edits merge their fields rather than restoring each other's old snapshots.
 func syncEditedImageCopies(tx *gorm.DB, edited *types.Chunk, expectedRevision int) error {
+	if err := acquireSQLiteWriteLock(
+		tx, &types.Chunk{}, "content_revision",
+		"tenant_id = ? AND knowledge_base_id = ? AND knowledge_id = ?",
+		edited.TenantID, edited.KnowledgeBaseID, edited.KnowledgeID,
+	); err != nil {
+		return err
+	}
 	var rows []*types.Chunk
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("tenant_id = ? AND knowledge_base_id = ? AND knowledge_id = ? AND image_info <> ''",

@@ -10,9 +10,9 @@ import (
 )
 
 func TestBuildMilvusIndexResultsPreservesSearchScores(t *testing.T) {
-	documents := []*MilvusVectorEmbeddingWithScore{
-		{MilvusVectorEmbedding: MilvusVectorEmbedding{ID: "id-1", ChunkID: "chunk-1"}},
-		{MilvusVectorEmbedding: MilvusVectorEmbedding{ID: "id-2", ChunkID: "chunk-2"}},
+	documents := []*VectorEmbeddingWithScore{
+		{VectorEmbedding: VectorEmbedding{ID: "id-1", ChunkID: "chunk-1"}},
+		{VectorEmbedding: VectorEmbedding{ID: "id-2", ChunkID: "chunk-2"}},
 	}
 
 	results, err := buildMilvusIndexResults(
@@ -30,8 +30,8 @@ func TestBuildMilvusIndexResultsPreservesSearchScores(t *testing.T) {
 
 func TestBuildMilvusIndexResultsRejectsScoreCountMismatch(t *testing.T) {
 	_, err := buildMilvusIndexResults(
-		[]*MilvusVectorEmbeddingWithScore{
-			{MilvusVectorEmbedding: MilvusVectorEmbedding{ID: "id-1"}},
+		[]*VectorEmbeddingWithScore{
+			{VectorEmbedding: VectorEmbedding{ID: "id-1"}},
 		},
 		nil,
 		types.MatchTypeKeywords,

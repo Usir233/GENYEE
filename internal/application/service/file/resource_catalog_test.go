@@ -130,7 +130,12 @@ type canceledRegistrationCatalog struct {
 	cancel context.CancelFunc
 }
 
-func (c *canceledRegistrationCatalog) Register(context.Context, uint64, string, interfaces.ResourceRegistration) (string, error) {
+func (c *canceledRegistrationCatalog) Register(
+	context.Context,
+	uint64,
+	string,
+	interfaces.ResourceRegistration,
+) (string, error) {
 	c.cancel()
 	return "", context.Canceled
 }
@@ -141,11 +146,18 @@ type cancellationAwareFileService struct {
 	deleted bool
 }
 
-func (f *cancellationAwareFileService) SaveBytes(ctx context.Context, data []byte, tenant uint64, name string, temp bool) (string, error) {
+func (f *cancellationAwareFileService) SaveBytes(
+	ctx context.Context,
+	data []byte,
+	tenant uint64,
+	name string,
+	temp bool,
+) (string, error) {
 	ref, err := f.FileService.SaveBytes(ctx, data, tenant, name, temp)
 	f.saved = ref
 	return ref, err
 }
+
 func (f *cancellationAwareFileService) DeleteFile(ctx context.Context, ref string) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -153,6 +165,7 @@ func (f *cancellationAwareFileService) DeleteFile(ctx context.Context, ref strin
 	f.deleted = true
 	return f.FileService.DeleteFile(ctx, ref)
 }
+
 func TestFailedResourceRegistrationCleansUploadAfterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -22,10 +22,9 @@ import (
 	"github.com/tencent/vectordatabase-sdk-go/tcvectordb"
 )
 
-const (
-	copyIndicesQueryPageSize int64 = 500
-	copyIndicesChunkBatch          = 200
-)
+const copyIndicesQueryPageSize int64 = 500
+
+const copyIndicesChunkBatch = 200
 
 var (
 	bearerSecretPattern = regexp.MustCompile(`(?i)(Bearer\s+)[^\s",)]+`)
@@ -149,7 +148,11 @@ func filterGeneratedQuestionHits(results []*types.IndexWithScore, excludedKBIDs 
 		if hit == nil {
 			continue
 		}
-		if _, blocked := excluded[hit.KnowledgeBaseID]; blocked && types.IsGeneratedQuestionSource(hit.ChunkID, hit.SourceID, hit.SourceType) {
+		if _, blocked := excluded[hit.KnowledgeBaseID]; blocked && types.IsGeneratedQuestionSource(
+			hit.ChunkID,
+			hit.SourceID,
+			hit.SourceType,
+		) {
 			continue
 		}
 		filtered = append(filtered, hit)
@@ -262,7 +265,11 @@ func (r *repository) BatchSave(ctx context.Context, indexInfoList []*types.Index
 	return nil
 }
 
-func (r *repository) EstimateStorageSize(ctx context.Context, indexInfoList []*types.IndexInfo, params map[string]any) int64 {
+func (r *repository) EstimateStorageSize(
+	ctx context.Context,
+	indexInfoList []*types.IndexInfo,
+	params map[string]any,
+) int64 {
 	var total int64
 	for _, indexInfo := range indexInfoList {
 		if indexInfo == nil {
@@ -272,21 +279,35 @@ func (r *repository) EstimateStorageSize(ctx context.Context, indexInfoList []*t
 		total += int64(len(embedding.Content))
 		total += int64(len(embedding.Embedding) * 4)
 		total += int64(len(embedding.Content) * 2)
-		total += int64(len(embedding.SourceID) + len(embedding.ChunkID) + len(embedding.KnowledgeID) + len(embedding.KnowledgeBaseID) + 256)
+		total += int64(
+			len(embedding.SourceID) + len(embedding.ChunkID) + len(embedding.KnowledgeID) + len(
+				embedding.KnowledgeBaseID,
+			) + 256,
+		)
 	}
-	logger.GetLogger(ctx).Infof("[TencentVectorDB] estimated storage size for %d indices: %d bytes", len(indexInfoList), total)
+	logger.GetLogger(ctx).Infof(
+		"[TencentVectorDB] estimated storage size for %d indices: %d bytes",
+		len(indexInfoList),
+		total,
+	)
 	return total
 }
 
-func (r *repository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+func (r *repository) DeleteByChunkIDList(
+	ctx context.Context, chunkIDList []string, dimension int, _ string,
+) error {
 	return r.deleteByFilter(ctx, dimension, filterIn(fieldChunkID, chunkIDList))
 }
 
-func (r *repository) DeleteBySourceIDList(ctx context.Context, sourceIDList []string, dimension int, knowledgeType string) error {
+func (r *repository) DeleteBySourceIDList(
+	ctx context.Context, sourceIDList []string, dimension int, _ string,
+) error {
 	return r.deleteByFilter(ctx, dimension, filterIn(fieldSourceID, sourceIDList))
 }
 
-func (r *repository) DeleteByKnowledgeIDList(ctx context.Context, knowledgeIDList []string, dimension int, knowledgeType string) error {
+func (r *repository) DeleteByKnowledgeIDList(
+	ctx context.Context, knowledgeIDList []string, dimension int, _ string,
+) error {
 	return r.deleteByFilter(ctx, dimension, filterIn(fieldKnowledgeID, knowledgeIDList))
 }
 
@@ -297,7 +318,7 @@ func (r *repository) CopyIndices(
 	sourceToTargetChunkIDMap map[string]string,
 	targetKnowledgeBaseID string,
 	dimension int,
-	knowledgeType string,
+	_ string,
 ) error {
 	srcKB := strings.TrimSpace(sourceKnowledgeBaseID)
 	dstKB := strings.TrimSpace(targetKnowledgeBaseID)
@@ -382,7 +403,11 @@ func (r *repository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkSta
 		grouped[enabled] = append(grouped[enabled], chunkID)
 	}
 	for enabled, chunkIDs := range grouped {
-		if err := r.updateChunkFields(ctx, chunkIDs, map[string]tcvectordb.Field{fieldIsEnabled: {Val: boolToUint64(enabled)}}); err != nil {
+		if err := r.updateChunkFields(
+			ctx,
+			chunkIDs,
+			map[string]tcvectordb.Field{fieldIsEnabled: {Val: boolToUint64(enabled)}},
+		); err != nil {
 			return err
 		}
 	}
@@ -398,7 +423,11 @@ func (r *repository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[
 		grouped[tagID] = append(grouped[tagID], chunkID)
 	}
 	for tagID, chunkIDs := range grouped {
-		if err := r.updateChunkFields(ctx, chunkIDs, map[string]tcvectordb.Field{fieldTagID: {Val: tagID}}); err != nil {
+		if err := r.updateChunkFields(
+			ctx,
+			chunkIDs,
+			map[string]tcvectordb.Field{fieldTagID: {Val: tagID}},
+		); err != nil {
 			return err
 		}
 	}
@@ -451,13 +480,19 @@ func (r *repository) BatchUpdateChunkContent(ctx context.Context, chunkContentMa
 			if !r.matchesCollection(collection.CollectionName) {
 				continue
 			}
-			_, err := r.client.Database(r.databaseName).Collection(collection.CollectionName).Update(ctx, tcvectordb.UpdateDocumentParams{
+			_, err := r.client.Database(r.databaseName).Collection(
+				collection.CollectionName,
+			).Update(ctx, tcvectordb.UpdateDocumentParams{
 				QueryFilter:     filter,
 				UpdateFields:    map[string]tcvectordb.Field{fieldContent: {Val: content}},
 				UpdateSparseVec: sparseVecs[0],
 			})
 			if err != nil {
-				return fmt.Errorf("tencent vectordb update chunk content in %s: %w", collection.CollectionName, redactTencentErr(err))
+				return fmt.Errorf(
+					"tencent vectordb update chunk content in %s: %w",
+					collection.CollectionName,
+					redactTencentErr(err),
+				)
 			}
 		}
 	}
@@ -518,7 +553,11 @@ func (r *repository) VectorRetrieve(ctx context.Context, params types.RetrievePa
 		searchParams.Radius = &radius
 	}
 
-	search, err := r.client.Database(r.databaseName).Collection(collectionName).Search(ctx, [][]float32{params.Embedding}, searchParams)
+	search, err := r.client.Database(r.databaseName).Collection(collectionName).Search(
+		ctx,
+		[][]float32{params.Embedding},
+		searchParams,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("tencent vectordb vector search %s: %w", collectionName, redactTencentErr(err))
 	}
@@ -538,7 +577,10 @@ func (r *repository) VectorRetrieve(ctx context.Context, params types.RetrievePa
 	return r.retrieveResult(results, types.VectorRetrieverType), nil
 }
 
-func (r *repository) KeywordsRetrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
+func (r *repository) KeywordsRetrieve(
+	ctx context.Context,
+	params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
 	log := logger.GetLogger(ctx)
 	if !hasValidRetrieveScope(params) {
 		return r.retrieveResult(nil, types.KeywordsRetrieverType), nil
@@ -604,7 +646,11 @@ func (r *repository) KeywordsRetrieve(ctx context.Context, params types.Retrieve
 		)
 		if err != nil {
 			failedCollections++
-			log.Warnf("[TencentVectorDB] keyword search failed in %s: %v", collection.CollectionName, redactTencentErr(err))
+			log.Warnf(
+				"[TencentVectorDB] keyword search failed in %s: %v",
+				collection.CollectionName,
+				redactTencentErr(err),
+			)
 			continue
 		}
 		if search == nil || len(search.Documents) == 0 {
@@ -616,7 +662,11 @@ func (r *repository) KeywordsRetrieve(ctx context.Context, params types.Retrieve
 		}
 	}
 	if matchedCollections > 0 && failedCollections == matchedCollections {
-		return nil, fmt.Errorf("tencent vectordb keyword search failed in all matched collections; ensure collections have the %q sparse vector index and reimport data if they were created before keyword support", fieldSparseVector)
+		return nil, fmt.Errorf(
+			"tencent vectordb keyword search failed in all matched collections; ensure collections have the %q "+
+				"sparse vector index and reimport data if they were created before keyword support",
+			fieldSparseVector,
+		)
 	}
 
 	results = filterGeneratedQuestionHits(results, params.ExcludeGeneratedQuestionKBIDs)
@@ -739,7 +789,11 @@ func (r *repository) deleteByFilter(ctx context.Context, dimension int, cond str
 	return nil
 }
 
-func (r *repository) updateChunkFields(ctx context.Context, chunkIDs []string, fields map[string]tcvectordb.Field) error {
+func (r *repository) updateChunkFields(
+	ctx context.Context,
+	chunkIDs []string,
+	fields map[string]tcvectordb.Field,
+) error {
 	cleaned := cleanNonEmptyIDs(chunkIDs)
 	if len(cleaned) == 0 {
 		return nil
@@ -760,12 +814,18 @@ func (r *repository) updateChunkFields(ctx context.Context, chunkIDs []string, f
 		if !r.matchesCollection(collection.CollectionName) {
 			continue
 		}
-		_, err := r.client.Database(r.databaseName).Collection(collection.CollectionName).Update(ctx, tcvectordb.UpdateDocumentParams{
+		_, err := r.client.Database(r.databaseName).Collection(
+			collection.CollectionName,
+		).Update(ctx, tcvectordb.UpdateDocumentParams{
 			QueryFilter:  tcvectordb.NewFilter(cond),
 			UpdateFields: fields,
 		})
 		if err != nil {
-			return fmt.Errorf("tencent vectordb update chunks in %s: %w", collection.CollectionName, redactTencentErr(err))
+			return fmt.Errorf(
+				"tencent vectordb update chunks in %s: %w",
+				collection.CollectionName,
+				redactTencentErr(err),
+			)
 		}
 	}
 	return nil
@@ -816,7 +876,10 @@ func (r *repository) baseFilter(params types.RetrieveParams) *tcvectordb.Filter 
 	return tcvectordb.NewFilter(strings.Join(conditions, " and "))
 }
 
-func (r *repository) retrieveResult(results []*types.IndexWithScore, retrieverType types.RetrieverType) []*types.RetrieveResult {
+func (r *repository) retrieveResult(
+	results []*types.IndexWithScore,
+	retrieverType types.RetrieverType,
+) []*types.RetrieveResult {
 	return []*types.RetrieveResult{
 		{
 			Results:             results,
@@ -857,7 +920,11 @@ func (r *repository) toDocumentsWithSparseVectors(
 	docs := make([]tcvectordb.Document, 0, len(embeddings))
 	for i, embedding := range embeddings {
 		if i >= len(sparseVectors) {
-			return nil, fmt.Errorf("tencent vectordb encoded sparse vector count mismatch: got %d, want %d", len(sparseVectors), len(embeddings))
+			return nil, fmt.Errorf(
+				"tencent vectordb encoded sparse vector count mismatch: got %d, want %d",
+				len(sparseVectors),
+				len(embeddings),
+			)
 		}
 		embedding.SparseVector = sparseVectors[i]
 		docs = append(docs, toDocument(embedding))
@@ -903,7 +970,11 @@ func lookupEmbedding(embeddingMap map[string][]float32, indexInfo *types.IndexIn
 	return embeddingMap[indexInfo.ChunkID]
 }
 
-func copySourceQueryParams(sourceKnowledgeBaseID string, chunkIDs []string, offset int64) (*tcvectordb.QueryDocumentParams, error) {
+func copySourceQueryParams(
+	sourceKnowledgeBaseID string,
+	chunkIDs []string,
+	offset int64,
+) (*tcvectordb.QueryDocumentParams, error) {
 	srcKB := strings.TrimSpace(sourceKnowledgeBaseID)
 	if srcKB == "" {
 		return nil, fmt.Errorf("tencent vectordb copy indices requires non-empty source knowledge_base_id")

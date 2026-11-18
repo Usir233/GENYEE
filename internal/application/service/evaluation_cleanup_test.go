@@ -11,14 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type evaluationCleanupDataset struct {
-	interfaces.DatasetService
-}
-
-func (evaluationCleanupDataset) GetDatasetByID(context.Context, string) ([]*types.QAPair, error) {
-	return nil, nil
-}
-
 type evaluationCleanupKnowledgeRepo struct {
 	interfaces.KnowledgeRepository
 	knowledge *types.Knowledge
@@ -101,10 +93,17 @@ func TestEvalDatasetCleansUpTemporaryResources(t *testing.T) {
 				dataset: &evaluationTestDataset{
 					pairs: []*types.QAPair{{Question: "q1", PIDs: []int{1}, Passages: []string{"p1"}}},
 				},
-				knowledgeService:        knowledgeSvc,
-				knowledgeBaseService:    kbSvc,
-				sessionService:          &evaluationTestSessions{qa: func(context.Context, *types.ChatManage) error { return nil }},
-				evaluationMemoryStorage: newEvaluationMemoryStorageWithPath(filepath.Join(t.TempDir(), "evaluation_tasks.json")),
+				knowledgeService:     knowledgeSvc,
+				knowledgeBaseService: kbSvc,
+				sessionService: &evaluationTestSessions{qa: func(
+					context.Context,
+					*types.ChatManage,
+				) error {
+					return nil
+				}},
+				evaluationMemoryStorage: newEvaluationMemoryStorageWithPath(
+					filepath.Join(t.TempDir(), "evaluation_tasks.json"),
+				),
 			}
 			detail := &types.EvaluationDetail{
 				Task: &types.EvaluationTask{

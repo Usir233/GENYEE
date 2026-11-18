@@ -76,14 +76,17 @@ func (s *sessionService) AgentQA(
 
 	// Resolve retrieval tenant using shared helper
 	agentTenantID := s.resolveRetrievalTenantID(ctx, req)
-	logger.Infof(ctx, "Start agent-based question answering, session ID: %s, agent tenant ID: %d, query: %s, session: %s",
+	logger.Infof(
+		ctx,
+		"Start agent-based question answering, session ID: %s, agent tenant ID: %d, query: %s, session: %s",
 		sessionID, agentTenantID, req.Query, string(sessionJSON))
 
 	var tenantInfo *types.Tenant
 	if v := ctx.Value(types.TenantInfoContextKey); v != nil {
 		tenantInfo, _ = v.(*types.Tenant)
 	}
-	// When agent belongs to another tenant (shared agent), use agent's tenant for KB/model scope; load tenantInfo if needed
+	// When agent belongs to another tenant (shared agent), use agent's tenant for KB/model scope; load tenantInfo if
+	// needed
 	if tenantInfo == nil || tenantInfo.ID != agentTenantID {
 		if s.tenantService != nil {
 			if agentTenant, err := s.tenantService.GetTenantByID(ctx, agentTenantID); err == nil && agentTenant != nil {
@@ -197,7 +200,11 @@ func (s *sessionService) AgentQA(
 					req.CustomAgent.ID)
 			}
 		} else if rerankModelID == "" {
-			logger.Warnf(ctx, "No rerank model configured for custom agent %s, but knowledge_search tool is enabled", req.CustomAgent.ID)
+			logger.Warnf(
+				ctx,
+				"No rerank model configured for custom agent %s, but knowledge_search tool is enabled",
+				req.CustomAgent.ID,
+			)
 			return errors.New("rerank model is not configured: please set rerank_model_id on the agent")
 		}
 
@@ -209,7 +216,10 @@ func (s *sessionService) AgentQA(
 			}
 		}
 	} else {
-		logger.Infof(ctx, "knowledge_search is unavailable for the effective agent scope, skipping rerank model initialization")
+		logger.Infof(
+			ctx,
+			"knowledge_search is unavailable for the effective agent scope, skipping rerank model initialization",
+		)
 	}
 
 	// Load multi-turn history directly from DB (the single source of truth).
@@ -386,11 +396,12 @@ func (s *sessionService) AgentQA(
 			ctx, req.Query, req.ImageDescription, agentModelSupportsVision, req.ImageURLs,
 			agentImageDescriber(engine),
 		)
-		if agentModelSupportsVision && len(agentImageURLs) > 0 {
+		switch {
+		case agentModelSupportsVision && len(agentImageURLs) > 0:
 			logger.Infof(ctx, "Agent model supports vision, passing %d image(s) directly", len(agentImageURLs))
-		} else if len(req.ImageURLs) > 0 && strings.Contains(agentQuery, "[用户上传图片内容]") {
+		case len(req.ImageURLs) > 0 && strings.Contains(agentQuery, "[用户上传图片内容]"):
 			logger.Infof(ctx, "Agent model does not support vision, appending image description")
-		} else if len(req.ImageURLs) > 0 {
+		case len(req.ImageURLs) > 0:
 			logger.Warnf(ctx, "Agent model cannot view %d image(s) and no description was produced", len(req.ImageURLs))
 		}
 		if req.QuotedContext != "" {
@@ -424,7 +435,7 @@ func (s *sessionService) AgentQA(
 	if err != nil {
 		logger.Errorf(ctx, "Agent execution failed: %v", err)
 		// Emit error event to the EventBus used by this agent
-		eventBus.Emit(ctx, event.Event{
+		_ = eventBus.Emit(ctx, event.Event{
 			Type:      event.EventError,
 			SessionID: sessionID,
 			Data: event.ErrorData{
@@ -620,7 +631,9 @@ func (s *sessionService) buildAgentConfig(
 		agentConfig.SystemPrompt = systemPrompt
 	}
 
-	logger.Infof(ctx, "Custom agent config applied: MaxIterations=%d, Temperature=%.2f, AllowedTools=%v, WebSearchEnabled=%v",
+	logger.Infof(
+		ctx,
+		"Custom agent config applied: MaxIterations=%d, Temperature=%.2f, AllowedTools=%v, WebSearchEnabled=%v",
 		agentConfig.MaxIterations, agentConfig.Temperature, agentConfig.AllowedTools, agentConfig.WebSearchEnabled)
 
 	// Set web search max results from tenant config if not set (default: 5)
@@ -633,7 +646,10 @@ func (s *sessionService) buildAgentConfig(
 
 	// Resolve web search provider ID: agent-level > tenant default (is_default=true)
 	if agentConfig.WebSearchProviderID == "" {
-		if defaultProvider, err := s.webSearchProviderRepo.GetDefault(ctx, tenantInfo.ID); err == nil && defaultProvider != nil {
+		if defaultProvider, err := s.webSearchProviderRepo.GetDefault(
+			ctx,
+			tenantInfo.ID,
+		); err == nil && defaultProvider != nil {
 			agentConfig.WebSearchProviderID = defaultProvider.ID
 		}
 	}
@@ -653,7 +669,13 @@ func (s *sessionService) buildAgentConfig(
 	}
 
 	// Build search targets using agent's tenant (handler has validated access for shared agent)
-	searchTargets, err := s.buildSearchTargets(ctx, agentTenantID, agentConfig.KnowledgeBases, agentConfig.KnowledgeIDs, req.TagScopes)
+	searchTargets, err := s.buildSearchTargets(
+		ctx,
+		agentTenantID,
+		agentConfig.KnowledgeBases,
+		agentConfig.KnowledgeIDs,
+		req.TagScopes,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("build search targets: %w", err)
 	}

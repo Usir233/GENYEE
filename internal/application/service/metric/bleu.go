@@ -1,3 +1,4 @@
+// Package metric implements text generation and retrieval evaluation metrics (BLEU, ROUGE, NDCG, MRR).
 package metric
 
 // references: https://github.com/waygo/bleu
@@ -23,19 +24,24 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
+// BLEUMetric computes smoothed or unsmoothed n-gram BLEU scores.
 type BLEUMetric struct {
 	smoothing bool
 	weights   BLEUWeight
 }
 
+// NewBLEUMetric creates a BLEU evaluator with the given n-gram weights.
 func NewBLEUMetric(smoothing bool, weights BLEUWeight) *BLEUMetric {
 	return &BLEUMetric{smoothing: smoothing, weights: weights}
 }
 
+// Sentence represents a tokenized sequence of words.
 type Sentence []string
 
+// BLEUWeight defines n-gram weighting coefficients for BLEU computation.
 type BLEUWeight []float64
 
+// Standard n-gram weight presets for BLEU evaluation.
 var (
 	BLEU1Gram BLEUWeight = []float64{1.0, 0.0, 0.0, 0.0}
 	BLEU2Gram BLEUWeight = []float64{0.5, 0.5, 0.0, 0.0}
@@ -43,6 +49,7 @@ var (
 	BLEU4Gram BLEUWeight = []float64{0.25, 0.25, 0.25, 0.25}
 )
 
+// Compute calculates the BLEU score between generated text and ground truth.
 func (b *BLEUMetric) Compute(metricInput *types.MetricInput) float64 {
 	if metricInput == nil || len(b.weights) == 0 {
 		return 0

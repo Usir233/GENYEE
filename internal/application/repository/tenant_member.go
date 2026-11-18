@@ -148,7 +148,12 @@ func (r *tenantMemberRepository) ListPagedByTenant(
 }
 
 // UpdateRole changes the role of an existing active membership.
-func (r *tenantMemberRepository) UpdateRole(ctx context.Context, userID string, tenantID uint64, role types.TenantRole) error {
+func (r *tenantMemberRepository) UpdateRole(
+	ctx context.Context,
+	userID string,
+	tenantID uint64,
+	role types.TenantRole,
+) error {
 	res := r.db.WithContext(ctx).
 		Model(&types.TenantMember{}).
 		Where("user_id = ? AND tenant_id = ?", userID, tenantID).
@@ -207,6 +212,9 @@ func (r *tenantMemberRepository) DemoteOwnerAtomically(
 	newRole types.TenantRole,
 ) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := acquireSQLiteWriteLock(tx, &types.TenantMember{}, "role", "tenant_id = ?", tenantID); err != nil {
+			return err
+		}
 		// Lock every other active Owner row in the tenant. Locking ONLY
 		// owners (not the row being demoted) is enough: a concurrent
 		// demote of the locked row will block on this same SELECT.
@@ -247,6 +255,9 @@ func (r *tenantMemberRepository) RemoveOwnerAtomically(
 	tenantID uint64,
 ) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := acquireSQLiteWriteLock(tx, &types.TenantMember{}, "role", "tenant_id = ?", tenantID); err != nil {
+			return err
+		}
 		var locked []types.TenantMember
 		err := tx.
 			Clauses(forUpdateClause()).

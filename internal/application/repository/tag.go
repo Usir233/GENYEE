@@ -60,7 +60,11 @@ func (r *knowledgeTagRepository) GetByID(ctx context.Context, tenantID uint64, i
 }
 
 // GetByIDs retrieves multiple tags by their IDs in a single query
-func (r *knowledgeTagRepository) GetByIDs(ctx context.Context, tenantID uint64, ids []string) ([]*types.KnowledgeTag, error) {
+func (r *knowledgeTagRepository) GetByIDs(
+	ctx context.Context,
+	tenantID uint64,
+	ids []string,
+) ([]*types.KnowledgeTag, error) {
 	if len(ids) == 0 {
 		return []*types.KnowledgeTag{}, nil
 	}
@@ -74,7 +78,11 @@ func (r *knowledgeTagRepository) GetByIDs(ctx context.Context, tenantID uint64, 
 }
 
 // GetBySeqID retrieves a tag by its seq_id
-func (r *knowledgeTagRepository) GetBySeqID(ctx context.Context, tenantID uint64, seqID int64) (*types.KnowledgeTag, error) {
+func (r *knowledgeTagRepository) GetBySeqID(
+	ctx context.Context,
+	tenantID uint64,
+	seqID int64,
+) (*types.KnowledgeTag, error) {
 	var tag types.KnowledgeTag
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND seq_id = ?", tenantID, seqID).
@@ -85,7 +93,11 @@ func (r *knowledgeTagRepository) GetBySeqID(ctx context.Context, tenantID uint64
 }
 
 // GetBySeqIDs retrieves multiple tags by their seq_ids in a single query
-func (r *knowledgeTagRepository) GetBySeqIDs(ctx context.Context, tenantID uint64, seqIDs []int64) ([]*types.KnowledgeTag, error) {
+func (r *knowledgeTagRepository) GetBySeqIDs(
+	ctx context.Context,
+	tenantID uint64,
+	seqIDs []int64,
+) ([]*types.KnowledgeTag, error) {
 	if len(seqIDs) == 0 {
 		return []*types.KnowledgeTag{}, nil
 	}
@@ -99,7 +111,12 @@ func (r *knowledgeTagRepository) GetBySeqIDs(ctx context.Context, tenantID uint6
 }
 
 // GetByName gets a knowledge tag by name
-func (r *knowledgeTagRepository) GetByName(ctx context.Context, tenantID uint64, kbID string, name string) (*types.KnowledgeTag, error) {
+func (r *knowledgeTagRepository) GetByName(
+	ctx context.Context,
+	tenantID uint64,
+	kbID string,
+	name string,
+) (*types.KnowledgeTag, error) {
 	var tag types.KnowledgeTag
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND knowledge_base_id = ? AND name = ?", tenantID, kbID, name).
@@ -170,7 +187,12 @@ func (r *knowledgeTagRepository) CountReferences(
 ) (knowledgeCount int64, chunkCount int64, err error) {
 	if err = r.db.WithContext(ctx).
 		Table("knowledge_tag_relations AS ktr").
-		Joins("JOIN knowledges AS k ON ktr.knowledge_id = k.id AND k.deleted_at IS NULL AND k.tenant_id = ? AND k.knowledge_base_id = ?", tenantID, kbID).
+		Joins(
+			"JOIN knowledges AS k ON ktr.knowledge_id = k.id AND k.deleted_at IS NULL AND k.tenant_id = ? AND "+
+				"k.knowledge_base_id = ?",
+			tenantID,
+			kbID,
+		).
 		Where("ktr.tag_id = ?", tagID).
 		Count(&knowledgeCount).Error; err != nil {
 		return
@@ -212,7 +234,12 @@ func (r *knowledgeTagRepository) BatchCountReferences(
 	if err := r.db.WithContext(ctx).
 		Table("knowledge_tag_relations AS ktr").
 		Select("ktr.tag_id, COUNT(*) as count").
-		Joins("JOIN knowledges AS k ON ktr.knowledge_id = k.id AND k.deleted_at IS NULL AND k.tenant_id = ? AND k.knowledge_base_id = ?", tenantID, kbID).
+		Joins(
+			"JOIN knowledges AS k ON ktr.knowledge_id = k.id AND k.deleted_at IS NULL AND k.tenant_id = ? AND "+
+				"k.knowledge_base_id = ?",
+			tenantID,
+			kbID,
+		).
 		Where("ktr.tag_id IN (?)", tagIDs).
 		Group("ktr.tag_id").
 		Find(&knowledgeCounts).Error; err != nil {
@@ -249,8 +276,18 @@ func (r *knowledgeTagRepository) DeleteUnusedTags(ctx context.Context, tenantID 
 	// Delete tags that have no references in both knowledges and chunks tables (excluding soft-deleted records)
 	result := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND knowledge_base_id = ?", tenantID, kbID).
-		Where("id NOT IN (SELECT DISTINCT ktr.tag_id FROM knowledge_tag_relations ktr JOIN knowledges k ON ktr.knowledge_id = k.id AND k.deleted_at IS NULL AND k.tenant_id = ? AND k.knowledge_base_id = ?)", tenantID, kbID).
-		Where("id NOT IN (SELECT DISTINCT tag_id FROM chunks WHERE tenant_id = ? AND knowledge_base_id = ? AND tag_id IS NOT NULL AND tag_id != '' AND deleted_at IS NULL)", tenantID, kbID).
+		Where(
+			"id NOT IN (SELECT DISTINCT ktr.tag_id FROM knowledge_tag_relations ktr JOIN knowledges k ON "+
+				"ktr.knowledge_id = k.id AND k.deleted_at IS NULL AND k.tenant_id = ? AND k.knowledge_base_id = ?)",
+			tenantID,
+			kbID,
+		).
+		Where(
+			"id NOT IN (SELECT DISTINCT tag_id FROM chunks WHERE tenant_id = ? AND knowledge_base_id = ? AND tag_id "+
+				"IS NOT NULL AND tag_id != '' AND deleted_at IS NULL)",
+			tenantID,
+			kbID,
+		).
 		Delete(&types.KnowledgeTag{})
 	return result.RowsAffected, result.Error
 }

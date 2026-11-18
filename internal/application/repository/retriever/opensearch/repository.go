@@ -20,11 +20,10 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
-// EngineAwareNormalizer applies the documented per-engine cosine-score
-// formula. (Repository implements interfaces.RetrieveEngineRepository for
-// OpenSearch k-NN. Safe for concurrent use after construction: all fields
-// except the once / initErr maps are read-only after NewRepository returns;
-// per-dimension index initialization is guarded by sync.Once.
+// Repository implements interfaces.RetrieveEngineRepository for OpenSearch k-NN.
+// Safe for concurrent use after construction: all fields except the once / initErr
+// maps are read-only after NewRepository returns; per-dimension index initialization
+// is guarded by sync.Once.
 //
 // Lifecycle: NewRepository validates connectivity + cluster version +
 // k-NN plugin, but does NOT create any index. Index creation happens
@@ -259,14 +258,14 @@ func probeVersion(ctx context.Context, client *osapi.Client) error {
 		return fmt.Errorf("opensearch: unsupported distribution %q: %w",
 			distribution, ErrVersionUnsupported)
 	}
-	maj, min := parseMajorMinor(number)
+	maj, minor := parseMajorMinor(number)
 	switch {
 	case maj == 1:
 		return fmt.Errorf("opensearch: 1.x EOL: %w", ErrVersionUnsupported)
-	case maj == 2 && min >= 0 && min <= 3:
+	case maj == 2 && minor >= 0 && minor <= 3:
 		return fmt.Errorf("opensearch: %s lacks Lucene HNSW GA (need 2.4+): %w",
 			number, ErrVersionUnsupported)
-	case maj == 2 && min >= 4 && min <= 10:
+	case maj == 2 && minor >= 4 && minor <= 10:
 		logger.GetLogger(ctx).Warnf(
 			"[OpenSearch] using pre-2.11 cluster %s; recommend 2.11+ LTS", number)
 		return nil

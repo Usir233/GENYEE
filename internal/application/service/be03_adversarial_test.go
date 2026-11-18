@@ -40,7 +40,6 @@ func setupTestSQLiteDB(t *testing.T) (*gorm.DB, error) {
 	return db, nil
 }
 
-
 // TestBE03_RepositoryCASConcurrencyRaceStress fires 50 concurrent goroutines
 // attempting to revoke the same unrevoked token simultaneously via UpdateToken.
 // Exactly ONE must succeed and 49 must fail with CAS error or lock rejection.
@@ -97,7 +96,6 @@ func TestBE03_RepositoryCASConcurrencyRaceStress(t *testing.T) {
 			}
 		}()
 	}
-
 
 	// Release all 50 goroutines simultaneously
 	close(startCh)

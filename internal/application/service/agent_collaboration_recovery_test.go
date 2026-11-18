@@ -239,7 +239,9 @@ type collaborationStreams struct {
 }
 
 func (*collaborationStreams) SetLiveRun(context.Context, string, string, string) error { return nil }
-func (*collaborationStreams) ClearLiveRun(context.Context, string, string) error       { return nil }
+
+func (*collaborationStreams) ClearLiveRun(context.Context, string, string) error { return nil }
+
 func (*collaborationStreams) AppendEvent(context.Context, string, string, interfaces.StreamEvent) error {
 	return nil
 }

@@ -19,7 +19,9 @@ func TestCheckKnowledgeExists_FileHashIsScopedByFileType(t *testing.T) {
 	const fileHash = "same-content-hash"
 
 	require.NoError(t, db.Exec(`
-		INSERT INTO knowledges (id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_hash, parse_status)
+		INSERT INTO knowledges (
+			id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_hash, parse_status
+		)
 		VALUES (?, ?, ?, 'file', 'document.md', 'document.md', 'md', ?, 'completed')
 	`, uuid.NewString(), tenantID, kbID, fileHash).Error)
 
@@ -119,7 +121,9 @@ func TestCheckKnowledgeExists_ParseStatusMatrix(t *testing.T) {
 			db := setupKnowledgeTestDB(t)
 			repo := NewKnowledgeRepository(db)
 			require.NoError(t, db.Exec(`
-				INSERT INTO knowledges (id, tenant_id, knowledge_base_id, type, file_name, file_type, file_size, file_hash, parse_status)
+				INSERT INTO knowledges (
+					id, tenant_id, knowledge_base_id, type, file_name, file_type, file_size, file_hash, parse_status
+				)
 				VALUES (?, 1, 'kb-1', 'file', 'doc.md', 'md', 10, 'hash-1', ?)
 			`, uuid.NewString(), tc.parseStatus).Error)
 

@@ -160,7 +160,11 @@ func filterWeaviateGeneratedQuestions(results []*types.IndexWithScore, excludedK
 		if hit == nil {
 			continue
 		}
-		if _, blocked := excluded[hit.KnowledgeBaseID]; blocked && types.IsGeneratedQuestionSource(hit.ChunkID, hit.SourceID, hit.SourceType) {
+		if _, blocked := excluded[hit.KnowledgeBaseID]; blocked && types.IsGeneratedQuestionSource(
+			hit.ChunkID,
+			hit.SourceID,
+			hit.SourceType,
+		) {
 			continue
 		}
 		filtered = append(filtered, hit)
@@ -170,7 +174,10 @@ func filterWeaviateGeneratedQuestions(results []*types.IndexWithScore, excludedK
 
 // NewWeaviateRetrieveEngineRepository creates and initializes a new Weaviate repository.
 // indexCfg is optional — pass nil to use env var / default values (env path).
-func NewWeaviateRetrieveEngineRepository(client *weaviate.Client, indexCfg *types.IndexConfig) interfaces.RetrieveEngineRepository {
+func NewWeaviateRetrieveEngineRepository(
+	client *weaviate.Client,
+	indexCfg *types.IndexConfig,
+) interfaces.RetrieveEngineRepository {
 	log := logger.GetLogger(context.Background())
 	log.Info("[Weaviate] Initializing Weaviate retriever engine repository")
 
@@ -214,14 +221,14 @@ func (w *weaviateRepository) matchesCollection(collectionName string) bool {
 func (w *weaviateRepository) ensureCollection(ctx context.Context, dimension int) error {
 	collectionName := w.getCollectionName(dimension)
 
-	//Check cache first
+	// Check cache first
 	if _, ok := w.initializedCollections.Load(dimension); ok {
 		return nil
 	}
 
 	log := logger.GetLogger(ctx)
 
-	//Check if collection exists
+	// Check if collection exists
 	exists, err := w.client.Schema().ClassExistenceChecker().WithClassName(collectionName).Do(ctx)
 	if err != nil {
 		log.Errorf("[Weaviate] Failed to check collection existence: %v", err)
@@ -231,7 +238,7 @@ func (w *weaviateRepository) ensureCollection(ctx context.Context, dimension int
 	if !exists {
 		log.Infof("[Weaviate] Creating collection %s with dimension %d", collectionName, dimension)
 
-		//定义class结构
+		// 定义class结构
 		classObj := models.Class{
 			Class:       collectionName,
 			Description: fmt.Sprintf("GENYEE embeddings collection with dimension %d", dimension),
@@ -302,7 +309,7 @@ func (w *weaviateRepository) ensureCollection(ctx context.Context, dimension int
 				"desiredCount": w.desiredShardCount,
 			}
 		}
-		//创建collection
+		// 创建collection
 		if err = w.client.Schema().ClassCreator().WithClass(&classObj).Do(ctx); err != nil {
 			// The first batches written at a new dimension are saved by several
 			// workers at once, so another one (or another replica) may have
@@ -391,7 +398,6 @@ func (w *weaviateRepository) Save(ctx context.Context,
 		WithProperties(dataSchema).
 		WithVector(embeddingDB.Embedding).
 		Do(ctx)
-
 	if err != nil {
 		log.Errorf("[Weaviate] Failed to save index: %v", err)
 		return err
@@ -477,7 +483,9 @@ func (w *weaviateRepository) BatchSave(ctx context.Context,
 }
 
 // DeleteByChunkIDList removes points from the collection based on chunk IDs
-func (w *weaviateRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+func (w *weaviateRepository) DeleteByChunkIDList(
+	ctx context.Context, chunkIDList []string, dimension int, _ string,
+) error {
 	log := logger.GetLogger(ctx)
 	cleaned := cleanNonEmptyIDs(chunkIDList)
 	if len(cleaned) == 0 {
@@ -512,7 +520,7 @@ func (w *weaviateRepository) DeleteByChunkIDList(ctx context.Context, chunkIDLis
 
 // DeleteByKnowledgeIDList removes points from the collection based on knowledge IDs
 func (w *weaviateRepository) DeleteByKnowledgeIDList(ctx context.Context,
-	knowledgeIDList []string, dimension int, knowledgeType string,
+	knowledgeIDList []string, dimension int, _ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	cleaned := cleanNonEmptyIDs(knowledgeIDList)
@@ -548,7 +556,7 @@ func (w *weaviateRepository) DeleteByKnowledgeIDList(ctx context.Context,
 
 // DeleteBySourceIDList removes points from the collection based on source IDs
 func (w *weaviateRepository) DeleteBySourceIDList(ctx context.Context,
-	sourceIDList []string, dimension int, knowledgeType string,
+	sourceIDList []string, dimension int, _ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	cleaned := cleanNonEmptyIDs(sourceIDList)
@@ -635,7 +643,7 @@ func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkC
 			result, err := w.client.GraphQL().Get().
 				WithClassName(collectionName).
 				WithWhere(where).
-				WithLimit(len(batch) * 2).
+				WithLimit(len(batch)*2).
 				WithFields(
 					graphql.Field{Name: fieldSourceID},
 					graphql.Field{Name: fieldChunkID},
@@ -794,6 +802,7 @@ func (w *weaviateRepository) chunkObjectIDs(ctx context.Context, collection, chu
 		return ids, nil
 	}
 }
+
 func (w *weaviateRepository) getBaseFilter(params types.RetrieveParams) *filters.WhereBuilder {
 	if !hasValidRetrieveScope(params) {
 		return filters.Where().
@@ -927,7 +936,6 @@ func (w *weaviateRepository) VectorRetrieve(ctx context.Context,
 			WithVector(params.Embedding).
 			WithCertainty(scoreThreshold)).
 		Do(ctx)
-
 	if err != nil {
 		log.Errorf("[Weaviate] Vector search failed: %v", err)
 		return nil, fmt.Errorf("failed to search: %w", err)
@@ -1016,7 +1024,11 @@ func (w *weaviateRepository) KeywordsRetrieve(ctx context.Context,
 	for _, collectionName := range collections {
 		log.Debugf("[Weaviate] Checking collection: %s", collectionName)
 		if !w.matchesCollection(collectionName) {
-			log.Debugf("[Weaviate] Skipping collection %s (doesn't match base name %s)", collectionName, w.collectionBaseName)
+			log.Debugf(
+				"[Weaviate] Skipping collection %s (doesn't match base name %s)",
+				collectionName,
+				w.collectionBaseName,
+			)
 			continue
 		}
 
@@ -1030,7 +1042,6 @@ func (w *weaviateRepository) KeywordsRetrieve(ctx context.Context,
 			WithFields(fields...).
 			WithBM25(bm25).
 			Do(ctx)
-
 		if err != nil {
 			log.Errorf("[Weaviate] keywords search failed: %v", err)
 			return nil, fmt.Errorf("failed to search: %w", err)
@@ -1092,7 +1103,7 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 	sourceToTargetChunkIDMap map[string]string,
 	targetKnowledgeBaseID string,
 	dimension int,
-	knowledgeType string,
+	_ string,
 ) error {
 	log := logger.GetLogger(ctx)
 	sourceKB := strings.TrimSpace(sourceKnowledgeBaseID)
@@ -1164,12 +1175,13 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 			}
 
 			var targetSourceID string
-			if originalSourceID == sourceChunkID {
+			switch {
+			case originalSourceID == sourceChunkID:
 				targetSourceID = targetChunkID
-			} else if strings.HasPrefix(originalSourceID, sourceChunkID+"-") {
+			case strings.HasPrefix(originalSourceID, sourceChunkID+"-"):
 				questionID := strings.TrimPrefix(originalSourceID, sourceChunkID+"-")
 				targetSourceID = fmt.Sprintf("%s-%s", targetChunkID, questionID)
-			} else {
+			default:
 				targetSourceID = uuid.New().String()
 			}
 
@@ -1429,7 +1441,7 @@ func indexObjectID(sourceID, chunkID string) string {
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(chk+"\x00"+src)).String()
 }
 
-func createPayload(embedding *WeaviateVectorEmbedding) map[string]interface{} {
+func createPayload(embedding *VectorEmbedding) map[string]interface{} {
 	payload := map[string]any{
 		fieldContent:         embedding.Content,
 		fieldSourceID:        embedding.SourceID,
@@ -1512,7 +1524,7 @@ func getVectorFields() []graphql.Field {
 }
 
 // parseGraphQLResponse parses the GraphQL response for vector embeddings or keyword search results.
-func parseGraphQLResponse(items []interface{}, collectionName string, matchType types.MatchType) []*types.IndexWithScore {
+func parseGraphQLResponse(items []interface{}, _ string, matchType types.MatchType) []*types.IndexWithScore {
 	var results []*types.IndexWithScore
 	var additionalName string
 	if matchType == types.MatchTypeEmbedding {
@@ -1577,8 +1589,8 @@ func parseGraphQLResponse(items []interface{}, collectionName string, matchType 
 			isEnabled = rawEnabled
 		}
 
-		embedding := &WeaviateVectorEmbeddingWithScore{
-			WeaviateVectorEmbedding{
+		embedding := &VectorEmbeddingWithScore{
+			VectorEmbedding{
 				Content:         getString(fieldContent),
 				SourceID:        getString(fieldSourceID),
 				SourceType:      getInt(fieldSourceType),
@@ -1596,8 +1608,8 @@ func parseGraphQLResponse(items []interface{}, collectionName string, matchType 
 	return results
 }
 
-// Ref: https://github.com/weaviate/weaviate/blob/b4aec91c6fe464df50e9fa1e2d643322fbb85679/entities/vectorindex/hnsw/config.go#L27
-func (w *weaviateRepository) calculateStorageSize(embedding *WeaviateVectorEmbedding) int64 {
+// Ref: https://github.com/weaviate/weaviate/blob/b4aec91c6fe4/entities/vectorindex/hnsw/config.go#L27
+func (w *weaviateRepository) calculateStorageSize(embedding *VectorEmbedding) int64 {
 	// Payload fields
 	payloadSizeBytes := int64(0)
 	payloadSizeBytes += int64(len(embedding.Content))         // content string
@@ -1608,8 +1620,8 @@ func (w *weaviateRepository) calculateStorageSize(embedding *WeaviateVectorEmbed
 	payloadSizeBytes += 8                                     // source_type int64
 
 	// Vector storage and index
-	var vectorSizeBytes int64 = 0
-	var hnswIndexBytes int64 = 0
+	var vectorSizeBytes int64
+	var hnswIndexBytes int64
 	if embedding.Embedding != nil {
 		dimensions := int64(len(embedding.Embedding))
 		vectorSizeBytes = dimensions * 4
@@ -1630,11 +1642,14 @@ func (w *weaviateRepository) calculateStorageSize(embedding *WeaviateVectorEmbed
 }
 
 // toWeaviateVectorEmbedding converts IndexInfo to Weaviate payload format
-func toWeaviateVectorEmbedding(embedding *types.IndexInfo, additionalParams map[string]interface{}) *WeaviateVectorEmbedding {
+func toWeaviateVectorEmbedding(
+	embedding *types.IndexInfo,
+	additionalParams map[string]interface{},
+) *VectorEmbedding {
 	if embedding == nil {
-		return &WeaviateVectorEmbedding{}
+		return &VectorEmbedding{}
 	}
-	vector := &WeaviateVectorEmbedding{
+	vector := &VectorEmbedding{
 		Content:         embedding.Content,
 		SourceID:        embedding.SourceID,
 		SourceType:      int(embedding.SourceType),
@@ -1654,7 +1669,7 @@ func toWeaviateVectorEmbedding(embedding *types.IndexInfo, additionalParams map[
 
 // fromWeaviateVectorEmbedding converts Weaviate point to IndexWithScore domain model
 func fromWeaviateVectorEmbedding(id string,
-	embedding *WeaviateVectorEmbeddingWithScore,
+	embedding *VectorEmbeddingWithScore,
 	matchType types.MatchType,
 ) *types.IndexWithScore {
 	var vectorScore float64

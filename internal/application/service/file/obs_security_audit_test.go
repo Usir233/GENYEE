@@ -12,12 +12,12 @@ import (
 
 // TestUpSvcRepoAudit_OBSRejectsBucketAuthorityInjectionAndTraversalObjectKey
 // verifies UP-SVC-OBS-001:
-// 1. OBS virtual-hosted addressing must reject unsafe bucket names containing
-//    userinfo/authority/path/fragment delimiters or IP literals in NewObsFileService,
-//    CheckObsConnectivity, and GetFileURL.
-// 2. obsFileService.SaveBytes must validate the constructed objectKey with
-//    utils.SafeObjectKey just like SaveFile and CopyFile so a traversal pathPrefix
-//    cannot upload unvalidated keys.
+//  1. OBS virtual-hosted addressing must reject unsafe bucket names containing
+//     userinfo/authority/path/fragment delimiters or IP literals in NewObsFileService,
+//     CheckObsConnectivity, and GetFileURL.
+//  2. obsFileService.SaveBytes must validate the constructed objectKey with
+//     utils.SafeObjectKey just like SaveFile and CopyFile so a traversal pathPrefix
+//     cannot upload unvalidated keys.
 func TestUpSvcRepoAudit_OBSRejectsBucketAuthorityInjectionAndTraversalObjectKey(t *testing.T) {
 	ctx := context.Background()
 	const endpoint = "https://obs.cn-south-1.myhuaweicloud.com"

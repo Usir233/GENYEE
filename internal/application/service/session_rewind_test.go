@@ -829,7 +829,9 @@ func TestRewindConcurrentSecondIsBusy(t *testing.T) {
 func TestRewindLockIsSharedAcrossServiceInstances(t *testing.T) {
 	turn1 := rewindCompletedTurn("u-1", "a-1", "sbx-1", rewindSHA1, 0)
 	later := rewindCompletedTurn("u-2", "a-2", "sbx-1", rewindSHA2, 10*time.Second)
-	history := append(turn1, later...)
+	history := make([]*types.Message, 0, len(turn1)+len(later))
+	history = append(history, turn1...)
+	history = append(history, later...)
 	port := newFakeRewindPort()
 	started := make(chan struct{})
 	unblock := make(chan struct{})

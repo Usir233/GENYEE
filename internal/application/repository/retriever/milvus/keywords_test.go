@@ -45,7 +45,12 @@ func (s *fakeMilvusService) DescribeCollection(
 			Name: request.GetCollectionName(),
 			Fields: []*schemapb.FieldSchema{
 				{FieldID: 100, Name: fieldID, DataType: schemapb.DataType_VarChar, IsPrimaryKey: true},
-				{FieldID: 101, Name: fieldContent, DataType: schemapb.DataType_VarChar, TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}}},
+				{
+					FieldID:    101,
+					Name:       fieldContent,
+					DataType:   schemapb.DataType_VarChar,
+					TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}},
+				},
 				{FieldID: 103, Name: fieldLanguage, DataType: schemapb.DataType_VarChar},
 				{FieldID: 102, Name: fieldContentSparse, DataType: schemapb.DataType_SparseFloatVector},
 			},
@@ -95,7 +100,8 @@ func newKeywordsMilvusHarness(t *testing.T, collections []string,
 
 func failedMilvusSearch() *milvuspb.SearchResults {
 	return &milvuspb.SearchResults{Status: &commonpb.Status{
-		ErrorCode: commonpb.ErrorCode_UnexpectedError,
+		Code:      1,
+		ErrorCode: commonpb.ErrorCode_UnexpectedError, //nolint:staticcheck // Milvus v2 client checks legacy ErrorCode
 		Reason:    "milvus keyword search unavailable",
 	}}
 }

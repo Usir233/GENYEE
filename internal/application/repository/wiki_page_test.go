@@ -174,7 +174,13 @@ func TestList_WikiPathSortReturnsCategorizedPagesFirst(t *testing.T) {
 
 	pages := []*types.WikiPage{
 		makeWikiPage("kb-a", "entity/000-root", types.WikiPageTypeEntity, types.WikiPageStatusPublished),
-		makeCategorizedWikiPage("kb-a", "entity/999-child", types.WikiPageTypeEntity, types.WikiPageStatusPublished, "zzz-folder"),
+		makeCategorizedWikiPage(
+			"kb-a",
+			"entity/999-child",
+			types.WikiPageTypeEntity,
+			types.WikiPageStatusPublished,
+			"zzz-folder",
+		),
 		makeWikiPage("kb-a", "entity/001-root", types.WikiPageTypeEntity, types.WikiPageStatusPublished),
 	}
 	for _, p := range pages {
@@ -324,7 +330,14 @@ func TestFolderTree_CRUDAndChildListing(t *testing.T) {
 	// Pages filed into folders are counted (archived excluded).
 	pAI := makeCategorizedWikiPage("kb-f", "entity/a1", types.WikiPageTypeEntity, types.WikiPageStatusPublished, "AI")
 	pAI.FolderID = "f-ai"
-	pLLM := makeCategorizedWikiPage("kb-f", "entity/a2", types.WikiPageTypeEntity, types.WikiPageStatusPublished, "AI", "LLM")
+	pLLM := makeCategorizedWikiPage(
+		"kb-f",
+		"entity/a2",
+		types.WikiPageTypeEntity,
+		types.WikiPageStatusPublished,
+		"AI",
+		"LLM",
+	)
 	pLLM.FolderID = "f-llm"
 	pArch := makeCategorizedWikiPage("kb-f", "entity/a3", types.WikiPageTypeEntity, types.WikiPageStatusArchived, "AI")
 	pArch.FolderID = "f-ai"

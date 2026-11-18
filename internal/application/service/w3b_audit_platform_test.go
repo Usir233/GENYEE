@@ -165,7 +165,12 @@ func TestW3BAudit_DownloadModelAsync_NilOllamaAndNoSharedStructMutationRace(t *t
 	case <-time.After(5 * time.Second):
 		t.Fatal("downloadModelAsync did not persist terminal status when ollamaService is nil")
 	}
-	assert.Equal(t, types.ModelStatusDownloading, callerModel.Status, "caller model struct must not be mutated concurrently")
+	assert.Equal(
+		t,
+		types.ModelStatusDownloading,
+		callerModel.Status,
+		"caller model struct must not be mutated concurrently",
+	)
 }
 
 // ─── 3. Sandbox Policy Row (__workspace_scripts_policy__) Isolation ──────────
@@ -184,7 +189,11 @@ func (r *w3bSandboxConfigRepo) Create(_ context.Context, e *types.TenantSandboxC
 	return nil
 }
 
-func (r *w3bSandboxConfigRepo) GetByID(_ context.Context, tenantID uint64, id string) (*types.TenantSandboxConfigEntity, error) {
+func (r *w3bSandboxConfigRepo) GetByID(
+	_ context.Context,
+	tenantID uint64,
+	id string,
+) (*types.TenantSandboxConfigEntity, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, row := range r.rows {
@@ -196,7 +205,10 @@ func (r *w3bSandboxConfigRepo) GetByID(_ context.Context, tenantID uint64, id st
 	return nil, nil
 }
 
-func (r *w3bSandboxConfigRepo) ListByTenant(_ context.Context, tenantID uint64) ([]*types.TenantSandboxConfigEntity, error) {
+func (r *w3bSandboxConfigRepo) ListByTenant(
+	_ context.Context,
+	tenantID uint64,
+) ([]*types.TenantSandboxConfigEntity, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []*types.TenantSandboxConfigEntity
@@ -227,7 +239,7 @@ func (r *w3bSandboxConfigRepo) Delete(_ context.Context, tenantID uint64, id str
 	defer r.mu.Unlock()
 	kept := r.rows[:0]
 	for _, row := range r.rows {
-		if !(row.TenantID == tenantID && row.ID == id) {
+		if row.TenantID != tenantID || row.ID != id {
 			kept = append(kept, row)
 		}
 	}
@@ -265,7 +277,9 @@ func TestW3BAudit_SandboxWorkspacePolicySentinelRowIsHiddenAndReserved(t *testin
 		require.Error(t, err)
 	})
 
-	t.Run("TenantSandboxConfigService rejects reserved policy name on Create/Update and hides Inventory", func(t *testing.T) {
+	t.Run("TenantSandboxConfigService rejects reserved policy name on Create/Update and hides Inventory", func(
+		t *testing.T,
+	) {
 		cfgSvc := NewTenantSandboxConfigService(cfgRepo, nil, testGlobalSandboxConfig(), skillRepo, nil)
 		ctx := context.WithValue(context.Background(), types.SystemAdminContextKey, true)
 
@@ -302,7 +316,12 @@ func (r *w3bOAuthTokenRepo) GetClient(context.Context, uint64, string) (*types.M
 	return nil, nil
 }
 
-func (r *w3bOAuthTokenRepo) GetTokenForPrincipal(_ context.Context, tenantID uint64, p types.Principal, _ string) (*types.MCPOAuthToken, error) {
+func (r *w3bOAuthTokenRepo) GetTokenForPrincipal(
+	_ context.Context,
+	tenantID uint64,
+	p types.Principal,
+	_ string,
+) (*types.MCPOAuthToken, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.seenTenantID = tenantID
@@ -350,8 +369,11 @@ func TestW3BAudit_MCPService_DropSecretsClearsClientSecretAndTestUsesMCPOAuthPri
 
 	// Verify TestMCPService wires tenantID fallback and MCPOAuthPrincipalFromContext (embed visitor mapping).
 	withOIDCSSRFWhitelist(t, "127.0.0.1")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource"`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(
+			"WWW-Authenticate",
+			`Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource"`,
+		)
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer srv.Close()
@@ -416,7 +438,12 @@ type w3bSessionRepoForClear struct {
 	interfaces.SessionRepository
 }
 
-func (w3bSessionRepoForClear) Get(_ context.Context, tenantID uint64, _ string, sessionID string) (*types.Session, error) {
+func (w3bSessionRepoForClear) Get(
+	_ context.Context,
+	tenantID uint64,
+	_ string,
+	sessionID string,
+) (*types.Session, error) {
 	return &types.Session{ID: sessionID, TenantID: tenantID}, nil
 }
 
@@ -424,7 +451,11 @@ type w3bKnowledgeRepoForClear struct {
 	interfaces.KnowledgeRepository
 }
 
-func (w3bKnowledgeRepoForClear) GetKnowledgeBatch(_ context.Context, tenantID uint64, ids []string) ([]*types.Knowledge, error) {
+func (w3bKnowledgeRepoForClear) GetKnowledgeBatch(
+	_ context.Context,
+	tenantID uint64,
+	ids []string,
+) ([]*types.Knowledge, error) {
 	out := make([]*types.Knowledge, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, &types.Knowledge{ID: id, TenantID: tenantID, KnowledgeBaseID: "kb-chat-hist"})
@@ -554,7 +585,9 @@ func TestW3BAudit_Session_GenerateTitleAsyncRace_UpdateNilGuard_AndSharedForkKin
 		assert.Empty(t, callerSession.Title, "caller's session struct must not be mutated in background goroutine")
 	})
 
-	t.Run("UpdateSession returns ErrSessionNotFound instead of nil-deref when repo returns (nil, nil)", func(t *testing.T) {
+	t.Run("UpdateSession returns ErrSessionNotFound instead of nil-deref when repo returns (nil, nil)", func(
+		t *testing.T,
+	) {
 		svc := &sessionService{sessionRepo: w3bNilSessionRepo{}}
 		ctx := types.WithPrincipal(context.Background(), types.Principal{Type: types.PrincipalWebUser, ID: "u1"})
 		err := svc.UpdateSession(ctx, &types.Session{ID: "missing", TenantID: 7, Title: "x"})
@@ -632,7 +665,9 @@ func (m *w3bMemberSvc) ListByUser(_ context.Context, _ string) ([]*types.TenantM
 }
 
 func TestW3BAudit_UserService_TenantGate_AdminResetOidcFlag_AndBoundedOIDCRead(t *testing.T) {
-	t.Run("homeOrFirstMembershipTenant honors EnableCrossTenantAccess=false even if CanAccessAllTenants=true", func(t *testing.T) {
+	t.Run("homeOrFirstMembershipTenant honors EnableCrossTenantAccess=false even if CanAccessAllTenants=true", func(
+		t *testing.T,
+	) {
 		u := &types.User{
 			ID:                  "u-stale-admin",
 			TenantID:            10, // removed from tenant 10
@@ -651,7 +686,12 @@ func TestW3BAudit_UserService_TenantGate_AdminResetOidcFlag_AndBoundedOIDCRead(t
 			memberService: memSvc,
 		}
 		got := svc.homeOrFirstMembershipTenant(context.Background(), u)
-		assert.Equal(t, uint64(22), got, "must fall back to active membership when cross-tenant access is disabled in config")
+		assert.Equal(
+			t,
+			uint64(22),
+			got,
+			"must fall back to active membership when cross-tenant access is disabled in config",
+		)
 	})
 
 	t.Run("AdminResetPassword clears Preferences.OidcOnlyLogin so admin-set password works", func(t *testing.T) {

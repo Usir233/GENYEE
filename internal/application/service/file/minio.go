@@ -27,16 +27,17 @@ type minioFileService struct {
 // newMinioClient creates a bare minioFileService with just the SDK client initialised.
 // Shared by NewMinioFileService (which also ensures the bucket exists) and
 // CheckMinioConnectivity (read-only probe).
-func newMinioClient(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL bool) (*minioFileService, error) {
+func newMinioClient(
+	endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL bool,
+) (*minioFileService, error) {
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
 		return nil, fmt.Errorf("unsafe MinIO endpoint: %w", err)
 	}
-	httpConfig := utils.DefaultSSRFSafeHTTPClientConfig()
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 		Transport: &utils.SSRFValidatingRoundTripper{
-			Base: utils.NewSSRFSafeTransport(httpConfig),
+			Base: objectStorageTransport(),
 		},
 	})
 	if err != nil {
@@ -55,12 +56,16 @@ func NewMinioFileService(endpoint,
 		return nil, err
 	}
 
-	exists, err := svc.client.BucketExists(context.Background(), bucketName)
+	headCtx, cancel := objectStorageSetupContext()
+	exists, err := svc.client.BucketExists(headCtx, bucketName)
+	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check bucket: %w", err)
 	}
 	if !exists {
-		if err = svc.client.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{}); err != nil {
+		createCtx, createCancel := objectStorageSetupContext()
+		defer createCancel()
+		if err = svc.client.MakeBucket(createCtx, bucketName, minio.MakeBucketOptions{}); err != nil {
 			return nil, fmt.Errorf("failed to create bucket: %w", err)
 		}
 	}
@@ -90,7 +95,9 @@ func (s *minioFileService) CheckConnectivity(ctx context.Context) error {
 
 // CheckMinioConnectivity tests MinIO connectivity using the provided credentials.
 // It creates a temporary service instance internally and delegates to CheckConnectivity.
-func CheckMinioConnectivity(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL bool) error {
+func CheckMinioConnectivity(
+	ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL bool,
+) error {
 	svc, err := newMinioClient(endpoint, accessKeyID, secretAccessKey, bucketName, useSSL)
 	if err != nil {
 		return err
@@ -141,7 +148,10 @@ func (s *minioFileService) SaveFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
+
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 
 	// Upload file to MinIO
 	_, err = s.client.PutObject(ctx, s.bucketName, objectName, src, file.Size, minio.PutObjectOptions{
@@ -160,11 +170,13 @@ func (s *minioFileService) GetFile(ctx context.Context, filePath string) (io.Rea
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := objectStorageTransferContext(ctx)
 	obj, err := s.client.GetObject(ctx, s.bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to get file from MinIO: %w", err)
 	}
-	return obj, nil
+	return objectStorageBoundReader(obj, cancel), nil
 }
 
 // DeleteFile deletes a file
@@ -173,6 +185,8 @@ func (s *minioFileService) DeleteFile(ctx context.Context, filePath string) erro
 	if err != nil {
 		return err
 	}
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 	if err := s.client.RemoveObject(ctx, s.bucketName, objectName, minio.RemoveObjectOptions{
 		GovernanceBypass: true,
 	}); err != nil {
@@ -201,6 +215,8 @@ func (s *minioFileService) CopyFile(ctx context.Context,
 		return "", fmt.Errorf("invalid file path: %w", err)
 	}
 
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 	_, err = s.client.CopyObject(ctx,
 		minio.CopyDestOptions{Bucket: s.bucketName, Object: destKey},
 		minio.CopySrcOptions{Bucket: s.bucketName, Object: srcKey},
@@ -216,7 +232,9 @@ func (s *minioFileService) CopyFile(ctx context.Context,
 
 // SaveBytes saves bytes data to MinIO and returns the file path
 // temp parameter is ignored for MinIO (no auto-expiration support in this implementation)
-func (s *minioFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+func (s *minioFileService) SaveBytes(
+	ctx context.Context, data []byte, tenantID uint64, fileName string, _ bool,
+) (string, error) {
 	if err := validateTenantID(tenantID); err != nil {
 		return "", err
 	}
@@ -226,6 +244,9 @@ func (s *minioFileService) SaveBytes(ctx context.Context, data []byte, tenantID 
 	}
 	ext := filepath.Ext(safeName)
 	objectName := fmt.Sprintf("%d/exports/%s%s", tenantID, uuid.New().String(), ext)
+
+	ctx, cancel := objectStorageTransferContext(ctx)
+	defer cancel()
 
 	// Upload bytes to MinIO
 	reader := bytes.NewReader(data)

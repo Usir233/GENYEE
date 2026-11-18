@@ -8,11 +8,13 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
+// PluginLoadHistory loads recent session conversation turns into ChatManage.History.
 type PluginLoadHistory struct {
 	messageService interfaces.MessageService
 	config         *config.Config
 }
 
+// NewPluginLoadHistory creates a new PluginLoadHistory and registers it with eventManager.
 func NewPluginLoadHistory(eventManager *EventManager,
 	messageService interfaces.MessageService,
 	config *config.Config,
@@ -25,12 +27,14 @@ func NewPluginLoadHistory(eventManager *EventManager,
 	return res
 }
 
+// ActivationEvents returns the event types handled by PluginLoadHistory.
 func (p *PluginLoadHistory) ActivationEvents() []types.EventType {
 	return []types.EventType{types.LOAD_HISTORY}
 }
 
+// OnEvent populates multi-turn conversation history when MultiTurnEnabled is active.
 func (p *PluginLoadHistory) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	// chatManage.MaxRounds == 0 means multi-turn is explicitly disabled
 	// (e.g. by a custom agent with MultiTurnEnabled=false). Skip loading so

@@ -90,6 +90,7 @@ func obsS3Options(endpoint, region, accessKey, secretAccessKey string) s3.Option
 	}
 }
 
+// NewObsFileService creates a Huawei Cloud OBS file service instance.
 func NewObsFileService(
 	endpoint, region, accessKeyID, secretAccessKey, bucketName string,
 	pathPrefix string,
@@ -136,6 +137,7 @@ func NewObsFileService(
 	}, nil
 }
 
+// CheckObsConnectivity verifies OBS endpoint and bucket reachability using the supplied credentials.
 func CheckObsConnectivity(ctx context.Context, endpoint, region, accessKey, secretKey, bucketName string) error {
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
 		return fmt.Errorf("unsafe OBS endpoint: %w", err)
@@ -256,7 +258,7 @@ func (s *obsFileService) SaveFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	contentType := file.Header.Get("Content-Type")
 	if contentType == "" {
@@ -317,7 +319,7 @@ func (s *obsFileService) DeleteFile(ctx context.Context, filePath string) error 
 	return nil
 }
 
-func (s *obsFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+func (s *obsFileService) GetFileURL(_ context.Context, filePath string) (string, error) {
 	if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
 		return filePath, nil
 	}
@@ -393,7 +395,13 @@ func (s *obsFileService) CopyFile(ctx context.Context,
 	return newPath, nil
 }
 
-func (s *obsFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+func (s *obsFileService) SaveBytes(
+	ctx context.Context,
+	data []byte,
+	tenantID uint64,
+	fileName string,
+	temp bool,
+) (string, error) {
 	if err := validateTenantID(tenantID); err != nil {
 		return "", err
 	}

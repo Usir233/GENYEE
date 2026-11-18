@@ -198,7 +198,12 @@ func (r *SyncLogRepository) FindByID(ctx context.Context, id string) (*types.Syn
 }
 
 // FindByDataSource lists sync logs for a data source with pagination
-func (r *SyncLogRepository) FindByDataSource(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
+func (r *SyncLogRepository) FindByDataSource(
+	ctx context.Context,
+	dsID string,
+	limit int,
+	offset int,
+) ([]*types.SyncLog, error) {
 	if dsID == "" {
 		return nil, errors.New("data source id is empty")
 	}
@@ -237,6 +242,33 @@ func (r *SyncLogRepository) FindLatest(ctx context.Context, dsID string) (*types
 		return nil, err
 	}
 	return &log, nil
+}
+
+// FindLatestByDataSourceIDs retrieves the most recent sync log for each data source ID in one query.
+func (r *SyncLogRepository) FindLatestByDataSourceIDs(
+	ctx context.Context, dsIDs []string,
+) (map[string]*types.SyncLog, error) {
+	out := make(map[string]*types.SyncLog, len(dsIDs))
+	if len(dsIDs) == 0 {
+		return out, nil
+	}
+	var logs []*types.SyncLog
+	sub := r.db.WithContext(ctx).
+		Model(&types.SyncLog{}).
+		Select("id, ROW_NUMBER() OVER (PARTITION BY data_source_id ORDER BY started_at DESC, id DESC) AS rn").
+		Where("data_source_id IN ?", dsIDs)
+	ranked := r.db.WithContext(ctx).Table("(?) AS ranked", sub).Select("id").Where("rn = 1")
+	if err := r.db.WithContext(ctx).
+		Where("id IN (?)", ranked).
+		Find(&logs).Error; err != nil {
+		return nil, err
+	}
+	for _, l := range logs {
+		if l != nil {
+			out[l.DataSourceID] = l
+		}
+	}
+	return out, nil
 }
 
 // HasRunningSync checks if a data source has any sync currently in "running" status.

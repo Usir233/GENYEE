@@ -54,7 +54,18 @@ func TestW4SQLiteAudit_CopyIndicesEnforcesSourceKBAndMappedKnowledge(t *testing.
 	assert.Equal(t, "know-dst", res[0].Results[0].KnowledgeID)
 
 	// Empty source/target KB IDs must be rejected on CopyIndices and MoveKnowledgeIndices.
-	require.Error(t, repo.CopyIndices(ctx, "", map[string]string{"know-own": "know-dst"}, map[string]string{"chunk-own": "x"}, "kb-dst", 2, ""))
+	require.Error(
+		t,
+		repo.CopyIndices(
+			ctx,
+			"",
+			map[string]string{"know-own": "know-dst"},
+			map[string]string{"chunk-own": "x"},
+			"kb-dst",
+			2,
+			"",
+		),
+	)
 	require.Error(t, repo.MoveKnowledgeIndices(ctx, "", "kb-dst", "know-own", nil, 2, ""))
 }
 

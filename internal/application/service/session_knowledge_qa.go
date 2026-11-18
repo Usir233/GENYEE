@@ -364,7 +364,11 @@ func (s *sessionService) resolveKnowledgeBasesFromAgent(
 			if capFilter.IsEmpty() {
 				return true
 			}
-			return tools.KBSatisfiesAgentRequirements(kb.Capabilities(), customAgent.Config.AgentMode, customAgent.Config.AllowedTools)
+			return tools.KBSatisfiesAgentRequirements(
+				kb.Capabilities(),
+				customAgent.Config.AgentMode,
+				customAgent.Config.AllowedTools,
+			)
 		}
 
 		// Get own knowledge bases (uses ctx TenantID = agent's tenant)
@@ -414,7 +418,9 @@ func (s *sessionService) resolveKnowledgeBasesFromAgent(
 				}
 			}
 		} else {
-			logger.Infof(ctx, "Shared agent detected (session tenant %d != agent tenant %d): skipping user's shared KBs",
+			logger.Infof(
+				ctx,
+				"Shared agent detected (session tenant %d != agent tenant %d): skipping user's shared KBs",
 				sessionTenantID, customAgent.TenantID)
 		}
 
@@ -426,7 +432,11 @@ func (s *sessionService) resolveKnowledgeBasesFromAgent(
 		logger.Infof(ctx, "KBSelectionMode=all: loaded %d knowledge bases (own + shared)", len(kbIDs))
 		return kbIDs
 	case "selected":
-		logger.Infof(ctx, "KBSelectionMode=selected: using %d configured knowledge bases", len(customAgent.Config.KnowledgeBases))
+		logger.Infof(
+			ctx,
+			"KBSelectionMode=selected: using %d configured knowledge bases",
+			len(customAgent.Config.KnowledgeBases),
+		)
 		return customAgent.Config.KnowledgeBases
 	case "none":
 		logger.Infof(ctx, "KBSelectionMode=none: no knowledge bases configured")
@@ -434,7 +444,11 @@ func (s *sessionService) resolveKnowledgeBasesFromAgent(
 	default:
 		// Default to "selected" behavior for backward compatibility
 		if len(customAgent.Config.KnowledgeBases) > 0 {
-			logger.Infof(ctx, "KBSelectionMode not set: using %d configured knowledge bases", len(customAgent.Config.KnowledgeBases))
+			logger.Infof(
+				ctx,
+				"KBSelectionMode not set: using %d configured knowledge bases",
+				len(customAgent.Config.KnowledgeBases),
+			)
 		}
 		return customAgent.Config.KnowledgeBases
 	}
@@ -444,8 +458,12 @@ func (s *sessionService) resolveKnowledgeBasesFromAgent(
 // tenantID is the retrieval scope: session.TenantID or effective tenant from shared agent (set by handler).
 // This is called once at the request entry point to avoid repeated queries later in the pipeline.
 // Logic:
-//   - For each knowledgeBaseID: resolve actual TenantID (own, org-shared, or in retrieval-tenant scope for shared agent)
-//   - For each knowledgeID: find its knowledgeBaseID; if the KB is already in the list, skip; otherwise add SearchTargetTypeKnowledge
+//   - For each knowledgeBaseID: resolve actual TenantID (own, org-shared, or in retrieval-tenant scope for shared
+//
+// agent)
+//   - For each knowledgeID: find its knowledgeBaseID; if the KB is already in the list, skip; otherwise add
+//
+// SearchTargetTypeKnowledge
 func (s *sessionService) buildSearchTargets(
 	ctx context.Context,
 	tenantID uint64,
@@ -575,7 +593,11 @@ func (s *sessionService) buildSearchTargets(
 
 		useDocumentTagResolution := kb == nil || kb.Type != types.KnowledgeBaseTypeFAQ
 		if kb == nil {
-			logger.Warnf(ctx, "Knowledge base metadata missing for tag scope, kb_id=%s, using document tag resolution", kbID)
+			logger.Warnf(
+				ctx,
+				"Knowledge base metadata missing for tag scope, kb_id=%s, using document tag resolution",
+				kbID,
+			)
 		}
 		if useDocumentTagResolution {
 			tagKnowledgeIDs, err := s.knowledgeService.ListKnowledgeIDsByTagIDs(ctx, kbTenant, kbID, tagIDs)
@@ -823,7 +845,9 @@ func (s *sessionService) SearchKnowledge(ctx context.Context,
 	opts *types.KnowledgeSearchOptions,
 ) (*types.RetrievalResult, error) {
 	logger.Info(ctx, "Start knowledge base search without LLM summary")
-	logger.Infof(ctx, "Knowledge base search parameters, knowledge base IDs: %v, knowledge IDs: %v, tag scopes: %d, query: %s",
+	logger.Infof(
+		ctx,
+		"Knowledge base search parameters, knowledge base IDs: %v, knowledge IDs: %v, tag scopes: %d, query: %s",
 		knowledgeBaseIDs, knowledgeIDs, len(tagScopes), query)
 	if opts == nil {
 		opts = &types.KnowledgeSearchOptions{}
@@ -1113,7 +1137,10 @@ func prepareFallbackMessages(
 	if len(messages) > 0 && messages[0].Role == "system" {
 		messages[0].Content = strings.TrimRight(messages[0].Content, " \t\r\n") + registry.ProtocolPrompt()
 	} else {
-		messages = append([]chat.Message{{Role: "system", Content: strings.TrimSpace(registry.ProtocolPrompt())}}, messages...)
+		messages = append(
+			[]chat.Message{{Role: "system", Content: strings.TrimSpace(registry.ProtocolPrompt())}},
+			messages...,
+		)
 	}
 	return registry.EncodeMessages(messages), registry
 }
@@ -1408,7 +1435,8 @@ func (s *sessionService) resolveWebSearchProviderID(ctx context.Context, req *ty
 	}
 	// 2. Tenant default
 	if s.webSearchProviderRepo != nil {
-		if defaultProvider, err := s.webSearchProviderRepo.GetDefault(ctx, tenantID); err == nil && defaultProvider != nil {
+		if defaultProvider, err := s.webSearchProviderRepo.GetDefault(ctx, tenantID); err == nil &&
+			defaultProvider != nil {
 			return defaultProvider.ID
 		}
 	}

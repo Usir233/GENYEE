@@ -18,6 +18,7 @@ import (
 
 const embedTokenBytes = 32
 
+// Sentinel errors returned by embedChannelService operations.
 var (
 	ErrEmbedChannelNotFound = errors.New("embed channel not found")
 	ErrEmbedTokenInvalid    = errors.New("embed publish token is invalid")
@@ -33,6 +34,7 @@ type embedChannelService struct {
 	redis        *redis.Client
 }
 
+// NewEmbedChannelService creates an EmbedChannelService instance.
 func NewEmbedChannelService(
 	repo interfaces.EmbedChannelRepository,
 	agentService interfaces.CustomAgentService,
@@ -433,7 +435,11 @@ func (s *embedChannelService) resolveKnowledgeBaseIDs(ctx context.Context, ch *t
 	return nil
 }
 
-func (s *embedChannelService) ensureAgentOwned(ctx context.Context, tenantID uint64, agentID string) (*types.CustomAgent, error) {
+func (s *embedChannelService) ensureAgentOwned(
+	ctx context.Context,
+	tenantID uint64,
+	agentID string,
+) (*types.CustomAgent, error) {
 	agentID = strings.TrimSpace(agentID)
 	if agentID == "" {
 		return nil, apperrors.NewBadRequestError("agent_id is required")

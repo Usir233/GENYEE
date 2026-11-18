@@ -152,7 +152,7 @@ func (r *taskPendingOpsRepository) SeedKnowledgeFinalizingWithPendingOp(
 		query := tx.Model(&types.KnowledgeBase{}).
 			Select("id").
 			Where("id = ? AND tenant_id = ?", op.ScopeID, op.TenantID)
-		if tx.Dialector.Name() == "postgres" {
+		if tx.Name() == "postgres" {
 			query = query.Clauses(clause.Locking{Strength: "SHARE"})
 		}
 		var kb types.KnowledgeBase
@@ -298,7 +298,7 @@ func (r *taskPendingOpsRepository) claimBatch(
 		//    Keys with a fresh claim are excluded WHOLESALE so a late sibling
 		//    of an in-flight document never gets claimed on its own.
 		var keys []string
-		if tx.Dialector.Name() == "postgres" {
+		if tx.Name() == "postgres" {
 			// Lock the anchor (least-failed, earliest eligible) row of each
 			// key with SKIP LOCKED so concurrent claimers get disjoint KEY
 			// sets, then map the locked anchors back to their dedup_keys. The

@@ -36,6 +36,7 @@ type PluginMemoryRecall struct {
 	memoryService interfaces.MemoryService
 }
 
+// NewPluginMemoryRecall creates a new PluginMemoryRecall and registers it with eventManager.
 func NewPluginMemoryRecall(
 	eventManager *EventManager,
 	memoryService interfaces.MemoryService,
@@ -45,12 +46,14 @@ func NewPluginMemoryRecall(
 	return res
 }
 
+// ActivationEvents returns the event types handled by PluginMemoryRecall.
 func (p *PluginMemoryRecall) ActivationEvents() []types.EventType {
 	return []types.EventType{types.MEMORY_RECALL}
 }
 
+// OnEvent recalls user and workspace memory for the active turn.
 func (p *PluginMemoryRecall) OnEvent(ctx context.Context,
-	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
+	_ types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	if p.memoryService == nil {
 		pipelineInfo(ctx, "MemoryRecall", "skip", map[string]interface{}{

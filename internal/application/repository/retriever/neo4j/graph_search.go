@@ -14,7 +14,7 @@ import (
 
 // NewGraphSearchRepository constructs the bounded public-query adapter.
 func NewGraphSearchRepository(driver neo4j.Driver) interfaces.GraphSearchRepository {
-	return &Neo4jRepository{driver: driver, nodePrefix: "ENTITY"}
+	return &Repository{driver: driver, nodePrefix: "ENTITY"}
 }
 
 // graphSearchProjection bounds fields before they cross Bolt. One extra item
@@ -31,7 +31,7 @@ func graphSearchProjection(alias string) string {
 
 // graphSearchLabel quotes every identifier. KB IDs are data, never Cypher,
 // including imported/legacy IDs containing punctuation or backticks.
-func (n *Neo4jRepository) graphSearchLabel(namespace types.NameSpace) (string, error) {
+func (n *Repository) graphSearchLabel(namespace types.NameSpace) (string, error) {
 	if strings.TrimSpace(namespace.KnowledgeBase) == "" || namespace.Knowledge != "" {
 		return "", fmt.Errorf("graph search requires exactly one knowledge base")
 	}
@@ -43,7 +43,7 @@ func (n *Neo4jRepository) graphSearchLabel(namespace types.NameSpace) (string, e
 }
 
 // SearchGraph returns ranked seed entities and a bounded one-hop neighbourhood.
-func (n *Neo4jRepository) SearchGraph(
+func (n *Repository) SearchGraph(
 	ctx context.Context, namespace types.NameSpace, query string,
 ) (*types.GraphSearchCandidates, error) {
 	if n.driver == nil {

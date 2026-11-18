@@ -67,7 +67,8 @@ func (c *contentCatalogStub) ResolvePath(
 }
 
 func (c *contentCatalogStub) Bind(context.Context, string, string, string, string) error { return nil }
-func (c *contentCatalogStub) MarkDeleted(context.Context, string) error                  { return nil }
+
+func (c *contentCatalogStub) MarkDeleted(context.Context, string) error { return nil }
 
 func (c *contentCatalogStub) Release(context.Context, string, string, string) (int64, error) {
 	return 0, nil

@@ -149,26 +149,51 @@ func (c *w3aCountingConnector) Validate(_ context.Context, _ *types.DataSourceCo
 	c.called++
 	return nil
 }
-func (c *w3aCountingConnector) ListResources(_ context.Context, _ *types.DataSourceConfig, _ string) ([]types.Resource, error) {
+
+func (c *w3aCountingConnector) ListResources(
+	_ context.Context,
+	_ *types.DataSourceConfig,
+	_ string,
+) ([]types.Resource, error) {
 	c.called++
 	return nil, nil
 }
-func (c *w3aCountingConnector) ResolveResourceAncestors(_ context.Context, _ *types.DataSourceConfig, _ []string) ([]string, error) {
+
+func (c *w3aCountingConnector) ResolveResourceAncestors(
+	_ context.Context,
+	_ *types.DataSourceConfig,
+	_ []string,
+) ([]string, error) {
 	c.called++
 	return nil, nil
 }
-func (c *w3aCountingConnector) FetchAll(_ context.Context, _ *types.DataSourceConfig, _ []string) ([]types.FetchedItem, error) {
+
+func (c *w3aCountingConnector) FetchAll(
+	_ context.Context,
+	_ *types.DataSourceConfig,
+	_ []string,
+) ([]types.FetchedItem, error) {
 	c.called++
 	return nil, nil
 }
-func (c *w3aCountingConnector) FetchIncremental(_ context.Context, _ *types.DataSourceConfig, _ *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error) {
+
+func (c *w3aCountingConnector) FetchIncremental(
+	_ context.Context,
+	_ *types.DataSourceConfig,
+	_ *types.SyncCursor,
+) ([]types.FetchedItem, *types.SyncCursor, error) {
 	c.called++
 	return nil, &types.SyncCursor{}, nil
 }
 
 func TestAuditW3A_InactiveWorkspaceBlockedInBackgroundPaths(t *testing.T) {
 	activeUser := &types.User{ID: "u-1", IsActive: true}
-	activeMember := &types.TenantMember{UserID: "u-1", TenantID: 10, Role: types.TenantRoleAdmin, Status: types.TenantMemberStatusActive}
+	activeMember := &types.TenantMember{
+		UserID:   "u-1",
+		TenantID: 10,
+		Role:     types.TenantRoleAdmin,
+		Status:   types.TenantMemberStatusActive,
+	}
 
 	for _, status := range []string{"suspended", "disabled", "inactive"} {
 		t.Run("automation_ownerContext_"+status, func(t *testing.T) {
@@ -202,7 +227,7 @@ func TestAuditW3A_InactiveWorkspaceBlockedInBackgroundPaths(t *testing.T) {
 	t.Run("datasource_process_sync_cancels_suspended_tenant_and_rejects_mismatched_log", func(t *testing.T) {
 		conn := &w3aCountingConnector{}
 		reg := datasource.NewConnectorRegistry()
-		reg.Register(conn)
+		require.NoError(t, reg.Register(conn))
 
 		dsRepo := &w3aDSRepoStub{byID: map[string]*types.DataSource{
 			"ds-10": {
@@ -215,8 +240,13 @@ func TestAuditW3A_InactiveWorkspaceBlockedInBackgroundPaths(t *testing.T) {
 			},
 		}}
 		syncRepo := &w3aSyncLogRepoStub{logs: map[string]*types.SyncLog{
-			"log-10":      {ID: "log-10", DataSourceID: "ds-10", TenantID: 10, Status: types.SyncLogStatusRunning},
-			"log-foreign": {ID: "log-foreign", DataSourceID: "ds-other", TenantID: 99, Status: types.SyncLogStatusRunning},
+			"log-10": {ID: "log-10", DataSourceID: "ds-10", TenantID: 10, Status: types.SyncLogStatusRunning},
+			"log-foreign": {
+				ID:           "log-foreign",
+				DataSourceID: "ds-other",
+				TenantID:     99,
+				Status:       types.SyncLogStatusRunning,
+			},
 		}}
 		kbLookup := &writeKBLookup{kb: &types.KnowledgeBase{ID: "kb-10", TenantID: 10}}
 		tenants := &w3aTenantRepoStub{tenants: map[uint64]*types.Tenant{
@@ -307,7 +337,12 @@ func (r *w3aAgentShareRepoStub) Update(_ context.Context, s *types.AgentShare) e
 	return nil
 }
 
-func (r *w3aAgentShareRepoStub) GetShareByAgentIDForTenant(_ context.Context, _ uint64, agentID string, exclude uint64) (*types.AgentShare, error) {
+func (r *w3aAgentShareRepoStub) GetShareByAgentIDForTenant(
+	_ context.Context,
+	_ uint64,
+	agentID string,
+	exclude uint64,
+) (*types.AgentShare, error) {
 	for _, s := range r.shares {
 		if s.AgentID == agentID && s.SourceTenantID != exclude {
 			return s, nil
@@ -329,7 +364,11 @@ func (r *w3aOrgRepoStub) GetByID(_ context.Context, id string) (*types.Organizat
 	return nil, repository.ErrOrganizationNotFound
 }
 
-func (r *w3aOrgRepoStub) GetTenantMember(_ context.Context, orgID string, tenantID uint64) (*types.OrganizationTenantMember, error) {
+func (r *w3aOrgRepoStub) GetTenantMember(
+	_ context.Context,
+	orgID string,
+	tenantID uint64,
+) (*types.OrganizationTenantMember, error) {
 	if m, ok := r.members[fmt.Sprintf("%s:%d", orgID, tenantID)]; ok {
 		return m, nil
 	}
@@ -494,7 +533,11 @@ type w3aKGRepoListStub struct {
 	items []*types.Knowledge
 }
 
-func (r *w3aKGRepoListStub) ListKnowledgeByKnowledgeBaseID(_ context.Context, _ uint64, _ string) ([]*types.Knowledge, error) {
+func (r *w3aKGRepoListStub) ListKnowledgeByKnowledgeBaseID(
+	_ context.Context,
+	_ uint64,
+	_ string,
+) ([]*types.Knowledge, error) {
 	return r.items, nil
 }
 
@@ -506,7 +549,11 @@ type w3aChunkDeleteNoopRepo struct {
 	interfaces.ChunkRepository
 }
 
-func (w3aChunkDeleteNoopRepo) ListImageInfoByKnowledgeIDs(_ context.Context, _ uint64, _ []string) ([]interfaces.ChunkImageInfo, error) {
+func (w3aChunkDeleteNoopRepo) ListImageInfoByKnowledgeIDs(
+	_ context.Context,
+	_ uint64,
+	_ []string,
+) ([]interfaces.ChunkImageInfo, error) {
 	return nil, nil
 }
 
@@ -533,7 +580,10 @@ func TestAuditW3A_KnowledgeBaseDeleteAndCopyIsolation(t *testing.T) {
 		require.Contains(t, repo.rows, "kb-owner")
 
 		// 3) Org-shared Editor from workspace 1 (EffectiveTenantID == 7) cannot delete workspace 7's KB!
-		baseCaller := types.WithCaller(context.Background(), types.Caller{TenantID: 1, UserID: "shared-editor", Role: types.TenantRoleAdmin})
+		baseCaller := types.WithCaller(
+			context.Background(),
+			types.Caller{TenantID: 1, UserID: "shared-editor", Role: types.TenantRoleAdmin},
+		)
 		grant := &access.KBAccess{
 			KnowledgeBase:     repo.rows["kb-owner"],
 			Caller:            types.CallerFromContext(baseCaller),
@@ -615,8 +665,12 @@ func TestAuditW3A_KnowledgeBaseDeleteAndCopyIsolation(t *testing.T) {
 		backendPath := types.BuildStorageBackendPath("backend-custom", "s3://custom-bucket/doc.pdf")
 
 		kbSvc := &knowledgeBaseService{
-			repo:            newFakeKBRepo(),
-			kgRepo:          &w3aKGRepoListStub{items: []*types.Knowledge{{ID: "k-1", TenantID: 7, KnowledgeBaseID: "kb-del", FilePath: backendPath, StorageSize: 128}}},
+			repo: newFakeKBRepo(),
+			kgRepo: &w3aKGRepoListStub{
+				items: []*types.Knowledge{
+					{ID: "k-1", TenantID: 7, KnowledgeBaseID: "kb-del", FilePath: backendPath, StorageSize: 128},
+				},
+			},
 			chunkRepo:       w3aChunkDeleteNoopRepo{},
 			tenantRepo:      &w3aTenantRepoStub{tenants: map[uint64]*types.Tenant{7: {ID: 7}}},
 			fileSvc:         globalTracker,
@@ -627,7 +681,12 @@ func TestAuditW3A_KnowledgeBaseDeleteAndCopyIsolation(t *testing.T) {
 			KnowledgeBaseID: "kb-del",
 		})
 		require.NoError(t, kbSvc.ProcessKBDelete(context.Background(), asynq.NewTask(types.TypeKBDelete, payloadBytes)))
-		assert.Equal(t, []string{backendPath}, customTracker.deleted, "custom backend file must be deleted via resolved backend service")
+		assert.Equal(
+			t,
+			[]string{backendPath},
+			customTracker.deleted,
+			"custom backend file must be deleted via resolved backend service",
+		)
 		assert.Empty(t, globalTracker.deleted, "global fallback must not receive custom backend path")
 	})
 }
@@ -651,7 +710,12 @@ func (r *w3aChunkRepoRevisionSpy) GetChunkByID(_ context.Context, tenantID uint6
 	return nil, repository.ErrChunkNotFound
 }
 
-func (r *w3aChunkRepoRevisionSpy) GetChunkRevision(_ context.Context, _ uint64, _ string, _ int) (*types.ChunkRevision, error) {
+func (r *w3aChunkRepoRevisionSpy) GetChunkRevision(
+	_ context.Context,
+	_ uint64,
+	_ string,
+	_ int,
+) (*types.ChunkRevision, error) {
 	r.revisionReads++
 	return &types.ChunkRevision{Revision: 1, Content: "old", IsEnabled: true}, nil
 }
@@ -666,7 +730,12 @@ func (r *w3aChunkRepoRevisionSpy) UpdateChunk(_ context.Context, c *types.Chunk)
 func TestAuditW3A_EvaluationAndChunkTenantIsolation(t *testing.T) {
 	t.Run("Evaluation_and_EvaluationResult_guard_zero_tenant_cross_tenant_KB_and_bound_memory", func(t *testing.T) {
 		kbRepo := newFakeKBRepo()
-		kbRepo.rows["kb-foreign"] = &types.KnowledgeBase{ID: "kb-foreign", TenantID: 99, EmbeddingModelID: "emb", SummaryModelID: "sum"}
+		kbRepo.rows["kb-foreign"] = &types.KnowledgeBase{
+			ID:               "kb-foreign",
+			TenantID:         99,
+			EmbeddingModelID: "emb",
+			SummaryModelID:   "sum",
+		}
 		kbSvc := newPR3KBService(kbRepo, &fakeRegistry{}, &fakeOwnership{})
 		evalSvc := &EvaluationService{
 			config:                  &config.Config{},
@@ -696,7 +765,12 @@ func TestAuditW3A_EvaluationAndChunkTenantIsolation(t *testing.T) {
 		require.Len(t, kbRepo.rows, 1, "foreign template KB must not spawn an evaluation KB")
 
 		// 3) Narrowed API key cannot clone an out-of-scope KB into Evaluation.
-		kbRepo.rows["kb-owned"] = &types.KnowledgeBase{ID: "kb-owned", TenantID: 1, EmbeddingModelID: "emb", SummaryModelID: "sum"}
+		kbRepo.rows["kb-owned"] = &types.KnowledgeBase{
+			ID:               "kb-owned",
+			TenantID:         1,
+			EmbeddingModelID: "emb",
+			SummaryModelID:   "sum",
+		}
 		narrowCtx := types.WithTenantAPIKeyScope(ctxTenant1, types.TenantAPIKeyScope{
 			KeyID:            1,
 			ScopeType:        types.APIKeyScopeTenant,
@@ -707,64 +781,81 @@ func TestAuditW3A_EvaluationAndChunkTenantIsolation(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("Chunk_RevertDocumentChunk_checks_write_access_before_reading_revision_and_DeleteGeneratedQuestion_handles_wiki_kb", func(t *testing.T) {
-		kbRepo := newFakeKBRepo()
-		kbRepo.rows["kb-wiki"] = &types.KnowledgeBase{
-			ID:       "kb-wiki",
-			TenantID: 7,
-			Type:     types.KnowledgeBaseTypeDocument,
-			IndexingStrategy: types.IndexingStrategy{
-				VectorEnabled:  false,
-				KeywordEnabled: false,
-				WikiEnabled:    true,
-			},
-		}
-		chunk := &types.Chunk{
-			ID:              "c-1",
-			TenantID:        7,
-			KnowledgeBaseID: "kb-wiki",
-			KnowledgeID:     "k-1",
-			ChunkType:       types.ChunkTypeText,
-			IsEnabled:       true,
-		}
-		require.NoError(t, chunk.SetDocumentMetadata(&types.DocumentChunkMetadata{
-			GeneratedQuestions: []types.GeneratedQuestion{{ID: "q-1", Question: "What is GENYEE?"}},
-		}))
-		chunkRepo := &w3aChunkRepoRevisionSpy{chunk: chunk}
-		svc := &chunkService{
-			chunkRepository: chunkRepo,
-			kbRepository:    kbRepo,
-			knowledgeRepo: &w3aKnowledgeRepoMem{rows: map[string]*types.Knowledge{
-				"k-1": {ID: "k-1", TenantID: 7, KnowledgeBaseID: "kb-wiki", ParseStatus: types.ParseStatusCompleted},
-			}},
-		}
+	t.Run(
+		"Chunk_RevertDocumentChunk_checks_write_access_before_reading_revision_and_DeleteGeneratedQuestion_handles_w"+
+			"iki_kb",
+		func(
+			t *testing.T,
+		) {
+			kbRepo := newFakeKBRepo()
+			kbRepo.rows["kb-wiki"] = &types.KnowledgeBase{
+				ID:       "kb-wiki",
+				TenantID: 7,
+				Type:     types.KnowledgeBaseTypeDocument,
+				IndexingStrategy: types.IndexingStrategy{
+					VectorEnabled:  false,
+					KeywordEnabled: false,
+					WikiEnabled:    true,
+				},
+			}
+			chunk := &types.Chunk{
+				ID:              "c-1",
+				TenantID:        7,
+				KnowledgeBaseID: "kb-wiki",
+				KnowledgeID:     "k-1",
+				ChunkType:       types.ChunkTypeText,
+				IsEnabled:       true,
+			}
+			require.NoError(t, chunk.SetDocumentMetadata(&types.DocumentChunkMetadata{
+				GeneratedQuestions: []types.GeneratedQuestion{{ID: "q-1", Question: "What is GENYEE?"}},
+			}))
+			chunkRepo := &w3aChunkRepoRevisionSpy{chunk: chunk}
+			svc := &chunkService{
+				chunkRepository: chunkRepo,
+				kbRepository:    kbRepo,
+				knowledgeRepo: &w3aKnowledgeRepoMem{rows: map[string]*types.Knowledge{
+					"k-1": {
+						ID:              "k-1",
+						TenantID:        7,
+						KnowledgeBaseID: "kb-wiki",
+						ParseStatus:     types.ParseStatusCompleted,
+					},
+				}},
+			}
 
-		// 1) Read-only shared viewer must be rejected BEFORE GetChunkRevision is queried!
-		viewerBase := types.WithCaller(context.Background(), types.Caller{TenantID: 1, UserID: "viewer", Role: types.TenantRoleViewer})
-		viewerGrant := &access.KBAccess{
-			KnowledgeBase:     kbRepo.rows["kb-wiki"],
-			Caller:            types.CallerFromContext(viewerBase),
-			EffectiveTenantID: 7,
-			Permission:        types.OrgRoleViewer,
-		}
-		_, err := svc.RevertDocumentChunk(viewerGrant.Context(viewerBase), "c-1", 1, nil)
-		require.Error(t, err)
-		assert.Zero(t, chunkRepo.revisionReads, "GetChunkRevision must not be called before writableChunk succeeds")
+			// 1) Read-only shared viewer must be rejected BEFORE GetChunkRevision is queried!
+			viewerBase := types.WithCaller(
+				context.Background(),
+				types.Caller{TenantID: 1, UserID: "viewer", Role: types.TenantRoleViewer},
+			)
+			viewerGrant := &access.KBAccess{
+				KnowledgeBase:     kbRepo.rows["kb-wiki"],
+				Caller:            types.CallerFromContext(viewerBase),
+				EffectiveTenantID: 7,
+				Permission:        types.OrgRoleViewer,
+			}
+			_, err := svc.RevertDocumentChunk(viewerGrant.Context(viewerBase), "c-1", 1, nil)
+			require.Error(t, err)
+			assert.Zero(t, chunkRepo.revisionReads, "GetChunkRevision must not be called before writableChunk succeeds")
 
-		// 2) DeleteGeneratedQuestion on a shared Editor context (without TenantIDContextKey set directly on base)
-		// and on a Wiki-only KB (NeedsEmbeddingModel() == false) must succeed without panic or nil modelService error!
-		editorBase := types.WithCaller(context.Background(), types.Caller{TenantID: 1, UserID: "editor", Role: types.TenantRoleAdmin})
-		editorGrant := &access.KBAccess{
-			KnowledgeBase:     kbRepo.rows["kb-wiki"],
-			Caller:            types.CallerFromContext(editorBase),
-			EffectiveTenantID: 7,
-			Permission:        types.OrgRoleEditor,
-		}
-		require.NoError(t, svc.DeleteGeneratedQuestion(editorGrant.Context(editorBase), "c-1", "q-1"))
-		meta, err := chunkRepo.updated.DocumentMetadata()
-		require.NoError(t, err)
-		assert.Empty(t, meta.GeneratedQuestions)
-	})
+			// 2) DeleteGeneratedQuestion on a shared Editor context (without TenantIDContextKey set directly on base)
+			// and on a Wiki-only KB (NeedsEmbeddingModel() == false) must succeed without panic or nil modelService
+			// error!
+			editorBase := types.WithCaller(
+				context.Background(),
+				types.Caller{TenantID: 1, UserID: "editor", Role: types.TenantRoleAdmin},
+			)
+			editorGrant := &access.KBAccess{
+				KnowledgeBase:     kbRepo.rows["kb-wiki"],
+				Caller:            types.CallerFromContext(editorBase),
+				EffectiveTenantID: 7,
+				Permission:        types.OrgRoleEditor,
+			}
+			require.NoError(t, svc.DeleteGeneratedQuestion(editorGrant.Context(editorBase), "c-1", "q-1"))
+			meta, err := chunkRepo.updated.DocumentMetadata()
+			require.NoError(t, err)
+			assert.Empty(t, meta.GeneratedQuestions)
+		})
 }
 
 // ---------------------------------------------------------------------------
@@ -781,7 +872,11 @@ func (s *w3aHybridSearchSpy) GetKnowledgeBaseByID(_ context.Context, _ string) (
 	return s.kb, nil
 }
 
-func (s *w3aHybridSearchSpy) HybridSearch(_ context.Context, _ string, params types.SearchParams) ([]*types.SearchResult, error) {
+func (s *w3aHybridSearchSpy) HybridSearch(
+	_ context.Context,
+	_ string,
+	params types.SearchParams,
+) ([]*types.SearchResult, error) {
 	s.lastParams = params
 	return nil, nil
 }
@@ -800,7 +895,13 @@ type w3aMemObjectFileSvc struct {
 	deleted []string
 }
 
-func (f *w3aMemObjectFileSvc) SaveBytes(_ context.Context, data []byte, tenantID uint64, fileName string, _ bool) (string, error) {
+func (f *w3aMemObjectFileSvc) SaveBytes(
+	_ context.Context,
+	data []byte,
+	tenantID uint64,
+	fileName string,
+	_ bool,
+) (string, error) {
 	if f.saved == nil {
 		f.saved = map[string][]byte{}
 	}
@@ -870,7 +971,9 @@ func TestAuditW3A_FAQTagScopeAndTaskProgressIsolation(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("FAQ_and_Clone_Move_progress_enforce_tenant_and_apikey_scope_and_cleanup_failed_enqueue_blob", func(t *testing.T) {
+	t.Run("FAQ_and_Clone_Move_progress_enforce_tenant_and_apikey_scope_and_cleanup_failed_enqueue_blob", func(
+		t *testing.T,
+	) {
 		f := newFAQWriteFixture(t)
 		mr := miniredis.RunT(t)
 		rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})

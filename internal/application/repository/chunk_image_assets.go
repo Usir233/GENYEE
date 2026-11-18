@@ -220,8 +220,9 @@ func (d imageAssetDialect) value(f types.ImageAssetField) (string, bool) {
 		return "(i.attrs->>'" + name + "')", true
 	}
 	path := `'$."` + name + `"'`
-	return "(CASE json_type(i.attrs, " + path + ") WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' " +
-		"ELSE CAST(json_extract(i.attrs, " + path + ") AS TEXT) END)", true
+	safeAttrs := "(CASE WHEN json_valid(i.attrs) THEN i.attrs ELSE '{}' END)"
+	return "(CASE json_type(" + safeAttrs + ", " + path + ") WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' " +
+		"ELSE CAST(json_extract(" + safeAttrs + ", " + path + ") AS TEXT) END)", true
 }
 
 // attrsText reads the attrs column back as JSON text.
