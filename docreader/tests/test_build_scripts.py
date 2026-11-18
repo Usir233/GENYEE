@@ -186,6 +186,9 @@ class TestDocreaderBuildAndMetadataRegressions(unittest.TestCase):
         pyproject = tomllib.loads((DOCREADER_DIR / "pyproject.toml").read_text(encoding="utf-8"))
         mypy_cfg = pyproject.get("tool", {}).get("mypy", {})
         self.assertIs(mypy_cfg.get("explicit_package_bases"), True)
+        self.assertNotIn("follow_imports", mypy_cfg)
+        isort_cfg = pyproject.get("tool", {}).get("ruff", {}).get("lint", {}).get("isort", {})
+        self.assertEqual(isort_cfg.get("known-first-party"), ["docreader"])
 
     def test_parse_local_handles_raw_image_bytes_and_none_document(self):
         from docreader.models.document import Document
