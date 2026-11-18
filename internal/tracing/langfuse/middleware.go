@@ -179,7 +179,7 @@ func shouldTrace(c *gin.Context) bool {
 		strings.HasPrefix(path, "/api/v1/agent-chat"),
 		strings.HasPrefix(path, "/api/v1/knowledge-search"),
 		strings.HasPrefix(path, "/api/v1/sessions") &&
-			(strings.Contains(path, "generate_title") || strings.Contains(path, "generate-title")),
+			strings.Contains(path, "generate-title"),
 		strings.HasPrefix(path, "/api/v1/initialization/remote/check"),
 		strings.HasPrefix(path, "/api/v1/initialization/embedding/test"),
 		strings.HasPrefix(path, "/api/v1/initialization/rerank/check"),
@@ -206,7 +206,6 @@ func shouldTrace(c *gin.Context) bool {
 			return true
 		// FAQ bulk import.
 		case strings.Contains(path, "/faq/entries") ||
-			strings.Contains(path, "/faq/entry") ||
 			strings.Contains(path, "/faq/import"):
 			return true
 		// Wiki auto-fix enqueues wiki ingest.
@@ -217,7 +216,7 @@ func shouldTrace(c *gin.Context) bool {
 		case strings.HasPrefix(path, "/api/v1/chunks/") && method == "PUT":
 			return true
 		// Manual data source sync triggers asynq sync.
-		case (strings.Contains(path, "/datasource/") || strings.Contains(path, "/data-sources/")) &&
+		case strings.Contains(path, "/data-sources/") &&
 			strings.HasSuffix(path, "/sync"):
 			return true
 		}

@@ -37,7 +37,13 @@ func TestAttachmentImagesHaveIndependentParentOwnedLifetimes(t *testing.T) {
 	require.NoError(t, png.Encode(&payload, image.NewRGBA(image.Rect(0, 0, 200, 150))))
 	documentImage, err := svc.SaveBytes(ctx, payload.Bytes(), 7, "document.png", false)
 	require.NoError(t, err)
-	require.NoError(t, catalog.Bind(ctx, documentImage, types.ResourceOwnerKnowledge, "existing-document", types.ResourceRelationExtractedImage))
+	require.NoError(
+		t,
+		catalog.Bind(
+			ctx, documentImage, types.ResourceOwnerKnowledge, "existing-document",
+			types.ResourceRelationExtractedImage,
+		),
+	)
 	resolver := docparser.NewImageResolver()
 	processor := &AttachmentProcessor{fileService: svc, imageResolver: resolver}
 	upload := func(name string) (string, string) {
@@ -77,7 +83,9 @@ type attachmentSaveFailure struct {
 	failAt int
 }
 
-func (s *attachmentSaveFailure) SaveBytes(ctx context.Context, data []byte, tenant uint64, name string, temp bool) (string, error) {
+func (s *attachmentSaveFailure) SaveBytes(
+	ctx context.Context, data []byte, tenant uint64, name string, temp bool,
+) (string, error) {
 	s.calls++
 	if s.calls == s.failAt {
 		return "", errors.New("attachment upload failed")
@@ -100,17 +108,25 @@ func TestAttachmentRollbackKeepsAnotherAttachmentAndBoundDocument(t *testing.T) 
 	require.NoError(t, png.Encode(&payload, image.NewRGBA(image.Rect(0, 0, 200, 150))))
 	document, err := svc.SaveBytes(ctx, payload.Bytes(), 7, "existing.png", false)
 	require.NoError(t, err)
-	require.NoError(t, catalog.Bind(ctx, document, types.ResourceOwnerKnowledge, "document", types.ResourceRelationExtractedImage))
+	require.NoError(
+		t,
+		catalog.Bind(ctx, document, types.ResourceOwnerKnowledge, "document", types.ResourceRelationExtractedImage),
+	)
 	parent, err := svc.SaveBytes(ctx, []byte("attachment"), 7, "attachment.pdf", false)
 	require.NoError(t, err)
 	resolver := docparser.NewImageResolver()
 	content := fmt.Sprintf("![image](data:image/png;base64,%s)", base64.StdEncoding.EncodeToString(payload.Bytes()))
-	_, first, err := resolver.ResolveAndStore(interfaces.WithIndependentFileWrites(ctx), &types.ReadResult{MarkdownContent: content}, svc, 7)
+	_, first, err := resolver.ResolveAndStore(
+		interfaces.WithIndependentFileWrites(ctx), &types.ReadResult{MarkdownContent: content}, svc, 7,
+	)
 	require.NoError(t, err)
 	processor := &AttachmentProcessor{fileService: svc, imageResolver: resolver}
 	require.NoError(t, processor.bindAttachmentImages(ctx, parent, first))
 	raw.failAt = raw.calls + 2
-	_, failed, err := resolver.ResolveAndStore(interfaces.WithIndependentFileWrites(ctx), &types.ReadResult{MarkdownContent: content + "\n" + content}, svc, 7)
+	_, failed, err := resolver.ResolveAndStore(
+		interfaces.WithIndependentFileWrites(ctx), &types.ReadResult{MarkdownContent: content + "\n" + content},
+		svc, 7,
+	)
 	require.ErrorContains(t, err, "attachment upload failed")
 	require.Len(t, failed, 1)
 	_, err = catalog.Resolve(ctx, failed[0].ServingURL)
@@ -147,9 +163,13 @@ func TestArtifactCleanupRechecksBindingsAfterLocationLookup(t *testing.T) {
 	svc := files.NewResourceCatalogFileService(files.NewLocalFileService(t.TempDir(), ""), catalog)
 	ref, err := svc.SaveBytes(ctx, []byte("artifact"), 7, "artifact.png", false)
 	require.NoError(t, err)
-	require.NoError(t, catalog.Bind(ctx, ref, types.ResourceOwnerMessage, "old-message", types.ResourceRelationArtifact))
+	require.NoError(
+		t, catalog.Bind(ctx, ref, types.ResourceOwnerMessage, "old-message", types.ResourceRelationArtifact),
+	)
 	racing := &bindAfterArtifactResolve{ResourceCatalog: catalog, bind: func() {
-		require.NoError(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "new-owner", types.ResourceRelationAttachment))
+		require.NoError(
+			t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "new-owner", types.ResourceRelationAttachment),
+		)
 	}}
 	handler := &Handler{fileService: svc, resourceCatalog: racing}
 	handler.reclaimArtifactBlobs(ctx, 7, []types.ArtifactBlobRef{{URL: ref, MessageIDs: []string{"old-message"}}})

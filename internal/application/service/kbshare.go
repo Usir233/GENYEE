@@ -630,3 +630,51 @@ func (s *kbShareService) CountSharesByKnowledgeBaseIDs(ctx context.Context, kbID
 func (s *kbShareService) CountByOrganizations(ctx context.Context, orgIDs []string) (map[string]int64, error) {
 	return s.shareRepo.CountByOrganizations(ctx, orgIDs)
 }
+
+// CountKnowledgeByKnowledgeBaseID returns the document count for a knowledge base.
+func (s *kbShareService) CountKnowledgeByKnowledgeBaseID(
+	ctx context.Context, tenantID uint64, kbID string,
+) (int64, error) {
+	if s.kgRepo == nil {
+		return 0, nil
+	}
+	return s.kgRepo.CountKnowledgeByKnowledgeBaseID(ctx, tenantID, kbID)
+}
+
+// CountChunksByKnowledgeBaseID returns the chunk count for a knowledge base.
+func (s *kbShareService) CountChunksByKnowledgeBaseID(
+	ctx context.Context, tenantID uint64, kbID string,
+) (int64, error) {
+	if s.chunkRepo == nil {
+		return 0, nil
+	}
+	return s.chunkRepo.CountChunksByKnowledgeBaseID(ctx, tenantID, kbID)
+}
+
+// NewKBShareStatsService exposes knowledge and chunk count lookups via KBShareStatsService.
+func NewKBShareStatsService(
+	kgRepo interfaces.KnowledgeRepository,
+	chunkRepo interfaces.ChunkRepository,
+) interfaces.KBShareStatsService {
+	return &kbShareService{kgRepo: kgRepo, chunkRepo: chunkRepo}
+}
+
+type tenantDisabledSharedAgentService struct {
+	repo interfaces.TenantDisabledSharedAgentRepository
+}
+
+// NewTenantDisabledSharedAgentService wraps TenantDisabledSharedAgentRepository for handler consumption.
+func NewTenantDisabledSharedAgentService(
+	repo interfaces.TenantDisabledSharedAgentRepository,
+) interfaces.TenantDisabledSharedAgentService {
+	if repo == nil {
+		return nil
+	}
+	return &tenantDisabledSharedAgentService{repo: repo}
+}
+
+func (s *tenantDisabledSharedAgentService) ListDisabledOwnAgentIDs(
+	ctx context.Context, tenantID uint64,
+) ([]string, error) {
+	return s.repo.ListDisabledOwnAgentIDs(ctx, tenantID)
+}

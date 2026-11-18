@@ -28,6 +28,10 @@ type WebSearchProviderRepository interface {
 // Tenant isolation is enforced by the handler layer (getOwned pattern).
 // Service methods operate on entities whose TenantID is already verified.
 type WebSearchProviderService interface {
+	// GetProvider retrieves a web search provider by ID within a tenant scope.
+	GetProvider(ctx context.Context, tenantID uint64, id string) (*types.WebSearchProviderEntity, error)
+	// ListProviders lists all web search providers configured for a tenant.
+	ListProviders(ctx context.Context, tenantID uint64) ([]*types.WebSearchProviderEntity, error)
 	// CreateProvider creates a new web search provider.
 	// provider.TenantID must be set by the caller (handler).
 	CreateProvider(ctx context.Context, provider *types.WebSearchProviderEntity) error

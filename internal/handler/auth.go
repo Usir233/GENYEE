@@ -60,8 +60,7 @@ type AuthHandler struct {
 //   - systemSettingSvc: 3-tier resolver for runtime-tunable settings such as
 //     auth.registration_mode (P3). When DB has a row, it overrides cfg's
 //     startup value; otherwise we fall back to cfg.Auth.RegistrationMode
-//     (which already accounted for the legacy DISABLE_REGISTRATION env coerce
-//     during config load). Mismatch impossible by construction since the
+//     (resolved from GENYEE_AUTH_REGISTRATION_MODE during config load). Mismatch impossible by construction since the
 //     handler always passes cfg's value as the def parameter to GetString.
 //
 // Returns a pointer to the newly created AuthHandler
@@ -90,8 +89,7 @@ func NewAuthHandler(configInfo *config.Config,
 }
 
 // resolveRegistrationMode returns the currently active registration mode.
-// Priority: DB system_settings > cfg (which already absorbed the legacy
-// DISABLE_REGISTRATION env coerce at startup) > "self_serve" hard default.
+// Priority: DB system_settings > cfg (GENYEE_AUTH_REGISTRATION_MODE) > "self_serve" hard default.
 //
 // Centralised here so /auth/register and /auth/config stay in lock-step —
 // otherwise a SystemAdmin's UI edit could affect one path and not the other.
@@ -108,11 +106,7 @@ func (h *AuthHandler) resolveRegistrationMode(ctx context.Context) string {
 	if h.systemSettingSvc == nil {
 		return def
 	}
-	// envName = "" because DISABLE_REGISTRATION is a boolean and
-	// auth.registration_mode is a string — the legacy env was already
-	// coerced into `def` above. Mixing the two semantics at the resolver
-	// layer would mean a UI delete (DB row absent) silently flipped to
-	// the legacy boolean read again, which is surprising.
+	// envName = "" because GENYEE_AUTH_REGISTRATION_MODE is already resolved into `def` via cfg.
 	return h.systemSettingSvc.GetString(ctx, "auth.registration_mode", "", def)
 }
 
@@ -197,7 +191,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse registration request parameters", err)
 		appErr := errors.NewValidationError("Invalid registration parameters").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 	req.Username = secutils.SanitizeForLog(req.Username)
@@ -213,7 +207,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if req.Username == "" || req.Email == "" || req.Password == "" {
 		logger.Error(ctx, "Missing required registration fields")
 		appErr := errors.NewValidationError("Username, email and password are required")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -235,7 +229,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to register user: %v", err)
 		appErr := errors.NewBadRequestError(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -269,7 +263,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse login request parameters", err)
 		appErr := errors.NewValidationError("Invalid login parameters").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 	email := secutils.SanitizeForLog(req.Email)
@@ -278,7 +272,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if req.Email == "" || req.Password == "" {
 		logger.Error(ctx, "Missing required login fields")
 		appErr := errors.NewValidationError("Email and password are required")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -287,7 +281,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to login user: %v", err)
 		appErr := errors.NewUnauthorizedError("Login failed").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -320,12 +314,12 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 	redirectURI := strings.TrimSpace(c.Query("redirect_uri"))
 	if redirectURI == "" {
 		appErr := errors.NewValidationError("redirect_uri is required")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 	if err := validateOIDCRedirectURI(redirectURI, h.configInfo); err != nil {
 		appErr := errors.NewValidationError("invalid redirect_uri").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -333,7 +327,7 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
 		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -371,7 +365,7 @@ func isLoopbackHost(rawHost string) bool {
 	if rawHost == "" || strings.ContainsAny(rawHost, `/\?#@"`+" \t\r\n") {
 		return false
 	}
-	host := rawHost
+	var host string
 	if h, port, err := net.SplitHostPort(rawHost); err == nil {
 		if port == "" {
 			return false
@@ -427,7 +421,8 @@ func validateOIDCRedirectURI(redirectURI string, cfg *config.Config) error {
 func oidcCallbackURL(c *gin.Context, cfg *config.Config) (string, error) {
 	if base := frontendBaseURLFor(cfg); base != "" {
 		u, err := url.Parse(base)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.ContainsAny(base, "\\\r\n\t ") {
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
+			u.RawQuery != "" || u.Fragment != "" || strings.ContainsAny(base, "\\\r\n\t ") {
 			return "", stderrors.New("invalid FRONTEND_BASE_URL configuration")
 		}
 		return base + "/api/v1/auth/oidc/callback", nil
@@ -460,14 +455,14 @@ func (h *AuthHandler) OIDCStart(c *gin.Context) {
 	if err != nil {
 		logger.Warnf(ctx, "Rejected OIDC start callback URL derivation: %v", err)
 		appErr := errors.NewBadRequestError("OIDC callback URL unavailable").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, callbackURL)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
 		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 	setOIDCNonceCookie(c, resp.Nonce)
@@ -546,11 +541,19 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to complete OIDC login via redirect callback: %v", err)
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+"&oidc_error_description="+urlQueryEscape(err.Error()))
+		c.Redirect(
+			http.StatusFound,
+			frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+
+				"&oidc_error_description="+urlQueryEscape(err.Error()),
+		)
 		return
 	}
 	if !resp.Success {
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+"&oidc_error_description="+urlQueryEscape(resp.Message))
+		c.Redirect(
+			http.StatusFound,
+			frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+
+				"&oidc_error_description="+urlQueryEscape(resp.Message),
+		)
 		return
 	}
 
@@ -638,7 +641,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	if authHeader == "" {
 		logger.Error(ctx, "Missing Authorization header")
 		appErr := errors.NewValidationError("Authorization header is required")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -647,7 +650,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
 		logger.Error(ctx, "Invalid Authorization header format")
 		appErr := errors.NewValidationError("Invalid Authorization header format")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -658,7 +661,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	if err != nil {
 		logger.Warnf(ctx, "Failed to logout with presented token: %v", err)
 		appErr := errors.NewUnauthorizedError("Invalid or expired token")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -675,7 +678,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // @Tags         认证
 // @Accept       json
 // @Produce      json
-// @Param        request  body      object{refreshToken=string}  true  "刷新令牌"
+// @Param        request  body      object{refresh_token=string}  true  "刷新令牌"
 // @Success      200      {object}  handler.RefreshTokenResponse       "新令牌"
 // @Failure      401      {object}  errors.AppError              "令牌无效"
 // @Router       /auth/refresh [post]
@@ -685,13 +688,13 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	logger.Info(ctx, "Start token refresh")
 
 	var req struct {
-		RefreshToken string `json:"refreshToken" binding:"required"`
+		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse refresh token request", err)
 		appErr := errors.NewValidationError("Invalid refresh token request").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -700,7 +703,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to refresh token: %v", err)
 		appErr := errors.NewUnauthorizedError("Token refresh failed").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -731,7 +734,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to get current user: %v", err)
 		appErr := errors.NewUnauthorizedError("Failed to get user information").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -752,7 +755,9 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	if activeTenantID > 0 {
 		tenant, err = h.tenantService.GetTenantByID(ctx, activeTenantID)
 		if err != nil {
-			logger.Warnf(ctx, "Failed to get tenant info for user %s, tenant ID %d: %v", user.Email, activeTenantID, err)
+			logger.Warnf(
+				ctx, "Failed to get tenant info for user %s, tenant ID %d: %v", user.Email, activeTenantID, err,
+			)
 			// Don't fail the request if tenant info is not available
 		}
 	}
@@ -816,14 +821,14 @@ func (h *AuthHandler) UpdateMyPreferences(c *gin.Context) {
 	user, err := h.userService.GetCurrentUser(ctx)
 	if err != nil {
 		appErr := errors.NewUnauthorizedError("Failed to get user information").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
 	var req updateMyPreferencesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		appErr := errors.NewValidationError("Invalid preferences request").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -835,7 +840,7 @@ func (h *AuthHandler) UpdateMyPreferences(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to update preferences for user %s: %v", user.Email, err)
 		appErr := errors.NewBadRequestError("Failed to update preferences").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -869,7 +874,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse password change request", err)
 		appErr := errors.NewValidationError("Invalid password change request").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -878,7 +883,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to get current user: %v", err)
 		appErr := errors.NewUnauthorizedError("Failed to get user information").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -896,17 +901,17 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		case stderrors.Is(err, service.ErrInvalidOldPassword):
 			appErr := errors.NewBadRequestError("Current password is incorrect").
 				WithDetails(service.DetailInvalidOldPassword)
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		case stderrors.Is(err, service.ErrSamePassword):
 			appErr := errors.NewValidationError("New password must differ from current password").
 				WithDetails(service.DetailSamePassword)
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		default:
 			logger.Errorf(ctx, "Failed to change password: %v", err)
 			appErr := errors.NewBadRequestError("Password change failed").WithDetails(err.Error())
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 	}
@@ -975,14 +980,14 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		appErr := errors.NewValidationError("Invalid workspace switch request").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
 	user, err := h.userService.GetCurrentUser(ctx)
 	if err != nil || user == nil {
 		appErr := errors.NewUnauthorizedError("not authenticated")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -995,13 +1000,14 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "SwitchTenant failed user=%s target=%d: %v", user.ID, req.TenantID, err)
 		appErr := errors.NewForbiddenError("workspace switch failed").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.NewAuthLoginResponse(resp))
 }
 
+// AutoSetup godoc
 // @Summary      自动初始化（Lite 桌面版）
 // @Description  Lite 版专用：首次启动时自动创建默认用户和空间并返回令牌，首次及后续启动均须通过桌面原生凭据认证，免除手动注册/登录流程
 // @Tags         认证
@@ -1015,7 +1021,7 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 
 	if Edition != "lite" {
 		appErr := errors.NewForbiddenError("auto-setup is only available in lite edition")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -1034,7 +1040,7 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 		randomBytes := make([]byte, 24)
 		if _, err := rand.Read(randomBytes); err != nil {
 			appErr := errors.NewInternalServerError("auto-setup failed: unable to generate credentials")
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		randomPassword := base64.RawURLEncoding.EncodeToString(randomBytes)
@@ -1048,13 +1054,13 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 		if err != nil {
 			logger.Errorf(ctx, "Auto-setup: failed to register default user: %v", err)
 			appErr := errors.NewInternalServerError("auto-setup failed").WithDetails(err.Error())
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		user, _ = h.userService.GetUserByEmail(ctx, defaultEmail)
 		if user == nil {
 			appErr := errors.NewInternalServerError("auto-setup failed: user not found after registration")
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 	}
@@ -1063,7 +1069,7 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Auto-setup: failed to generate tokens: %v", err)
 		appErr := errors.NewInternalServerError("auto-setup failed").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -1115,7 +1121,7 @@ func (h *AuthHandler) ValidateToken(c *gin.Context) {
 	if authHeader == "" {
 		logger.Error(ctx, "Missing Authorization header")
 		appErr := errors.NewValidationError("Authorization header is required")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -1124,7 +1130,7 @@ func (h *AuthHandler) ValidateToken(c *gin.Context) {
 	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
 		logger.Error(ctx, "Invalid Authorization header format")
 		appErr := errors.NewValidationError("Invalid Authorization header format")
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -1135,7 +1141,7 @@ func (h *AuthHandler) ValidateToken(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to validate token: %v", err)
 		appErr := errors.NewUnauthorizedError("Token validation failed").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 

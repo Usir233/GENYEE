@@ -36,7 +36,13 @@ func TestEmbedWebhookRelaySQLiteAuthIntegration(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
-	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.EmbedChannel{}, &types.Session{}, &types.Message{}, &types.MessageArtifactRecord{}))
+	require.NoError(
+		t,
+		db.AutoMigrate(
+			&types.Tenant{}, &types.EmbedChannel{}, &types.Session{}, &types.Message{},
+			&types.MessageArtifactRecord{},
+		),
+	)
 	// Session reads check for IM ownership too. No IM sessions exist in this
 	// fixture, but retain the actual SQL lookup rather than stubbing it out.
 	require.NoError(t, db.Exec(`CREATE TABLE im_channel_sessions (
@@ -100,7 +106,9 @@ func TestEmbedWebhookRelaySQLiteAuthIntegration(t *testing.T) {
 		ctx = types.WithPrincipalAuthSource(types.WithPrincipal(ctx, principal), types.AuthSourceEmbed)
 		return stored, ctx
 	}
-	createMessage := func(ctx context.Context, session *types.Session, role, content string, completed bool) *types.Message {
+	createMessage := func(
+		ctx context.Context, session *types.Session, role, content string, completed bool,
+	) *types.Message {
 		t.Helper()
 		message, createErr := messageSvc.CreateMessage(ctx, &types.Message{
 			SessionID: session.ID, Role: role, Content: content, IsCompleted: completed,
@@ -166,7 +174,10 @@ func TestEmbedWebhookRelaySQLiteAuthIntegration(t *testing.T) {
 			require.Equal(t, own.ID, payload["session_id"])
 			require.Equal(t, message.ID, payload["message_id"])
 			require.Equal(t, message.Content, payload[contentKey])
-			require.Equal(t, "sha256="+service.SignEmbedWebhookBody(channel.WebhookSecret, delivered.raw), delivered.signature)
+			require.Equal(
+				t, "sha256="+service.SignEmbedWebhookBody(channel.WebhookSecret, delivered.raw),
+				delivered.signature,
+			)
 		case <-time.After(2 * time.Second):
 			t.Fatal("authorized persisted message did not reach the local webhook")
 		}
@@ -188,14 +199,38 @@ func TestEmbedWebhookRelaySQLiteAuthIntegration(t *testing.T) {
 		status                                                  int
 	}{
 		{"invalid publish token", own.ID, user.ID, "message_sent", ownSig, "wrong-token", http.StatusUnauthorized},
-		{"invalid session signature", own.ID, user.ID, "message_sent", "wrong-signature", channel.PublishToken, http.StatusForbidden},
-		{"other visitor handle", visitor.ID, visitorMessage.ID, "message_sent", ownSig, channel.PublishToken, http.StatusForbidden},
-		{"other channel session", external.ID, externalMessage.ID, "message_sent", service.SignEmbedSessionHandle(channel, external.ID), channel.PublishToken, http.StatusForbidden},
-		{"other workspace session", crossTenant.ID, crossTenantMessage.ID, "message_sent", service.SignEmbedSessionHandle(channel, crossTenant.ID), channel.PublishToken, http.StatusNotFound},
-		{"other visitor message ID", own.ID, visitorMessage.ID, "message_sent", ownSig, channel.PublishToken, http.StatusForbidden},
-		{"other channel message ID", own.ID, externalMessage.ID, "message_sent", ownSig, channel.PublishToken, http.StatusForbidden},
-		{"other workspace message ID", own.ID, crossTenantMessage.ID, "message_sent", ownSig, channel.PublishToken, http.StatusForbidden},
-		{"incomplete assistant", own.ID, pending.ID, "message_received", ownSig, channel.PublishToken, http.StatusForbidden},
+		{
+			"invalid session signature", own.ID, user.ID, "message_sent", "wrong-signature", channel.PublishToken,
+			http.StatusForbidden,
+		},
+		{
+			"other visitor handle", visitor.ID, visitorMessage.ID, "message_sent", ownSig, channel.PublishToken,
+			http.StatusForbidden,
+		},
+		{
+			"other channel session", external.ID, externalMessage.ID, "message_sent",
+			service.SignEmbedSessionHandle(channel, external.ID), channel.PublishToken, http.StatusForbidden,
+		},
+		{
+			"other workspace session", crossTenant.ID, crossTenantMessage.ID, "message_sent",
+			service.SignEmbedSessionHandle(channel, crossTenant.ID), channel.PublishToken, http.StatusNotFound,
+		},
+		{
+			"other visitor message ID", own.ID, visitorMessage.ID, "message_sent", ownSig, channel.PublishToken,
+			http.StatusForbidden,
+		},
+		{
+			"other channel message ID", own.ID, externalMessage.ID, "message_sent", ownSig, channel.PublishToken,
+			http.StatusForbidden,
+		},
+		{
+			"other workspace message ID", own.ID, crossTenantMessage.ID, "message_sent", ownSig,
+			channel.PublishToken, http.StatusForbidden,
+		},
+		{
+			"incomplete assistant", own.ID, pending.ID, "message_received", ownSig, channel.PublishToken,
+			http.StatusForbidden,
+		},
 		{"wrong role", own.ID, user.ID, "message_received", ownSig, channel.PublishToken, http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

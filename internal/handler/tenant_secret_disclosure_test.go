@@ -23,6 +23,7 @@ func (s *stubTenantService) UpdateTenant(_ context.Context, tenant *types.Tenant
 	s.tenant = tenant
 	return tenant, nil
 }
+
 func (s *stubTenantService) SetChatHistoryConfig(context.Context, uint64, *types.ChatHistoryConfig) error {
 	panic("unexpected chat history configuration write")
 }
@@ -143,9 +144,11 @@ func secretTenantFixture() *types.Tenant {
 	return &types.Tenant{
 		ID:   42,
 		Name: "tenant",
-		WebSearchConfig: &types.WebSearchConfig{
-			APIKey: "legacy-search-secret-999",
-		},
+		WebSearchConfig: func() *types.WebSearchConfig {
+			var cfg types.WebSearchConfig
+			_ = json.Unmarshal([]byte(`{"api_key":"legacy-search-secret-999"}`), &cfg)
+			return &cfg
+		}(),
 		ParserEngineConfig: &types.ParserEngineConfig{
 			MinerUAPIKey: "parser-secret-123",
 		},

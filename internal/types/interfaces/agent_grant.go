@@ -24,3 +24,9 @@ type AgentGrantRepository interface {
 	// DeleteScopes drops every grant of the given scopes.
 	DeleteScopes(ctx context.Context, tenantID uint64, scope string, scopeIDs []string) error
 }
+
+// AgentGrantService exposes remembered-grant listing and revocation to HTTP handlers.
+type AgentGrantService interface {
+	ListGrants(ctx context.Context, tenantID uint64, userID, scope, scopeID string) ([]*types.AgentGrant, error)
+	RevokeGrant(ctx context.Context, tenantID uint64, userID, id string, at time.Time) (bool, error)
+}

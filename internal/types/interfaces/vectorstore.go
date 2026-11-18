@@ -26,6 +26,10 @@ type EngineFactory func(ctx context.Context, store types.VectorStore) (RetrieveE
 // VectorStoreService defines the service interface for vector store management.
 // Tenant isolation is enforced by the handler layer (getOwnedStore pattern).
 type VectorStoreService interface {
+	// GetStore retrieves a vector store by ID within a tenant scope.
+	GetStore(ctx context.Context, tenantID uint64, id string) (*types.VectorStore, error)
+	// ListStores lists all vector stores configured for a tenant.
+	ListStores(ctx context.Context, tenantID uint64) ([]*types.VectorStore, error)
 	// CreateStore validates and creates a new vector store.
 	CreateStore(ctx context.Context, store *types.VectorStore) error
 	// UpdateStore updates an existing vector store (name only).

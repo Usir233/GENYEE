@@ -34,13 +34,13 @@ type ModelProviderDTO struct {
 	Icon         string                 `json:"icon,omitempty"`
 	API          api.API                `json:"api"`
 	Auth         providers.AuthStyle    `json:"auth"`
-	RequiresAuth bool                   `json:"requiresAuth" extensions:"x-agent=requires_auth"`
-	DefaultURLs  map[string]string      `json:"defaultUrls"`
-	ModelTypes   []string               `json:"modelTypes" extensions:"x-agent=model_types"`
-	ExtraFields  []providers.ExtraField `json:"extraFields,omitempty"`
+	RequiresAuth bool                   `json:"requires_auth" extensions:"x-agent=requires_auth"`
+	DefaultURLs  map[string]string      `json:"default_urls"`
+	ModelTypes   []string               `json:"model_types" extensions:"x-agent=model_types"`
+	ExtraFields  []providers.ExtraField `json:"extra_fields,omitempty"`
 	// CredentialLabels rename the primary credential input for the model
 	// types that do not take a plain API key (signed rerank APIs).
-	CredentialLabels []providers.CredentialLabel `json:"credentialLabels,omitempty"`
+	CredentialLabels []providers.CredentialLabel `json:"credential_labels,omitempty"`
 	Models           []ModelCatalogEntryDTO      `json:"models,omitempty" extensions:"x-agent,x-agent-detail"`
 	Thinking         ProviderThinkingDTO         `json:"thinking"`
 	Order            int                         `json:"order"`

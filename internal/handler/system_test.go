@@ -27,12 +27,15 @@ type spyGlobalDocumentReader struct {
 func (s *spyGlobalDocumentReader) Read(context.Context, *types.ReadRequest) (*types.ReadResult, error) {
 	return &types.ReadResult{}, nil
 }
+
 func (s *spyGlobalDocumentReader) ListEngines(context.Context, map[string]string) ([]types.ParserEngineInfo, error) {
 	return nil, nil
 }
+
 func (s *spyGlobalDocumentReader) PreprocessImage(context.Context, []byte) ([]byte, bool, error) {
 	return nil, true, nil
 }
+
 func (s *spyGlobalDocumentReader) Reconnect(addr string) error {
 	s.reconnectCalls++
 	s.lastAddr = addr
@@ -45,7 +48,9 @@ type stubProbeDocReaderServer struct {
 	lastAuthHeader string
 }
 
-func (s *stubProbeDocReaderServer) ListEngines(ctx context.Context, _ *proto.ListEnginesRequest) (*proto.ListEnginesResponse, error) {
+func (s *stubProbeDocReaderServer) ListEngines(
+	ctx context.Context, _ *proto.ListEnginesRequest,
+) (*proto.ListEnginesResponse, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if vals := md.Get("authorization"); len(vals) > 0 {
 			s.lastAuthHeader = vals[0]
@@ -69,7 +74,7 @@ func TestReconnectDocReaderDoesNotMutateGlobalReaderOrLeakTokenForExternalAddr(t
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer lis.Close()
+	defer func() { _ = lis.Close() }()
 
 	grpcSrv := grpc.NewServer()
 	probeSrv := &stubProbeDocReaderServer{}
@@ -90,7 +95,10 @@ func TestReconnectDocReaderDoesNotMutateGlobalReaderOrLeakTokenForExternalAddr(t
 	h.ReconnectDocReader(c)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"code":0`)
-	assert.Equal(t, 0, globalSpy.reconnectCalls, "non-configured external addr must NOT replace global documentReader singleton")
+	assert.Equal(
+		t, 0, globalSpy.reconnectCalls,
+		"non-configured external addr must NOT replace global documentReader singleton",
+	)
 	assert.Empty(t, probeSrv.lastAuthHeader, "non-configured external addr must NOT receive global GRPC_AUTH_TOKEN")
 }
 

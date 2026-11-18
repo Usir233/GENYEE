@@ -146,9 +146,12 @@ func TestCheckSandboxConfigBlocksNonSystemAdminPrivilegedFields(t *testing.T) {
 	h := &SystemHandler{}
 
 	payloads := []string{
-		`{"config":{"sandbox_type":"cube","allow_private_endpoints":true,"cube":{"api_url":"http://127.0.0.1:33000","proxy_url":"http://127.0.0.1:80","sandbox_domain":"cube.app"}}}`,
-		`{"config":{"sandbox_type":"docker","docker":{"image":"genyee/sandbox:latest","host":"unix:///var/run/docker.sock"}}}`,
-		`{"config":{"sandbox_type":"docker","docker":{"image":"genyee/sandbox:latest","tls_cert_path":"/etc/docker/certs"}}}`,
+		`{"config":{"sandbox_type":"cube","allow_private_endpoints":true,"cube":` +
+			`{"api_url":"http://127.0.0.1:33000","proxy_url":"http://127.0.0.1:80","sandbox_domain":"cube.app"}}}`,
+		`{"config":{"sandbox_type":"docker","docker":{"image":` +
+			`"genyee/sandbox:latest","host":"unix:///var/run/docker.sock"}}}`,
+		`{"config":{"sandbox_type":"docker","docker":{"image":` +
+			`"genyee/sandbox:latest","tls_cert_path":"/etc/docker/certs"}}}`,
 		`{"config":{"sandbox_type":"docker","docker":{"image":"genyee/sandbox:latest","runtime":"runsc"}}}`,
 	}
 
@@ -156,7 +159,9 @@ func TestCheckSandboxConfigBlocksNonSystemAdminPrivilegedFields(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 7})
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/system/sandbox-check", bytes.NewBufferString(body)).WithContext(ctx)
+		req := httptest.NewRequest(
+			http.MethodPost, "/api/v1/system/sandbox-check", bytes.NewBufferString(body),
+		).WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 		c.Request = req
 

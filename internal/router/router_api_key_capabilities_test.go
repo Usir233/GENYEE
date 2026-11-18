@@ -26,8 +26,8 @@ func TestConversationRoutesDeclareChatCapability(t *testing.T) {
 	}{
 		{http.MethodPost, "/api/v1/sessions"},
 		{http.MethodGet, "/api/v1/sessions/:id/messages/:message_id/suggestions"},
-		{http.MethodPost, "/api/v1/sessions/:session_id/messages/:message_id/suggestions"},
-		{http.MethodPost, "/api/v1/sessions/:session_id/suggestion-events"},
+		{http.MethodPost, "/api/v1/sessions/:id/messages/:message_id/suggestions"},
+		{http.MethodPost, "/api/v1/sessions/:id/suggestion-events"},
 		{http.MethodPost, "/api/v1/knowledge-chat/:session_id"},
 		{http.MethodPost, "/api/v1/agent-chat/:session_id"},
 		{http.MethodGet, "/api/v1/messages/:session_id/load"},
@@ -248,8 +248,8 @@ func TestKnowledgeBaseManagementRoutesDeclareManageKBsCapability(t *testing.T) {
 		{http.MethodPut, "/api/v1/knowledge-bases/:id"},
 		{http.MethodPatch, "/api/v1/knowledge-bases/:id"},
 		{http.MethodDelete, "/api/v1/knowledge-bases/:id"},
-		{http.MethodPost, "/api/v1/initialization/initialize/:kbId"},
-		{http.MethodPut, "/api/v1/initialization/config/:kbId"},
+		{http.MethodPost, "/api/v1/initialization/initialize/:kb_id"},
+		{http.MethodPut, "/api/v1/initialization/config/:kb_id"},
 	}
 
 	for _, tc := range cases {
@@ -333,8 +333,8 @@ func TestKnowledgeReadRoutesDeclareRetrieveCapability(t *testing.T) {
 		{http.MethodGet, "/api/v1/knowledge-bases/:id/tags"},
 		{http.MethodPost, "/api/v1/knowledge-search"},
 		{http.MethodPost, "/api/v1/wiki-search"},
-		{http.MethodGet, "/api/v1/initialization/config/:kbId"},
-		{http.MethodGet, "/api/v1/knowledgebase/:kb_id/wiki/pages"},
+		{http.MethodGet, "/api/v1/initialization/config/:kb_id"},
+		{http.MethodGet, "/api/v1/knowledge-bases/:id/wiki/pages"},
 	}
 
 	for _, tc := range cases {
@@ -399,7 +399,7 @@ func TestTenantInfrastructureRoutesDeclareSpecificCapabilities(t *testing.T) {
 		{http.MethodGet, "/api/v1/storage-backends", types.APIKeyCapabilityManageStorageBackends},
 		{http.MethodGet, "/api/v1/embed-channels", types.APIKeyCapabilityManageChannels},
 		{http.MethodGet, "/api/v1/im-channels", types.APIKeyCapabilityManageChannels},
-		{http.MethodGet, "/api/v1/datasource", types.APIKeyCapabilityManageDataSources},
+		{http.MethodGet, "/api/v1/data-sources", types.APIKeyCapabilityManageDataSources},
 	}
 
 	for _, tc := range cases {
@@ -437,17 +437,17 @@ func TestSandboxConfigRoutesRequireFullAccessOnly(t *testing.T) {
 		{http.MethodPost, "/api/v1/sandbox-configs/:id/user-sandboxes/:digest/release"},
 		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills"},
 		{http.MethodPost, "/api/v1/sandbox-configs/:id/skills"},
-		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skillId"},
-		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skillId/files"},
-		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skillId/files/content"},
-		{http.MethodPost, "/api/v1/sandbox-configs/:id/skills/:skillId/reinstall"},
-		{http.MethodPost, "/api/v1/sandbox-configs/:id/skills/:skillId/stop"},
-		{http.MethodPatch, "/api/v1/sandbox-configs/:id/skills/:skillId"},
-		{http.MethodDelete, "/api/v1/sandbox-configs/:id/skills/:skillId"},
-		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skillId/install-events"},
+		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skill_id"},
+		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skill_id/files"},
+		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skill_id/files/content"},
+		{http.MethodPost, "/api/v1/sandbox-configs/:id/skills/:skill_id/reinstall"},
+		{http.MethodPost, "/api/v1/sandbox-configs/:id/skills/:skill_id/stop"},
+		{http.MethodPatch, "/api/v1/sandbox-configs/:id/skills/:skill_id"},
+		{http.MethodDelete, "/api/v1/sandbox-configs/:id/skills/:skill_id"},
+		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skill_id/install-events"},
 		// The transcript replays the root shell session that built the image,
 		// so it must not be reachable by a scoped key either.
-		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skillId/transcript"},
+		{http.MethodGet, "/api/v1/sandbox-configs/:id/skills/:skill_id/transcript"},
 	}
 
 	for _, tc := range cases {

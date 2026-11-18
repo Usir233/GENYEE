@@ -473,9 +473,16 @@ func truncateKnowledgeErrorMessage(msg string) string {
 	return msg[:cut]
 }
 
+type deadLetterKnowledgeStore interface {
+	GetKnowledgeBatch(ctx context.Context, tenantID uint64, ids []string) ([]*types.Knowledge, error)
+	UpdateActiveDeletingKnowledgeColumns(
+		ctx context.Context, tenantID uint64, kbID, knowledgeID string, columns map[string]interface{},
+	) (bool, error)
+}
+
 func markKnowledgeListDeleteFailed(
 	ctx context.Context,
-	repo interfaces.KnowledgeRepository,
+	repo deadLetterKnowledgeStore,
 	t *asynq.Task,
 	taskErr error,
 ) {

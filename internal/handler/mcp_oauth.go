@@ -81,18 +81,18 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	principal, _ := mcpOAuthPrincipalsFromContext(c)
 	if tenantID == 0 || !principal.Valid() {
-		c.Error(errors.NewUnauthorizedError("authentication required"))
+		_ = c.Error(errors.NewUnauthorizedError("authentication required"))
 		return
 	}
 
 	var req mcpOAuthAuthorizeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	resolvedRedirectURI, err := mcp.ResolveOAuthCallbackURI(req.RedirectURI, true)
 	if err != nil {
-		c.Error(errors.NewValidationError(err.Error()))
+		_ = c.Error(errors.NewValidationError(err.Error()))
 		return
 	}
 	if req.FrontendRedirect == "" {
@@ -101,11 +101,11 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 
 	service, err := h.svc.GetMCPServiceByID(ctx, tenantID, serviceID)
 	if err != nil || service == nil {
-		c.Error(errors.NewNotFoundError("MCP service not found"))
+		_ = c.Error(errors.NewNotFoundError("MCP service not found"))
 		return
 	}
 	if !service.AuthConfig.IsOAuth() {
-		c.Error(errors.NewValidationError("MCP service is not configured to use OAuth"))
+		_ = c.Error(errors.NewValidationError("MCP service is not configured to use OAuth"))
 		return
 	}
 
@@ -114,13 +114,13 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 	)
 	if err != nil {
 		if stderrors.Is(err, mcp.ErrInvalidOAuthRedirectURI) || stderrors.Is(err, mcp.ErrInvalidOAuthEndpoint) {
-			c.Error(errors.NewValidationError(err.Error()))
+			_ = c.Error(errors.NewValidationError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"service_id": secutils.SanitizeForLog(serviceID),
 		})
-		c.Error(errors.NewInternalServerError("failed to start authorization: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to start authorization: " + err.Error()))
 		return
 	}
 
@@ -304,7 +304,7 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	principal, _ := mcpOAuthPrincipalsFromContext(c)
 	if tenantID == 0 || !principal.Valid() {
-		c.Error(errors.NewUnauthorizedError("authentication required"))
+		_ = c.Error(errors.NewUnauthorizedError("authentication required"))
 		return
 	}
 
@@ -314,7 +314,7 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 			ctx, tenantID, principal, serviceID, attemptID,
 		)
 		if err != nil {
-			c.Error(errors.NewInternalServerError("failed to query authorization status: " + err.Error()))
+			_ = c.Error(errors.NewInternalServerError("failed to query authorization status: " + err.Error()))
 			return
 		}
 		state := "pending"
@@ -330,7 +330,7 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 
 	status, err := h.oauth.AuthorizationStatus(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("failed to query authorization status: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to query authorization status: " + err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
@@ -353,12 +353,12 @@ func (h *MCPOAuthHandler) Revoke(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	principal, _ := mcpOAuthPrincipalsFromContext(c)
 	if tenantID == 0 || !principal.Valid() {
-		c.Error(errors.NewUnauthorizedError("authentication required"))
+		_ = c.Error(errors.NewUnauthorizedError("authentication required"))
 		return
 	}
 
 	if err := h.oauth.Revoke(ctx, tenantID, principal, serviceID); err != nil {
-		c.Error(errors.NewInternalServerError("failed to revoke authorization: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to revoke authorization: " + err.Error()))
 		return
 	}
 	// Recycle this user's cached connection so a subsequent call re-authorizes.
@@ -402,22 +402,22 @@ func (h *MCPOAuthHandler) ResolveMCPOAuth(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	principal, gateUserID := mcpOAuthPrincipalsFromContext(c)
 	if tenantID == 0 || !principal.Valid() || gateUserID == "" {
-		c.Error(errors.NewUnauthorizedError("authentication required"))
+		_ = c.Error(errors.NewUnauthorizedError("authentication required"))
 		return
 	}
 	if h.gate == nil {
-		c.Error(errors.NewInternalServerError("OAuth gate is not configured"))
+		_ = c.Error(errors.NewInternalServerError("OAuth gate is not configured"))
 		return
 	}
 
 	var body resolveMCPOAuthBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	serviceID := strings.TrimSpace(body.ServiceID)
 	if serviceID == "" {
-		c.Error(errors.NewValidationError("service_id is required"))
+		_ = c.Error(errors.NewValidationError("service_id is required"))
 		return
 	}
 
@@ -434,18 +434,19 @@ func (h *MCPOAuthHandler) ResolveMCPOAuth(c *gin.Context) {
 		}); err != nil {
 			switch {
 			case stderrors.Is(err, approval.ErrPendingNotFound):
-				c.Error(errors.NewNotFoundError("pending authorization not found or already completed"))
+				_ = c.Error(errors.NewNotFoundError("pending authorization not found or already completed"))
 			case stderrors.Is(err, approval.ErrAlreadyResolved):
-				c.Error(errors.NewBadRequestError("pending authorization already resolved (timeout / cancel raced your action)"))
+				_ = c.Error(errors.NewBadRequestError("pending authorization already " +
+					"resolved (timeout / cancel raced your action)"))
 			case stderrors.Is(err, approval.ErrTenantMismatch):
-				c.Error(errors.NewBadRequestError("workspace mismatch"))
+				_ = c.Error(errors.NewBadRequestError("workspace mismatch"))
 			case stderrors.Is(err, approval.ErrUserMismatch):
-				c.Error(errors.NewBadRequestError("user mismatch: only the session owner may resolve this prompt"))
+				_ = c.Error(errors.NewBadRequestError("user mismatch: only the session owner may resolve this prompt"))
 			default:
 				logger.ErrorWithFields(ctx, err, map[string]interface{}{
 					"pending_id": secutils.SanitizeForLog(pendingID),
 				})
-				c.Error(errors.NewInternalServerError(err.Error()))
+				_ = c.Error(errors.NewInternalServerError(err.Error()))
 			}
 			return
 		}
@@ -454,7 +455,7 @@ func (h *MCPOAuthHandler) ResolveMCPOAuth(c *gin.Context) {
 	case "authorize":
 		// continue below
 	default:
-		c.Error(errors.NewBadRequestError("decision must be authorize or cancel"))
+		_ = c.Error(errors.NewBadRequestError("decision must be authorize or cancel"))
 		return
 	}
 
@@ -462,29 +463,30 @@ func (h *MCPOAuthHandler) ResolveMCPOAuth(c *gin.Context) {
 	// would just fail again with another authorization-required error.
 	authorized, err := h.oauth.IsAuthorized(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("failed to verify authorization: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to verify authorization: " + err.Error()))
 		return
 	}
 	if !authorized {
-		c.Error(errors.NewConflictError("authorization not completed yet for this MCP service"))
+		_ = c.Error(errors.NewConflictError("authorization not completed yet for this MCP service"))
 		return
 	}
 
 	if err := h.resolveOAuthPrompt(c, tenantID, gateUserID, pendingID, approval.Decision{Approved: true}); err != nil {
 		switch {
 		case stderrors.Is(err, approval.ErrPendingNotFound):
-			c.Error(errors.NewNotFoundError("pending authorization not found or already completed"))
+			_ = c.Error(errors.NewNotFoundError("pending authorization not found or already completed"))
 		case stderrors.Is(err, approval.ErrAlreadyResolved):
-			c.Error(errors.NewBadRequestError("pending authorization already resolved (timeout / cancel raced your action)"))
+			_ = c.Error(errors.NewBadRequestError("pending authorization already " +
+				"resolved (timeout / cancel raced your action)"))
 		case stderrors.Is(err, approval.ErrTenantMismatch):
-			c.Error(errors.NewBadRequestError("workspace mismatch"))
+			_ = c.Error(errors.NewBadRequestError("workspace mismatch"))
 		case stderrors.Is(err, approval.ErrUserMismatch):
-			c.Error(errors.NewBadRequestError("user mismatch: only the session owner may resolve this prompt"))
+			_ = c.Error(errors.NewBadRequestError("user mismatch: only the session owner may resolve this prompt"))
 		default:
 			logger.ErrorWithFields(ctx, err, map[string]interface{}{
 				"pending_id": secutils.SanitizeForLog(pendingID),
 			})
-			c.Error(errors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 		}
 		return
 	}
@@ -510,11 +512,11 @@ func (h *MCPOAuthHandler) CancelMCPOAuth(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	_, gateUserID := mcpOAuthPrincipalsFromContext(c)
 	if tenantID == 0 || strings.TrimSpace(gateUserID) == "" {
-		c.Error(errors.NewUnauthorizedError("authentication required"))
+		_ = c.Error(errors.NewUnauthorizedError("authentication required"))
 		return
 	}
 	if h.gate == nil {
-		c.Error(errors.NewInternalServerError("OAuth gate is not configured"))
+		_ = c.Error(errors.NewInternalServerError("OAuth gate is not configured"))
 		return
 	}
 
@@ -524,18 +526,19 @@ func (h *MCPOAuthHandler) CancelMCPOAuth(c *gin.Context) {
 	}); err != nil {
 		switch {
 		case stderrors.Is(err, approval.ErrPendingNotFound):
-			c.Error(errors.NewNotFoundError("pending authorization not found or already completed"))
+			_ = c.Error(errors.NewNotFoundError("pending authorization not found or already completed"))
 		case stderrors.Is(err, approval.ErrAlreadyResolved):
-			c.Error(errors.NewBadRequestError("pending authorization already resolved (timeout / cancel raced your action)"))
+			_ = c.Error(errors.NewBadRequestError("pending authorization already " +
+				"resolved (timeout / cancel raced your action)"))
 		case stderrors.Is(err, approval.ErrTenantMismatch):
-			c.Error(errors.NewBadRequestError("workspace mismatch"))
+			_ = c.Error(errors.NewBadRequestError("workspace mismatch"))
 		case stderrors.Is(err, approval.ErrUserMismatch):
-			c.Error(errors.NewBadRequestError("user mismatch: only the session owner may resolve this prompt"))
+			_ = c.Error(errors.NewBadRequestError("user mismatch: only the session owner may resolve this prompt"))
 		default:
 			logger.ErrorWithFields(ctx, err, map[string]interface{}{
 				"pending_id": secutils.SanitizeForLog(pendingID),
 			})
-			c.Error(errors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 		}
 		return
 	}

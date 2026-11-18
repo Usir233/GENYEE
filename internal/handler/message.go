@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
 	"github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -62,7 +61,7 @@ type MessageHandler struct {
 	KBShareService  interfaces.KBShareService
 	// Prompts supplies the pending prompt of messages awaiting input. May be
 	// nil, in which case such messages carry none.
-	Prompts               interfaces.AgentPromptRepository
+	Prompts               interfaces.AgentPromptService
 	DelegatedPrompts      func(context.Context, string) (map[string][]*types.PendingPromptView, error)
 	CollaborationStatuses func(context.Context, string, []string) (map[string]json.RawMessage, error)
 }
@@ -78,7 +77,7 @@ func NewMessageHandler(
 	messageService interfaces.MessageService,
 	fileService interfaces.FileService,
 	storageResolver interfaces.StorageBackendResolver,
-	prompts interfaces.AgentPromptRepository,
+	prompts interfaces.AgentPromptService,
 ) *MessageHandler {
 	return &MessageHandler{
 		MessageService:  messageService,
@@ -234,11 +233,11 @@ func (h *MessageHandler) LoadMessages(c *gin.Context) {
 				// surface as ErrSessionNotFound. Map to 404 so clients can
 				// tell "wrong URL" from a real 5xx.
 				logger.Warnf(ctx, "Session not found, ID: %s", sessionID)
-				c.Error(errors.NewNotFoundError(err.Error()))
+				_ = c.Error(errors.NewNotFoundError(err.Error()))
 				return
 			}
 			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 			return
 		}
 
@@ -263,7 +262,7 @@ func (h *MessageHandler) LoadMessages(c *gin.Context) {
 			"Invalid time format, please use RFC3339/RFC3339Nano format, err: %v, beforeTimeStr: %s",
 			err, beforeTimeStr,
 		)
-		c.Error(errors.NewBadRequestError("Invalid time format, please use RFC3339 or RFC3339Nano format"))
+		_ = c.Error(errors.NewBadRequestError("Invalid time format, please use RFC3339 or RFC3339Nano format"))
 		return
 	}
 
@@ -275,11 +274,11 @@ func (h *MessageHandler) LoadMessages(c *gin.Context) {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
 			// See note on the GetRecentMessagesBySession path above.
 			logger.Warnf(ctx, "Session not found, ID: %s", sessionID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -326,20 +325,20 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 			// surface ErrSessionNotFound when the caller can't see the
 			// owning session (post-#1309 user scope).
 			logger.Warnf(ctx, "Session not found, ID: %s", sessionID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
+		if isRecordNotFound(err) {
 			// The message_id doesn't exist under this session — a client error,
 			// not a server fault. 404 so callers read resource.not_found (a
 			// permanent condition, not retryable) instead of a 5xx. Mirrors the
 			// ContinueStream / kb / doc / chunk not-found handling.
 			logger.Warnf(ctx, "Message not found, session ID: %s, message ID: %s", sessionID, messageID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -372,13 +371,13 @@ func (h *MessageHandler) SearchMessages(c *gin.Context) {
 	var request SearchMessagesRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		logger.Error(ctx, "Failed to parse search request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
 	if request.Query == "" {
 		logger.Error(ctx, "Query content is empty")
-		c.Error(errors.NewBadRequestError("Query content cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Query content cannot be empty"))
 		return
 	}
 
@@ -404,7 +403,7 @@ func (h *MessageHandler) SearchMessages(c *gin.Context) {
 	result, err := h.MessageService.SearchMessages(ctx, params)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -475,7 +474,7 @@ func (h *MessageHandler) GetChatHistoryKBStats(c *gin.Context) {
 	stats, err := h.MessageService.GetChatHistoryKBStats(ctx)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -495,11 +494,11 @@ func parseMessageBeforeTime(raw string) (time.Time, error) {
 	layouts := []string{time.RFC3339Nano, time.RFC3339}
 	var lastErr error
 	for _, layout := range layouts {
-		if t, err := time.Parse(layout, raw); err == nil {
+		t, err := time.Parse(layout, raw)
+		if err == nil {
 			return t, nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 	}
 	return time.Time{}, lastErr
 }

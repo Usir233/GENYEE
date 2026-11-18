@@ -71,7 +71,7 @@ func RegisterCustomAgentRoutes(r *gin.RouterGroup, agentHandler *handler.CustomA
 // resource's creator, they're owned by the user *doing* the starring.
 func RegisterUserFavoriteRoutes(r *gin.RouterGroup, h *handler.UserResourceFavoriteHandler, g *rbacGuards) {
 	// Favorites are per-user; not declared for API keys (default-deny).
-	favs := r.Group("/user/favorites")
+	favs := r.Group("/me/favorites")
 	{
 		favs.GET("", g.Viewer(), h.ListFavorites)
 		favs.POST("", g.Viewer(), h.AddFavorite)

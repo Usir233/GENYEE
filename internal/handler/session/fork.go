@@ -40,7 +40,7 @@ type ForkSessionRequest struct {
 // @Tags         会话
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path      string              true  "源会话 ID"
+// @Param        id  path      string              true  "源会话 ID"
 // @Param        request     body      ForkSessionRequest  true  "分叉请求"
 // @Success      200         {object}  map[string]interface{}  "新会话"
 // @Failure      400         {object}  errors.AppError         "请求参数错误 / 分叉点角色不支持"
@@ -48,11 +48,11 @@ type ForkSessionRequest struct {
 // @Failure      409         {object}  errors.AppError         "源会话正在生成中"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/fork [post]
+// @Router       /sessions/{id}/fork [post]
 func (h *Handler) ForkSession(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	sessionID := strings.TrimSpace(c.Param("session_id"))
+	sessionID := strings.TrimSpace(sessionIDParam(c))
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(c.Param("id"))
 	}
@@ -93,8 +93,12 @@ func (h *Handler) ForkSession(c *gin.Context) {
 		if stderrors.Is(err, service.ErrForkSourceBusy) {
 			c.JSON(http.StatusConflict, gin.H{
 				"success": false,
-				"error":   "source session has an active turn",
 				"code":    "FORK_SOURCE_BUSY",
+				"error": gin.H{
+					"code":    errors.ErrConflict,
+					"message": "source session has an active turn",
+					"details": gin.H{"code": "FORK_SOURCE_BUSY"},
+				},
 			})
 			return
 		}

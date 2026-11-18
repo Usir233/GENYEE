@@ -11,9 +11,9 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
+// MessageSuggestionHandler represents MessageSuggestionHandler.
 type MessageSuggestionHandler struct {
 	service interfaces.MessageSuggestionService
 }
@@ -21,14 +21,17 @@ type MessageSuggestionHandler struct {
 // Keeps types imported so swag can resolve MessageSuggestionSet in comments.
 var _ types.MessageSuggestionSet
 
+// NewMessageSuggestionHandler provides HTTP handling for NewMessageSuggestionHandler.
 func NewMessageSuggestionHandler(service interfaces.MessageSuggestionService) *MessageSuggestionHandler {
 	return &MessageSuggestionHandler{service: service}
 }
 
+// EnsureMessageSuggestionsRequest represents EnsureMessageSuggestionsRequest.
 type EnsureMessageSuggestionsRequest struct {
 	Regenerate bool `json:"regenerate"`
 }
 
+// SuggestionEventRequest represents SuggestionEventRequest.
 type SuggestionEventRequest struct {
 	SuggestionSetID string `json:"suggestion_set_id" binding:"required"`
 	QuestionID      string `json:"question_id"`
@@ -41,25 +44,25 @@ type SuggestionEventRequest struct {
 // @Tags         会话
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path  string  true  "会话 ID"
-// @Param        message_id  path  string  true  "助手消息 ID"
+// @Param        id          path  string  true   "会话 ID"
+// @Param        message_id  path  string  true   "助手消息 ID"
 // @Param        request     body  EnsureMessageSuggestionsRequest  false  "生成选项"
 // @Success      200  {object}  handler.DataResponse{data=types.MessageSuggestionSet}
 // @Success      202  {object}  handler.DataResponse{data=types.MessageSuggestionSet}
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/messages/{message_id}/suggestions [post]
+// @Router       /sessions/{id}/messages/{message_id}/suggestions [post]
 func (h *MessageSuggestionHandler) Ensure(c *gin.Context) {
 	var request EnsureMessageSuggestionsRequest
 	if c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&request); err != nil {
-			c.Error(apperrors.NewBadRequestError("invalid request body"))
+			writeAppError(c, apperrors.NewBadRequestError("invalid request body"))
 			return
 		}
 	}
 	set, err := h.service.EnsureFollowUps(
 		c.Request.Context(),
-		secutils.SanitizeForLog(c.Param("session_id")),
+		messageSuggestionSessionID(c),
 		secutils.SanitizeForLog(c.Param("message_id")),
 		request.Regenerate,
 	)
@@ -78,12 +81,12 @@ func (h *MessageSuggestionHandler) Ensure(c *gin.Context) {
 // @Summary      获取回答后推荐问题
 // @Tags         会话
 // @Produce      json
-// @Param        session_id  path  string  true  "会话 ID"
+// @Param        id          path  string  true  "会话 ID"
 // @Param        message_id  path  string  true  "助手消息 ID"
 // @Success      200  {object}  handler.DataResponse{data=types.MessageSuggestionSet}
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/messages/{message_id}/suggestions [get]
+// @Router       /sessions/{id}/messages/{message_id}/suggestions [get]
 func (h *MessageSuggestionHandler) Get(c *gin.Context) {
 	set, err := h.service.GetFollowUps(
 		c.Request.Context(),
@@ -110,21 +113,21 @@ func messageSuggestionSessionID(c *gin.Context) string {
 // @Description  记录曝光、点击或关闭事件
 // @Tags         会话
 // @Accept       json
-// @Param        session_id  path  string  true  "会话 ID"
-// @Param        request     body  SuggestionEventRequest  true  "事件"
+// @Param        id       path  string  true  "会话 ID"
+// @Param        request  body  SuggestionEventRequest  true  "事件"
 // @Success      204
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/suggestion-events [post]
+// @Router       /sessions/{id}/suggestion-events [post]
 func (h *MessageSuggestionHandler) RecordEvent(c *gin.Context) {
 	var request SuggestionEventRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.Error(apperrors.NewBadRequestError("invalid request body"))
+		writeAppError(c, apperrors.NewBadRequestError("invalid request body"))
 		return
 	}
 	err := h.service.RecordEvent(
 		c.Request.Context(),
-		secutils.SanitizeForLog(c.Param("session_id")),
+		messageSuggestionSessionID(c),
 		strings.TrimSpace(request.SuggestionSetID),
 		strings.TrimSpace(request.QuestionID),
 		strings.TrimSpace(request.EventType),
@@ -138,22 +141,19 @@ func (h *MessageSuggestionHandler) RecordEvent(c *gin.Context) {
 
 func (h *MessageSuggestionHandler) writeError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		c.Error(apperrors.NewNotFoundError("suggestions not found"))
-	// apperrors.ErrSessionNotFound is a bare errors.New (not wrapping
-	// gorm.ErrRecordNotFound), so it needs its own branch to surface as a 404
-	// instead of falling through to a misleading 500.
+	case isRecordNotFound(err):
+		writeAppError(c, apperrors.NewNotFoundError("suggestions not found"))
 	case errors.Is(err, apperrors.ErrSessionNotFound):
-		c.Error(apperrors.NewNotFoundError("session not found"))
+		writeAppError(c, apperrors.NewNotFoundError("session not found"))
 	case strings.Contains(err.Error(), "completed assistant"):
-		c.Error(apperrors.NewBadRequestError(err.Error()))
+		writeAppError(c, apperrors.NewBadRequestError(err.Error()))
 	case strings.Contains(err.Error(), "invalid suggestion event"),
 		strings.Contains(err.Error(), "requires question_id"),
 		strings.Contains(err.Error(), "does not belong"),
 		strings.Contains(err.Error(), "not allowed"):
-		c.Error(apperrors.NewBadRequestError(err.Error()))
+		writeAppError(c, apperrors.NewBadRequestError(err.Error()))
 	default:
 		logger.Error(c.Request.Context(), "message suggestion operation failed", err)
-		c.Error(apperrors.NewInternalServerError("message suggestion operation failed"))
+		writeAppError(c, apperrors.NewInternalServerError("message suggestion operation failed"))
 	}
 }

@@ -21,6 +21,20 @@ func NewWebSearchProviderService(repo interfaces.WebSearchProviderRepository) in
 	return &webSearchProviderService{repo: repo}
 }
 
+// GetProvider retrieves a web search provider by ID within a tenant scope.
+func (s *webSearchProviderService) GetProvider(
+	ctx context.Context, tenantID uint64, id string,
+) (*types.WebSearchProviderEntity, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
+}
+
+// ListProviders lists all web search providers configured for a tenant.
+func (s *webSearchProviderService) ListProviders(
+	ctx context.Context, tenantID uint64,
+) ([]*types.WebSearchProviderEntity, error) {
+	return s.repo.List(ctx, tenantID)
+}
+
 // CreateProvider creates a new web search provider configuration.
 func (s *webSearchProviderService) CreateProvider(ctx context.Context, provider *types.WebSearchProviderEntity) error {
 	if provider.TenantID == 0 {

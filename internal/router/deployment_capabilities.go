@@ -19,8 +19,7 @@ func deploymentCapabilitiesFromRouter(params Params) handler.DeploymentCapabilit
 		MCP: params.MCPServiceHandler != nil &&
 			params.MCPCredentialsHandler != nil &&
 			params.MCPOAuthHandler != nil,
-		WebSearch: params.WebSearchHandler != nil &&
-			params.WebSearchProviderHandler != nil &&
+		WebSearch: params.WebSearchProviderHandler != nil &&
 			params.WebSearchCredentialsHandler != nil,
 		VectorStore:           params.VectorStoreHandler != nil,
 		Storage:               params.StorageBackendHandler != nil,

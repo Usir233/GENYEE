@@ -39,21 +39,21 @@ type PatchWebSearchProviderRequest struct {
 func (h *WebSearchProviderHandler) PatchProvider(c *gin.Context) {
 	tenant := h.getTenantID(c)
 	if tenant == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "workspace context missing"})
+		writeStatusError(c, http.StatusUnauthorized, "workspace context missing")
 		return
 	}
 	var patch PatchWebSearchProviderRequest
 	if err := c.ShouldBindJSON(&patch); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid settings"})
+		writeStatusError(c, http.StatusBadRequest, "invalid settings")
 		return
 	}
 	if patch.Name == nil && patch.Description == nil && patch.IsDefault == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one setting is required"})
+		writeStatusError(c, http.StatusBadRequest, "at least one setting is required")
 		return
 	}
 	existing, status, msg := h.getOwnedProvider(c.Request.Context(), tenant, c.Param("id"))
 	if status != http.StatusOK {
-		c.JSON(status, gin.H{"error": msg})
+		writeStatusError(c, status, msg)
 		return
 	}
 	updated := *existing
@@ -62,7 +62,7 @@ func (h *WebSearchProviderHandler) PatchProvider(c *gin.Context) {
 		fields = append(fields, "name")
 		updated.Name = strings.TrimSpace(*patch.Name)
 		if updated.Name == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "name cannot be empty"})
+			writeStatusError(c, http.StatusBadRequest, "name cannot be empty")
 			return
 		}
 	}
@@ -75,10 +75,7 @@ func (h *WebSearchProviderHandler) PatchProvider(c *gin.Context) {
 		updated.IsDefault = *patch.IsDefault
 	}
 	if err := h.service.PatchProviderSettings(c.Request.Context(), &updated, fields); err != nil {
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": "Could not update search provider; check its saved configuration."},
-		)
+		writeStatusError(c, http.StatusBadRequest, "Could not update search provider; check its saved configuration.")
 		return
 	}
 	c.JSON(
@@ -174,26 +171,26 @@ func (p PatchDataSourceSyncRequest) apply(existing *types.DataSource) (*types.Da
 // @Security ApiKeyAuth
 // @x-agent {"id":"data_source.update_sync","risk":"write","role":"admin","target":"data_source.get","label":"name"}
 // @x-agent-hint "Partially updates saved sync settings; does not start a sync or resume a paused source. Schedule uses SIX cron fields (seconds first), e.g. CRON_TZ=Asia/Shanghai 0 0 9 * * * for 09:00 daily in Shanghai; use the user's timezone, or clarify it, rather than assume server time. Empty schedule disables automatic sync. resource_ids replaces the WHOLE selection (1-50 explicit IDs from list_resources); preserve intended existing selections and do not infer all from truncated results. overwrite may replace edited content; sync_deletions true allows future syncs to delete documents removed upstream. These settings affect future scheduled/manual runs. Credentials, connector-specific settings and unspecified fields stay unchanged."
-// @Router /datasource/{id}/sync-settings [patch]
+// @Router /data-sources/{id}/sync-settings [patch]
 func (h *DataSourceHandler) PatchSyncSettings(c *gin.Context) {
 	tenant := h.getTenantID(c)
 	if tenant == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "workspace context missing"})
+		writeStatusError(c, http.StatusUnauthorized, "workspace context missing")
 		return
 	}
 	var patch PatchDataSourceSyncRequest
 	if err := c.ShouldBindJSON(&patch); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid sync settings"})
+		writeStatusError(c, http.StatusBadRequest, "invalid sync settings")
 		return
 	}
 	existing, status, msg := h.getOwnedDataSource(c.Request.Context(), tenant, c.Param("id"))
 	if status != http.StatusOK {
-		c.JSON(status, gin.H{"error": msg})
+		writeStatusError(c, status, msg)
 		return
 	}
 	updated, err := patch.apply(existing)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	fields := []string{}
@@ -212,13 +209,12 @@ func (h *DataSourceHandler) PatchSyncSettings(c *gin.Context) {
 	}
 	saved, err := h.service.PatchDataSourceSyncSettings(c.Request.Context(), existing, updated, fields)
 	if errors.Is(err, types.ErrDataSourceSettingsConflict) {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusConflict, err.Error())
 		return
 	}
 	if err != nil {
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": "Could not update sync settings; check the saved connector configuration."},
+		writeStatusError(
+			c, http.StatusBadRequest, "Could not update sync settings; check the saved connector configuration.",
 		)
 		return
 	}

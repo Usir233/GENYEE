@@ -73,17 +73,17 @@ func RegisterSandboxConfigRoutes(
 		// this config boots, and the listing names what that image carries.
 		configs.GET("/:id/skills", g.Admin(), skills.List)
 		configs.POST("/:id/skills", g.Admin(), skills.Upload)
-		configs.GET("/:id/skills/:skillId", g.Admin(), skills.Get)
-		configs.GET("/:id/skills/:skillId/files", g.Admin(), skills.ListFiles)
-		configs.GET("/:id/skills/:skillId/files/content", g.Admin(), skills.GetFile)
-		configs.POST("/:id/skills/:skillId/reinstall", g.Admin(), skills.Reinstall)
-		configs.GET("/:id/skills/:skillId/guidance", g.Admin(), skills.InstallGuidance)
-		configs.POST("/:id/skills/:skillId/guidance", g.Admin(), skills.SteerInstall)
-		configs.POST("/:id/skills/:skillId/stop", g.Admin(), skills.Stop)
-		configs.PATCH("/:id/skills/:skillId", g.Admin(), skills.Patch)
-		configs.DELETE("/:id/skills/:skillId", g.Admin(), skills.Delete)
-		configs.GET("/:id/skills/:skillId/install-events", g.Admin(), skills.InstallEvents)
-		configs.GET("/:id/skills/:skillId/transcript", g.Admin(), skills.InstallTranscript)
+		configs.GET("/:id/skills/:skill_id", g.Admin(), skills.Get)
+		configs.GET("/:id/skills/:skill_id/files", g.Admin(), skills.ListFiles)
+		configs.GET("/:id/skills/:skill_id/files/content", g.Admin(), skills.GetFile)
+		configs.POST("/:id/skills/:skill_id/reinstall", g.Admin(), skills.Reinstall)
+		configs.GET("/:id/skills/:skill_id/guidance", g.Admin(), skills.InstallGuidance)
+		configs.POST("/:id/skills/:skill_id/guidance", g.Admin(), skills.SteerInstall)
+		configs.POST("/:id/skills/:skill_id/stop", g.Admin(), skills.Stop)
+		configs.PATCH("/:id/skills/:skill_id", g.Admin(), skills.Patch)
+		configs.DELETE("/:id/skills/:skill_id", g.Admin(), skills.Delete)
+		configs.GET("/:id/skills/:skill_id/install-events", g.Admin(), skills.InstallEvents)
+		configs.GET("/:id/skills/:skill_id/transcript", g.Admin(), skills.InstallTranscript)
 	}
 }
 
@@ -103,27 +103,27 @@ func RegisterEvaluationRoutes(r *gin.RouterGroup, handler *handler.EvaluationHan
 func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.InitializationHandler, g *rbacGuards) {
 	// 初始化接口
 	// GetCurrentConfigByKB 是只读，Viewer+ 即可（KB 受限 key 可读其范围内的 KB）。
-	g.apiKeyRoute(r, http.MethodGet, "/initialization/config/:kbId",
-		apiKeyRetrieve(apiKeyFullAccess()), g.Viewer(), g.KBAccessRead("kbId"), handler.GetCurrentConfigByKB)
+	g.apiKeyRoute(r, http.MethodGet, "/initialization/config/:kb_id",
+		apiKeyRetrieve(apiKeyFullAccess()), g.Viewer(), g.KBAccessRead("kb_id"), handler.GetCurrentConfigByKB)
 	// InitializeByKB / UpdateKBConfig 都是改 KB 的核心模型/storage 配置 —
 	// 跟 PUT /knowledge-bases/:id 同等敏感，挂同款 OwnedKB 矩阵 + KBAccessWrite
 	// （API-key 主体短路 Owned* 守卫，KB allow-list 只能靠 KBAccess 兜底）。
 	g.apiKeyRoute(
 		r,
 		http.MethodPost,
-		"/initialization/initialize/:kbId",
+		"/initialization/initialize/:kb_id",
 		apiKeyManageKnowledgeBases(apiKeyFullAccess()),
 		g.OwnedKBOrAdminFromKbIDParam(),
-		g.KBAccessWrite("kbId"),
+		g.KBAccessWrite("kb_id"),
 		handler.InitializeByKB,
 	)
 	g.apiKeyRoute(
 		r,
 		http.MethodPut,
-		"/initialization/config/:kbId",
+		"/initialization/config/:kb_id",
 		apiKeyManageKnowledgeBases(apiKeyFullAccess()),
 		g.OwnedKBOrAdminFromKbIDParam(),
-		g.KBAccessWrite("kbId"),
+		g.KBAccessWrite("kb_id"),
 		handler.UpdateKBConfig,
 	)
 
@@ -157,7 +157,7 @@ func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.Initializ
 	// Shared Ollama model download and global download task inspection mutate/expose
 	// cluster-wide state, so they are restricted to authenticated SystemAdmin users.
 	r.POST("/initialization/ollama/models/download", g.SystemAdmin(), handler.DownloadOllamaModel)
-	r.GET("/initialization/ollama/download/progress/:taskId", g.SystemAdmin(), handler.GetDownloadProgress)
+	r.GET("/initialization/ollama/download/progress/:task_id", g.SystemAdmin(), handler.GetDownloadProgress)
 	r.GET("/initialization/ollama/download/tasks", g.SystemAdmin(), handler.ListDownloadTasks)
 
 	// 远程API相关接口
@@ -314,15 +314,6 @@ func RegisterMCPServiceRoutes(
 	}
 }
 
-// RegisterWebSearchRoutes registers web search routes
-func RegisterWebSearchRoutes(r *gin.RouterGroup, webSearchHandler *handler.WebSearchHandler, g *rbacGuards) {
-	// Web search providers — Viewer+ (read-only listing of provider catalog).
-	webSearch := r.Group("/web-search")
-	{
-		webSearch.GET("/providers", g.Viewer(), webSearchHandler.GetProviders)
-	}
-}
-
 // RegisterWebSearchProviderRoutes registers CRUD routes for web search
 // provider configurations.
 //
@@ -409,7 +400,7 @@ func RegisterDataSourceRoutes(
 	g *rbacGuards,
 ) {
 	// Data source routes
-	ds := g.apiKeyGroup(r.Group("/datasource"), apiKeyManageDataSources(apiKeyFullAccess()))
+	ds := g.apiKeyGroup(r.Group("/data-sources"), apiKeyManageDataSources(apiKeyFullAccess()))
 	{
 		// Get available connector types — Viewer+
 		ds.GET("/types", g.Viewer(), handler.GetAvailableConnectors)

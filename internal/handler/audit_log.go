@@ -88,7 +88,7 @@ func (h *AuditLogHandler) ListTenantAuditLog(c *gin.Context) {
 	entries, err := h.auditService.List(ctx, tenantID, q)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"tenant_id": tenantID})
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -134,18 +134,18 @@ func (h *AuditLogHandler) ListKnowledgeBaseActivity(c *gin.Context) {
 	kbID := c.Param("id")
 	access, ok := middleware.KBAccessFromContext(c)
 	if !ok || access == nil || access.KnowledgeBase == nil || access.KnowledgeBase.ID != kbID {
-		c.Error(errors.NewNotFoundError("knowledge base not found"))
+		_ = c.Error(errors.NewNotFoundError("knowledge base not found"))
 		return
 	}
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if callerTenantID == 0 || access.KnowledgeBase.TenantID != callerTenantID {
-		c.Error(errors.NewForbiddenError("knowledge base activity is only available in the owner workspace"))
+		_ = c.Error(errors.NewForbiddenError("knowledge base activity is only available in the owner workspace"))
 		return
 	}
 	actorID, _ := types.UserIDFromContext(ctx)
 	role := types.TenantRoleFromContext(ctx)
 	if access.KnowledgeBase.CreatorID != actorID && !role.HasPermission(types.TenantRoleAdmin) {
-		c.Error(errors.NewForbiddenError("knowledge base activity requires creator or admin access"))
+		_ = c.Error(errors.NewForbiddenError("knowledge base activity requires creator or admin access"))
 		return
 	}
 
@@ -162,7 +162,7 @@ func (h *AuditLogHandler) ListKnowledgeBaseActivity(c *gin.Context) {
 	entries, err := h.auditService.List(ctx, access.KnowledgeBase.TenantID, q)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"knowledge_base_id": kbID})
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	var nextCursor uint64
@@ -192,7 +192,8 @@ func parseAuditCursor(c *gin.Context) (uint64, int) {
 
 // ListSystemAuditLog godoc
 // @Summary      获取平台审计日志
-// @Description  返回 system-scope（tenant_id=0）的审计事件，覆盖 system.setting_changed / system.admin_promoted / system.admin_revoked 等 SystemAdmin 操作。按 id 倒序的游标分页。
+// @Description  返回 system-scope（tenant_id=0）的审计事件，覆盖 system.setting_changed / system.admin_promoted /
+// @Description  system.admin_revoked 等 SystemAdmin 操作。按 id 倒序的游标分页。
 // @Tags         审计日志
 // @Produce      json
 // @Param        after_id  query  int     false  "游标：返回 id 小于此值的记录（默认从最新开始）"
@@ -245,7 +246,7 @@ func (h *AuditLogHandler) ListSystemAuditLog(c *gin.Context) {
 	entries, err := h.auditService.List(ctx, 0, q)
 	if err != nil {
 		logger.Error(ctx, err)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 

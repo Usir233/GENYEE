@@ -21,13 +21,13 @@ import (
 func (h *SystemHandler) ListSystemSettingSummaries(c *gin.Context) {
 	rows, err := h.systemSettingSvc.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list system settings"})
+		writeStatusError(c, http.StatusInternalServerError, "Failed to list system settings")
 		return
 	}
 	key := strings.TrimSpace(c.Query("key"))
 	result := service.SummarizeSystemSettings(rows, key)
 	if key != "" && len(result) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Unknown setting key"})
+		writeStatusError(c, http.StatusNotFound, "Unknown setting key")
 		return
 	}
 	c.JSON(http.StatusOK, result)

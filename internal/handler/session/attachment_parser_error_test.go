@@ -37,19 +37,30 @@ func TestAttachmentParserResultFailures(t *testing.T) {
 		err     error
 		message string
 	}{
-		{name: "error envelope", result: &types.ReadResult{Error: "document is encrypted"}, message: "document is encrypted"},
-		{name: "partial result with error", result: &types.ReadResult{Error: "page extraction failed", MarkdownContent: "incomplete text"}, message: "page extraction failed"},
+		{
+			name: "error envelope", result: &types.ReadResult{Error: "document is encrypted"},
+			message: "document is encrypted",
+		},
+		{
+			name:    "partial result with error",
+			result:  &types.ReadResult{Error: "page extraction failed", MarkdownContent: "incomplete text"},
+			message: "page extraction failed",
+		},
 		{name: "missing result", message: "empty result"},
 		{name: "transport error", err: errors.New("parser unavailable"), message: "parser unavailable"},
 		{name: "success", result: &types.ReadResult{MarkdownContent: "complete extracted text"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			files := &attachmentParserResultFiles{}
-			processor := NewAttachmentProcessor(files, attachmentParserResultReader{result: tc.result, err: tc.err}, nil, nil)
+			processor := NewAttachmentProcessor(
+				files, attachmentParserResultReader{result: tc.result, err: tc.err}, nil, nil,
+			)
 			var attachment *types.MessageAttachment
 			require.NotPanics(t, func() {
 				var err error
-				attachment, err = processor.ProcessAttachment(context.Background(), []byte("isolated fixture"), "fixture.pdf", 16, 1, "")
+				attachment, err = processor.ProcessAttachment(
+					context.Background(), []byte("isolated fixture"), "fixture.pdf", 16, 1, "",
+				)
 				require.NoError(t, err, "extraction failures retain the uploaded attachment with an error placeholder")
 			})
 			require.NotNil(t, attachment)

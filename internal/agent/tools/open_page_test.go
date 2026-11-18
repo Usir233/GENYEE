@@ -27,7 +27,7 @@ func openPageFixture(role types.TenantRole) (*OpenPageTool, *fakeDispatcher) {
 		"/api/v1/mcp-services/mcp-1":   `{"success":true,"data":{"id":"mcp-1","name":"Jira"}}`,
 		"/api/v1/automations/auto-1":   `{"success":true,"data":{"id":"auto-1","name":"Morning digest"}}`,
 	}
-	responses["/api/v1/knowledgebase/kb-1/wiki/pages/entity/acme"] = `{"slug":"entity/acme","title":"Acme"}`
+	responses["/api/v1/knowledge-bases/kb-1/wiki/pages/entity/acme"] = `{"slug":"entity/acme","title":"Acme"}`
 	d := &fakeDispatcher{responses: map[string]*operations.Response{}}
 	for path, body := range responses {
 		d.responses["GET "+path] = ok(body)

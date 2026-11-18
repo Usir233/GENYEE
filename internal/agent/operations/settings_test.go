@@ -87,7 +87,7 @@ func TestSyncSettingsCatalogPreservesExplicitValuesAndLimitsSelection(t *testing
 		},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "/api/v1/datasource/ds1/sync-settings", call.URI())
+	assert.Equal(t, "/api/v1/data-sources/ds1/sync-settings", call.URI())
 	assert.JSONEq(t, `{"sync_schedule":"","sync_deletions":false,"resource_ids":["a"]}`, string(call.Body))
 	for _, params := range []map[string]json.RawMessage{
 		{
@@ -137,7 +137,7 @@ func TestSyncSettingsCatalogPreservesExplicitValuesAndLimitsSelection(t *testing
 	resources, _ := Builtin().Get("data_source.list_resources")
 	call, err = resources.Build(map[string]json.RawMessage{"data_source_id": raw("ds1"), "parent_id": raw("folder")})
 	require.NoError(t, err)
-	assert.Equal(t, "/api/v1/datasource/ds1/resources?parent_id=folder", call.URI())
+	assert.Equal(t, "/api/v1/data-sources/ds1/resources?parent_id=folder", call.URI())
 	out := projectJSON(t, resources, `[
   {
     "external_id": "a",

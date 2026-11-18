@@ -100,12 +100,12 @@ func (h *SystemHandler) CheckSandboxConfig(c *gin.Context) {
 
 	var req SandboxCheckRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "请求体格式错误"})
+		writeStatusError(c, http.StatusBadRequest, "请求体格式错误")
 		return
 	}
 	tenant, _ := types.TenantInfoFromContext(c.Request.Context())
 	if tenant == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "空间为空"})
+		writeStatusError(c, http.StatusBadRequest, "空间为空")
 		return
 	}
 
@@ -113,16 +113,16 @@ func (h *SystemHandler) CheckSandboxConfig(c *gin.Context) {
 	incoming := req.Config
 	if req.ConfigID != "" {
 		if h.sandboxConfigSvc == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "沙箱配置服务不可用"})
+			writeStatusError(c, http.StatusBadRequest, "沙箱配置服务不可用")
 			return
 		}
 		entity, err := h.sandboxConfigSvc.Get(ctx, tenant.ID, req.ConfigID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": err.Error()})
+			writeStatusError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		if entity == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "沙箱配置不存在"})
+			writeStatusError(c, http.StatusBadRequest, "沙箱配置不存在")
 			return
 		}
 		stored = entity.Config
@@ -134,17 +134,17 @@ func (h *SystemHandler) CheckSandboxConfig(c *gin.Context) {
 		incoming = sandboxConnectionCheckConfig(incoming)
 	}
 	if err := service.AuthorizeSandboxConfigPrivileges(ctx, incoming, stored); err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": err.Error()})
+		writeStatusError(c, http.StatusForbidden, err.Error())
 		return
 	}
 	merged, err := service.SanitizeSandboxConfig(incoming, stored)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	effective, err := sandbox.ResolveEffectiveConfig(merged, sandbox.DefaultConfig())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -199,28 +199,28 @@ func sandboxConnectionCheckConfig(cfg *types.TenantSandboxConfig) *types.TenantS
 	if cfg == nil {
 		return nil
 	}
-	copy := *cfg
-	switch sandbox.SandboxType(copy.SandboxType) {
+	copied := *cfg
+	switch sandbox.SandboxType(copied.SandboxType) {
 	case sandbox.SandboxTypeCube:
 		cube := types.CubeSandboxConfig{}
-		if copy.Cube != nil {
-			cube = *copy.Cube
+		if copied.Cube != nil {
+			cube = *copied.Cube
 		}
 		if strings.TrimSpace(cube.TemplateID) == "" {
 			cube.TemplateID = "__connection_check__"
 		}
-		copy.Cube = &cube
+		copied.Cube = &cube
 	case sandbox.SandboxTypeE2B:
 		e2b := types.E2BSandboxConfig{}
-		if copy.E2B != nil {
-			e2b = *copy.E2B
+		if copied.E2B != nil {
+			e2b = *copied.E2B
 		}
 		if strings.TrimSpace(e2b.TemplateID) == "" {
 			e2b.TemplateID = "__connection_check__"
 		}
-		copy.E2B = &e2b
+		copied.E2B = &e2b
 	}
-	return &copy
+	return &copied
 }
 
 // describeProbeMismatch reports why the probe script did not print its marker.

@@ -34,11 +34,11 @@ func paramSessionID(c *gin.Context) string {
 // @Description  返回本会话中所有 assistant 消息产生的技能产物元数据（不含 URL）
 // @Tags         会话
 // @Produce      json
-// @Param        session_id  path  string  true  "会话ID"
+// @Param        id  path  string  true  "会话ID"
 // @Success      200  {object}  map[string]interface{}
 // @Failure      404  {object}  errors.AppError
 // @Security     Bearer
-// @Router       /sessions/{session_id}/artifacts [get]
+// @Router       /sessions/{id}/artifacts [get]
 //
 // The endpoint powers the drawer that lists every file generated in the
 // session; it does NOT return the storage URL (only names/sizes/mtimes), so
@@ -52,7 +52,7 @@ func (h *Handler) ListSessionArtifacts(c *gin.Context) {
 	ctx := c.Request.Context()
 	sessionID := secutils.SanitizeForLog(paramSessionID(c))
 	if sessionID == "" {
-		c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
+		_ = c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
 		return
 	}
 
@@ -60,17 +60,17 @@ func (h *Handler) ListSessionArtifacts(c *gin.Context) {
 	// unknown / non-owned sessions matches the rest of the session routes.
 	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	artifacts, err := h.messageService.GetSessionArtifacts(ctx, sessionID)
 	if err != nil {
 		logger.Errorf(ctx, "list session artifacts failed: session=%s err=%v", sessionID, err)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -104,28 +104,28 @@ func (h *Handler) ListSessionArtifacts(c *gin.Context) {
 // Same-tenant/same-owner check flows through h.sessionService.GetSession
 // exactly like ListSessionArtifacts.
 //
-// @Router /sessions/{session_id}/messages/{message_id}/artifacts [get]
+// @Router /sessions/{id}/messages/{message_id}/artifacts [get]
 func (h *Handler) ListMessageArtifacts(c *gin.Context) {
 	ctx := c.Request.Context()
 	sessionID := secutils.SanitizeForLog(paramSessionID(c))
 	messageID := secutils.SanitizeForLog(c.Param("message_id"))
 	if sessionID == "" || messageID == "" {
-		c.Error(errors.NewBadRequestError("session_id and message_id are required"))
+		_ = c.Error(errors.NewBadRequestError("session_id and message_id are required"))
 		return
 	}
 
 	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	msg, err := h.messageService.GetMessage(ctx, sessionID, messageID)
 	if err != nil || msg == nil {
-		c.Error(errors.NewNotFoundError("message not found"))
+		_ = c.Error(errors.NewNotFoundError("message not found"))
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *Handler) ListMessageArtifacts(c *gin.Context) {
 // assistant message's Artifacts array; the storage URL never leaves the
 // server so callers cannot pivot to arbitrary blobs.
 //
-// @Router /sessions/{session_id}/messages/{message_id}/artifacts/{index}/download [get]
+// @Router /sessions/{id}/messages/{message_id}/artifacts/{index}/download [get]
 func (h *Handler) DownloadMessageArtifact(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -164,12 +164,12 @@ func (h *Handler) DownloadMessageArtifact(c *gin.Context) {
 	messageID := secutils.SanitizeForLog(c.Param("message_id"))
 	indexParam := c.Param("index")
 	if sessionID == "" || messageID == "" || indexParam == "" {
-		c.Error(errors.NewBadRequestError("session_id, message_id and index are required"))
+		_ = c.Error(errors.NewBadRequestError("session_id, message_id and index are required"))
 		return
 	}
 	index, err := strconv.Atoi(indexParam)
 	if err != nil || index < 0 {
-		c.Error(errors.NewBadRequestError("invalid artifact index"))
+		_ = c.Error(errors.NewBadRequestError("invalid artifact index"))
 		return
 	}
 
@@ -178,16 +178,16 @@ func (h *Handler) DownloadMessageArtifact(c *gin.Context) {
 	// both "not found" and "forbidden" without leaking existence.
 	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	msg, err := h.messageService.GetMessage(ctx, sessionID, messageID)
 	if err != nil || msg == nil {
-		c.Error(errors.NewNotFoundError("message not found"))
+		_ = c.Error(errors.NewNotFoundError("message not found"))
 		return
 	}
 	if index >= len(msg.Artifacts) {
@@ -205,7 +205,7 @@ func (h *Handler) DownloadMessageArtifact(c *gin.Context) {
 	}
 
 	if h.fileService == nil {
-		c.Error(errors.NewInternalServerError("file service unavailable"))
+		_ = c.Error(errors.NewInternalServerError("file service unavailable"))
 		return
 	}
 	file, err := access.ResolveMessageArtifact(ctx, msg, index, h.agentShareService, h.resourceCatalog,

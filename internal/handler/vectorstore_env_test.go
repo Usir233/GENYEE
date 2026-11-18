@@ -34,7 +34,7 @@ func TestQdrantEnvStoreConnectionSettings(t *testing.T) {
 	t.Setenv("QDRANT_USE_TLS", "true")
 
 	svc := &envConnectionTestService{}
-	h := NewVectorStoreHandler(nil, svc)
+	h := NewVectorStoreHandler(svc)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodPost, "/vector-stores/__env_qdrant__/test", nil)

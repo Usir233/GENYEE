@@ -117,9 +117,9 @@ func TestBrowserSkillConnectionRejectsAPIKeyAndUnauthenticatedUser(t *testing.T)
 type stopSessionProbeStub struct {
 	interfaces.SessionService
 	interfaces.MessageService
-	owned         map[string]*types.Session
-	msgLookupHit  bool
-	nilMessage    bool
+	owned        map[string]*types.Session
+	msgLookupHit bool
+	nilMessage   bool
 }
 
 func (s *stopSessionProbeStub) GetOwnedSession(_ context.Context, id string) (*types.Session, error) {
@@ -158,10 +158,14 @@ func TestStopSessionRejectsOversizedBodyAndEnforcesOwnershipBeforeMessageLookup(
 
 	// 2. Non-owner caller must fail GetOwnedSession BEFORE GetMessage can probe message existence.
 	unownedStub := &stopSessionProbeStub{owned: map[string]*types.Session{}}
-	hUnowned := &Handler{sessionService: unownedStub, messageService: unownedStub, streamManager: stream.NewMemoryStreamManager()}
+	hUnowned := &Handler{
+		sessionService: unownedStub, messageService: unownedStub, streamManager: stream.NewMemoryStreamManager(),
+	}
 	recUnowned := httptest.NewRecorder()
 	cUnowned, _ := gin.CreateTestContext(recUnowned)
-	reqUnowned := httptest.NewRequest(http.MethodPost, "/sessions/unowned/stop", strings.NewReader(`{"message_id":"msg-secret"}`))
+	reqUnowned := httptest.NewRequest(
+		http.MethodPost, "/sessions/unowned/stop", strings.NewReader(`{"message_id":"msg-secret"}`),
+	)
 	reqUnowned.Header.Set("Content-Type", "application/json")
 	cUnowned.Request = reqUnowned
 	cUnowned.Params = gin.Params{{Key: "session_id", Value: "unowned"}}
@@ -185,7 +189,9 @@ func TestStopSessionRejectsOversizedBodyAndEnforcesOwnershipBeforeMessageLookup(
 		owned:      map[string]*types.Session{"s1": {ID: "s1", TenantID: 1}},
 		nilMessage: true,
 	}
-	hNilMsg := &Handler{sessionService: nilMsgStub, messageService: nilMsgStub, streamManager: stream.NewMemoryStreamManager()}
+	hNilMsg := &Handler{
+		sessionService: nilMsgStub, messageService: nilMsgStub, streamManager: stream.NewMemoryStreamManager(),
+	}
 	recNilMsg := httptest.NewRecorder()
 	cNilMsg, _ := gin.CreateTestContext(recNilMsg)
 	reqNilMsg := httptest.NewRequest(http.MethodPost, "/sessions/s1/stop", strings.NewReader(`{"message_id":"m1"}`))
@@ -473,7 +479,9 @@ type tempDocTenantCaptureStub struct {
 	gotTenantID uint64
 }
 
-func (s *tempDocTenantCaptureStub) List(_ context.Context, tenantID uint64, _ string) ([]*types.TemporaryDocument, error) {
+func (s *tempDocTenantCaptureStub) List(
+	_ context.Context, tenantID uint64, _ string,
+) ([]*types.TemporaryDocument, error) {
 	s.gotTenantID = tenantID
 	return []*types.TemporaryDocument{}, nil
 }
@@ -482,7 +490,9 @@ type artifactDeleteStub struct {
 	interfaces.MessageService
 }
 
-func (*artifactDeleteStub) DeleteSessionArtifact(_ context.Context, _ *types.ArtifactDeleteRequest) (*types.ArtifactDeleteResult, error) {
+func (*artifactDeleteStub) DeleteSessionArtifact(
+	_ context.Context, _ *types.ArtifactDeleteRequest,
+) (*types.ArtifactDeleteResult, error) {
 	return &types.ArtifactDeleteResult{FileName: "out.txt", Deleted: 1}, nil
 }
 

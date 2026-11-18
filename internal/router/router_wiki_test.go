@@ -116,16 +116,16 @@ func TestWikiReadRoutesDenyCrossTenantKB(t *testing.T) {
 	engine := newWikiRouteTestEngine(t, 1, kbLookup)
 
 	paths := []string{
-		"/api/v1/knowledgebase/kb-victim/wiki/pages",
-		"/api/v1/knowledgebase/kb-victim/wiki/pages/secret-page",
-		"/api/v1/knowledgebase/kb-victim/wiki/folders",
-		"/api/v1/knowledgebase/kb-victim/wiki/index",
-		"/api/v1/knowledgebase/kb-victim/wiki/graph",
-		"/api/v1/knowledgebase/kb-victim/wiki/stats",
-		"/api/v1/knowledgebase/kb-victim/wiki/search?q=test",
-		"/api/v1/knowledgebase/kb-victim/wiki/lint",
-		"/api/v1/knowledgebase/kb-victim/wiki/issues",
-		"/api/v1/knowledgebase/kb-victim/wiki/revisions/secret-page",
+		"/api/v1/knowledge-bases/kb-victim/wiki/pages",
+		"/api/v1/knowledge-bases/kb-victim/wiki/pages/secret-page",
+		"/api/v1/knowledge-bases/kb-victim/wiki/folders",
+		"/api/v1/knowledge-bases/kb-victim/wiki/index",
+		"/api/v1/knowledge-bases/kb-victim/wiki/graph",
+		"/api/v1/knowledge-bases/kb-victim/wiki/stats",
+		"/api/v1/knowledge-bases/kb-victim/wiki/search?q=test",
+		"/api/v1/knowledge-bases/kb-victim/wiki/lint",
+		"/api/v1/knowledge-bases/kb-victim/wiki/issues",
+		"/api/v1/knowledge-bases/kb-victim/wiki/revisions/secret-page",
 	}
 
 	for _, path := range paths {
@@ -141,7 +141,7 @@ func TestWikiReadRoutesDenyCrossTenantKB(t *testing.T) {
 func TestWikiOperationLogRouteIsRemoved(t *testing.T) {
 	engine := newWikiRouteTestEngine(t, 1, tenantKBLookupFixture())
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledgebase/kb-allowed/wiki/log", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledge-bases/kb-allowed/wiki/log", nil)
 	engine.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusNotFound, rec.Code, "body=%s", rec.Body.String())
 }
@@ -190,14 +190,14 @@ func TestWikiWriteRoutesDenyOutOfScopeAPIKeyKB(t *testing.T) {
 		method string
 		path   string
 	}{
-		{http.MethodPost, "/api/v1/knowledgebase/kb-other/wiki/pages"},
-		{http.MethodPut, "/api/v1/knowledgebase/kb-other/wiki/pages/some-page"},
-		{http.MethodDelete, "/api/v1/knowledgebase/kb-other/wiki/pages/some-page"},
-		{http.MethodPost, "/api/v1/knowledgebase/kb-other/wiki/folders"},
-		{http.MethodPost, "/api/v1/knowledgebase/kb-other/wiki/rebuild-links"},
-		{http.MethodPost, "/api/v1/knowledgebase/kb-other/wiki/auto-fix"},
-		{http.MethodPut, "/api/v1/knowledgebase/kb-other/wiki/issues/1/status"},
-		{http.MethodPost, "/api/v1/knowledgebase/kb-other/wiki/revert"},
+		{http.MethodPost, "/api/v1/knowledge-bases/kb-other/wiki/pages"},
+		{http.MethodPut, "/api/v1/knowledge-bases/kb-other/wiki/pages/some-page"},
+		{http.MethodDelete, "/api/v1/knowledge-bases/kb-other/wiki/pages/some-page"},
+		{http.MethodPost, "/api/v1/knowledge-bases/kb-other/wiki/folders"},
+		{http.MethodPost, "/api/v1/knowledge-bases/kb-other/wiki/rebuild-links"},
+		{http.MethodPost, "/api/v1/knowledge-bases/kb-other/wiki/auto-fix"},
+		{http.MethodPut, "/api/v1/knowledge-bases/kb-other/wiki/issues/1/status"},
+		{http.MethodPost, "/api/v1/knowledge-bases/kb-other/wiki/revert"},
 	}
 
 	for _, tc := range cases {

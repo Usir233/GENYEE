@@ -17,18 +17,16 @@ import (
 
 // WebSearchProviderHandler handles HTTP requests for web search provider CRUD
 type WebSearchProviderHandler struct {
-	repo     interfaces.WebSearchProviderRepository
 	service  interfaces.WebSearchProviderService
 	registry *infra_web_search.Registry
 }
 
 // NewWebSearchProviderHandler creates a new handler
 func NewWebSearchProviderHandler(
-	repo interfaces.WebSearchProviderRepository,
 	service interfaces.WebSearchProviderService,
 	registry *infra_web_search.Registry,
 ) *WebSearchProviderHandler {
-	return &WebSearchProviderHandler{repo: repo, service: service, registry: registry}
+	return &WebSearchProviderHandler{service: service, registry: registry}
 }
 
 // --- request DTOs ---
@@ -62,7 +60,7 @@ func (h *WebSearchProviderHandler) getTenantID(c *gin.Context) uint64 {
 func (h *WebSearchProviderHandler) getOwnedProvider(
 	ctx context.Context, tenantID uint64, id string,
 ) (*types.WebSearchProviderEntity, int, string) {
-	provider, err := h.repo.GetByID(ctx, tenantID, id)
+	provider, err := h.service.GetProvider(ctx, tenantID, id)
 	if err != nil {
 		return nil, http.StatusInternalServerError, "failed to query provider"
 	}
@@ -74,20 +72,32 @@ func (h *WebSearchProviderHandler) getOwnedProvider(
 
 // --- endpoints ---
 
-// CreateProvider creates a new web search provider
+// CreateProvider godoc
+// @Summary      创建网络搜索 Provider
+// @Description  创建新的联网搜索服务商配置
+// @Tags         网络搜索
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.CreateProviderRequest  true  "Provider 配置"
+// @Success      201      {object}  DataResponse{data=dto.WebSearchProviderResponse}  "创建的 Provider"
+// @Failure      400      {object}  errors.AppError  "请求参数错误"
+// @Failure      401      {object}  errors.AppError  "未认证"
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /web-search-providers [post]
 func (h *WebSearchProviderHandler) CreateProvider(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	tenantID := h.getTenantID(c)
 	if tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized: workspace context missing"})
+		writeAppError(c, errors.NewUnauthorizedError("unauthorized: workspace context missing"))
 		return
 	}
 
 	var req CreateProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Warnf(ctx, "Invalid create provider request: %v", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -105,7 +115,7 @@ func (h *WebSearchProviderHandler) CreateProvider(c *gin.Context) {
 
 	if err := h.service.CreateProvider(ctx, provider); err != nil {
 		logger.Warnf(ctx, "Failed to create web search provider: %v", err)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -130,14 +140,14 @@ func (h *WebSearchProviderHandler) ListProviders(c *gin.Context) {
 
 	tenantID := h.getTenantID(c)
 	if tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized: workspace context missing"})
+		writeAppError(c, errors.NewUnauthorizedError("unauthorized: workspace context missing"))
 		return
 	}
 
-	providers, err := h.repo.List(ctx, tenantID)
+	providers, err := h.service.ListProviders(ctx, tenantID)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to list web search providers: %v", err)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -166,14 +176,14 @@ func (h *WebSearchProviderHandler) GetProvider(c *gin.Context) {
 
 	tenantID := h.getTenantID(c)
 	if tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized: workspace context missing"})
+		writeAppError(c, errors.NewUnauthorizedError("unauthorized: workspace context missing"))
 		return
 	}
 
 	id := c.Param("id")
 	provider, status, msg := h.getOwnedProvider(ctx, tenantID, id)
 	if status != http.StatusOK {
-		c.JSON(status, gin.H{"success": false, "error": msg})
+		writeStatusError(c, status, msg)
 		return
 	}
 
@@ -204,7 +214,7 @@ func (h *WebSearchProviderHandler) UpdateProvider(c *gin.Context) {
 
 	tenantID := h.getTenantID(c)
 	if tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized: workspace context missing"})
+		writeAppError(c, errors.NewUnauthorizedError("unauthorized: workspace context missing"))
 		return
 	}
 
@@ -213,13 +223,13 @@ func (h *WebSearchProviderHandler) UpdateProvider(c *gin.Context) {
 	// Ownership check
 	existing, status, msg := h.getOwnedProvider(ctx, tenantID, id)
 	if status != http.StatusOK {
-		c.JSON(status, gin.H{"success": false, "error": msg})
+		writeStatusError(c, status, msg)
 		return
 	}
 
 	var req UpdateProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -266,12 +276,12 @@ func (h *WebSearchProviderHandler) UpdateProvider(c *gin.Context) {
 
 	if err := h.service.UpdateProvider(ctx, provider); err != nil {
 		logger.Warnf(ctx, "Failed to update web search provider %s: %v", id, err)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	// Re-fetch to get the full stored state
-	updated, _ := h.repo.GetByID(ctx, tenantID, id)
+	updated, _ := h.service.GetProvider(ctx, tenantID, id)
 	if updated != nil {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": dto.NewWebSearchProviderResponse(ctx, updated)})
 	} else {
@@ -299,7 +309,7 @@ func (h *WebSearchProviderHandler) DeleteProvider(c *gin.Context) {
 
 	tenantID := h.getTenantID(c)
 	if tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized: workspace context missing"})
+		writeAppError(c, errors.NewUnauthorizedError("unauthorized: workspace context missing"))
 		return
 	}
 
@@ -307,13 +317,13 @@ func (h *WebSearchProviderHandler) DeleteProvider(c *gin.Context) {
 
 	// Ownership check
 	if _, status, msg := h.getOwnedProvider(ctx, tenantID, id); status != http.StatusOK {
-		c.JSON(status, gin.H{"success": false, "error": msg})
+		writeStatusError(c, status, msg)
 		return
 	}
 
 	if err := h.service.DeleteProvider(ctx, tenantID, id); err != nil {
 		logger.Warnf(ctx, "Failed to delete web search provider %s: %v", id, err)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -365,14 +375,14 @@ func (h *WebSearchProviderHandler) TestProviderByID(c *gin.Context) {
 
 	tenantID := h.getTenantID(c)
 	if tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthorized: workspace context missing"})
+		writeAppError(c, errors.NewUnauthorizedError("unauthorized: workspace context missing"))
 		return
 	}
 
 	id := c.Param("id")
 	provider, status, msg := h.getOwnedProvider(ctx, tenantID, id)
 	if status != http.StatusOK {
-		c.JSON(status, gin.H{"success": false, "error": msg})
+		writeStatusError(c, status, msg)
 		return
 	}
 
@@ -416,7 +426,7 @@ func (h *WebSearchProviderHandler) TestProviderRaw(c *gin.Context) {
 
 	var req TestProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -436,7 +446,9 @@ func (h *WebSearchProviderHandler) TestProviderRaw(c *gin.Context) {
 // confusing error). Reject it up front with an actionable message so the
 // user knows they should type a real key or test against the saved config
 // via /test instead.
-func (h *WebSearchProviderHandler) doTestSearch(ctx context.Context, providerType string, params types.WebSearchProviderParameters) error {
+func (h *WebSearchProviderHandler) doTestSearch(
+	ctx context.Context, providerType string, params types.WebSearchProviderParameters,
+) error {
 	logger.Infof(ctx, "[WebSearch][Test] testing provider type=%s", providerType)
 	searchProvider, err := h.registry.NewSearcher(providerType, params)
 	if err != nil {

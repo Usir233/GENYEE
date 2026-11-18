@@ -1,6 +1,6 @@
-// Package session: sandbox terminal WebSocket.
+// Package session provides the sandbox terminal WebSocket handler.
 //
-// GET /api/v1/sessions/:session_id/sandbox/terminal?ticket=<short-lived JWT>
+// GET /api/v1/sessions/:id/sandbox/terminal?ticket=<short-lived JWT>
 //
 // The route is registered before the global auth middleware because a
 // browser WebSocket handshake cannot carry the Authorization header. The
@@ -150,20 +150,20 @@ type terminalControlFrame struct {
 func (h *Handler) SandboxTerminalWS(c *gin.Context) {
 	sessionID := strings.TrimSpace(c.Param("id"))
 	if sessionID == "" {
-		sessionID = strings.TrimSpace(c.Param("session_id"))
+		sessionID = strings.TrimSpace(sessionIDParam(c))
 	}
 	if sessionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session id is required"})
+		writeStatusError(c, http.StatusBadRequest, "session id is required")
 		return
 	}
 
 	claims, err := service.ParseSandboxTerminalTicket(c.Query("ticket"))
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: invalid or expired ticket"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized: invalid or expired ticket")
 		return
 	}
 	if claims.SessionID != sessionID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "ticket is not valid for this session"})
+		writeStatusError(c, http.StatusForbidden, "ticket is not valid for this session")
 		return
 	}
 	// One call covers the whole handshake identity: minting token still live,
@@ -172,11 +172,11 @@ func (h *Handler) SandboxTerminalWS(c *gin.Context) {
 	user, err := h.checkTerminalAuth(c.Request.Context(), *claims, true)
 	if err != nil {
 		if stderrors.Is(err, service.ErrTerminalAuthDenied) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: invalid or expired ticket"})
+			writeStatusError(c, http.StatusUnauthorized, "Unauthorized: invalid or expired ticket")
 			return
 		}
 		logger.ErrorWithFields(c.Request.Context(), err, map[string]interface{}{"session_id": sessionID})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate ticket"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to validate ticket")
 		return
 	}
 	if !middleware.AttachAuthenticatedUser(
@@ -189,7 +189,7 @@ func (h *Handler) SandboxTerminalWS(c *gin.Context) {
 
 	release, ok := sessionTerminalLimiter.acquire(sessionID)
 	if !ok {
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many terminals for this session"})
+		writeStatusError(c, http.StatusTooManyRequests, "too many terminals for this session")
 		return
 	}
 	defer release()
@@ -340,53 +340,62 @@ func terminalPIDParam(raw string) uint32 {
 // IssueSandboxTerminalTicket mints a short-lived handshake ticket for the
 // WebSocket. The access JWT stays on this authenticated POST and never
 // appears in the WS URL (or nginx access logs of that handshake).
+// IssueSandboxTerminalTicket godoc
+// @Summary      签发沙箱终端连接票据
+// @Tags         会话
+// @Produce      json
+// @Param        id   path      string  true  "会话 ID"
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/sandbox/terminal-ticket [post]
 func (h *Handler) IssueSandboxTerminalTicket(c *gin.Context) {
 	ctx := c.Request.Context()
-	sessionID := strings.TrimSpace(c.Param("session_id"))
+	sessionID := strings.TrimSpace(sessionIDParam(c))
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(c.Param("id"))
 	}
 	if sessionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session id is required"})
+		writeStatusError(c, http.StatusBadRequest, "session id is required")
 		return
 	}
 	if _, err := h.sessionService.GetOwnedSession(ctx, sessionID); err != nil {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+			writeStatusError(c, http.StatusNotFound, "session not found")
 			return
 		}
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"session_id": sessionID})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load session"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to load session")
 		return
 	}
 	userID, ok := types.UserIDFromContext(ctx)
 	if !ok || userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	tenantID, ok := types.TenantIDFromContext(ctx)
 	if !ok || tenantID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	accessToken := sandboxTerminalBearerToken(c)
 	if accessToken == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: access token required"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized: access token required")
 		return
 	}
 	record, err := h.userService.GetAccessTokenByValue(ctx, accessToken)
 	if err != nil || record == nil || strings.TrimSpace(record.ID) == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	if err := service.AssertAccessTokenStillActive(record, userID, time.Now()); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	ticket, err := service.IssueSandboxTerminalTicket(userID, tenantID, sessionID, record.ID, 0)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"session_id": sessionID})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue ticket"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to issue ticket")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

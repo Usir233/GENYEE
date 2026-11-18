@@ -38,7 +38,7 @@ type RewindSessionRequest struct {
 // @Tags         会话
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path      string                true  "会话 ID"
+// @Param        id  path      string                true  "会话 ID"
 // @Param        request     body      RewindSessionRequest  true  "回滚请求"
 // @Success      200         {object}  map[string]interface{}  "回滚结果"
 // @Failure      400         {object}  errors.AppError         "请求参数错误 / 回滚点角色不支持"
@@ -47,11 +47,11 @@ type RewindSessionRequest struct {
 // @Failure      500         {object}  errors.AppError         "工作区回滚失败"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/rewind [post]
+// @Router       /sessions/{id}/rewind [post]
 func (h *Handler) RewindSession(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	sessionID := strings.TrimSpace(c.Param("session_id"))
+	sessionID := strings.TrimSpace(sessionIDParam(c))
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(c.Param("id"))
 	}
@@ -89,24 +89,36 @@ func (h *Handler) RewindSession(c *gin.Context) {
 		if stderrors.Is(err, service.ErrRewindSourceBusy) {
 			c.JSON(http.StatusConflict, gin.H{
 				"success": false,
-				"error":   "session has an active turn",
 				"code":    "REWIND_SOURCE_BUSY",
+				"error": gin.H{
+					"code":    errors.ErrConflict,
+					"message": "session has an active turn",
+					"details": gin.H{"code": "REWIND_SOURCE_BUSY"},
+				},
 			})
 			return
 		}
 		if stderrors.Is(err, service.ErrRewindNoCheckpoint) {
 			c.JSON(http.StatusConflict, gin.H{
 				"success": false,
-				"error":   "no reachable workspace checkpoint",
 				"code":    "REWIND_NO_CHECKPOINT",
+				"error": gin.H{
+					"code":    errors.ErrConflict,
+					"message": "no reachable workspace checkpoint",
+					"details": gin.H{"code": "REWIND_NO_CHECKPOINT"},
+				},
 			})
 			return
 		}
 		if stderrors.Is(err, service.ErrRewindSandboxReplaced) {
 			c.JSON(http.StatusConflict, gin.H{
 				"success": false,
-				"error":   "sandbox was replaced",
 				"code":    "REWIND_SANDBOX_REPLACED",
+				"error": gin.H{
+					"code":    errors.ErrConflict,
+					"message": "sandbox was replaced",
+					"details": gin.H{"code": "REWIND_SANDBOX_REPLACED"},
+				},
 			})
 			return
 		}

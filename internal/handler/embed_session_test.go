@@ -37,7 +37,9 @@ func (s *stubSessionServiceForEmbed) GetSession(_ context.Context, id string) (*
 	return sess, nil
 }
 
-func (s *stubSessionServiceForEmbed) GetSessionByID(_ context.Context, tenantID uint64, id string) (*types.Session, error) {
+func (s *stubSessionServiceForEmbed) GetSessionByID(
+	_ context.Context, tenantID uint64, id string,
+) (*types.Session, error) {
 	sess, ok := s.sessions[id]
 	if !ok || sess.TenantID != tenantID {
 		return nil, errors.New("session not found")
@@ -45,7 +47,9 @@ func (s *stubSessionServiceForEmbed) GetSessionByID(_ context.Context, tenantID 
 	return sess, nil
 }
 
-func (s *stubSessionServiceForEmbed) SetSessionOwnerID(_ context.Context, tenantID uint64, sessionID, ownerID string) error {
+func (s *stubSessionServiceForEmbed) SetSessionOwnerID(
+	_ context.Context, tenantID uint64, sessionID, ownerID string,
+) error {
 	sess, ok := s.sessions[sessionID]
 	if !ok || sess.TenantID != tenantID {
 		return errors.New("session not found")
@@ -69,7 +73,9 @@ type sessionEmbedSvc struct {
 	embedChunk func(context.Context, *types.EmbedChannel, string) (*types.Chunk, error)
 }
 
-func (s *sessionEmbedSvc) Create(context.Context, uint64, string, *types.EmbedChannel) (*types.EmbedChannel, string, error) {
+func (s *sessionEmbedSvc) Create(
+	context.Context, uint64, string, *types.EmbedChannel,
+) (*types.EmbedChannel, string, error) {
 	return nil, "", nil
 }
 
@@ -81,7 +87,9 @@ func (s *sessionEmbedSvc) ListByTenant(context.Context, uint64) ([]*types.EmbedC
 	return nil, nil
 }
 
-func (s *sessionEmbedSvc) Update(context.Context, uint64, string, *types.EmbedChannel, *bool, *bool, *bool, *bool, *string, *string, *string) (*types.EmbedChannel, error) {
+func (s *sessionEmbedSvc) Update(
+	context.Context, uint64, string, *types.EmbedChannel, *bool, *bool, *bool, *bool, *string, *string, *string,
+) (*types.EmbedChannel, error) {
 	return nil, nil
 }
 
@@ -117,11 +125,15 @@ func (s *sessionEmbedSvc) PublicConfig(context.Context, *types.EmbedChannel) typ
 	return types.EmbedChannelPublicConfig{}
 }
 
-func (s *sessionEmbedSvc) SuggestedQuestions(context.Context, *types.EmbedChannel, int) ([]types.SuggestedQuestion, error) {
+func (s *sessionEmbedSvc) SuggestedQuestions(
+	context.Context, *types.EmbedChannel, int,
+) ([]types.SuggestedQuestion, error) {
 	return nil, nil
 }
 
-func (s *sessionEmbedSvc) EmbedChunk(ctx context.Context, ch *types.EmbedChannel, chunkID string) (*types.Chunk, error) {
+func (s *sessionEmbedSvc) EmbedChunk(
+	ctx context.Context, ch *types.EmbedChannel, chunkID string,
+) (*types.Chunk, error) {
 	if s.embedChunk != nil {
 		return s.embedChunk(ctx, ch, chunkID)
 	}
@@ -149,7 +161,9 @@ func validEmbedSession(ch *types.EmbedChannel) *types.Session {
 	}
 }
 
-func newEnsureEmbedSessionCtx(ch *types.EmbedChannel, sessionID, sig string) (*gin.Context, *httptest.ResponseRecorder) {
+func newEnsureEmbedSessionCtx(
+	ch *types.EmbedChannel, sessionID, sig string,
+) (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -363,7 +377,9 @@ func TestGetEmbedChunkSuccess(t *testing.T) {
 	}
 }
 
-func newEmbedStopSessionCtx(ch *types.EmbedChannel, sessionID, sig, body string) (*gin.Context, *httptest.ResponseRecorder) {
+func newEmbedStopSessionCtx(
+	ch *types.EmbedChannel, sessionID, sig, body string,
+) (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

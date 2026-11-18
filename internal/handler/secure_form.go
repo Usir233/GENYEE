@@ -77,8 +77,13 @@ func (h *MCPServiceHandler) SubmitSecureForm(c *gin.Context) {
 	if err != nil {
 		if res.SavedButClosed {
 			c.JSON(http.StatusConflict, gin.H{
-				"success": false, "saved": true,
-				"error": gin.H{"message": "the credential was saved, but this request has already ended"},
+				"success": false,
+				"saved":   true,
+				"error": gin.H{
+					"code":    apperrors.ErrConflict,
+					"message": "the credential was saved, but this request has already ended",
+					"details": gin.H{"saved": true},
+				},
 			})
 			return
 		}

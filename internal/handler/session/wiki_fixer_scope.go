@@ -52,7 +52,9 @@ func resolveBuiltinWikiFixerTenantScope(
 	kbID := kbIDs[0]
 	kb, err := kbLookup.GetKnowledgeBaseByIDOnly(ctx, kbID)
 	if err != nil {
-		logger.Warnf(ctx, "wiki fixer: failed to resolve KB %s for shared scope: %v", secutils.SanitizeForLog(kbID), err)
+		logger.Warnf(
+			ctx, "wiki fixer: failed to resolve KB %s for shared scope: %v", secutils.SanitizeForLog(kbID), err,
+		)
 		return agent, 0
 	}
 	if kb == nil {
@@ -66,7 +68,9 @@ func resolveBuiltinWikiFixerTenantScope(
 	permissions := access.NewKBSharePermissions(ctx, kbShare, currentTenantID, callerTenantRole)
 	allowed, err := permissions.Check(kb.ID, types.OrgRoleEditor)
 	if err != nil {
-		logger.Warnf(ctx, "wiki fixer: failed to check shared KB %s permission: %v", secutils.SanitizeForLog(kb.ID), err)
+		logger.Warnf(
+			ctx, "wiki fixer: failed to check shared KB %s permission: %v", secutils.SanitizeForLog(kb.ID), err,
+		)
 		return agent, 0
 	}
 	if !allowed {
@@ -94,6 +98,8 @@ func resolveBuiltinWikiFixerTenantScope(
 	scopedAgent.Config.ModelID = ""
 	scopedAgent.Config.RerankModelID = ""
 	scopedAgent.Config.VLMModelID = ""
-	logger.Infof(ctx, "wiki fixer: using shared KB source tenant %d for KB %s", kb.TenantID, secutils.SanitizeForLog(kb.ID))
+	logger.Infof(
+		ctx, "wiki fixer: using shared KB source tenant %d for KB %s", kb.TenantID, secutils.SanitizeForLog(kb.ID),
+	)
 	return &scopedAgent, kb.TenantID
 }

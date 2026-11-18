@@ -29,6 +29,17 @@ or include credentials, URLs, headings, markdown fences, or commentary. Return o
 
 // GenerateMCPUsageInstructions uses the caller's saved directory, without
 // connecting to MCP, executing tools, or persisting generated text.
+// GenerateMCPUsageInstructions godoc
+// @Summary      生成 MCP 服务使用说明
+// @Tags         MCP服务
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                  true   "MCP service ID"
+// @Param        request  body      map[string]interface{}  false  "Generation options"
+// @Success      200      {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /mcp-services/{id}/usage-instructions/generate [post]
 func (h *MCPServiceHandler) GenerateMCPUsageInstructions(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
 	defer cancel()

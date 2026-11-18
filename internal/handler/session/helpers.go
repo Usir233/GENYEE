@@ -242,7 +242,7 @@ func buildStreamResponse(evt interfaces.StreamEvent, requestID string) *types.St
 //     (multiple done events can confuse state management)
 //
 // The frontend should use 'complete' response_type to detect stream completion
-func sendCompletionEvent(c *gin.Context, requestID string) {
+func sendCompletionEvent(_ *gin.Context, _ string) {
 	// Intentionally empty - completion is signaled by the 'complete' event
 	// which is already sent before this function is called
 }
@@ -278,7 +278,17 @@ func createAgentQueryEvent(
 }
 
 // createUserMessage creates a user message and returns the created message.
-func (h *Handler) createUserMessage(ctx context.Context, sessionID, query, requestID string, mentionedItems types.MentionedItems, images types.MessageImages, attachments types.MessageAttachments, channel string, attribution *types.SuggestionAttribution) (*types.Message, error) {
+func (h *Handler) createUserMessage(
+	ctx context.Context,
+	sessionID,
+	query,
+	requestID string,
+	mentionedItems types.MentionedItems,
+	images types.MessageImages,
+	attachments types.MessageAttachments,
+	channel string,
+	attribution *types.SuggestionAttribution,
+) (*types.Message, error) {
 	return h.messageService.CreateMessage(ctx, &types.Message{
 		SessionID:        sessionID,
 		Role:             "user",
@@ -326,7 +336,7 @@ func (h *Handler) setupStopEventHandler(
 	assistantMessage *types.Message,
 	cancel context.CancelFunc,
 ) {
-	eventBus.On(event.EventStop, func(ctx context.Context, evt event.Event) error {
+	eventBus.On(event.EventStop, func(ctx context.Context, _ event.Event) error {
 		logger.Infof(ctx, "Received stop event, cancelling async operations for session: %s", sessionID)
 		cancel()
 		// Preserve whatever has been streamed so far; do not overwrite Content.
@@ -336,7 +346,8 @@ func (h *Handler) setupStopEventHandler(
 			context.WithoutCancel(ctx),
 			types.TenantIDContextKey, sessionTenantID,
 		)
-		h.completeAssistantMessage(updateCtx, assistantMessage, "", "") // empty query: stopped conversations are not indexed
+		// empty query: stopped conversations are not indexed
+		_ = h.completeAssistantMessage(updateCtx, assistantMessage, "", "")
 		return nil
 	})
 }
@@ -395,7 +406,7 @@ func (h *Handler) startStopWatcher(
 						logger.Infof(watchCtx,
 							"Stop watcher detected stop event, cancelling generation for session=%s, message=%s",
 							sessionID, assistantMessageID)
-						eventBus.Emit(watchCtx, event.Event{
+						_ = eventBus.Emit(watchCtx, event.Event{
 							Type:      event.EventStop,
 							SessionID: sessionID,
 							Data: event.StopData{

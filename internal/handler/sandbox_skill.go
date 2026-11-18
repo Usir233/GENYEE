@@ -236,7 +236,7 @@ func (h *SandboxSkillHandler) List(c *gin.Context) {
 // @Tags         SandboxConfig
 // @Produce      json
 // @Param        id       path      string  true  "Sandbox config ID"  extensions(x-agent=sandbox_config_id)
-// @Param        skillId  path      string  true  "Skill ID from skill.list_installed"  extensions(x-agent=skill_id)
+// @Param        skill_id  path      string  true  "Skill ID from skill.list_installed"  extensions(x-agent=skill_id)
 // @Success      200      {object}  handler.DataResponse{data=handler.skillResponse}  "Installed skill"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill not found"
@@ -244,7 +244,7 @@ func (h *SandboxSkillHandler) List(c *gin.Context) {
 // @Security     ApiKeyAuth
 // @x-agent      {"id":"skill.get_installed","risk":"read","role":"admin"}
 // @x-agent-hint "Returns one installed skill. After skill.install, read it to follow the install: status moves from installing to ready or failed, and error says why it failed."
-// @Router       /sandbox-configs/{id}/skills/{skillId} [get]
+// @Router       /sandbox-configs/{id}/skills/{skill_id} [get]
 func (h *SandboxSkillHandler) Get(c *gin.Context) {
 	skill, err := h.resolveSkill(c)
 	if err != nil {
@@ -260,16 +260,16 @@ func (h *SandboxSkillHandler) Get(c *gin.Context) {
 // @Tags         SandboxConfig
 // @Produce      json
 // @Param        id       path      string  true  "Sandbox config ID"
-// @Param        skillId  path      string  true  "Skill ID"
+// @Param        skill_id  path      string  true  "Skill ID"
 // @Success      200      {object}  handler.DataResponse{data=[]service.SkillFileEntry}  "Skill files"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill or files not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sandbox-configs/{id}/skills/{skillId}/files [get]
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/files [get]
 func (h *SandboxSkillHandler) ListFiles(c *gin.Context) {
 	files, err := h.service.ListSkillFiles(
-		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skillId"),
+		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skill_id"),
 	)
 	if err != nil {
 		_ = c.Error(err)
@@ -284,7 +284,7 @@ func (h *SandboxSkillHandler) ListFiles(c *gin.Context) {
 // @Tags         SandboxConfig
 // @Produce      json
 // @Param        id       path      string  true  "Sandbox config ID"
-// @Param        skillId  path      string  true  "Skill ID"
+// @Param        skill_id  path      string  true  "Skill ID"
 // @Param        path     query     string  true  "Skill-root-relative file path"
 // @Success      200      {object}  handler.DataResponse{data=service.SkillFileContent}  "Skill file"
 // @Failure      400      {object}  apperrors.AppError      "Invalid path"
@@ -292,11 +292,11 @@ func (h *SandboxSkillHandler) ListFiles(c *gin.Context) {
 // @Failure      404      {object}  apperrors.AppError      "Skill or file not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sandbox-configs/{id}/skills/{skillId}/files/content [get]
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/files/content [get]
 func (h *SandboxSkillHandler) GetFile(c *gin.Context) {
 	file, err := h.service.ReadSkillFile(
 		c.Request.Context(), sandboxConfigTenantID(c),
-		c.Param("id"), c.Param("skillId"), c.Query("path"),
+		c.Param("id"), c.Param("skill_id"), c.Query("path"),
 	)
 	if err != nil {
 		_ = c.Error(err)
@@ -421,14 +421,14 @@ func (h *SandboxSkillHandler) installFromSource(c *gin.Context) {
 // @Tags         SandboxConfig
 // @Produce      json
 // @Param        id       path      string  true  "Sandbox config ID"
-// @Param        skillId  path      string  true  "Skill ID"
+// @Param        skill_id  path      string  true  "Skill ID"
 // @Success      202      {object}  map[string]interface{}  "Reinstall accepted"
 // @Failure      400      {object}  apperrors.AppError      "The stored archive is gone"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sandbox-configs/{id}/skills/{skillId}/reinstall [post]
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/reinstall [post]
 func (h *SandboxSkillHandler) Reinstall(c *gin.Context) {
 	var req struct {
 		Instructions string `json:"instructions" binding:"max=10000"`
@@ -438,7 +438,7 @@ func (h *SandboxSkillHandler) Reinstall(c *gin.Context) {
 		return
 	}
 	skillID, err := h.service.ReinstallSkill(
-		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skillId"), req.Instructions,
+		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skill_id"), req.Instructions,
 	)
 	if err != nil {
 		respondSkillServiceError(c, err)
@@ -449,21 +449,23 @@ func (h *SandboxSkillHandler) Reinstall(c *gin.Context) {
 
 // Stop godoc
 // @Summary      Stop a skill install
-// @Description  Abort an in-flight install so the operator can retry or uninstall. After a process restart the row may still say installing with no live process; this rewrites it immediately instead of waiting for the stuck-run reaper. Removal is not stopped.
+// @Description  Abort an in-flight install so the operator can retry or uninstall. After a process restart the row
+// @Description  may still say installing with no live process; this rewrites it immediately instead of waiting for
+// @Description  the stuck-run reaper. Removal is not stopped.
 // @Tags         SandboxConfig
 // @Produce      json
 // @Param        id       path      string  true  "Sandbox config ID"
-// @Param        skillId  path      string  true  "Skill ID"
+// @Param        skill_id  path      string  true  "Skill ID"
 // @Success      200      {object}  handler.DataResponse{data=handler.skillResponse}  "Stopped skill"
 // @Failure      400      {object}  apperrors.AppError      "Skill is not installing"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sandbox-configs/{id}/skills/{skillId}/stop [post]
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/stop [post]
 func (h *SandboxSkillHandler) Stop(c *gin.Context) {
 	skill, err := h.service.StopSkill(
-		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skillId"),
+		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skill_id"),
 	)
 	if err != nil {
 		respondSkillServiceError(c, err)
@@ -501,12 +503,14 @@ type skillPatchRequest struct {
 
 // Patch godoc
 // @Summary      Update an installed skill
-// @Description  Show or hide an installed skill and set the workspace-wide values of the environment variables it declared. Either field may be sent, or both. The files stay in the image either way; removal is a separate flow.
+// @Description  Show or hide an installed skill and set the workspace-wide values of the environment variables it
+// @Description  declared. Either field may be sent, or both. The files stay in the image either way; removal is a
+// @Description  separate flow.
 // @Tags         SandboxConfig
 // @Accept       json
 // @Produce      json
 // @Param        id       path      string             true  "Sandbox config ID"  extensions(x-agent=sandbox_config_id)
-// @Param        skillId  path      string             true  "Skill ID from skill.list_installed"  extensions(x-agent=skill_id)
+// @Param        skill_id  path      string             true  "Skill ID from skill.list_installed"  extensions(x-agent=skill_id)
 // @Param        request  body      skillPatchRequest  true  "Fields to update"
 // @Success      200      {object}  handler.DataResponse{data=handler.skillResponse}  "Updated skill"
 // @Failure      400      {object}  apperrors.AppError      "Invalid request"
@@ -516,7 +520,7 @@ type skillPatchRequest struct {
 // @Security     ApiKeyAuth
 // @x-agent      {"id":"skill.set_enabled","risk":"write","role":"admin","target":"skill.get_installed","label":"name"}
 // @x-agent-hint "Shows or hides an installed skill for every agent on that sandbox; the files stay installed. Environment values are not set here: the user enters them in the skill settings."
-// @Router       /sandbox-configs/{id}/skills/{skillId} [patch]
+// @Router       /sandbox-configs/{id}/skills/{skill_id} [patch]
 func (h *SandboxSkillHandler) Patch(c *gin.Context) {
 	limitJSONBody(c, skillSourceJSONMaxBytes)
 	var req skillPatchRequest
@@ -535,7 +539,7 @@ func (h *SandboxSkillHandler) Patch(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	tenantID := sandboxConfigTenantID(c)
-	configID, skillID := c.Param("id"), c.Param("skillId")
+	configID, skillID := c.Param("id"), c.Param("skill_id")
 
 	// Both fields go down in one call so the request is all-or-nothing: two
 	// service calls could persist the toggle and then fail the values, which
@@ -564,7 +568,7 @@ func (h *SandboxSkillHandler) Patch(c *gin.Context) {
 // @Tags         SandboxConfig
 // @Produce      json
 // @Param        id       path      string  true  "Sandbox config ID"  extensions(x-agent=sandbox_config_id)
-// @Param        skillId  path      string  true  "Skill ID from skill.list_installed"  extensions(x-agent=skill_id)
+// @Param        skill_id  path      string  true  "Skill ID from skill.list_installed"  extensions(x-agent=skill_id)
 // @Success      202      {object}  handler.DataResponse{data=handler.skillAccepted}  "Removal accepted"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill not found"
@@ -572,9 +576,9 @@ func (h *SandboxSkillHandler) Patch(c *gin.Context) {
 // @Security     ApiKeyAuth
 // @x-agent      {"id":"skill.uninstall","risk":"destructive","role":"admin","target":"skill.get_installed","label":"name"}
 // @x-agent-hint "Removes a skill from a sandbox image; agents on that sandbox can no longer use it. The rebuild takes minutes. To only hide it, use skill.set_enabled instead."
-// @Router       /sandbox-configs/{id}/skills/{skillId} [delete]
+// @Router       /sandbox-configs/{id}/skills/{skill_id} [delete]
 func (h *SandboxSkillHandler) Delete(c *gin.Context) {
-	skillID := c.Param("skillId")
+	skillID := c.Param("skill_id")
 	err := h.service.RemoveSkill(
 		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), skillID,
 	)
@@ -654,17 +658,17 @@ func terminalSkillEvent(skill *types.TenantSkillEntity) (skillInstallEvent, bool
 // @Tags         SandboxConfig
 // @Produce      text/event-stream
 // @Param        id       path      string  true  "Sandbox config ID"
-// @Param        skillId  path      string  true  "Skill ID"
+// @Param        skill_id  path      string  true  "Skill ID"
 // @Success      200      {string}  string  "SSE stream of progress events"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sandbox-configs/{id}/skills/{skillId}/install-events [get]
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/install-events [get]
 func (h *SandboxSkillHandler) InstallEvents(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID := sandboxConfigTenantID(c)
-	configID, skillID := c.Param("id"), c.Param("skillId")
+	configID, skillID := c.Param("id"), c.Param("skill_id")
 
 	// The progress key is workspace-scoped, so this lookup is not what isolates
 	// the stream; it is what turns "this skill is not yours" into a 404 while a
@@ -774,14 +778,14 @@ func (h *SandboxSkillHandler) InstallEvents(c *gin.Context) {
 // @Tags         SandboxConfig
 // @Produce      text/event-stream
 // @Param        id       path      string  true  "Sandbox config ID"
-// @Param        skillId  path      string  true  "Skill ID"
+// @Param        skill_id  path      string  true  "Skill ID"
 // @Success      200      {string}  string  "SSE stream of transcript events"
 // @Success      204      {string}  string  "Install is still preparing; retry once locators exist"
 // @Failure      401      {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404      {object}  apperrors.AppError      "Skill or transcript not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sandbox-configs/{id}/skills/{skillId}/transcript [get]
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/transcript [get]
 //
 // The transcript deliberately does not reuse /sessions/continue-stream. That
 // endpoint authorizes by "does this chat session belong to you", while an
@@ -895,7 +899,7 @@ func (h *SandboxSkillHandler) emitTranscript(
 // returns the 404 every route renders when it is not reachable.
 func (h *SandboxSkillHandler) resolveSkill(c *gin.Context) (*types.TenantSkillEntity, error) {
 	skill, err := h.service.GetSkill(c.Request.Context(), sandboxConfigTenantID(c),
-		c.Param("id"), c.Param("skillId"))
+		c.Param("id"), c.Param("skill_id"))
 	if err != nil {
 		return nil, err
 	}
@@ -930,12 +934,22 @@ func setSandboxSkillSSEHeaders(c *gin.Context) {
 }
 
 // InstallGuidance exposes only the guidance for this tenant/config/skill's current run.
+// InstallGuidance godoc
+// @Summary      获取技能安装引导列表
+// @Tags         沙箱技能
+// @Produce      json
+// @Param        id        path      string  true  "Sandbox config ID"
+// @Param        skill_id  path      string  true  "Skill ID"
+// @Success      200       {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/guidance [get]
 func (h *SandboxSkillHandler) InstallGuidance(c *gin.Context) {
 	state, err := h.service.InstallGuidance(
 		c.Request.Context(),
 		sandboxConfigTenantID(c),
 		c.Param("id"),
-		c.Param("skillId"),
+		c.Param("skill_id"),
 	)
 	if err != nil {
 		respondSkillServiceError(c, err)
@@ -945,6 +959,18 @@ func (h *SandboxSkillHandler) InstallGuidance(c *gin.Context) {
 }
 
 // SteerInstall accepts administrator guidance for the displayed installation run.
+// SteerInstall godoc
+// @Summary      发送技能安装引导指令
+// @Tags         沙箱技能
+// @Accept       json
+// @Produce      json
+// @Param        id        path      string                  true  "Sandbox config ID"
+// @Param        skill_id  path      string                  true  "Skill ID"
+// @Param        request   body      map[string]interface{}  true  "Guidance payload"
+// @Success      200       {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sandbox-configs/{id}/skills/{skill_id}/guidance [post]
 func (h *SandboxSkillHandler) SteerInstall(c *gin.Context) {
 	var req struct {
 		ExpectedMessageID string `json:"expected_message_id" binding:"required"`
@@ -956,7 +982,7 @@ func (h *SandboxSkillHandler) SteerInstall(c *gin.Context) {
 		return
 	}
 	if err := h.service.SteerInstall(
-		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skillId"),
+		c.Request.Context(), sandboxConfigTenantID(c), c.Param("id"), c.Param("skill_id"),
 		req.ExpectedMessageID, req.SteerID, req.Content,
 	); err != nil {
 		respondSkillServiceError(c, err)

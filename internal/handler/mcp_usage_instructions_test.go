@@ -84,6 +84,7 @@ type usageModelService struct {
 }
 
 func (s *usageModelService) ListModels(context.Context) ([]*types.Model, error) { return s.models, nil }
+
 func (s *usageModelService) GetChatModel(_ context.Context, id string) (chat.Chat, error) {
 	s.selected = id
 	return s.chat, nil

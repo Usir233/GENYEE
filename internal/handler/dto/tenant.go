@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/types"
-	"gorm.io/gorm"
 )
 
 // TenantResponse is the viewer-safe tenant profile shape. Secret-bearing
@@ -30,7 +29,7 @@ type TenantResponse struct {
 	AssistantConfig     *types.AssistantConfig     `json:"assistant_config,omitempty"`
 	CreatedAt           time.Time                  `json:"created_at" extensions:"x-agent"`
 	UpdatedAt           time.Time                  `json:"updated_at" extensions:"x-agent"`
-	DeletedAt           gorm.DeletedAt             `json:"deleted_at"`
+	DeletedAt           *time.Time                 `json:"deleted_at"`
 }
 
 // NewTenantResponse converts a stored tenant into its HTTP response shape.
@@ -48,6 +47,11 @@ func newTenantResponse(tenant *types.Tenant, includeSecrets bool) *TenantRespons
 	if tenant == nil {
 		return nil
 	}
+	var deletedAt *time.Time
+	if tenant.DeletedAt.Valid {
+		t := tenant.DeletedAt.Time
+		deletedAt = &t
+	}
 	resp := &TenantResponse{
 		ID:                tenant.ID,
 		Name:              tenant.Name,
@@ -64,7 +68,7 @@ func newTenantResponse(tenant *types.Tenant, includeSecrets bool) *TenantRespons
 		AssistantConfig:   tenant.AssistantConfig,
 		CreatedAt:         tenant.CreatedAt,
 		UpdatedAt:         tenant.UpdatedAt,
-		DeletedAt:         tenant.DeletedAt,
+		DeletedAt:         deletedAt,
 	}
 	if includeSecrets {
 		resp.WebSearchConfig = types.WebSearchConfigForResponse(tenant.WebSearchConfig, true)

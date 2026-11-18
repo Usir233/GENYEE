@@ -53,7 +53,9 @@ func (s *invitedRegistrationInvitationService) LookupByToken(context.Context, st
 	return &types.TenantInvitation{TenantID: 42, Role: types.TenantRoleViewer}, nil
 }
 
-func (s *invitedRegistrationInvitationService) AcceptByToken(context.Context, string, string) (*types.TenantMember, error) {
+func (s *invitedRegistrationInvitationService) AcceptByToken(
+	context.Context, string, string,
+) (*types.TenantMember, error) {
 	if s.acceptErr != nil {
 		return nil, s.acceptErr
 	}

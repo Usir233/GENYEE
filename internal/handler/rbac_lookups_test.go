@@ -210,7 +210,7 @@ func newChunkLookupCtx(t *testing.T, tenantID uint64, knowledgeID string) *gin.C
 }
 
 // newWikiLookupCtx builds a gin.Context shaped like the
-// /knowledgebase/:kb_id/wiki/... routes.
+// /initialization/config/:kb_id routes.
 func newWikiLookupCtx(t *testing.T, tenantID uint64, kbID string) *gin.Context {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -321,44 +321,44 @@ func TestKBCreatorLookupFromKnowledgeIDParam_NotFoundMapsToSentinel(t *testing.T
 	}
 }
 
-func TestKBCreatorLookupFromKBPath_NotFoundMapsToSentinel(t *testing.T) {
+func TestKBCreatorLookupFromKbIDParam_NotFoundMapsToSentinel(t *testing.T) {
 	// Wiki lookup path goes straight to the KB service (no chain hop),
 	// so its translation behaviour mirrors KBCreatorLookup.
-	h := &WikiPageHandler{kbService: &stubKBService{
+	h := &KnowledgeBaseHandler{service: &stubKBService{
 		get: func(_ context.Context, _ string) (*types.KnowledgeBase, error) {
 			return nil, apprepo.ErrKnowledgeBaseNotFound
 		},
 	}}
-	_, err := h.KBCreatorLookupFromKBPath(newWikiLookupCtx(t, 1, "kb-1"))
+	_, err := h.KBCreatorLookupFromKbIDParam(newWikiLookupCtx(t, 1, "kb-1"))
 	if !errors.Is(err, middleware.ErrResourceNotFound) {
 		t.Fatalf("expected ErrResourceNotFound, got %v", err)
 	}
 }
 
-func TestKBCreatorLookupFromKBPath_CrossTenantIsHiddenAsNotFound(t *testing.T) {
+func TestKBCreatorLookupFromKbIDParam_CrossTenantIsHiddenAsNotFound(t *testing.T) {
 	// Same security boundary as KBCreatorLookup_CrossTenantIsHiddenAsNotFound.
 	// repo.GetKnowledgeBaseByID is unscoped, so the lookup MUST re-check
 	// TenantID; otherwise a probed cross-tenant kb_id whose CreatorID
 	// happens to match the caller's user id would slip past the
 	// ownership shortcut.
-	h := &WikiPageHandler{kbService: &stubKBService{
+	h := &KnowledgeBaseHandler{service: &stubKBService{
 		get: func(_ context.Context, _ string) (*types.KnowledgeBase, error) {
 			return &types.KnowledgeBase{ID: "kb-1", TenantID: 999, CreatorID: "u1"}, nil
 		},
 	}}
-	_, err := h.KBCreatorLookupFromKBPath(newWikiLookupCtx(t, 1, "kb-1"))
+	_, err := h.KBCreatorLookupFromKbIDParam(newWikiLookupCtx(t, 1, "kb-1"))
 	if !errors.Is(err, middleware.ErrResourceNotFound) {
 		t.Fatalf("cross-tenant KB must surface as not-found, got %v", err)
 	}
 }
 
-func TestKBCreatorLookupFromKBPath_OwnerMatchReturnsCreatorID(t *testing.T) {
-	h := &WikiPageHandler{kbService: &stubKBService{
+func TestKBCreatorLookupFromKbIDParam_OwnerMatchReturnsCreatorID(t *testing.T) {
+	h := &KnowledgeBaseHandler{service: &stubKBService{
 		get: func(_ context.Context, _ string) (*types.KnowledgeBase, error) {
 			return &types.KnowledgeBase{ID: "kb-1", TenantID: 1, CreatorID: "u-creator"}, nil
 		},
 	}}
-	creator, err := h.KBCreatorLookupFromKBPath(newWikiLookupCtx(t, 1, "kb-1"))
+	creator, err := h.KBCreatorLookupFromKbIDParam(newWikiLookupCtx(t, 1, "kb-1"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -9,27 +9,33 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/storageallowlist"
 	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// fakeStorageBackendRepo is a minimal StorageBackendRepository used to exercise
+// fakeStorageBackendSvc is a minimal StorageBackendRepository used to exercise
 // GetStorageEngineStatus' multi-instance awareness without a database.
-type fakeStorageBackendRepo struct{ backends []*types.StorageBackend }
+type fakeStorageBackendSvc struct {
+	interfaces.StorageBackendService
+	backends []*types.StorageBackend
+}
 
-func (f *fakeStorageBackendRepo) Create(context.Context, *types.StorageBackend) error {
+func (f *fakeStorageBackendSvc) Create(context.Context, *types.StorageBackend) error {
 	return nil
 }
-func (f *fakeStorageBackendRepo) GetByID(context.Context, uint64, string) (*types.StorageBackend, error) {
+
+func (f *fakeStorageBackendSvc) GetByID(context.Context, uint64, string) (*types.StorageBackend, error) {
 	return nil, nil
 }
-func (f *fakeStorageBackendRepo) List(context.Context, uint64) ([]*types.StorageBackend, error) {
+
+func (f *fakeStorageBackendSvc) List(context.Context, uint64) ([]*types.StorageBackend, error) {
 	return f.backends, nil
 }
-func (f *fakeStorageBackendRepo) Update(context.Context, *types.StorageBackend) error { return nil }
-func (f *fakeStorageBackendRepo) Delete(context.Context, uint64, string) error        { return nil }
-func (f *fakeStorageBackendRepo) FindLegacyAlias(context.Context, uint64, string) (*types.StorageBackend, error) {
+func (f *fakeStorageBackendSvc) Update(context.Context, *types.StorageBackend) error { return nil }
+func (f *fakeStorageBackendSvc) Delete(context.Context, uint64, string) error        { return nil }
+func (f *fakeStorageBackendSvc) FindLegacyAlias(context.Context, uint64, string) (*types.StorageBackend, error) {
 	return nil, nil
 }
 
@@ -123,7 +129,7 @@ func TestGetStorageEngineStatus_AvailableFromActiveBackend(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/system/storage-engine-status", nil)
 	c.Set(types.TenantInfoContextKey.String(), &types.Tenant{ID: 42})
 
-	h := &SystemHandler{storageBackendRepo: &fakeStorageBackendRepo{backends: []*types.StorageBackend{
+	h := &SystemHandler{storageBackendSvc: &fakeStorageBackendSvc{backends: []*types.StorageBackend{
 		{Provider: "cos", Status: types.StorageBackendStatusActive},
 		{Provider: "s3", Status: types.StorageBackendStatusDisabled},
 	}}}

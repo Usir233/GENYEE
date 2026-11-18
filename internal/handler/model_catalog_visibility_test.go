@@ -120,7 +120,7 @@ func TestListModelProvidersHidesDefaultURLsFromViewers(t *testing.T) {
 			providers := listProvidersAs(t, tc.role)
 			sawURL := false
 			for _, p := range providers {
-				if urls, ok := p["defaultUrls"].(map[string]any); ok && len(urls) > 0 {
+				if urls, ok := p["default_urls"].(map[string]any); ok && len(urls) > 0 {
 					sawURL = true
 				}
 				// The rest of the vendor definition is what the picker needs.
@@ -129,7 +129,7 @@ func TestListModelProvidersHidesDefaultURLsFromViewers(t *testing.T) {
 				}
 			}
 			if sawURL != tc.wantURL {
-				t.Errorf("defaultUrls present = %v, want %v", sawURL, tc.wantURL)
+				t.Errorf("default_urls present = %v, want %v", sawURL, tc.wantURL)
 			}
 		})
 	}
@@ -192,7 +192,7 @@ func TestResolveModelCatalogForwardsVendorExtraFields(t *testing.T) {
 
 // Omitting base_url makes the resolution fall back to the vendor default,
 // which a deployment overlay may have repointed at an internal gateway — so
-// the same gate that hides defaultUrls has to cover this response.
+// the same gate that hides default_urls has to cover this response.
 func TestResolveModelCatalogHidesEndpointFromViewers(t *testing.T) {
 	query := "provider=azure_openai&model=gpt-4o&base_url=https://acme.openai.azure.com&model_type=chat"
 

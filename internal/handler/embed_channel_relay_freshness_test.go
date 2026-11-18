@@ -72,7 +72,9 @@ func TestEmbedRelayWebhookEventRejectsStaleMessagesAndHonorsCreatedAtFallback(t 
 		},
 	}}
 	h := &EmbedChannelHandler{
-		sessionService: &stubSessionServiceForEmbed{sessions: map[string]*types.Session{testEmbedSessionID: validEmbedSession(ch)}},
+		sessionService: &stubSessionServiceForEmbed{
+			sessions: map[string]*types.Session{testEmbedSessionID: validEmbedSession(ch)},
+		},
 		messageHandler: &MessageHandler{MessageService: messages},
 	}
 	sig := service.SignEmbedSessionHandle(ch, testEmbedSessionID)
@@ -82,7 +84,9 @@ func TestEmbedRelayWebhookEventRejectsStaleMessagesAndHonorsCreatedAtFallback(t 
 		body, _ := json.Marshal(map[string]any{"type": eventType, "message_id": messageID})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/sessions/"+testEmbedSessionID+"/events", bytes.NewReader(body))
+		c.Request = httptest.NewRequest(
+			http.MethodPost, "/sessions/"+testEmbedSessionID+"/events", bytes.NewReader(body),
+		)
 		c.Request.Header.Set("Content-Type", "application/json")
 		c.Request.Header.Set("X-Embed-Session", sig)
 		c.Params = gin.Params{{Key: "session_id", Value: testEmbedSessionID}}

@@ -91,7 +91,7 @@ import (
 // Sub-resources must align with their parent
 // ------------------------------------------
 // Chunks/wiki pages/FAQ entries/tags inherit their parent KB's gate.
-// The KBCreatorLookupFromKnowledgeID / KBCreatorLookupFromKBPath /
+// The KBCreatorLookupFromKnowledgeID / KBCreatorLookup /
 // etc. lookups walk the URL param up to the KB and reuse its
 // creator_id. Don't add a new sub-resource with a freshly-invented
 // gate (a recurring source of "Contributor everywhere" drift).
@@ -119,8 +119,8 @@ type rbacGuards struct {
 	// to be exported into every Register* function as well.
 	kbCreator    middleware.CreatorLookup
 	agentCreator middleware.CreatorLookup
-	// kbCreatorFromKbIDParam reads :kbId (not :id) for the
-	// /initialization/* routes whose KB is addressed by :kbId.
+	// kbCreatorFromKbIDParam reads :kb_id (not :id) for the
+	// /initialization/* routes whose KB is addressed by :kb_id.
 	kbCreatorFromKbIDParam middleware.CreatorLookup
 	// Per-KB-ownership lookups for knowledge / chunk / wiki page routes
 	// (PR 5, #1303). They walk the URL param back to KB.CreatorID so a
@@ -130,7 +130,6 @@ type rbacGuards struct {
 	knowledgeKBCreator   middleware.CreatorLookup
 	chunkKBCreator       middleware.CreatorLookup
 	chunkKBCreatorFromID middleware.CreatorLookup // chunk routes that address chunks by :id (no knowledge id in URL)
-	wikiKBCreator        middleware.CreatorLookup
 
 	// Services for the KB-access guard (own / org-shared / via shared
 	// agent). Captured here so route lines can reference g.KBAccess()
@@ -179,9 +178,7 @@ func newRBACGuards(
 		g.chunkKBCreator = chunkHandler.KBCreatorLookupFromKnowledgeIDParam
 		g.chunkKBCreatorFromID = chunkHandler.KBCreatorLookupFromChunkIDParam
 	}
-	if wikiHandler != nil {
-		g.wikiKBCreator = wikiHandler.KBCreatorLookupFromKBPath
-	}
+	_ = wikiHandler
 	g.kbService = kbService
 	g.knowledgeService = knowledgeService
 	g.chunkService = chunkService
@@ -411,14 +408,9 @@ func (g *rbacGuards) apiKeyRoute(
 func (g *rbacGuards) assertAPIKeyPoliciesMatchRoutes(engine *gin.Engine) {
 	registered := map[string]struct{}{}
 	for _, ri := range engine.Routes() {
-		// Authorizer keys are stored normalized (trailing slash trimmed), so
-		// normalize gin's reported path the same way. Otherwise a route
-		// registered with a "/" rel (gin path ".../evaluation/") would look
-		// missing against the normalized key (".../evaluation") even though
-		// the gate — which also normalizes c.FullPath() — matches it fine.
-		p := ri.Path
-		if len(p) > 1 {
-			p = strings.TrimRight(p, "/")
+		p := strings.TrimSuffix(ri.Path, "/")
+		if p == "" {
+			p = "/"
 		}
 		registered[ri.Method+" "+p] = struct{}{}
 	}
@@ -451,7 +443,7 @@ func (g *rbacGuards) OwnedKBOrAdmin() gin.HandlerFunc {
 }
 
 // OwnedKBOrAdminFromKbIDParam is the same matrix as OwnedKBOrAdmin but
-// addresses the KB via :kbId (used by /initialization/* routes). KB
+// addresses the KB via :kb_id (used by /initialization/* routes). KB
 // configuration changes — picking the embedding/parser/storage
 // engine, materialising indexes — are at least as sensitive as
 // updating the KB itself, so they share the "creator OR Admin+" rule.
@@ -493,13 +485,6 @@ func (g *rbacGuards) OwnedChunkKBOrAdmin() gin.HandlerFunc {
 // wasn't wired; that's now plumbed through KBCreatorLookupFromChunkIDParam.
 func (g *rbacGuards) OwnedChunkKBOrAdminFromChunkID() gin.HandlerFunc {
 	return middleware.RequireOwnershipOrRole(types.TenantRoleAdmin, g.chunkKBCreatorFromID, g.cfg)
-}
-
-// OwnedWikiKBOrAdmin: wiki page CRUD and maintenance ops. Wiki routes
-// use :kb_id directly so the lookup is a single hop into the KB
-// service — no knowledge chain. Same matrix as OwnedKBOrAdmin.
-func (g *rbacGuards) OwnedWikiKBOrAdmin() gin.HandlerFunc {
-	return middleware.RequireOwnershipOrRole(types.TenantRoleAdmin, g.wikiKBCreator, g.cfg)
 }
 
 // Tenant-access guards. Distinct from the role guards above: these

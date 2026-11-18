@@ -25,7 +25,6 @@ import (
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
 // EmbedChannelHandler manages web embed channel CRUD and public embed endpoints.
@@ -40,6 +39,7 @@ type EmbedChannelHandler struct {
 	redis             *redis.Client
 }
 
+// NewEmbedChannelHandler provides HTTP handling for NewEmbedChannelHandler.
 func NewEmbedChannelHandler(
 	embedSvc interfaces.EmbedChannelService,
 	sessionService interfaces.SessionService,
@@ -119,16 +119,27 @@ func validateAllowedOrigins(origins []string) error {
 	return nil
 }
 
+// CreateEmbedChannel godoc
+// @Summary      创建网页嵌入渠道
+// @Tags         网页嵌入
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                  true  "Agent ID"
+// @Param        request  body      map[string]interface{}  true  "Embed channel config"
+// @Success      201      {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /agents/{id}/embed-channels [post]
 func (h *EmbedChannelHandler) CreateEmbedChannel(c *gin.Context) {
 	agentID := secutils.SanitizeForLog(c.Param("id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	var req embedChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := validateAllowedOrigins(req.AllowedOrigins); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	originsJSON, _ := json.Marshal(req.AllowedOrigins)
@@ -174,6 +185,15 @@ func (h *EmbedChannelHandler) CreateEmbedChannel(c *gin.Context) {
 	})
 }
 
+// ListEmbedChannels godoc
+// @Summary      获取智能体的网页嵌入渠道列表
+// @Tags         网页嵌入
+// @Produce      json
+// @Param        id   path      string  true  "Agent ID"
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /agents/{id}/embed-channels [get]
 func (h *EmbedChannelHandler) ListEmbedChannels(c *gin.Context) {
 	agentID := secutils.SanitizeForLog(c.Param("id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -187,6 +207,14 @@ func (h *EmbedChannelHandler) ListEmbedChannels(c *gin.Context) {
 
 // ListAllEmbedChannels lists every embed channel in the current tenant, across
 // agents, for sidebar session grouping. Publish tokens are never included.
+// ListAllEmbedChannels godoc
+// @Summary      获取空间下所有网页嵌入渠道
+// @Tags         网页嵌入
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels [get]
 func (h *EmbedChannelHandler) ListAllEmbedChannels(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	rows, err := h.embedSvc.ListByTenant(c.Request.Context(), tenantID)
@@ -205,25 +233,36 @@ func embedChannelsResponse(rows []*types.EmbedChannel) []gin.H {
 	return data
 }
 
+// UpdateEmbedChannel godoc
+// @Summary      更新网页嵌入渠道
+// @Tags         网页嵌入
+// @Accept       json
+// @Produce      json
+// @Param        channel_id  path      string                  true  "Embed channel ID"
+// @Param        request     body      map[string]interface{}  true  "Updated config"
+// @Success      200         {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels/{channel_id} [put]
 func (h *EmbedChannelHandler) UpdateEmbedChannel(c *gin.Context) {
 	channelID := secutils.SanitizeForLog(c.Param("channel_id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	var req embedChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	// Only validate when the caller intends to change the allowlist. A nil slice
 	// means "leave unchanged"; a present slice must still be a valid allowlist.
 	if req.AllowedOrigins != nil {
 		if err := validateAllowedOrigins(req.AllowedOrigins); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeStatusError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
 	if req.WebhookURL != nil {
 		if err := service.ValidateEmbedWebhookURL(*req.WebhookURL); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeStatusError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
@@ -247,7 +286,10 @@ func (h *EmbedChannelHandler) UpdateEmbedChannel(c *gin.Context) {
 	if req.AgentID != nil {
 		update.AgentID = strings.TrimSpace(*req.AgentID)
 	}
-	ch, err := h.embedSvc.Update(c.Request.Context(), tenantID, channelID, update, req.Enabled, req.ShowSuggestedQuestions, req.AllowWebSearch, req.AllowFileUpload, req.DefaultLocale, req.WebhookURL, req.WebhookSecret)
+	ch, err := h.embedSvc.Update(
+		c.Request.Context(), tenantID, channelID, update, req.Enabled, req.ShowSuggestedQuestions,
+		req.AllowWebSearch, req.AllowFileUpload, req.DefaultLocale, req.WebhookURL, req.WebhookSecret,
+	)
 	if err != nil {
 		writeEmbedMgmtError(c, err)
 		return
@@ -255,6 +297,15 @@ func (h *EmbedChannelHandler) UpdateEmbedChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": embedChannelResponse(ch, "")})
 }
 
+// DeleteEmbedChannel godoc
+// @Summary      删除网页嵌入渠道
+// @Tags         网页嵌入
+// @Produce      json
+// @Param        channel_id  path      string  true  "Embed channel ID"
+// @Success      200         {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels/{channel_id} [delete]
 func (h *EmbedChannelHandler) DeleteEmbedChannel(c *gin.Context) {
 	channelID := secutils.SanitizeForLog(c.Param("channel_id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -265,6 +316,15 @@ func (h *EmbedChannelHandler) DeleteEmbedChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
+// RotateEmbedToken godoc
+// @Summary      轮换网页嵌入渠道发布令牌
+// @Tags         网页嵌入
+// @Produce      json
+// @Param        channel_id  path      string  true  "Embed channel ID"
+// @Success      200         {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels/{channel_id}/rotate-token [post]
 func (h *EmbedChannelHandler) RotateEmbedToken(c *gin.Context) {
 	channelID := secutils.SanitizeForLog(c.Param("channel_id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -276,13 +336,22 @@ func (h *EmbedChannelHandler) RotateEmbedToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": embedChannelResponse(ch, token)})
 }
 
+// IssuePreviewSession godoc
+// @Summary      签发网页嵌入预览会话令牌
+// @Tags         网页嵌入
+// @Produce      json
+// @Param        channel_id  path      string  true  "Embed channel ID"
+// @Success      200         {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels/{channel_id}/preview-session [post]
 func (h *EmbedChannelHandler) IssuePreviewSession(c *gin.Context) {
 	channelID := secutils.SanitizeForLog(c.Param("channel_id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	sessionToken, expiresIn, err := h.embedSvc.IssuePreviewSession(c.Request.Context(), tenantID, channelID)
 	if err != nil {
 		if errors.Is(err, service.ErrEmbedChannelDisabled) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "embed channel is disabled"})
+			writeStatusError(c, http.StatusForbidden, "embed channel is disabled")
 			return
 		}
 		writeEmbedMgmtError(c, err)
@@ -297,11 +366,12 @@ func (h *EmbedChannelHandler) IssuePreviewSession(c *gin.Context) {
 	})
 }
 
+// ExchangeEmbedSession provides HTTP handling for ExchangeEmbedSession.
 func (h *EmbedChannelHandler) ExchangeEmbedSession(c *gin.Context) {
 	ctx := c.Request.Context()
 	ch, ok := middleware.EmbedChannelFromContext(ctx)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	// Only the long-lived publish token may mint session tokens. Accepting a
@@ -309,17 +379,17 @@ func (h *EmbedChannelHandler) ExchangeEmbedSession(c *gin.Context) {
 	// re-presenting the publish token.
 	if auth := strings.TrimSpace(c.GetHeader("Authorization")); !strings.HasPrefix(auth, "Embed ") ||
 		service.IsEmbedSessionToken(strings.TrimPrefix(auth, "Embed ")) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "publish token required"})
+		writeStatusError(c, http.StatusForbidden, "publish token required")
 		return
 	}
 	sessionToken, expiresIn, err := h.embedSvc.IssueSessionToken(ctx, ch.ID)
 	if err != nil {
 		if errors.Is(err, service.ErrEmbedSessionUnavailable) {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "session tokens unavailable"})
+			writeStatusError(c, http.StatusServiceUnavailable, "session tokens unavailable")
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue session token"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to issue session token")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -331,46 +401,49 @@ func (h *EmbedChannelHandler) ExchangeEmbedSession(c *gin.Context) {
 	})
 }
 
+// GetEmbedConfig provides HTTP handling for GetEmbedConfig.
 func (h *EmbedChannelHandler) GetEmbedConfig(c *gin.Context) {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": h.embedSvc.PublicConfig(c.Request.Context(), ch)})
 }
 
+// GetEmbedChunk provides HTTP handling for GetEmbedChunk.
 func (h *EmbedChannelHandler) GetEmbedChunk(c *gin.Context) {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	chunkID := secutils.SanitizeForLog(c.Param("chunk_id"))
 	if chunkID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "chunk_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "chunk_id is required")
 		return
 	}
 	chunk, err := h.embedSvc.EmbedChunk(c.Request.Context(), ch, chunkID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrEmbedChunkForbidden):
-			c.JSON(http.StatusForbidden, gin.H{"error": "chunk not accessible"})
+			writeStatusError(c, http.StatusForbidden, "chunk not accessible")
 		case errors.Is(err, service.ErrEmbedChunkNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": "chunk not found"})
+			writeStatusError(c, http.StatusNotFound, "chunk not found")
 		default:
 			logger.Error(c.Request.Context(), "embed chunk lookup failed", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load chunk"})
+			writeStatusError(c, http.StatusInternalServerError, "failed to load chunk")
 		}
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": chunk})
 }
 
+// GetEmbedSuggestedQuestions provides HTTP handling for GetEmbedSuggestedQuestions.
 func (h *EmbedChannelHandler) GetEmbedSuggestedQuestions(c *gin.Context) {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if !ch.ShowSuggestedQuestions {
@@ -391,7 +464,7 @@ func (h *EmbedChannelHandler) GetEmbedSuggestedQuestions(c *gin.Context) {
 	questions, err := h.embedSvc.SuggestedQuestions(c.Request.Context(), ch, limit)
 	if err != nil {
 		logger.Error(c.Request.Context(), "embed suggested questions failed", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load suggested questions"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to load suggested questions")
 		return
 	}
 	if questions == nil {
@@ -400,17 +473,19 @@ func (h *EmbedChannelHandler) GetEmbedSuggestedQuestions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"questions": questions}})
 }
 
+// CreateEmbedSession provides HTTP handling for CreateEmbedSession.
 func (h *EmbedChannelHandler) CreateEmbedSession(c *gin.Context) {
 	if len(secutils.SystemHMACKey()) == 0 {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error": "embed session signing key is not configured: set SYSTEM_SIGNING_KEY on the server",
-		})
+		writeStatusError(
+			c, http.StatusServiceUnavailable,
+			"embed session signing key is not configured: set SYSTEM_SIGNING_KEY on the server",
+		)
 		return
 	}
 	ctx := c.Request.Context()
 	ch, ok := middleware.EmbedChannelFromContext(ctx)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -425,7 +500,7 @@ func (h *EmbedChannelHandler) CreateEmbedSession(c *gin.Context) {
 	created, err := h.sessionService.CreateSession(ctx, createdSession)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to create session")
 		return
 	}
 	ownerID := types.EmbedSessionPrincipal(tenantID, ch.ID, created.ID).StorageID()
@@ -441,14 +516,17 @@ func (h *EmbedChannelHandler) CreateEmbedSession(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"success": true, "data": gin.H{"id": created.ID, "sig": sig}})
 }
 
+// EmbedKnowledgeChat provides HTTP handling for EmbedKnowledgeChat.
 func (h *EmbedChannelHandler) EmbedKnowledgeChat(c *gin.Context) {
 	h.delegateEmbedChat(c, false)
 }
 
+// EmbedAgentChat provides HTTP handling for EmbedAgentChat.
 func (h *EmbedChannelHandler) EmbedAgentChat(c *gin.Context) {
 	h.delegateEmbedChat(c, true)
 }
 
+// EmbedLoadMessages provides HTTP handling for EmbedLoadMessages.
 func (h *EmbedChannelHandler) EmbedLoadMessages(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
@@ -456,6 +534,7 @@ func (h *EmbedChannelHandler) EmbedLoadMessages(c *gin.Context) {
 	h.messageHandler.LoadMessages(c)
 }
 
+// EmbedStopSession provides HTTP handling for EmbedStopSession.
 func (h *EmbedChannelHandler) EmbedStopSession(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
@@ -463,6 +542,7 @@ func (h *EmbedChannelHandler) EmbedStopSession(c *gin.Context) {
 	h.sessionHandler.StopSession(c)
 }
 
+// EmbedEnsureMessageSuggestions provides HTTP handling for EmbedEnsureMessageSuggestions.
 func (h *EmbedChannelHandler) EmbedEnsureMessageSuggestions(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
@@ -477,6 +557,7 @@ func (h *EmbedChannelHandler) EmbedEnsureMessageSuggestions(c *gin.Context) {
 	h.suggestionHandler.Ensure(c)
 }
 
+// EmbedGetMessageSuggestions provides HTTP handling for EmbedGetMessageSuggestions.
 func (h *EmbedChannelHandler) EmbedGetMessageSuggestions(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
@@ -491,34 +572,37 @@ func (h *EmbedChannelHandler) EmbedGetMessageSuggestions(c *gin.Context) {
 	h.suggestionHandler.Get(c)
 }
 
+// EmbedRecordSuggestionEvent provides HTTP handling for EmbedRecordSuggestionEvent.
 func (h *EmbedChannelHandler) EmbedRecordSuggestionEvent(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
 	if h.suggestionHandler == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "suggestion service unavailable"})
+		writeStatusError(c, http.StatusServiceUnavailable, "suggestion service unavailable")
 		return
 	}
 	h.suggestionHandler.RecordEvent(c)
 }
 
+// EmbedResolveMCPOAuth provides HTTP handling for EmbedResolveMCPOAuth.
 func (h *EmbedChannelHandler) EmbedResolveMCPOAuth(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
 	if h.mcpOAuthHandler == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "oauth handler unavailable"})
+		writeStatusError(c, http.StatusInternalServerError, "oauth handler unavailable")
 		return
 	}
 	h.mcpOAuthHandler.ResolveMCPOAuth(c)
 }
 
+// EmbedCancelMCPOAuth provides HTTP handling for EmbedCancelMCPOAuth.
 func (h *EmbedChannelHandler) EmbedCancelMCPOAuth(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
 	if h.mcpOAuthHandler == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "oauth handler unavailable"})
+		writeStatusError(c, http.StatusInternalServerError, "oauth handler unavailable")
 		return
 	}
 	h.mcpOAuthHandler.CancelMCPOAuth(c)
@@ -529,13 +613,14 @@ type embedMCPOAuthAuthorizeBody struct {
 	FrontendRedirect string `json:"frontend_redirect"`
 }
 
+// EmbedMCPOAuthAuthorizeURL provides HTTP handling for EmbedMCPOAuthAuthorizeURL.
 func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
 	limitJSONBody(c, 16<<10)
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
 	if h.mcpOAuthHandler == nil || h.mcpOAuthHandler.svc == nil || h.mcpOAuthHandler.oauth == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "oauth handler unavailable"})
+		writeStatusError(c, http.StatusInternalServerError, "oauth handler unavailable")
 		return
 	}
 	ctx := c.Request.Context()
@@ -543,7 +628,7 @@ func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	principal, _ := mcpOAuthPrincipalsFromContext(c)
 	if tenantID == 0 || !principal.Valid() {
-		c.Error(apperrors.NewUnauthorizedError("authentication required"))
+		_ = c.Error(apperrors.NewUnauthorizedError("authentication required"))
 		return
 	}
 	var req embedMCPOAuthAuthorizeBody
@@ -551,15 +636,15 @@ func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
 		raw, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			if isRequestBodyTooLarge(err) {
-				c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+				writeStatusError(c, http.StatusRequestEntityTooLarge, "request body is too large")
 				return
 			}
-			c.Error(apperrors.NewBadRequestError("invalid request body"))
+			_ = c.Error(apperrors.NewBadRequestError("invalid request body"))
 			return
 		}
 		if len(bytes.TrimSpace(raw)) > 0 {
 			if err := json.Unmarshal(raw, &req); err != nil {
-				c.Error(apperrors.NewBadRequestError("invalid json"))
+				_ = c.Error(apperrors.NewBadRequestError("invalid json"))
 				return
 			}
 		}
@@ -572,11 +657,11 @@ func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
 	}
 	mcpSvc, err := h.mcpOAuthHandler.svc.GetMCPServiceByID(ctx, tenantID, serviceID)
 	if err != nil || mcpSvc == nil {
-		c.Error(apperrors.NewNotFoundError("MCP service not found"))
+		_ = c.Error(apperrors.NewNotFoundError("MCP service not found"))
 		return
 	}
 	if !mcpSvc.AuthConfig.IsOAuth() {
-		c.Error(apperrors.NewValidationError("MCP service is not configured to use OAuth"))
+		_ = c.Error(apperrors.NewValidationError("MCP service is not configured to use OAuth"))
 		return
 	}
 	authURL, attemptID, err := h.mcpOAuthHandler.oauth.StartAuthorization(
@@ -586,7 +671,7 @@ func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"service_id": secutils.SanitizeForLog(serviceID),
 		})
-		c.Error(apperrors.NewInternalServerError("failed to start authorization"))
+		_ = c.Error(apperrors.NewInternalServerError("failed to start authorization"))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
@@ -595,23 +680,25 @@ func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
 	}})
 }
 
+// EmbedMCPOAuthStatus provides HTTP handling for EmbedMCPOAuthStatus.
 func (h *EmbedChannelHandler) EmbedMCPOAuthStatus(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
 	if h.mcpOAuthHandler == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "oauth handler unavailable"})
+		writeStatusError(c, http.StatusInternalServerError, "oauth handler unavailable")
 		return
 	}
 	h.mcpOAuthHandler.Status(c)
 }
 
+// EmbedResolveToolApproval provides HTTP handling for EmbedResolveToolApproval.
 func (h *EmbedChannelHandler) EmbedResolveToolApproval(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
 	if h.mcpServiceHandler == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "tool approval handler unavailable"})
+		writeStatusError(c, http.StatusInternalServerError, "tool approval handler unavailable")
 		return
 	}
 	h.mcpServiceHandler.ResolveToolApproval(c)
@@ -623,7 +710,7 @@ func (h *EmbedChannelHandler) EmbedResolveAgentPrompt(c *gin.Context) {
 		return
 	}
 	if h.mcpServiceHandler == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "agent prompt handler unavailable"})
+		writeStatusError(c, http.StatusInternalServerError, "agent prompt handler unavailable")
 		return
 	}
 	h.mcpServiceHandler.ResolveAgentPrompt(c)
@@ -686,7 +773,7 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 	limitJSONBody(c, 16<<10)
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if err := h.ensureEmbedSession(c); err != nil {
@@ -696,42 +783,42 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 	var req embedWebhookEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		if isRequestBodyTooLarge(err) {
-			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+			writeStatusError(c, http.StatusRequestEntityTooLarge, "request body is too large")
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		writeStatusError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	// Never allow the request body to override the authenticated path session_id.
 	if bodySessionID := strings.TrimSpace(req.SessionID); bodySessionID != "" && bodySessionID != pathSessionID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "session_id mismatch"})
+		writeStatusError(c, http.StatusForbidden, "session_id mismatch")
 		return
 	}
 	eventType := strings.TrimSpace(req.Type)
 	switch eventType {
 	case "message_sent", "message_received":
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported event type"})
+		writeStatusError(c, http.StatusBadRequest, "unsupported event type")
 		return
 	}
 	if h.messageHandler == nil || h.messageHandler.MessageService == nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "unverified client webhook relay is disabled"})
+		writeStatusError(c, http.StatusForbidden, "unverified client webhook relay is disabled")
 		return
 	}
 	messageID := strings.TrimSpace(req.MessageID)
 	if messageID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "message_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "message_id is required")
 		return
 	}
 	// Resolve an exact persisted row, never client-supplied text. Identical
 	// questions are separate turns, and stored queries can include host context.
 	message, err := h.messageHandler.MessageService.GetMessage(c.Request.Context(), pathSessionID, messageID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "webhook event does not match a persisted session message"})
+		if isRecordNotFound(err) {
+			writeStatusError(c, http.StatusForbidden, "webhook event does not match a persisted session message")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify session messages"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to verify session messages")
 		return
 	}
 	role, contentKey := "user", "query"
@@ -741,7 +828,7 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 	if message == nil || message.ID != messageID || message.SessionID != pathSessionID ||
 		message.Role != role || !message.IsCompleted || message.RunState == types.MessageRunStateAwaitingInput ||
 		strings.TrimSpace(message.Content) == "" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "webhook event does not match a persisted session message"})
+		writeStatusError(c, http.StatusForbidden, "webhook event does not match a persisted session message")
 		return
 	}
 	now := time.Now()
@@ -750,7 +837,7 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 		msgTime = message.CreatedAt
 	}
 	if !msgTime.IsZero() && now.Sub(msgTime) > embedRelayedEventTTL {
-		c.JSON(http.StatusForbidden, gin.H{"error": "webhook event message expired"})
+		writeStatusError(c, http.StatusForbidden, "webhook event message expired")
 		return
 	}
 	payload := map[string]any{"message_id": message.ID, contentKey: message.Content}
@@ -766,7 +853,7 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 func (h *EmbedChannelHandler) delegateEmbedChat(c *gin.Context, agentMode bool) {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	patched, ok := h.readEmbedChatPayload(c, ch, agentMode)
@@ -802,13 +889,13 @@ func (h *EmbedChannelHandler) readEmbedChatPayload(
 	if err != nil {
 		switch {
 		case isRequestBodyTooLarge(err):
-			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+			writeStatusError(c, http.StatusRequestEntityTooLarge, "request body is too large")
 		case errors.Is(err, errInvalidEmbedChatBody):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			writeStatusError(c, http.StatusBadRequest, "invalid request body")
 		case errors.Is(err, errInvalidEmbedChatJSON):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+			writeStatusError(c, http.StatusBadRequest, "invalid json")
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to prepare request"})
+			writeStatusError(c, http.StatusInternalServerError, "failed to prepare request")
 		}
 		return nil, false
 	}
@@ -818,22 +905,22 @@ func (h *EmbedChannelHandler) readEmbedChatPayload(
 func (h *EmbedChannelHandler) ensureEmbedSession(c *gin.Context) error {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return apperrors.NewUnauthorizedError("unauthorized")
 	}
 	sessionID := secutils.SanitizeForLog(c.Param("session_id"))
 	if sessionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "session_id is required")
 		return apperrors.NewBadRequestError("session_id is required")
 	}
 	sess, err := h.sessionService.GetSessionByID(c.Request.Context(), ch.TenantID, sessionID)
 	if err != nil || sess == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		writeStatusError(c, http.StatusNotFound, "session not found")
 		return apperrors.NewNotFoundError("session not found")
 	}
 	marker := service.EmbedSessionDescription(ch.ID)
 	if sess.TenantID != ch.TenantID || sess.Description != marker {
-		c.JSON(http.StatusForbidden, gin.H{"error": "session not allowed for this embed channel"})
+		writeStatusError(c, http.StatusForbidden, "session not allowed for this embed channel")
 		return apperrors.NewForbiddenError("session not allowed")
 	}
 	ownerID := types.EmbedSessionPrincipal(ch.TenantID, ch.ID, sessionID).StorageID()
@@ -847,14 +934,14 @@ func (h *EmbedChannelHandler) ensureEmbedSession(c *gin.Context) error {
 	// access log) is insufficient without the matching signature.
 	sig := c.GetHeader("X-Embed-Session")
 	if !service.VerifyEmbedSessionHandle(ch, sessionID, sig) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "session signature invalid"})
+		writeStatusError(c, http.StatusForbidden, "session signature invalid")
 		return apperrors.NewForbiddenError("session signature invalid")
 	}
 	principal := types.EmbedSessionPrincipal(ch.TenantID, ch.ID, sessionID)
 	ctx := c.Request.Context()
 	if visitorID := strings.TrimSpace(c.GetHeader(types.EmbedVisitorHeader)); visitorID != "" {
 		if err := types.ValidateEmbedVisitorID(visitorID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid embed visitor id"})
+			writeStatusError(c, http.StatusBadRequest, "invalid embed visitor id")
 			return apperrors.NewBadRequestError("invalid embed visitor id")
 		}
 		ctx = types.WithEmbedVisitorID(ctx, visitorID)
@@ -942,6 +1029,15 @@ func patchEmbedChatPayload(body io.Reader, ch *types.EmbedChannel, agentMode boo
 
 // GetEmbedChannel returns a single embed channel for management, including the
 // publish token so admins can copy deploy snippets at any time.
+// GetEmbedChannel godoc
+// @Summary      获取网页嵌入渠道详情
+// @Tags         网页嵌入
+// @Produce      json
+// @Param        channel_id  path      string  true  "Embed channel ID"
+// @Success      200         {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels/{channel_id} [get]
 func (h *EmbedChannelHandler) GetEmbedChannel(c *gin.Context) {
 	channelID := strings.TrimSpace(c.Param("channel_id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -957,6 +1053,15 @@ func (h *EmbedChannelHandler) GetEmbedChannel(c *gin.Context) {
 }
 
 // GetEmbedChannelStats returns lightweight usage stats for an embed channel.
+// GetEmbedChannelStats godoc
+// @Summary      获取网页嵌入渠道统计信息
+// @Tags         网页嵌入
+// @Produce      json
+// @Param        channel_id  path      string  true  "Embed channel ID"
+// @Success      200         {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /embed-channels/{channel_id}/stats [get]
 func (h *EmbedChannelHandler) GetEmbedChannelStats(c *gin.Context) {
 	channelID := strings.TrimSpace(c.Param("channel_id"))
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -975,7 +1080,7 @@ func (h *EmbedChannelHandler) GetEmbedChannelStats(c *gin.Context) {
 	})
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load channel stats"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to load channel stats")
 		return
 	}
 	total := result
@@ -1020,16 +1125,16 @@ func embedChannelResponse(ch *types.EmbedChannel, publishToken string) gin.H {
 func writeEmbedMgmtError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, service.ErrEmbedChannelNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "embed channel not found"})
+		writeStatusError(c, http.StatusNotFound, "embed channel not found")
 	case errors.Is(err, service.ErrEmbedWebhookURLInvalid):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 	default:
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) && appErr.Code == apperrors.ErrNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": appErr.Message})
+			writeStatusError(c, http.StatusNotFound, appErr.Message)
 			return
 		}
 		logger.Error(c.Request.Context(), "embed channel management failed", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "operation failed"})
+		writeStatusError(c, http.StatusInternalServerError, "operation failed")
 	}
 }

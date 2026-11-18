@@ -26,18 +26,28 @@ func isUploadTooLarge(err error) bool {
 
 // UploadTemporaryDocument accepts one multipart file and immediately returns
 // a session-scoped document ID. Parsing continues in the document worker.
+// UploadTemporaryDocument godoc
+// @Summary      上传会话临时附件
+// @Tags         会话
+// @Accept       mpfd
+// @Produce      json
+// @Param        id    path      string  true  "会话 ID"
+// @Success      201   {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/attachments [post]
 func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 	if h.temporaryDocuments == nil {
 		_ = c.Error(apperrors.NewServiceUnavailableError("temporary document storage is unavailable"))
 		return
 	}
-	sessionID := c.Param("session_id")
+	sessionID := sessionIDParam(c)
 	// Uploading attaches content to the session, so use the strict owner scope:
 	// a tenant admin may read an API-key session but must not add attachments.
 	session, err := h.sessionService.GetOwnedSession(ctx, sessionID)
 	if err != nil || session == nil {
-		c.Error(apperrors.NewNotFoundError("Session not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
 	sessionTenantID := sessionTenantOrContext(c, session)
@@ -54,24 +64,24 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 				"attachment exceeds the %d MB upload limit", secutils.GetMaxFileSizeMB())))
 			return
 		}
-		c.Error(apperrors.NewBadRequestError(fmt.Sprintf("invalid attachment upload: %v", err)))
+		_ = c.Error(apperrors.NewBadRequestError(fmt.Sprintf("invalid attachment upload: %v", err)))
 		return
 	}
 	file, err := fileHeader.Open()
 	if err != nil {
-		c.Error(apperrors.NewBadRequestError("failed to open attachment"))
+		_ = c.Error(apperrors.NewBadRequestError("failed to open attachment"))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	sourceTenantID, parseErr := types.ParseAgentSourceTenantID(c.PostForm(types.AgentSourceTenantIDParam))
 	if parseErr != nil {
-		c.Error(apperrors.NewBadRequestError(parseErr.Error()))
+		_ = c.Error(apperrors.NewBadRequestError(parseErr.Error()))
 		return
 	}
 	agent, resourceTenantID, _ := h.resolveAgent(ctx, c, c.PostForm("agent_id"), sourceTenantID)
 	if sourceTenantID != 0 && agent == nil {
-		c.Error(apperrors.NewNotFoundError("Shared agent not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Shared agent not found"))
 		return
 	}
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(fileHeader.Filename)), ".")
@@ -85,12 +95,12 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 			options.ParserEngine = ""
 		}
 		if len(agent.Config.SupportedFileTypes) > 0 && !containsFileType(agent.Config.SupportedFileTypes, ext) {
-			c.Error(apperrors.NewBadRequestError("file type is not supported by this agent"))
+			_ = c.Error(apperrors.NewBadRequestError("file type is not supported by this agent"))
 			return
 		}
 		if isAudioExtension(ext) {
 			if !agent.Config.AudioUploadEnabled || agent.Config.ASRModelID == "" {
-				c.Error(apperrors.NewBadRequestError("audio upload is not enabled or no ASR model is configured"))
+				_ = c.Error(apperrors.NewBadRequestError("audio upload is not enabled or no ASR model is configured"))
 				return
 			}
 			options.ASRModelID = agent.Config.ASRModelID
@@ -117,12 +127,21 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 		fileHeader.Filename, fileHeader.Header.Get("Content-Type"), fileHeader.Size, file, options,
 	)
 	if err != nil {
-		c.Error(apperrors.NewBadRequestError(err.Error()))
+		_ = c.Error(apperrors.NewBadRequestError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"success": true, "data": document.ForClient()})
 }
 
+// ListTemporaryDocuments godoc
+// @Summary      获取会话临时附件列表
+// @Tags         会话
+// @Produce      json
+// @Param        id   path      string  true  "会话 ID"
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/attachments [get]
 func (h *Handler) ListTemporaryDocuments(c *gin.Context) {
 	ctx := c.Request.Context()
 	if h.temporaryDocuments == nil {
@@ -132,13 +151,13 @@ func (h *Handler) ListTemporaryDocuments(c *gin.Context) {
 	sessionID := sessionIDParam(c)
 	session, err := h.sessionService.GetSession(ctx, sessionID)
 	if err != nil || session == nil {
-		c.Error(apperrors.NewNotFoundError("Session not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
 	documents, err := h.temporaryDocuments.List(ctx, sessionTenantOrContext(c, session), sessionID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError("Failed to list attachments"))
+		_ = c.Error(apperrors.NewInternalServerError("Failed to list attachments"))
 		return
 	}
 	for i := range documents {
@@ -147,6 +166,16 @@ func (h *Handler) ListTemporaryDocuments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": documents})
 }
 
+// GetTemporaryDocument godoc
+// @Summary      获取会话临时附件详情
+// @Tags         会话
+// @Produce      json
+// @Param        id             path      string  true  "会话 ID"
+// @Param        attachment_id  path      string  true  "附件 ID"
+// @Success      200            {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/attachments/{attachment_id} [get]
 func (h *Handler) GetTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 	if h.temporaryDocuments == nil {
@@ -156,22 +185,34 @@ func (h *Handler) GetTemporaryDocument(c *gin.Context) {
 	sessionID := sessionIDParam(c)
 	session, err := h.sessionService.GetSession(ctx, sessionID)
 	if err != nil || session == nil {
-		c.Error(apperrors.NewNotFoundError("Session not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
-	document, err := h.temporaryDocuments.Get(ctx, sessionTenantOrContext(c, session), sessionID, c.Param("attachment_id"))
+	document, err := h.temporaryDocuments.Get(
+		ctx, sessionTenantOrContext(c, session), sessionID, c.Param("attachment_id"),
+	)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
+		_ = c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
 		return
 	}
 	if document == nil {
-		c.Error(apperrors.NewNotFoundError("Attachment not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Attachment not found"))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": document.ForClient()})
 }
 
+// PreviewTemporaryDocument godoc
+// @Summary      预览会话临时附件内容
+// @Tags         会话
+// @Produce      octet-stream
+// @Param        id             path      string  true  "会话 ID"
+// @Param        attachment_id  path      string  true  "附件 ID"
+// @Success      200            {string}  string
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/attachments/{attachment_id}/preview [get]
 func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 	if h.temporaryDocuments == nil {
@@ -181,12 +222,12 @@ func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 	sessionID := sessionIDParam(c)
 	session, err := h.sessionService.GetSession(ctx, sessionID)
 	if err != nil || session == nil {
-		c.Error(apperrors.NewNotFoundError("Session not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
 	attachmentID := secutils.SanitizeForLog(c.Param("attachment_id"))
 	if attachmentID == "" {
-		c.Error(apperrors.NewBadRequestError("Attachment ID cannot be empty"))
+		_ = c.Error(apperrors.NewBadRequestError("Attachment ID cannot be empty"))
 		return
 	}
 	file, filename, err := h.temporaryDocuments.OpenFile(
@@ -194,11 +235,11 @@ func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 	)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			c.Error(apperrors.NewNotFoundError("Attachment not found"))
+			_ = c.Error(apperrors.NewNotFoundError("Attachment not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
+		_ = c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
 		return
 	}
 	if err := filetransport.Serve(c.Writer, c.Request, file, filetransport.Options{
@@ -208,6 +249,16 @@ func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 	}
 }
 
+// DeleteTemporaryDocument godoc
+// @Summary      删除会话临时附件
+// @Tags         会话
+// @Produce      json
+// @Param        id             path      string  true  "会话 ID"
+// @Param        attachment_id  path      string  true  "附件 ID"
+// @Success      200            {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/attachments/{attachment_id} [delete]
 func (h *Handler) DeleteTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
 	if h.temporaryDocuments == nil {
@@ -219,12 +270,14 @@ func (h *Handler) DeleteTemporaryDocument(c *gin.Context) {
 	// a tenant admin may read an API-key session but must not remove attachments.
 	session, err := h.sessionService.GetOwnedSession(ctx, sessionID)
 	if err != nil || session == nil {
-		c.Error(apperrors.NewNotFoundError("Session not found"))
+		_ = c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
-	if err := h.temporaryDocuments.Delete(ctx, sessionTenantOrContext(c, session), sessionID, c.Param("attachment_id")); err != nil {
+	if err := h.temporaryDocuments.Delete(
+		ctx, sessionTenantOrContext(c, session), sessionID, c.Param("attachment_id"),
+	); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError("Failed to delete attachment"))
+		_ = c.Error(apperrors.NewInternalServerError("Failed to delete attachment"))
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -236,13 +289,6 @@ func sessionTenantOrContext(c *gin.Context, session *types.Session) uint64 {
 	}
 	tid, _ := tenantIDFromGinOrContext(c)
 	return tid
-}
-
-func sessionIDParam(c *gin.Context) string {
-	if value := c.Param("session_id"); value != "" {
-		return value
-	}
-	return c.Param("id")
 }
 
 func containsFileType(supported []string, ext string) bool {

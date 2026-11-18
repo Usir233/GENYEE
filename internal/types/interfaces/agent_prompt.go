@@ -28,6 +28,11 @@ type AgentPromptRepository interface {
 	ListBySession(ctx context.Context, sessionID string, statuses []string) ([]*types.AgentPrompt, error)
 }
 
+// AgentPromptService exposes session human-in-the-loop prompt history reads to HTTP handlers.
+type AgentPromptService interface {
+	ListBySession(ctx context.Context, sessionID string, statuses []string) ([]*types.AgentPrompt, error)
+}
+
 // AgentRunSuspensionRepository persists the state of runs blocked on a
 // prompt, one row per assistant message.
 type AgentRunSuspensionRepository interface {

@@ -11,7 +11,6 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // validIMPlatforms is the set of supported IM platforms.
@@ -55,16 +54,27 @@ func imTenantIDFromContext(c *gin.Context) (uint64, bool) {
 // ── Channel CRUD handlers ──
 
 // CreateIMChannel creates a new IM channel for an agent.
+// CreateIMChannel godoc
+// @Summary      创建 IM 渠道
+// @Tags         IM 渠道
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                  true  "Agent ID"
+// @Param        request  body      map[string]interface{}  true  "IM channel config"
+// @Success      201      {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /agents/{id}/im-channels [post]
 func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 	agentID := c.Param("id")
 	if agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "agent_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "agent_id is required")
 		return
 	}
 
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
@@ -80,17 +90,17 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 		Enabled         *bool      `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if !validIMPlatforms[req.Platform] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": invalidIMPlatformError})
+		writeStatusError(c, http.StatusBadRequest, invalidIMPlatformError)
 		return
 	}
 	locale, err := normalizeIMLocale(req.Locale)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -109,11 +119,11 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 	// The route guard passes an agent it cannot find in this workspace; both
 	// the agent and the file-saving KB must belong to the channel's workspace.
 	if err := h.imService.SetChannelAgentID(c.Request.Context(), channel, agentID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "agent not found"})
+		writeStatusError(c, http.StatusBadRequest, "agent not found")
 		return
 	}
 	if err := h.imService.SetChannelKnowledgeBaseID(c.Request.Context(), channel, req.KnowledgeBaseID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "knowledge base not found"})
+		writeStatusError(c, http.StatusBadRequest, "knowledge base not found")
 		return
 	}
 	if req.Enabled != nil {
@@ -142,10 +152,10 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 	if err := h.imService.CreateChannel(channel); err != nil {
 		logger.Errorf(c.Request.Context(), "[IM] Create channel failed: %v", err)
 		if strings.HasPrefix(err.Error(), "duplicate_bot:") {
-			c.JSON(http.StatusConflict, gin.H{"error": strings.TrimPrefix(err.Error(), "duplicate_bot: ")})
+			writeStatusError(c, http.StatusConflict, strings.TrimPrefix(err.Error(), "duplicate_bot: "))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create channel"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to create channel")
 		return
 	}
 
@@ -153,22 +163,31 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 }
 
 // ListIMChannels lists all IM channels for an agent.
+// ListIMChannels godoc
+// @Summary      获取智能体的 IM 渠道列表
+// @Tags         IM 渠道
+// @Produce      json
+// @Param        id   path      string  true  "Agent ID"
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /agents/{id}/im-channels [get]
 func (h *IMHandler) ListIMChannels(c *gin.Context) {
 	agentID := c.Param("id")
 	if agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "agent_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "agent_id is required")
 		return
 	}
 
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	channels, err := h.imService.ListChannelsByAgent(agentID, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list channels"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to list channels")
 		return
 	}
 
@@ -181,13 +200,13 @@ func (h *IMHandler) ListIMChannels(c *gin.Context) {
 func (h *IMHandler) ListAllIMChannels(c *gin.Context) {
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	channels, err := h.imService.ListChannelsByTenant(c.Request.Context(), tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list channels"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to list channels")
 		return
 	}
 
@@ -213,19 +232,19 @@ func (h *IMHandler) ListAllIMChannels(c *gin.Context) {
 func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 	channelID := c.Param("id")
 	if channelID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "channel id is required"})
+		writeStatusError(c, http.StatusBadRequest, "channel id is required")
 		return
 	}
 
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	channel, err := h.imService.GetChannelByIDAndTenant(channelID, tenantID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "channel not found"})
+		writeStatusError(c, http.StatusNotFound, "channel not found")
 		return
 	}
 
@@ -241,7 +260,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 		AgentID         *string    `json:"agent_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -257,7 +276,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 	if req.Locale != nil {
 		locale, err := normalizeIMLocale(*req.Locale)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeStatusError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		channel.Locale = locale
@@ -268,7 +287,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 	if req.KnowledgeBaseID != nil {
 		ctx := c.Request.Context()
 		if err := h.imService.SetChannelKnowledgeBaseID(ctx, channel, *req.KnowledgeBaseID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "knowledge base not found"})
+			writeStatusError(c, http.StatusBadRequest, "knowledge base not found")
 			return
 		}
 	}
@@ -283,7 +302,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 		if newAgentID != "" && newAgentID != channel.AgentID {
 			if err := h.imService.SetChannelAgentID(c.Request.Context(), channel, newAgentID); err != nil {
 				logger.Errorf(c.Request.Context(), "[IM] Update channel agent failed: %v", err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "agent not found"})
+				writeStatusError(c, http.StatusBadRequest, "agent not found")
 				return
 			}
 		}
@@ -292,10 +311,10 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 	if err := h.imService.UpdateChannel(channel); err != nil {
 		logger.Errorf(c.Request.Context(), "[IM] Update channel failed: %v", err)
 		if strings.HasPrefix(err.Error(), "duplicate_bot:") {
-			c.JSON(http.StatusConflict, gin.H{"error": strings.TrimPrefix(err.Error(), "duplicate_bot: ")})
+			writeStatusError(c, http.StatusConflict, strings.TrimPrefix(err.Error(), "duplicate_bot: "))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update channel"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to update channel")
 		return
 	}
 
@@ -330,18 +349,18 @@ func normalizeIMLocale(locale string) (string, error) {
 func (h *IMHandler) DeleteIMChannel(c *gin.Context) {
 	channelID := c.Param("id")
 	if channelID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "channel id is required"})
+		writeStatusError(c, http.StatusBadRequest, "channel id is required")
 		return
 	}
 
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	if err := h.imService.DeleteChannel(channelID, tenantID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete channel"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to delete channel")
 		return
 	}
 
@@ -365,19 +384,19 @@ func (h *IMHandler) DeleteIMChannel(c *gin.Context) {
 func (h *IMHandler) ToggleIMChannel(c *gin.Context) {
 	channelID := c.Param("id")
 	if channelID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "channel id is required"})
+		writeStatusError(c, http.StatusBadRequest, "channel id is required")
 		return
 	}
 
 	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	channel, err := h.imService.ToggleChannel(channelID, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to toggle channel"})
+		writeStatusError(c, http.StatusInternalServerError, "failed to toggle channel")
 		return
 	}
 
@@ -425,7 +444,7 @@ func (h *IMHandler) IMCallback(c *gin.Context) {
 	// while disconnected, and prevents stale credentials/config from being used.
 	adapter, channel, err := h.imService.EnsureChannelAdapter(channelID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if isRecordNotFound(err) {
 			logger.Errorf(ctx, "[IM] Channel not found for callback: %s", channelID)
 			c.JSON(http.StatusNotFound, gin.H{"error": "channel not found"})
 			return
@@ -477,9 +496,19 @@ func (h *IMHandler) IMCallback(c *gin.Context) {
 	// If nil, it's a non-message event - just acknowledge
 	if msg == nil {
 		if channel.Platform == "mattermost" {
-			logger.Infof(ctx, "[IM] Mattermost callback ignored (no message): path_channel_id=%s — check: (1) trigger word must be the *first word* of the post; (2) if channel+trigger are both set, post must be in that channel; (3) bot_user_id must not match the sender", channelID)
+			logger.Infof(
+				ctx,
+				"[IM] Mattermost callback ignored (no message): path_channel_id=%s — "+
+					"check: (1) trigger word must be the *first word* of the post; (2) if "+
+					"channel+trigger are both set, post must be in "+
+					"that channel; (3) bot_user_id must not match the sender",
+				channelID,
+			)
 		} else {
-			logger.Infof(ctx, "[IM] Callback parsed no message to process platform=%s path_channel_id=%s", channel.Platform, channelID)
+			logger.Infof(
+				ctx, "[IM] Callback parsed no message to process platform=%s path_channel_id=%s", channel.Platform,
+				channelID,
+			)
 		}
 		writeIMCallbackACK(c, channel.Platform)
 		return

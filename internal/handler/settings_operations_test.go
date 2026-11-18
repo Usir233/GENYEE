@@ -85,7 +85,7 @@ func TestSearchProviderPatchPreservesParametersAndDefault(t *testing.T) {
 			return nil, fmt.Errorf("upstream echoed credential: %s", params.APIKey)
 		},
 	})
-	h := NewWebSearchProviderHandler(repo, svc, registry)
+	h := NewWebSearchProviderHandler(svc, registry)
 	router := gin.New()
 	router.Use(
 		middleware.ErrorHandler(),
@@ -170,11 +170,11 @@ func TestDataSourceSyncPatchPersistsFalseAndManualSchedule(t *testing.T) {
 	require.NoError(t, repo.Create(context.Background(), original))
 	h := NewDataSourceHandler(svc, kb)
 	router := newDataSourceTestRouter(h)
-	router.PATCH("/datasource/:id/sync-settings", h.PatchSyncSettings)
+	router.PATCH("/data-sources/:id/sync-settings", h.PatchSyncSettings)
 	response := settingsRequest(
 		router,
 		"PATCH",
-		"/datasource/ds/sync-settings",
+		"/data-sources/ds/sync-settings",
 		`{"sync_schedule":"","sync_deletions":false}`,
 	)
 	require.Equal(t, 200, response.Code, response.Body.String())
@@ -195,13 +195,13 @@ func TestDataSourceSyncPatchPersistsFalseAndManualSchedule(t *testing.T) {
 		`{"resource_ids":[]}`,
 		`{"resource_ids":["x","x"]}`,
 	} {
-		response = settingsRequest(router, "PATCH", "/datasource/ds/sync-settings", body)
+		response = settingsRequest(router, "PATCH", "/data-sources/ds/sync-settings", body)
 		require.Equal(t, 400, response.Code, response.Body.String())
 	}
 	saved, err = repo.FindByID(context.Background(), "ds")
 	require.NoError(t, err)
 	require.Empty(t, saved.SyncSchedule)
-	response = settingsRequest(router, "PATCH", "/datasource/ds/sync-settings", `{
+	response = settingsRequest(router, "PATCH", "/data-sources/ds/sync-settings", `{
   "sync_schedule": "CRON_TZ=Asia/Shanghai 0 0 9 * * *",
   "sync_mode": "full",
   "conflict_strategy": "skip"
@@ -269,7 +269,7 @@ func TestAgentSearchBindingPatch(t *testing.T) {
 		t,
 		backing,
 		`{"web_search_provider_id":"known"}`,
-		&CustomAgentHandler{webSearchProviders: repo},
+		&CustomAgentHandler{webSearchProviders: service.NewWebSearchProviderService(repo)},
 	)
 	require.Equal(t, 200, response.Code, response.Body.String())
 	require.Equal(t, uint64(1), repo.tenant)
@@ -279,7 +279,7 @@ func TestAgentSearchBindingPatch(t *testing.T) {
 		t,
 		backing,
 		`{"web_search_provider_id":"foreign"}`,
-		&CustomAgentHandler{webSearchProviders: repo},
+		&CustomAgentHandler{webSearchProviders: service.NewWebSearchProviderService(repo)},
 	)
 	require.Equal(t, 400, response.Code, response.Body.String())
 	require.Equal(t, "known", backing.agent.Config.WebSearchProviderID)
@@ -287,7 +287,7 @@ func TestAgentSearchBindingPatch(t *testing.T) {
 		t,
 		backing,
 		`{"web_search_provider_id":"","web_search_enabled":true}`,
-		&CustomAgentHandler{webSearchProviders: repo},
+		&CustomAgentHandler{webSearchProviders: service.NewWebSearchProviderService(repo)},
 	)
 	require.Equal(t, 200, response.Code, response.Body.String())
 	require.Empty(t, backing.agent.Config.WebSearchProviderID)
@@ -331,7 +331,7 @@ func TestSearchProviderPatchDoesNotUndoCredentialRotation(t *testing.T) {
 	}
 	require.NoError(t, base.Create(context.Background(), original))
 	repo := &rotatingSearchProviderRepo{WebSearchProviderRepository: base}
-	h := NewWebSearchProviderHandler(repo, service.NewWebSearchProviderService(repo), nil)
+	h := NewWebSearchProviderHandler(service.NewWebSearchProviderService(repo), nil)
 	router := gin.New()
 	router.Use(func(c *gin.Context) { c.Set(types.TenantIDContextKey.String(), uint64(1)); c.Next() })
 	router.PATCH("/providers/:id", h.PatchProvider)
@@ -382,8 +382,8 @@ func TestDataSourceSyncPatchPreservesConcurrentPauseAndProgress(t *testing.T) {
 	}}
 	h := NewDataSourceHandler(svc, kb)
 	router := newDataSourceTestRouter(h)
-	router.PATCH("/datasource/:id/sync-settings", h.PatchSyncSettings)
-	response := settingsRequest(router, "PATCH", "/datasource/ds/sync-settings", `{"sync_mode":"full"}`)
+	router.PATCH("/data-sources/:id/sync-settings", h.PatchSyncSettings)
+	response := settingsRequest(router, "PATCH", "/data-sources/ds/sync-settings", `{"sync_mode":"full"}`)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	saved, err := repo.FindByID(context.Background(), "ds")
 	require.NoError(t, err)
@@ -415,14 +415,14 @@ func TestDataSourceResourcePatchRejectsConcurrentConfigChange(t *testing.T) {
 	}}
 	router := newDataSourceTestRouter(NewDataSourceHandler(svc, kb))
 	h := NewDataSourceHandler(svc, kb)
-	router.PATCH("/datasource/:id/sync-settings", h.PatchSyncSettings)
-	response := settingsRequest(router, "PATCH", "/datasource/ds/sync-settings", `{"resource_ids":["requested"]}`)
+	router.PATCH("/data-sources/:id/sync-settings", h.PatchSyncSettings)
+	response := settingsRequest(router, "PATCH", "/data-sources/ds/sync-settings", `{"resource_ids":["requested"]}`)
 	require.Equal(t, http.StatusConflict, response.Code, response.Body.String())
 	saved, err := repo.FindByID(context.Background(), "ds")
 	require.NoError(t, err)
 	require.JSONEq(t, string(newConfig), string(saved.Config))
 	// A fresh retry updates the selection and keeps the latest connector settings.
-	response = settingsRequest(router, "PATCH", "/datasource/ds/sync-settings", `{"resource_ids":["requested"]}`)
+	response = settingsRequest(router, "PATCH", "/data-sources/ds/sync-settings", `{"resource_ids":["requested"]}`)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	saved, err = repo.FindByID(context.Background(), "ds")
 	require.NoError(t, err)

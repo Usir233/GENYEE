@@ -26,34 +26,31 @@ func MCPEndpointAuth(svc interfaces.MCPEndpointService, tenantSvc interfaces.Ten
 		token := extractMCPEndpointToken(c)
 		if endpointID == "" || token == "" {
 			c.Header("WWW-Authenticate", `Bearer realm="genyee-mcp"`)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: missing bearer token"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusUnauthorized, "unauthorized: missing bearer token")
 			return
 		}
 		ep, err := svc.Authenticate(c.Request.Context(), endpointID, token)
 		if err != nil {
 			switch {
 			case errors.Is(err, service.ErrMCPEndpointDisabled):
-				c.JSON(http.StatusForbidden, gin.H{"error": "mcp endpoint disabled"})
+				abortWithStatusError(c, http.StatusForbidden, "mcp endpoint disabled")
 			case errors.Is(err, service.ErrMCPEndpointTokenInvalid), errors.Is(err, service.ErrMCPEndpointNotFound):
 				c.Header("WWW-Authenticate", `Bearer realm="genyee-mcp"`)
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized: invalid token"})
+				abortWithStatusError(c, http.StatusUnauthorized, "unauthorized: invalid token")
 			default:
 				logger.Warnf(c.Request.Context(), "[mcp-endpoint] auth lookup failed: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "authentication unavailable"})
+				abortWithStatusError(c, http.StatusInternalServerError, "authentication unavailable")
 			}
 			c.Abort()
 			return
 		}
 		tenant, err := tenantSvc.GetTenantByID(c.Request.Context(), ep.TenantID)
 		if err != nil || tenant == nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "workspace unavailable"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusInternalServerError, "workspace unavailable")
 			return
 		}
 		if isWorkspaceInactive(tenant.Status) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "workspace inactive"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusForbidden, "workspace inactive")
 			return
 		}
 

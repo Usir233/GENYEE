@@ -82,7 +82,6 @@ func TestBuiltinOperationRolesMatchRouteGuards(t *testing.T) {
 		knowledgeKBCreator:     owner,
 		chunkKBCreator:         owner,
 		chunkKBCreatorFromID:   owner,
-		wikiKBCreator:          owner,
 	}
 
 	var role types.TenantRole

@@ -346,3 +346,14 @@ type TenantDisabledSharedAgentRepository interface {
 	Add(ctx context.Context, tenantID uint64, agentID string, sourceTenantID uint64) error
 	Remove(ctx context.Context, tenantID uint64, agentID string, sourceTenantID uint64) error
 }
+
+// TenantDisabledSharedAgentService exposes per-tenant disabled agent ID lookups to HTTP handlers.
+type TenantDisabledSharedAgentService interface {
+	ListDisabledOwnAgentIDs(ctx context.Context, tenantID uint64) ([]string, error)
+}
+
+// KBShareStatsService resolves document and chunk counts for shared knowledge base views.
+type KBShareStatsService interface {
+	CountKnowledgeByKnowledgeBaseID(ctx context.Context, tenantID uint64, kbID string) (int64, error)
+	CountChunksByKnowledgeBaseID(ctx context.Context, tenantID uint64, kbID string) (int64, error)
+}

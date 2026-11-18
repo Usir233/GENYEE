@@ -438,7 +438,9 @@ func TestMCPOAuthAuthorizeURLHandlerRejectsPoisonedRedirectAndUsesTrustedBase(t 
 			c.Set(types.TenantIDContextKey.String(), mcpOAuthTestTenant)
 			env.handler.AuthorizeURL(c)
 		})
-		c.Request = httptest.NewRequest(http.MethodPost, "/mcp-services/svc-1/oauth/authorize-url", strings.NewReader(body))
+		c.Request = httptest.NewRequest(
+			http.MethodPost, "/mcp-services/svc-1/oauth/authorize-url", strings.NewReader(body),
+		)
 		c.Request.Header.Set("Content-Type", "application/json")
 		engine.HandleContext(c)
 		return w

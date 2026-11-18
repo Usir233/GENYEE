@@ -87,7 +87,9 @@ func (p *AttachmentProcessor) ProcessAttachment(
 
 	uniqueFileName := fmt.Sprintf("attachment_%s%s", uuid.New().String()[:12], ext)
 
-	storageURL, err := p.fileService.SaveBytes(interfaces.WithIndependentFileWrites(ctx), data, tenantID, uniqueFileName, false)
+	storageURL, err := p.fileService.SaveBytes(
+		interfaces.WithIndependentFileWrites(ctx), data, tenantID, uniqueFileName, false,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save attachment: %w", err)
 	}
@@ -100,22 +102,29 @@ func (p *AttachmentProcessor) ProcessAttachment(
 	}
 
 	// Extract text content based on file type; errors are non-fatal.
-	if p.isTextFile(ext) {
+	switch {
+	case p.isTextFile(ext):
 		p.processTextFile(ctx, data, attachment)
-	} else if docparser.IsAudioFormat(ext) {
+	case docparser.IsAudioFormat(ext):
 		if err := p.processAudioFile(ctx, data, baseName, attachment, asrModelID); err != nil {
 			logger.Warnf(ctx, "audio transcription failed: %v, keeping placeholder", err)
-			attachment.Content = fmt.Sprintf("<error><message>Failed to transcribe audio file</message><details>%v</details></error>", err)
+			attachment.Content = fmt.Sprintf(
+				"<error><message>Failed to transcribe audio file</message><details>%v</details></error>", err,
+			)
 		}
-	} else if docparser.IsSimpleFormat(ext) {
+	case docparser.IsSimpleFormat(ext):
 		if err := p.processWithDocParser(ctx, data, baseName, ext, attachment, tenantID); err != nil {
 			logger.Warnf(ctx, "SimpleFormatReader failed: %v", err)
-			attachment.Content = fmt.Sprintf("<error><message>Failed to parse document</message><details>%v</details></error>", err)
+			attachment.Content = fmt.Sprintf(
+				"<error><message>Failed to parse document</message><details>%v</details></error>", err,
+			)
 		}
-	} else {
+	default:
 		if err := p.processWithDocumentReader(ctx, data, baseName, ext, attachment, tenantID); err != nil {
 			logger.Warnf(ctx, "DocumentReader failed: %v, keeping metadata only", err)
-			attachment.Content = fmt.Sprintf("<error><message>Failed to read document</message><details>%v</details></error>", err)
+			attachment.Content = fmt.Sprintf(
+				"<error><message>Failed to read document</message><details>%v</details></error>", err,
+			)
 		}
 	}
 
@@ -308,7 +317,9 @@ func (p *AttachmentProcessor) processWithDocumentReader(
 	return nil
 }
 
-func (p *AttachmentProcessor) bindAttachmentImages(ctx context.Context, parent string, images []docparser.StoredImage) error {
+func (p *AttachmentProcessor) bindAttachmentImages(
+	ctx context.Context, parent string, images []docparser.StoredImage,
+) error {
 	provider, ok := p.fileService.(interface {
 		ResourceCatalog() interfaces.ResourceCatalog
 	})
@@ -320,12 +331,16 @@ func (p *AttachmentProcessor) bindAttachmentImages(ctx context.Context, parent s
 		if _, managed := types.ParseResourcePath(image.ServingURL); !managed {
 			continue
 		}
-		if err := catalog.Bind(ctx, image.ServingURL, types.ResourceOwnerResource, parent, types.ResourceRelationExtractedImage); err != nil {
+		if err := catalog.Bind(
+			ctx, image.ServingURL, types.ResourceOwnerResource, parent, types.ResourceRelationExtractedImage,
+		); err != nil {
 			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			defer cancel()
 			for _, stored := range images {
 				if _, managed := types.ParseResourcePath(stored.ServingURL); managed {
-					if _, releaseErr := catalog.Release(cleanupCtx, stored.ServingURL, types.ResourceOwnerResource, parent); releaseErr != nil {
+					if _, releaseErr := catalog.Release(
+						cleanupCtx, stored.ServingURL, types.ResourceOwnerResource, parent,
+					); releaseErr != nil {
 						continue
 					}
 				}
@@ -340,7 +355,9 @@ func (p *AttachmentProcessor) bindAttachmentImages(ctx context.Context, parent s
 }
 
 // applyLineTruncation stores content into attachment, truncating at maxTextFileLines if needed.
-func (p *AttachmentProcessor) applyLineTruncation(ctx context.Context, content string, attachment *types.MessageAttachment) {
+func (p *AttachmentProcessor) applyLineTruncation(
+	ctx context.Context, content string, attachment *types.MessageAttachment,
+) {
 	lines := strings.Split(content, "\n")
 	lineCount := len(lines)
 	attachment.LineCount = lineCount

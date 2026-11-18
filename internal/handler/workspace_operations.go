@@ -20,7 +20,8 @@ type WorkspaceResponse struct {
 func bindCurrentWorkspace(c *gin.Context) bool {
 	id := types.CallerFromContext(c.Request.Context()).TenantID
 	if id == 0 {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "workspace context missing"})
+		writeStatusError(c, http.StatusUnauthorized, "workspace context missing")
+		c.Abort()
 		return false
 	}
 	c.Params = gin.Params{{Key: "id", Value: strconv.FormatUint(id, 10)}}

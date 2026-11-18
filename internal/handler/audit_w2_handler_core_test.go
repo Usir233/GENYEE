@@ -106,7 +106,8 @@ func TestAuditW2_IMCreateAndUpdateRedactCredentialsAndRequireNonZeroTenant(t *te
 
 	// 2. CreateIMChannel must NOT echo plaintext secret credentials in response.
 	const secret = "super-secret-wecom-agent-key-999"
-	createBody := `{"platform":"wecom","name":"ops","mode":"webhook","enabled":false,"credentials":{"corp_id":"ww77","corp_agent_id":"1000002","agent_secret":"` + secret + `"}}`
+	createBody := `{"platform":"wecom","name":"ops","mode":"webhook","enabled":false,` +
+		`"credentials":{"corp_id":"ww77","corp_agent_id":"1000002","agent_secret":"` + secret + `"}}`
 	createReq := httptest.NewRequest(http.MethodPost, "/agents/agent-77/im-channels", strings.NewReader(createBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq = createReq.WithContext(context.WithValue(createReq.Context(), types.TenantIDContextKey, uint64(77)))
@@ -188,7 +189,10 @@ func TestAuditW2_TestMultimodalFunctionCapsMultipartBeforeParse(t *testing.T) {
 	}
 	maxExpectedRead := int64((1 << 20) + uploadEnvelopeSlack + (64 << 10))
 	if got := counter.n.Load(); got > maxExpectedRead {
-		t.Fatalf("expected multipart stream to stop near cap (%d bytes), but handler read %d bytes", maxExpectedRead, got)
+		t.Fatalf(
+			"expected multipart stream to stop near cap (%d bytes), but handler read %d bytes", maxExpectedRead,
+			got,
+		)
 	}
 }
 
@@ -199,7 +203,7 @@ type stubEvaluationService struct {
 }
 
 func (s *stubEvaluationService) Evaluation(
-	ctx context.Context, datasetID, knowledgeBaseID, chatModelID, rerankModelID string,
+	ctx context.Context, datasetID, _, _, _ string,
 ) (*types.EvaluationDetail, error) {
 	s.evalCalled = true
 	tid := types.MustTenantIDFromContext(ctx)
@@ -212,7 +216,7 @@ func (s *stubEvaluationService) Evaluation(
 	}, nil
 }
 
-func (s *stubEvaluationService) EvaluationResult(ctx context.Context, taskID string) (*types.EvaluationDetail, error) {
+func (s *stubEvaluationService) EvaluationResult(ctx context.Context, _ string) (*types.EvaluationDetail, error) {
 	s.resultCalled = true
 	_ = types.MustTenantIDFromContext(ctx)
 	return nil, errors.New("tenant ID does not match")
@@ -309,7 +313,10 @@ func TestAuditW2_EvaluationEnforcesTenantAndAPIKeyKBScope(t *testing.T) {
 		unauthRec := httptest.NewRecorder()
 		r.ServeHTTP(unauthRec, unauthReq)
 		if unauthRec.Code != http.StatusUnauthorized {
-			t.Fatalf("unauthenticated GetEvaluationResult status = %d, want 401; body=%s", unauthRec.Code, unauthRec.Body.String())
+			t.Fatalf(
+				"unauthenticated GetEvaluationResult status = %d, want 401; body=%s", unauthRec.Code,
+				unauthRec.Body.String(),
+			)
 		}
 
 		// Cross-tenant task probe must return 404 Not Found without reaching EvaluationResult.
@@ -318,7 +325,10 @@ func TestAuditW2_EvaluationEnforcesTenantAndAPIKeyKBScope(t *testing.T) {
 		crossRec := httptest.NewRecorder()
 		r.ServeHTTP(crossRec, crossReq)
 		if crossRec.Code != http.StatusNotFound {
-			t.Fatalf("cross-tenant GetEvaluationResult status = %d, want 404; body=%s", crossRec.Code, crossRec.Body.String())
+			t.Fatalf(
+				"cross-tenant GetEvaluationResult status = %d, want 404; body=%s", crossRec.Code,
+				crossRec.Body.String(),
+			)
 		}
 		if evalSvc.resultCalled {
 			t.Fatal("evaluationService.EvaluationResult must not be called for cross-tenant task_id")
@@ -434,15 +444,18 @@ func TestAuditW2_DataSourceCredentialsEnforcesAPIKeyKBScope(t *testing.T) {
 			c.Set(types.TenantIDContextKey.String(), uint64(1))
 			c.Next()
 		})
-		r.PUT("/datasource/:id/credentials", h.Put)
-		r.DELETE("/datasource/:id/credentials/:field", h.DeleteField)
+		r.PUT("/data-sources/:id/credentials", h.Put)
+		r.DELETE("/data-sources/:id/credentials/:field", h.DeleteField)
 		return r
 	}
 
 	// Out-of-scope API key must be rejected with 403 on both PUT and DELETE.
 	deniedRouter := newScopedRouter("kb-allowed")
 
-	putReq := httptest.NewRequest(http.MethodPut, "/datasource/ds-secret/credentials", strings.NewReader(`{"credentials":{"api_key":"steal"}}`))
+	putReq := httptest.NewRequest(
+		http.MethodPut, "/data-sources/ds-secret/credentials",
+		strings.NewReader(`{"credentials":{"api_key":"steal"}}`),
+	)
 	putReq.Header.Set("Content-Type", "application/json")
 	putRec := httptest.NewRecorder()
 	deniedRouter.ServeHTTP(putRec, putReq)
@@ -450,7 +463,7 @@ func TestAuditW2_DataSourceCredentialsEnforcesAPIKeyKBScope(t *testing.T) {
 		t.Fatalf("PUT out-of-scope status = %d, want 403; body=%s", putRec.Code, putRec.Body.String())
 	}
 
-	delReq := httptest.NewRequest(http.MethodDelete, "/datasource/ds-secret/credentials/credentials", nil)
+	delReq := httptest.NewRequest(http.MethodDelete, "/data-sources/ds-secret/credentials/credentials", nil)
 	delRec := httptest.NewRecorder()
 	deniedRouter.ServeHTTP(delRec, delReq)
 	if delRec.Code != http.StatusForbidden {
@@ -462,7 +475,10 @@ func TestAuditW2_DataSourceCredentialsEnforcesAPIKeyKBScope(t *testing.T) {
 
 	// In-scope API key still succeeds.
 	allowedRouter := newScopedRouter("kb-secret")
-	okPutReq := httptest.NewRequest(http.MethodPut, "/datasource/ds-secret/credentials", strings.NewReader(`{"credentials":{"api_key":"legit"}}`))
+	okPutReq := httptest.NewRequest(
+		http.MethodPut, "/data-sources/ds-secret/credentials",
+		strings.NewReader(`{"credentials":{"api_key":"legit"}}`),
+	)
 	okPutReq.Header.Set("Content-Type", "application/json")
 	okPutRec := httptest.NewRecorder()
 	allowedRouter.ServeHTTP(okPutRec, okPutReq)
@@ -476,9 +492,18 @@ func TestAuditW2_KnowledgeBaseListMoveTargetsFiltersAPIKeyScopeAndTypeAssertSafe
 
 	kbSvc := &stubKBServiceForAudit{
 		kbs: map[string]*types.KnowledgeBase{
-			"kb-src":          {ID: "kb-src", TenantID: 1, Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "emb-1", Name: "Source"},
-			"kb-in-scope":     {ID: "kb-in-scope", TenantID: 1, Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "emb-1", Name: "In Scope Target"},
-			"kb-out-of-scope": {ID: "kb-out-of-scope", TenantID: 1, Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "emb-1", Name: "Secret Out Of Scope KB"},
+			"kb-src": {
+				ID: "kb-src", TenantID: 1, Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "emb-1",
+				Name: "Source",
+			},
+			"kb-in-scope": {
+				ID: "kb-in-scope", TenantID: 1, Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "emb-1",
+				Name: "In Scope Target",
+			},
+			"kb-out-of-scope": {
+				ID: "kb-out-of-scope", TenantID: 1, Type: types.KnowledgeBaseTypeDocument,
+				EmbeddingModelID: "emb-1", Name: "Secret Out Of Scope KB",
+			},
 		},
 	}
 
@@ -577,7 +602,8 @@ func TestAuditW2_KnowledgeBaseListMoveTargetsFiltersAPIKeyScopeAndTypeAssertSafe
 		}
 
 		moveReq := httptest.NewRequest(http.MethodPost, "/knowledge/move",
-			strings.NewReader(`{"source_kb_id":"kb-src","target_kb_id":"kb-in-scope","knowledge_ids":["k1"],"mode":"reuse_vectors"}`))
+			strings.NewReader(`{"source_kb_id":"kb-src","target_kb_id":`+
+				`"kb-in-scope","knowledge_ids":["k1"],"mode":"reuse_vectors"}`))
 		moveReq.Header.Set("Content-Type", "application/json")
 		rec3 := httptest.NewRecorder()
 		r.ServeHTTP(rec3, moveReq)

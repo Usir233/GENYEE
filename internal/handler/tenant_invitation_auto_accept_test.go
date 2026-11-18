@@ -35,7 +35,9 @@ type autoAcceptMemberSvc struct {
 	addCalled bool
 }
 
-func (s *autoAcceptMemberSvc) AddMember(_ context.Context, userID string, _ uint64, role types.TenantRole, _ *string) (*types.TenantMember, error) {
+func (s *autoAcceptMemberSvc) AddMember(
+	_ context.Context, userID string, _ uint64, role types.TenantRole, _ *string,
+) (*types.TenantMember, error) {
 	s.addCalled = true
 	if s.addErr != nil {
 		return nil, s.addErr
@@ -81,7 +83,9 @@ type autoAcceptInvitationSvc struct {
 	reconcilePending bool
 }
 
-func (s *autoAcceptInvitationSvc) Create(_ context.Context, tenantID uint64, userID string, role types.TenantRole, _ *string, _ string) (*types.TenantInvitation, error) {
+func (s *autoAcceptInvitationSvc) Create(
+	_ context.Context, tenantID uint64, userID string, role types.TenantRole, _ *string, _ string,
+) (*types.TenantInvitation, error) {
 	s.created = true
 	return &types.TenantInvitation{
 		ID:            1,

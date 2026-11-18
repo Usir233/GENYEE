@@ -231,6 +231,10 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(service.NewMCPServiceService))
 	must(container.Provide(service.NewMCPToolApprovalService))
 	must(container.Provide(service.NewCustomAgentService))
+	must(container.Provide(service.NewTenantDisabledSharedAgentService))
+	must(container.Provide(service.NewKBShareStatsService))
+	must(container.Provide(service.NewAgentGrantService))
+	must(container.Provide(service.NewAgentPromptService))
 	must(container.Provide(service.NewUserResourceFavoriteService))
 	must(container.Provide(service.NewWikiPageService))
 	must(container.Provide(service.NewWikiIngestService, dig.Name("wikiIngest")))
@@ -562,7 +566,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 		gate *approval.Gate,
 		models interfaces.ModelService,
 		agents interfaces.AgentShareService,
-		grants interfaces.AgentGrantRepository,
+		grants interfaces.AgentGrantService,
 		secureForms *credential.Submitter,
 	) *handler.MCPServiceHandler {
 		return handler.NewMCPServiceHandler(mcpService, toolApprovals, gate, models, agents).
@@ -627,7 +631,6 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewModelCredentialsHandler))
 	must(container.Provide(handler.NewWebSearchProviderCredentialsHandler))
 	must(container.Provide(handler.NewDataSourceCredentialsHandler))
-	must(container.Provide(handler.NewWebSearchHandler))
 	must(container.Provide(handler.NewWebSearchProviderHandler))
 	must(container.Provide(handler.NewVectorStoreHandler))
 	must(container.Provide(handler.NewStorageBackendHandler))

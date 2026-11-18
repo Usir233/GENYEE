@@ -592,12 +592,19 @@ func startDesktopRelay(t *testing.T, authCheck func(context.Context) error) (
 	t.Cleanup(sandboxSrv.Close)
 
 	var err error
-	browserClient, _, err = websocket.DefaultDialer.Dial(
+	var dialResp *http.Response
+	browserClient, dialResp, err = websocket.DefaultDialer.Dial(
 		"ws"+strings.TrimPrefix(browserSrv.URL, "http"), nil)
+	if dialResp != nil && dialResp.Body != nil {
+		_ = dialResp.Body.Close()
+	}
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = browserClient.Close() })
-	sandboxClient, _, err = websocket.DefaultDialer.Dial(
+	sandboxClient, dialResp, err = websocket.DefaultDialer.Dial(
 		"ws"+strings.TrimPrefix(sandboxSrv.URL, "http"), nil)
+	if dialResp != nil && dialResp.Body != nil {
+		_ = dialResp.Body.Close()
+	}
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sandboxClient.Close() })
 

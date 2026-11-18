@@ -478,7 +478,7 @@ func mentionedItemsToRaw(items types.MentionedItems) []interface{} {
 // @Tags         问答
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path  string  true  "会话 ID"
+// @Param        id  path  string  true  "会话 ID"
 // @Param        request     body  SteerMessageRequest  true  "追加消息"
 // @Success      200  {object}  map[string]interface{}  "queued | new_run"
 // @Failure      400  {object}  errors.AppError         "请求参数错误"
@@ -486,10 +486,10 @@ func mentionedItemsToRaw(items types.MentionedItems) []interface{} {
 // @Failure      503  {object}  errors.AppError         "活 turn 查询失败，可重试"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/steer [post]
+// @Router       /sessions/{id}/steer [post]
 func (h *Handler) SteerMessage(c *gin.Context) {
 	ctx := logger.CloneContext(c.Request.Context())
-	sessionID := secutils.SanitizeForLog(c.Param("session_id"))
+	sessionID := secutils.SanitizeForLog(sessionIDParam(c))
 	if sessionID == "" {
 		_ = c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
 		return
@@ -652,7 +652,7 @@ func (h *Handler) SteerMessage(c *gin.Context) {
 // @Description  把一条 delivery=after 的排队消息改为 inject，运行中的 agent 会在下一轮边界读到它。
 // @Tags         问答
 // @Produce      json
-// @Param        session_id  path  string  true  "会话 ID"
+// @Param        id  path  string  true  "会话 ID"
 // @Param        steer_id    path  string  true  "排队消息 ID"
 // @Success      200  {object}  map[string]interface{}  "queued | new_run"
 // @Failure      400  {object}  errors.AppError
@@ -660,10 +660,10 @@ func (h *Handler) SteerMessage(c *gin.Context) {
 // @Failure      503  {object}  errors.AppError         "活 turn 查询失败，可重试"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/steer/{steer_id}/inject [post]
+// @Router       /sessions/{id}/steer/{steer_id}/inject [post]
 func (h *Handler) PromoteSteerMessage(c *gin.Context) {
 	ctx := logger.CloneContext(c.Request.Context())
-	sessionID := secutils.SanitizeForLog(c.Param("session_id"))
+	sessionID := secutils.SanitizeForLog(sessionIDParam(c))
 	steerID := c.Param("steer_id")
 	if sessionID == "" || steerID == "" {
 		_ = c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
@@ -754,7 +754,7 @@ func (h *Handler) ListSteerMessages(c *gin.Context) {
 	ctx := logger.CloneContext(c.Request.Context())
 	sessionID := secutils.SanitizeForLog(c.Param("id"))
 	if sessionID == "" {
-		sessionID = secutils.SanitizeForLog(c.Param("session_id"))
+		sessionID = secutils.SanitizeForLog(sessionIDParam(c))
 	}
 	if sessionID == "" {
 		_ = c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
@@ -807,7 +807,7 @@ func (h *Handler) DeleteSteerMessage(c *gin.Context) {
 	ctx := logger.CloneContext(c.Request.Context())
 	sessionID := secutils.SanitizeForLog(c.Param("id"))
 	if sessionID == "" {
-		sessionID = secutils.SanitizeForLog(c.Param("session_id"))
+		sessionID = secutils.SanitizeForLog(sessionIDParam(c))
 	}
 	steerID := c.Param("steer_id")
 	if sessionID == "" || steerID == "" {

@@ -219,7 +219,7 @@ func (h *AgentStreamHandler) handleProgress(ctx context.Context, evt event.Event
 }
 
 // handleThought handles agent thought events
-func (h *AgentStreamHandler) handleThought(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleThought(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentThoughtData)
 	if !ok {
 		return nil
@@ -267,7 +267,7 @@ func (h *AgentStreamHandler) handleThought(ctx context.Context, evt event.Event)
 }
 
 // handleToolCall handles tool call events
-func (h *AgentStreamHandler) handleToolCall(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleToolCall(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentToolCallData)
 	if !ok {
 		return nil
@@ -309,7 +309,7 @@ func (h *AgentStreamHandler) handleToolCall(ctx context.Context, evt event.Event
 }
 
 // handleToolResult handles tool result events
-func (h *AgentStreamHandler) handleToolResult(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleToolResult(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentToolResultData)
 	if !ok {
 		return nil
@@ -474,7 +474,7 @@ func attachToolApprovals(steps []types.AgentStep, records []types.ToolApprovalRe
 }
 
 // handleToolApprovalRequired persists MCP tool human-approval prompts for SSE / replay (issue #1173).
-func (h *AgentStreamHandler) handleToolApprovalRequired(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleToolApprovalRequired(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.ToolApprovalRequiredData)
 	if !ok {
 		return nil
@@ -496,7 +496,7 @@ func (h *AgentStreamHandler) handleToolApprovalRequired(ctx context.Context, evt
 }
 
 // handleToolApprovalResolved persists the outcome of a tool approval (issue #1173).
-func (h *AgentStreamHandler) handleToolApprovalResolved(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleToolApprovalResolved(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.ToolApprovalResolvedData)
 	if !ok {
 		return nil
@@ -519,7 +519,7 @@ func (h *AgentStreamHandler) handleToolApprovalResolved(ctx context.Context, evt
 
 // handleMCPOAuthRequired forwards an in-conversation "authorize this MCP
 // service" prompt to the SSE stream so the UI can render an Authorize card.
-func (h *AgentStreamHandler) handleMCPOAuthRequired(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleMCPOAuthRequired(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.MCPOAuthRequiredData)
 	if !ok {
 		return nil
@@ -540,7 +540,7 @@ func (h *AgentStreamHandler) handleMCPOAuthRequired(ctx context.Context, evt eve
 }
 
 // handleMCPOAuthResolved forwards the outcome of an in-conversation OAuth prompt.
-func (h *AgentStreamHandler) handleMCPOAuthResolved(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleMCPOAuthResolved(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.MCPOAuthResolvedData)
 	if !ok {
 		return nil
@@ -561,7 +561,7 @@ func (h *AgentStreamHandler) handleMCPOAuthResolved(ctx context.Context, evt eve
 }
 
 // handleReferences handles knowledge references events
-func (h *AgentStreamHandler) handleReferences(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleReferences(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentReferencesData)
 	if !ok {
 		return nil
@@ -609,7 +609,7 @@ func (h *AgentStreamHandler) handleReferences(ctx context.Context, evt event.Eve
 // handleMemoryRecalled records the long-term memories injected into this turn.
 // The list is both persisted on the assistant message and streamed, so the
 // panel is present live and after a reload.
-func (h *AgentStreamHandler) handleMemoryRecalled(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleMemoryRecalled(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.MemoryRecalledData)
 	if !ok {
 		return nil
@@ -669,7 +669,7 @@ func (h *AgentStreamHandler) handleContextCompacted(_ context.Context, evt event
 }
 
 // handleFinalAnswer handles final answer events
-func (h *AgentStreamHandler) handleFinalAnswer(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleFinalAnswer(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentFinalAnswerData)
 	if !ok {
 		return nil
@@ -760,7 +760,7 @@ func (h *AgentStreamHandler) handleFinalAnswer(ctx context.Context, evt event.Ev
 }
 
 // handleReflection handles agent reflection events
-func (h *AgentStreamHandler) handleReflection(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleReflection(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentReflectionData)
 	if !ok {
 		return nil
@@ -781,7 +781,7 @@ func (h *AgentStreamHandler) handleReflection(ctx context.Context, evt event.Eve
 }
 
 // handleError handles error events
-func (h *AgentStreamHandler) handleError(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleError(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.ErrorData)
 	if !ok {
 		return nil
@@ -809,7 +809,7 @@ func (h *AgentStreamHandler) handleError(ctx context.Context, evt event.Event) e
 }
 
 // handleSessionTitle handles session title update events
-func (h *AgentStreamHandler) handleSessionTitle(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleSessionTitle(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.SessionTitleData)
 	if !ok {
 		return nil
@@ -830,7 +830,9 @@ func (h *AgentStreamHandler) handleSessionTitle(ctx context.Context, evt event.E
 			"title":      data.Title,
 		},
 	}); err != nil {
-		logger.GetLogger(h.ctx).Warn("Append session title event to stream failed (stream may have ended)", "error", err)
+		logger.GetLogger(h.ctx).Warn(
+			"Append session title event to stream failed (stream may have ended)", "error", err,
+		)
 	}
 
 	return nil
@@ -864,7 +866,7 @@ func (h *AgentStreamHandler) handleUserMessageInjected(_ context.Context, evt ev
 }
 
 // handleComplete handles agent complete events
-func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event) error {
+func (h *AgentStreamHandler) handleComplete(_ context.Context, evt event.Event) error {
 	data, ok := evt.Data.(event.AgentCompleteData)
 	if !ok {
 		return nil
@@ -941,7 +943,9 @@ func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event
 		// message-owned artifact path as local files, even without a sandbox.
 		delegated, _ := data.Artifacts.(types.MessageArtifacts)
 		delegated = delegated.Live()
-		claimedDelegated := h.artifactCollector.BindArtifactsToMessage(context.WithoutCancel(h.ctx), h.assistantMessageID, delegated)
+		claimedDelegated := h.artifactCollector.BindArtifactsToMessage(
+			context.WithoutCancel(h.ctx), h.assistantMessageID, delegated,
+		)
 		h.assistantMessage.Content = omitUnclaimedArtifactLinks(h.assistantMessage.Content, delegated, claimedDelegated)
 		data.FinalAnswer = omitUnclaimedArtifactLinks(data.FinalAnswer, delegated, claimedDelegated)
 		h.assistantMessage.Artifacts = mergeArtifactLists(h.assistantMessage.Artifacts, claimedDelegated)
@@ -1002,7 +1006,9 @@ func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event
 			)
 			previous = historyOnlyArtifacts(referenced, artifacts)
 			claimedPrevious := h.artifactCollector.BindArtifactsToMessage(collectCtx, h.assistantMessageID, previous)
-			h.assistantMessage.Content = omitUnclaimedArtifactLinks(h.assistantMessage.Content, previous, claimedPrevious)
+			h.assistantMessage.Content = omitUnclaimedArtifactLinks(
+				h.assistantMessage.Content, previous, claimedPrevious,
+			)
 			data.FinalAnswer = omitUnclaimedArtifactLinks(data.FinalAnswer, previous, claimedPrevious)
 			previous = claimedPrevious
 			referenced = mergeArtifactLists(artifacts, claimedPrevious)

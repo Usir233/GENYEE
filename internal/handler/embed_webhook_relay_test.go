@@ -40,12 +40,17 @@ func TestEmbedWebhookRelayVerifiesMessageIdentityAndLifecycle(t *testing.T) {
 		{ID: "answer-1", SessionID: testEmbedSessionID, Role: "assistant", Content: "same answer", IsCompleted: false},
 		{ID: "answer-2", SessionID: testEmbedSessionID, Role: "assistant", Content: "same answer", IsCompleted: true},
 		{ID: "foreign", SessionID: "foreign-session", Role: "user", Content: "hello", IsCompleted: true},
-		{ID: "suspended", SessionID: testEmbedSessionID, Role: "assistant", Content: "awaiting reply", IsCompleted: true, RunState: types.MessageRunStateAwaitingInput},
+		{
+			ID: "suspended", SessionID: testEmbedSessionID, Role: "assistant", Content: "awaiting reply",
+			IsCompleted: true, RunState: types.MessageRunStateAwaitingInput,
+		},
 		{ID: "empty", SessionID: testEmbedSessionID, Role: "assistant", IsCompleted: true},
 		{ID: "system", SessionID: testEmbedSessionID, Role: "system", Content: "secret", IsCompleted: true},
 	}}
 	h := &EmbedChannelHandler{
-		sessionService: &stubSessionServiceForEmbed{sessions: map[string]*types.Session{testEmbedSessionID: validEmbedSession(ch)}},
+		sessionService: &stubSessionServiceForEmbed{
+			sessions: map[string]*types.Session{testEmbedSessionID: validEmbedSession(ch)},
+		},
 		messageHandler: &MessageHandler{MessageService: messages},
 	}
 	sig := service.SignEmbedSessionHandle(ch, testEmbedSessionID)
@@ -54,7 +59,9 @@ func TestEmbedWebhookRelayVerifiesMessageIdentityAndLifecycle(t *testing.T) {
 		body, _ := json.Marshal(map[string]any{"type": eventType, "message_id": messageID})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/sessions/"+testEmbedSessionID+"/events", bytes.NewReader(body))
+		c.Request = httptest.NewRequest(
+			http.MethodPost, "/sessions/"+testEmbedSessionID+"/events", bytes.NewReader(body),
+		)
 		c.Request.Header.Set("Content-Type", "application/json")
 		c.Request.Header.Set("X-Embed-Session", signature)
 		c.Params = gin.Params{{Key: "session_id", Value: testEmbedSessionID}}

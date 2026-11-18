@@ -55,7 +55,8 @@ func TestAuthHandlerSwitchTenantWithoutRefreshInheritsSessionAndHonorsLogout(t *
 		TenantID: homeTenant.ID, UserID: user.ID, Role: types.TenantRoleOwner, Status: types.TenantMemberStatusActive,
 	}).Error)
 	require.NoError(t, db.Create(&types.TenantMember{
-		TenantID: targetTenant.ID, UserID: user.ID, Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive,
+		TenantID: targetTenant.ID, UserID: user.ID,
+		Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive,
 	}).Error)
 
 	cfg := &config.Config{Tenant: &config.TenantConfig{}}

@@ -28,23 +28,23 @@ func (rc *qaRequestContext) titleModelID() string {
 // @Tags         会话
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path      string                true  "会话ID"
+// @Param        id  path      string                true  "会话ID"
 // @Param        request     body      GenerateTitleRequest  true  "生成请求"
 // @Success      200         {object}  map[string]interface{}  "生成的标题"
 // @Failure      400         {object}  errors.AppError         "请求参数错误"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/generate_title [post]
+// @Router       /sessions/{id}/generate-title [post]
 func (h *Handler) GenerateTitle(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	logger.Info(ctx, "Start generating session title")
 
 	// Get session ID from URL parameter
-	sessionID := c.Param("session_id")
+	sessionID := sessionIDParam(c)
 	if sessionID == "" {
 		logger.Error(ctx, "Session ID is empty")
-		c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
+		_ = c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *Handler) GenerateTitle(c *gin.Context) {
 			_ = c.Error(errors.NewBadRequestError("request body is too large"))
 			return
 		}
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -67,11 +67,11 @@ func (h *Handler) GenerateTitle(c *gin.Context) {
 	if err != nil {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
 			logger.Warnf(ctx, "Session not found, ID: %s", sessionID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *Handler) GenerateTitle(c *gin.Context) {
 	title, err := h.sessionService.GenerateTitle(ctx, session, request.Messages, "")
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 

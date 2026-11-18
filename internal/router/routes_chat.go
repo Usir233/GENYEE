@@ -64,40 +64,40 @@ func RegisterSessionRoutes(
 		sessions.PUT("/:id/host-approval-mode", handler.SetHostApprovalMode)
 		sessions.DELETE("/:id", handler.DeleteSession)
 		sessions.DELETE("/:id/messages", handler.ClearSessionMessages)
-		sessions.POST("/:session_id/generate_title", handler.GenerateTitle)
-		sessions.POST("/:session_id/attachments", handler.UploadTemporaryDocument)
+		sessions.POST("/:id/generate-title", handler.GenerateTitle)
+		sessions.POST("/:id/attachments", handler.UploadTemporaryDocument)
 		sessions.GET("/:id/attachments", handler.ListTemporaryDocuments)
 		sessions.GET("/:id/attachments/:attachment_id", handler.GetTemporaryDocument)
 		sessions.GET("/:id/attachments/:attachment_id/preview", handler.PreviewTemporaryDocument)
 		sessions.DELETE("/:id/attachments/:attachment_id", handler.DeleteTemporaryDocument)
-		sessions.POST("/:session_id/stop", handler.StopSession)
-		sessions.POST("/:session_id/fork", handler.ForkSession)
-		sessions.POST("/:session_id/rewind", handler.RewindSession)
-		sessions.POST("/:session_id/sandbox/terminal-ticket", handler.IssueSandboxTerminalTicket)
-		sessions.POST("/:session_id/sandbox/desktop-ticket", handler.IssueSandboxDesktopTicket)
-		sessions.POST("/:session_id/sandbox/desktop/activity", handler.ReportSandboxDesktopActivity)
+		sessions.POST("/:id/stop", handler.StopSession)
+		sessions.POST("/:id/fork", handler.ForkSession)
+		sessions.POST("/:id/rewind", handler.RewindSession)
+		sessions.POST("/:id/sandbox/terminal-ticket", handler.IssueSandboxTerminalTicket)
+		sessions.POST("/:id/sandbox/desktop-ticket", handler.IssueSandboxDesktopTicket)
+		sessions.POST("/:id/sandbox/desktop/activity", handler.ReportSandboxDesktopActivity)
 		sessions.GET("/:id/local-browser", handler.BrowserSkillConnection)
-		sessions.POST("/:session_id/local-browser", handler.BrowserSkillConnection)
+		sessions.POST("/:id/local-browser", handler.BrowserSkillConnection)
 		// Mid-run message injection: append a user message to the turn that is
 		// currently generating. Accepts even when no run is live (the client
 		// then falls back to a normal send), mirroring StopSession's ownership
 		// rules.
-		sessions.POST("/:session_id/steer", handler.SteerMessage)
+		sessions.POST("/:id/steer", handler.SteerMessage)
 		sessions.GET("/:id/steer", handler.ListSteerMessages)
 		sessions.DELETE("/:id/steer/:steer_id", handler.DeleteSteerMessage)
-		sessions.POST("/:session_id/steer/:steer_id/inject", handler.PromoteSteerMessage)
+		sessions.POST("/:id/steer/:steer_id/inject", handler.PromoteSteerMessage)
 		// Background work: cheap list for the chip, on-demand output for the
 		// user, owner-only cancel. Same WorkHandler the model tools use.
 		// GET stays on :id and POST on :session_id so each verb's radix tree
 		// keeps the wildcard name it already uses.
 		sessions.GET("/:id/background-work", handler.ListBackgroundWork)
 		sessions.GET("/:id/background-work/:work_id", handler.GetBackgroundWork)
-		sessions.POST("/:session_id/background-work/:work_id/cancel", handler.CancelBackgroundWork)
+		sessions.POST("/:id/background-work/:work_id/cancel", handler.CancelBackgroundWork)
 		// POST and DELETE share this path but gin maintains a separate radix tree
 		// per HTTP verb, and the existing trees use different wildcard names
 		// (POST uses :session_id, DELETE uses :id). Use whatever matches each
 		// tree to avoid "wildcard conflicts" panic at route registration.
-		sessions.POST("/:session_id/pin", handler.PinSession)
+		sessions.POST("/:id/pin", handler.PinSession)
 		sessions.DELETE("/:id/pin", handler.UnpinSession)
 		// 继续接收活跃流
 		sessions.GET("/continue-stream/:session_id", handler.ContinueStream)
@@ -105,8 +105,8 @@ func RegisterSessionRoutes(
 			// Gin requires wildcard names to be identical within the same HTTP-method
 			// radix tree. Existing GET session routes use :id, so keep that name here.
 			sessions.GET("/:id/messages/:message_id/suggestions", suggestionHandler.Get)
-			sessions.POST("/:session_id/messages/:message_id/suggestions", suggestionHandler.Ensure)
-			sessions.POST("/:session_id/suggestion-events", suggestionHandler.RecordEvent)
+			sessions.POST("/:id/messages/:message_id/suggestions", suggestionHandler.Ensure)
+			sessions.POST("/:id/suggestion-events", suggestionHandler.RecordEvent)
 		}
 
 		// Skill-generated file artifacts. The list endpoints only expose

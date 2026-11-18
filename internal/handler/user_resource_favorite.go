@@ -24,6 +24,7 @@ type UserResourceFavoriteHandler struct {
 	service interfaces.UserResourceFavoriteService
 }
 
+// NewUserResourceFavoriteHandler provides HTTP handling for NewUserResourceFavoriteHandler.
 func NewUserResourceFavoriteHandler(svc interfaces.UserResourceFavoriteService) *UserResourceFavoriteHandler {
 	return &UserResourceFavoriteHandler{service: svc}
 }
@@ -34,17 +35,17 @@ func NewUserResourceFavoriteHandler(svc interfaces.UserResourceFavoriteService) 
 func favoriteContext(c *gin.Context) (string, uint64, bool) {
 	uidVal, ok := c.Get(types.UserIDContextKey.String())
 	if !ok {
-		c.Error(apperrors.NewUnauthorizedError("user ID not found"))
+		_ = c.Error(apperrors.NewUnauthorizedError("user ID not found"))
 		return "", 0, false
 	}
 	userID, _ := uidVal.(string)
 	if userID == "" {
-		c.Error(apperrors.NewUnauthorizedError("user ID not found"))
+		_ = c.Error(apperrors.NewUnauthorizedError("user ID not found"))
 		return "", 0, false
 	}
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if tenantID == 0 {
-		c.Error(apperrors.NewUnauthorizedError("workspace ID not found"))
+		_ = c.Error(apperrors.NewUnauthorizedError("workspace ID not found"))
 		return "", 0, false
 	}
 	return userID, tenantID, true
@@ -56,7 +57,7 @@ func favoriteContext(c *gin.Context) (string, uint64, bool) {
 // @Tags         User
 // @Param        type  query     string  true  "Resource type (kb | agent)"
 // @Success      200   {object}  handler.DataResponse{data=[]types.UserResourceFavorite}
-// @Router       /user/favorites [get]
+// @Router       /me/favorites [get]
 func (h *UserResourceFavoriteHandler) ListFavorites(c *gin.Context) {
 	ctx := c.Request.Context()
 	userID, tenantID, ok := favoriteContext(c)
@@ -68,17 +69,17 @@ func (h *UserResourceFavoriteHandler) ListFavorites(c *gin.Context) {
 	list, err := h.service.List(ctx, userID, tenantID, resourceType)
 	if err != nil {
 		if stderrors.Is(err, service.ErrFavoriteInvalidType) {
-			c.Error(apperrors.NewBadRequestError(err.Error()))
+			_ = c.Error(apperrors.NewBadRequestError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": list})
 }
 
-// AddFavoriteRequest is the body for POST /user/favorites — kept symmetric
+// AddFavoriteRequest is the body for POST /me/favorites — kept symmetric
 // with the DELETE path parameters so the frontend can build a single API
 // helper that switches verb on toggle.
 type AddFavoriteRequest struct {
@@ -91,7 +92,7 @@ type AddFavoriteRequest struct {
 // @Tags         User
 // @Param        body  body      AddFavoriteRequest  true  "Type + id"
 // @Success      200   {object}  handler.SuccessResponse
-// @Router       /user/favorites [post]
+// @Router       /me/favorites [post]
 func (h *UserResourceFavoriteHandler) AddFavorite(c *gin.Context) {
 	ctx := c.Request.Context()
 	userID, tenantID, ok := favoriteContext(c)
@@ -100,16 +101,16 @@ func (h *UserResourceFavoriteHandler) AddFavorite(c *gin.Context) {
 	}
 	var req AddFavoriteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.NewBadRequestError("invalid request body").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewBadRequestError("invalid request body").WithDetails(err.Error()))
 		return
 	}
 	if err := h.service.Add(ctx, userID, tenantID, req.ResourceType, req.ResourceID); err != nil {
 		if stderrors.Is(err, service.ErrFavoriteInvalidType) || stderrors.Is(err, service.ErrFavoriteEmptyID) {
-			c.Error(apperrors.NewBadRequestError(err.Error()))
+			_ = c.Error(apperrors.NewBadRequestError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
@@ -121,7 +122,7 @@ func (h *UserResourceFavoriteHandler) AddFavorite(c *gin.Context) {
 // @Param        type  path      string  true  "Resource type"
 // @Param        id    path      string  true  "Resource id"
 // @Success      200   {object}  handler.SuccessResponse
-// @Router       /user/favorites/{type}/{id} [delete]
+// @Router       /me/favorites/{type}/{id} [delete]
 func (h *UserResourceFavoriteHandler) RemoveFavorite(c *gin.Context) {
 	ctx := c.Request.Context()
 	userID, tenantID, ok := favoriteContext(c)
@@ -133,11 +134,11 @@ func (h *UserResourceFavoriteHandler) RemoveFavorite(c *gin.Context) {
 
 	if err := h.service.Remove(ctx, userID, tenantID, resourceType, resourceID); err != nil {
 		if stderrors.Is(err, service.ErrFavoriteInvalidType) || stderrors.Is(err, service.ErrFavoriteEmptyID) {
-			c.Error(apperrors.NewBadRequestError(err.Error()))
+			_ = c.Error(apperrors.NewBadRequestError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})

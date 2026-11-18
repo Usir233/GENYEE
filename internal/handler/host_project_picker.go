@@ -30,21 +30,22 @@ func currentHostProjectPicker() func() (string, error) {
 // PickHostProjectDir opens the system folder picker. The SPA talks HTTP to
 // this process; Wails JS bindings are not injected through the
 // reverse-proxied frontend, so this is the working authorization path.
+// PickHostProjectDir godoc
+// @Summary      选择宿主机项目目录（Desktop）
+// @Tags         系统
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Router       /system/host-project-dir [post]
 func (*SystemHandler) PickHostProjectDir(c *gin.Context) {
 	picker := currentHostProjectPicker()
 	if picker == nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   gin.H{"message": "host project picker is not available"},
-		})
+		writeStatusError(c, http.StatusNotFound, "host project picker is not available")
 		return
 	}
 	dir, err := picker()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   gin.H{"message": err.Error()},
-		})
+		writeStatusError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

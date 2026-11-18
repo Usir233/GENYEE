@@ -42,6 +42,7 @@ func (runtimeTestSettings) List(context.Context) ([]*types.SystemSetting, error)
 func (runtimeTestSettings) Get(context.Context, string) (*types.SystemSetting, error) {
 	return nil, nil
 }
+
 func (runtimeTestSettings) Update(context.Context, string, any) (*types.SystemSetting, error) {
 	return nil, nil
 }
@@ -59,6 +60,7 @@ type runtimeTestInspector struct{}
 func (runtimeTestInspector) CancelTasksForKnowledge(context.Context, string) (int, int, error) {
 	return 0, 0, nil
 }
+
 func (runtimeTestInspector) HasQueuedDeleteTasksForKnowledge(context.Context, string) (bool, error) {
 	return false, nil
 }
@@ -74,6 +76,7 @@ func (runtimeTestInspector) QueuedKnowledgeIDs(context.Context) (map[string]stru
 func (runtimeTestInspector) QueueStats(context.Context) ([]types.QueueStat, bool, error) {
 	return []types.QueueStat{}, true, nil
 }
+
 func (runtimeTestInspector) WorkerServerStats(context.Context) ([]types.WorkerServerStat, bool, error) {
 	return []types.WorkerServerStat{
 		{Concurrency: 8, Active: 4, Status: "active", Queues: types.QueueWeightsForPool(types.WorkerPoolCore)},
@@ -312,7 +315,9 @@ func TestListRuntimeTasksReturnsSafeTaskDetails(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Params = gin.Params{{Key: "queue", Value: types.QueueDefault}}
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/system/admin/runtime/queues/default/tasks?state=archived", nil)
+	ctx.Request = httptest.NewRequest(
+		http.MethodGet, "/api/v1/system/admin/runtime/queues/default/tasks?state=archived", nil,
+	)
 
 	handler.ListRuntimeTasks(ctx)
 	if recorder.Code != http.StatusOK {

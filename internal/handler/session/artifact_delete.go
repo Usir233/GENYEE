@@ -18,14 +18,14 @@ import (
 // @Description  删除某条 assistant 消息生成的单个文件；all_versions=true 时连同本会话中该文件的所有历史版本一并删除
 // @Tags         会话
 // @Produce      json
-// @Param        session_id    path   string  true   "会话ID"
+// @Param        id    path   string  true   "会话ID"
 // @Param        message_id    path   string  true   "消息ID"
 // @Param        index         path   int     true   "产物在消息中的位置"
 // @Param        all_versions  query  bool    false  "是否删除该文件的所有版本"
 // @Success      200  {object}  map[string]interface{}
 // @Failure      404  {object}  errors.AppError
 // @Security     Bearer
-// @Router       /sessions/{session_id}/messages/{message_id}/artifacts/{index} [delete]
+// @Router       /sessions/{id}/messages/{message_id}/artifacts/{index} [delete]
 //
 // Addressed by the same (message, index) coordinates as the download endpoint,
 // so a client deletes exactly the row it was showing. The in-chat panel lists

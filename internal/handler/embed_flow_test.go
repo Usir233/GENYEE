@@ -23,7 +23,9 @@ type flowEmbedSvc struct {
 	channels     map[string]*types.EmbedChannel
 }
 
-func (f *flowEmbedSvc) Create(context.Context, uint64, string, *types.EmbedChannel) (*types.EmbedChannel, string, error) {
+func (f *flowEmbedSvc) Create(
+	context.Context, uint64, string, *types.EmbedChannel,
+) (*types.EmbedChannel, string, error) {
 	return nil, "", nil
 }
 
@@ -35,7 +37,9 @@ func (f *flowEmbedSvc) ListByTenant(context.Context, uint64) ([]*types.EmbedChan
 	return nil, nil
 }
 
-func (f *flowEmbedSvc) Update(context.Context, uint64, string, *types.EmbedChannel, *bool, *bool, *bool, *bool, *string, *string, *string) (*types.EmbedChannel, error) {
+func (f *flowEmbedSvc) Update(
+	context.Context, uint64, string, *types.EmbedChannel, *bool, *bool, *bool, *bool, *string, *string, *string,
+) (*types.EmbedChannel, error) {
 	return nil, nil
 }
 
@@ -85,7 +89,9 @@ func (f *flowEmbedSvc) PublicConfig(context.Context, *types.EmbedChannel) types.
 	return types.EmbedChannelPublicConfig{}
 }
 
-func (f *flowEmbedSvc) SuggestedQuestions(context.Context, *types.EmbedChannel, int) ([]types.SuggestedQuestion, error) {
+func (f *flowEmbedSvc) SuggestedQuestions(
+	context.Context, *types.EmbedChannel, int,
+) ([]types.SuggestedQuestion, error) {
 	return nil, nil
 }
 
@@ -116,6 +122,7 @@ func (f *flowTenantSvc) GetTenantsByIDs(context.Context, []uint64) (map[uint64]*
 func (f *flowTenantSvc) UpdateTenant(context.Context, *types.Tenant) (*types.Tenant, error) {
 	return nil, nil
 }
+
 func (f *flowTenantSvc) SetChatHistoryConfig(context.Context, uint64, *types.ChatHistoryConfig) error {
 	panic("unexpected chat history configuration write")
 }
@@ -277,7 +284,10 @@ func TestPatchEmbedChatPayloadWebSearchRequiresClientOptIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if payloadOn["web_search_enabled"] != true {
-		t.Fatalf("web_search_enabled = %v, want true when channel allows and visitor opted in", payloadOn["web_search_enabled"])
+		t.Fatalf(
+			"web_search_enabled = %v, want true when channel allows and visitor opted in",
+			payloadOn["web_search_enabled"],
+		)
 	}
 }
 
@@ -300,7 +310,8 @@ func TestPatchEmbedChatPayloadWebSearchBlockedWhenChannelDisabled(t *testing.T) 
 
 func TestPatchEmbedChatPayloadStripsAttachmentsWhenUploadDisabled(t *testing.T) {
 	ch := &types.EmbedChannel{AgentID: "agent-1", AllowFileUpload: false}
-	body := `{"query":"hello","images":[{"data":"x"}],"attachment_uploads":[{"file_name":"a.pdf"}],"attachment_ids":["doc-1"]}`
+	body := `{"query":"hello","images":[{"data":"x"}],` +
+		`"attachment_uploads":[{"file_name":"a.pdf"}],"attachment_ids":["doc-1"]}`
 
 	patched, err := patchEmbedChatPayload(strings.NewReader(body), ch, false)
 	if err != nil {

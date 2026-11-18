@@ -16,7 +16,6 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // ContinueStream godoc
@@ -41,10 +40,10 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	logger.Info(ctx, "Start continuing stream response processing")
 
 	// Get session ID from URL parameter
-	sessionID := secutils.SanitizeForLog(c.Param("session_id"))
+	sessionID := secutils.SanitizeForLog(sessionIDParam(c))
 	if sessionID == "" {
 		logger.Error(ctx, "Session ID is empty")
-		c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
+		_ = c.Error(errors.NewBadRequestError(errors.ErrInvalidSessionID.Error()))
 		return
 	}
 
@@ -52,7 +51,7 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	messageID := secutils.SanitizeForLog(c.Query("message_id"))
 	if messageID == "" {
 		logger.Error(ctx, "Message ID is empty")
-		c.Error(errors.NewBadRequestError("Missing message ID"))
+		_ = c.Error(errors.NewBadRequestError("Missing message ID"))
 		return
 	}
 
@@ -71,10 +70,10 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
 		if stderrors.Is(err, errors.ErrSessionNotFound) {
 			logger.Warnf(ctx, "Session not found, ID: %s", sessionID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 		} else {
 			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 		}
 		return
 	}
@@ -88,30 +87,27 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 			// surface as ErrSessionNotFound. Map to 404 so clients can tell
 			// "wrong URL" from a real 5xx instead of seeing a generic 500.
 			logger.Warnf(ctx, "Session not found, ID: %s", sessionID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
+		if isRecordNotFound(err) {
 			// The message_id doesn't exist (e.g. a wrong / non-persisted id, or an
 			// expired replay buffer). That is a client error, not a server fault:
 			// return 404 so callers read resource.not_found (a permanent condition
 			// they must not retry) instead of a retryable 5xx. Mirrors the
 			// ErrSessionNotFound branch above and the kb/doc/chunk not-found fix.
 			logger.Warnf(ctx, "Message not found, session ID: %s, message ID: %s", sessionID, messageID)
-			c.Error(errors.NewNotFoundError(err.Error()))
+			_ = c.Error(errors.NewNotFoundError(err.Error()))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	if message == nil {
 		logger.Warnf(ctx, "Incomplete message not found, session ID: %s, message ID: %s", sessionID, messageID)
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   "Incomplete message not found",
-		})
+		writeStatusError(c, http.StatusNotFound, "Incomplete message not found")
 		return
 	}
 
@@ -119,16 +115,13 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	events, currentOffset, err := h.streamManager.GetEvents(ctx, sessionID, messageID, 0)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(fmt.Sprintf("Failed to get stream data: %s", err.Error())))
+		_ = c.Error(errors.NewInternalServerError(fmt.Sprintf("Failed to get stream data: %s", err.Error())))
 		return
 	}
 
 	if len(events) == 0 {
 		logger.Warnf(ctx, "No events found in stream, session ID: %s, message ID: %s", sessionID, messageID)
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   "No stream events found",
-		})
+		writeStatusError(c, http.StatusNotFound, "No stream events found")
 		return
 	}
 
@@ -144,7 +137,7 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 			}
 		}
 		if !ready {
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "The resumed stream is not ready yet"})
+			writeStatusError(c, http.StatusConflict, "The resumed stream is not ready yet")
 			return
 		}
 	}
@@ -241,19 +234,19 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 // @Tags         问答
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path      string              true  "会话ID"
+// @Param        id  path      string              true  "会话ID"
 // @Param        request     body      StopSessionRequest  true  "停止请求"
 // @Success      200         {object}  map[string]interface{}  "停止成功"
 // @Failure      404         {object}  errors.AppError         "会话或消息不存在"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /sessions/{session_id}/stop [post]
+// @Router       /sessions/{id}/stop [post]
 func (h *Handler) StopSession(c *gin.Context) {
 	ctx := logger.CloneContext(c.Request.Context())
-	sessionID := secutils.SanitizeForLog(c.Param("session_id"))
+	sessionID := secutils.SanitizeForLog(sessionIDParam(c))
 
 	if sessionID == "" {
-		c.JSON(400, gin.H{"error": "Session ID is required"})
+		writeStatusError(c, 400, "Session ID is required")
 		return
 	}
 
@@ -264,16 +257,16 @@ func (h *Handler) StopSession(c *gin.Context) {
 			"session_id": sessionID,
 		})
 		if tooLarge {
-			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+			writeStatusError(c, http.StatusRequestEntityTooLarge, "request body is too large")
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": "message_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "message_id is required")
 		return
 	}
 
 	assistantMessageID := secutils.SanitizeForLog(strings.TrimSpace(req.MessageID))
 	if assistantMessageID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "message_id is required"})
+		writeStatusError(c, http.StatusBadRequest, "message_id is required")
 		return
 	}
 	logger.Infof(ctx, "Stop generation request for session: %s, message: %s", sessionID, assistantMessageID)
@@ -282,7 +275,7 @@ func (h *Handler) StopSession(c *gin.Context) {
 	tenantIDUint, ok := tenantIDFromGinOrContext(c)
 	if !ok {
 		logger.Error(ctx, "Failed to get tenant ID")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		writeStatusError(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -295,13 +288,13 @@ func (h *Handler) StopSession(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"session_id": sessionID,
 		})
-		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+		writeStatusError(c, http.StatusNotFound, "Session not found")
 		return
 	}
 
 	if session.TenantID != tenantIDUint {
 		logger.Warnf(ctx, "Session %s does not belong to tenant %d", sessionID, tenantIDUint)
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		writeStatusError(c, http.StatusForbidden, "Access denied")
 		return
 	}
 
@@ -312,19 +305,19 @@ func (h *Handler) StopSession(c *gin.Context) {
 			"session_id": sessionID,
 			"message_id": assistantMessageID,
 		})
-		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
+		writeStatusError(c, http.StatusNotFound, "Message not found")
 		return
 	}
 
 	if message.SessionID != sessionID {
 		logger.Warnf(ctx, "Message %s does not belong to session %s", assistantMessageID, sessionID)
-		c.JSON(http.StatusForbidden, gin.H{"error": "Message does not belong to this session"})
+		writeStatusError(c, http.StatusForbidden, "Message does not belong to this session")
 		return
 	}
 
 	if h.stopCollaboration != nil {
 		if err := h.stopCollaboration(ctx, sessionID, assistantMessageID); err != nil {
-			c.JSON(500, gin.H{"error": "Failed to stop delegated tasks"})
+			writeStatusError(c, 500, "Failed to stop delegated tasks")
 			return
 		}
 	}
@@ -358,7 +351,7 @@ func (h *Handler) StopSession(c *gin.Context) {
 			"session_id": sessionID,
 			"message_id": assistantMessageID,
 		})
-		c.JSON(500, gin.H{"error": "Failed to write stop event"})
+		writeStatusError(c, 500, "Failed to write stop event")
 		return
 	}
 
@@ -429,7 +422,7 @@ func (h *Handler) handleAgentEventsForSSE(
 
 					// Emit stop event to the EventBus to trigger context cancellation
 					if eventBus != nil {
-						eventBus.Emit(ctx, event.Event{
+						_ = eventBus.Emit(ctx, event.Event{
 							Type:      event.EventStop,
 							SessionID: sessionID,
 							Data: event.StopData{
@@ -488,7 +481,10 @@ func (h *Handler) handleAgentEventsForSSE(
 			// Check if stream is completed - wait for title event only if needed and not already received
 			if streamCompleted {
 				if waitForTitle && !titleReceived {
-					log.Infof("Stream completed for session=%s, message=%s, waiting for title event", sessionID, assistantMessageID)
+					log.Infof(
+						"Stream completed for session=%s, message=%s, waiting for title event", sessionID,
+						assistantMessageID,
+					)
 					// Wait up to 3 seconds for title event after completion
 					titleTimeout := time.After(3 * time.Second)
 				titleWaitLoop:
@@ -502,7 +498,9 @@ func (h *Handler) handleAgentEventsForSSE(
 							return
 						default:
 							// Check for new events (title event)
-							events, newOff, err := h.streamManager.GetEvents(c.Request.Context(), sessionID, assistantMessageID, lastOffset)
+							events, newOff, err := h.streamManager.GetEvents(
+								c.Request.Context(), sessionID, assistantMessageID, lastOffset,
+							)
 							if err != nil {
 								log.Warnf("Error getting events while waiting for title: %v", err)
 								break titleWaitLoop

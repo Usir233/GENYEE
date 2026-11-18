@@ -14,7 +14,7 @@ import (
 )
 
 // WithGrants lets the handler list and revoke the caller's agent grants.
-func (h *MCPServiceHandler) WithGrants(grants interfaces.AgentGrantRepository) *MCPServiceHandler {
+func (h *MCPServiceHandler) WithGrants(grants interfaces.AgentGrantService) *MCPServiceHandler {
 	h.grants = grants
 	return h
 }

@@ -81,15 +81,13 @@ func EmbedAuth(
 	return func(c *gin.Context) {
 		channelID := strings.TrimSpace(c.Param("channel_id"))
 		if channelID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "channel_id is required"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusBadRequest, "channel_id is required")
 			return
 		}
 
 		token := extractEmbedToken(c)
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "embed publish token is required"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusUnauthorized, "embed publish token is required")
 			return
 		}
 
@@ -98,8 +96,7 @@ func EmbedAuth(
 		if service.IsEmbedSessionToken(token) {
 			resolvedID, resolveErr := svc.ResolveSessionToken(c.Request.Context(), token)
 			if resolveErr != nil || resolvedID != channelID {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid embed channel or token"})
-				c.Abort()
+				abortWithStatusError(c, http.StatusUnauthorized, "invalid embed channel or token")
 				return
 			}
 			ch, err = svc.LookupEnabledChannel(c.Request.Context(), channelID)
@@ -108,53 +105,45 @@ func EmbedAuth(
 		}
 		if err != nil {
 			if errors.Is(err, service.ErrEmbedChannelDisabled) {
-				c.JSON(http.StatusForbidden, gin.H{"error": "embed channel is disabled"})
-				c.Abort()
+				abortWithStatusError(c, http.StatusForbidden, "embed channel is disabled")
 				return
 			}
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid embed channel or token"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusUnauthorized, "invalid embed channel or token")
 			return
 		}
 
 		origin := requestOrigin(c)
 		if !embedRequestOriginAllowed(c, origin, ch.AllowedOriginsList()) {
 			logger.Warnf(c.Request.Context(), "[embed_auth] origin %q not allowed for channel %s", origin, channelID)
-			c.JSON(http.StatusForbidden, gin.H{"error": "origin not allowed"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusForbidden, "origin not allowed")
 			return
 		}
 
 		// Per-IP per-minute cap.
 		rateKey := fmt.Sprintf("%s:%s", channelID, c.ClientIP())
 		if !limiter.Allow(c.Request.Context(), rateKey, ch.RateLimitPerMinute) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
 		// Channel-wide per-minute cap (bounds burst across rotating IPs since
 		// the publish token is publicly visible).
 		if !limiter.Allow(c.Request.Context(), channelID+":__global", embedGlobalPerMinute(ch.RateLimitPerMinute)) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
 		// Channel-wide daily total cap (bounds sustained abuse).
 		if !dailyLimiter.Allow(c.Request.Context(), channelID, ch.RateLimitPerDay) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "daily request limit exceeded"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusTooManyRequests, "daily request limit exceeded")
 			return
 		}
 
 		tenant, err := tenantSvc.GetTenantByID(c.Request.Context(), ch.TenantID)
 		if err != nil || tenant == nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "workspace unavailable"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusInternalServerError, "workspace unavailable")
 			return
 		}
 		if isWorkspaceInactive(tenant.Status) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "workspace inactive"})
-			c.Abort()
+			abortWithStatusError(c, http.StatusForbidden, "workspace inactive")
 			return
 		}
 

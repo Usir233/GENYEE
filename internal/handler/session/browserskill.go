@@ -130,38 +130,49 @@ func browserSkillScope(ctx context.Context) browserskill.Scope {
 }
 
 // BrowserSkillConnection exposes task status and user controls for an owned conversation.
+// BrowserSkillConnection godoc
+// @Summary      获取或操作会话本地浏览器连接
+// @Tags         会话
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                  true   "会话 ID"
+// @Param        request  body      map[string]interface{}  false  "Browser action"
+// @Success      200      {object}  map[string]interface{}
+// @Security     Bearer
+// @Router       /sessions/{id}/local-browser [get]
+// @Router       /sessions/{id}/local-browser [post]
 func (h *Handler) BrowserSkillConnection(c *gin.Context) {
-	id := c.Param("session_id")
+	id := sessionIDParam(c)
 	if id == "" {
 		id = c.Param("id")
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 40*time.Second)
 	defer cancel()
 	if calledWithAPIKey(ctx) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "API keys cannot access local browser controls"})
+		writeStatusError(c, http.StatusForbidden, "API keys cannot access local browser controls")
 		return
 	}
 	scope := browserSkillScope(ctx)
 	if scope.User == "" || scope.Tenant == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		writeStatusError(c, http.StatusUnauthorized, "login required")
 		return
 	}
 	if _, err := h.sessionService.GetOwnedSession(ctx, id); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		writeStatusError(c, http.StatusNotFound, "session not found")
 		return
 	}
 	c.Header("Cache-Control", "no-store")
 	if c.Request.Method == http.MethodGet {
 		status, err := h.browserSkill.GetStatus(ctx, scope, id)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+			writeStatusError(c, http.StatusServiceUnavailable, err.Error())
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
 		return
 	}
 	if !h.browserSkill.Enabled() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "local browser is unavailable"})
+		writeStatusError(c, http.StatusServiceUnavailable, "local browser is unavailable")
 		return
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
@@ -169,7 +180,7 @@ func (h *Handler) BrowserSkillConnection(c *gin.Context) {
 		Action string `json:"action"`
 	}
 	if c.ShouldBindJSON(&input) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid browser action"})
+		writeStatusError(c, http.StatusBadRequest, "invalid browser action")
 		return
 	}
 	var err error
@@ -186,16 +197,16 @@ func (h *Handler) BrowserSkillConnection(c *gin.Context) {
 	case "select", "start", "resume", "pause", "stop":
 		err = h.browserSkill.Control(ctx, scope, id, input.Action)
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid browser action"})
+		writeStatusError(c, http.StatusBadRequest, "invalid browser action")
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusConflict, err.Error())
 		return
 	}
 	status, err := h.browserSkill.GetStatus(ctx, scope, id)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		writeStatusError(c, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
@@ -212,26 +223,26 @@ func (h *Handler) BrowserSkillAccount(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 	if calledWithAPIKey(ctx) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "API keys cannot access local browser controls"})
+		writeStatusError(c, http.StatusForbidden, "API keys cannot access local browser controls")
 		return
 	}
 	scope := browserSkillScope(ctx)
 	if scope.User == "" || scope.Tenant == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		writeStatusError(c, http.StatusUnauthorized, "login required")
 		return
 	}
 	c.Header("Cache-Control", "no-store")
 	if c.Request.Method == http.MethodGet {
 		status, err := h.browserSkill.Account(ctx, scope)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "browser connection status unavailable"})
+			writeStatusError(c, http.StatusServiceUnavailable, "browser connection status unavailable")
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
 		return
 	}
 	if !h.browserSkill.Enabled() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "local browser is unavailable"})
+		writeStatusError(c, http.StatusServiceUnavailable, "local browser is unavailable")
 		return
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
@@ -240,30 +251,30 @@ func (h *Handler) BrowserSkillAccount(c *gin.Context) {
 		Origin string `json:"origin"`
 	}
 	if c.ShouldBindJSON(&input) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid browser action"})
+		writeStatusError(c, http.StatusBadRequest, "invalid browser action")
 		return
 	}
 	switch input.Action {
 	case "pair":
 		link, err := h.browserSkill.Pair(ctx, scope, pairingOrigin(c.Request, input.Origin))
 		if err != nil {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			writeStatusError(c, http.StatusConflict, err.Error())
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pairing_link": link}})
 	case "revoke":
 		if err := h.browserSkill.Revoke(ctx, scope); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "could not revoke browser authorization"})
+			writeStatusError(c, http.StatusServiceUnavailable, "could not revoke browser authorization")
 			return
 		}
 		status, err := h.browserSkill.Account(ctx, scope)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "browser connection status unavailable"})
+			writeStatusError(c, http.StatusServiceUnavailable, "browser connection status unavailable")
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account browser action"})
+		writeStatusError(c, http.StatusBadRequest, "invalid account browser action")
 	}
 }
 

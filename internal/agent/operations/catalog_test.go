@@ -52,10 +52,10 @@ func TestNewCatalogRejectsUnsafeDeclarations(t *testing.T) {
 		"agent embed channels":    readOp("x.get", "/api/v1/agents/:id/embed-channels", kb),
 		"agent im channels":       readOp("x.get", "/api/v1/agents/:id/im-channels", kb),
 		"model credentials":       readOp("x.get", "/api/v1/models/:id/credentials", kb),
-		"data source credentials": readOp("x.get", "/api/v1/datasource/:id/credentials", kb),
+		"data source credentials": readOp("x.get", "/api/v1/data-sources/:id/credentials", kb),
 		"raw data source credentials": {
 			ID: "x.test", Summary: "s", Risk: RiskProbe, Method: http.MethodPost,
-			Route: "/api/v1/datasource/validate-credentials",
+			Route: "/api/v1/data-sources/validate-credentials",
 		},
 		"mcp oauth": readOp("x.get", "/api/v1/mcp-services/:id/oauth/status", kb),
 		"read as POST": {
@@ -392,7 +392,7 @@ func TestBuildCatchAllPath(t *testing.T) {
 	slug := Param{Name: "slug", In: InPath, Type: TypeString, Required: true, Description: "d"}
 	op := readOp(
 		"wiki.get_page",
-		"/api/v1/knowledgebase/:kb_id/wiki/pages/*slug",
+		"/api/v1/knowledge-bases/:id/wiki/pages/*slug",
 		Param{
 			Name:        "knowledge_base_id",
 			In:          InPath,
@@ -408,7 +408,7 @@ func TestBuildCatchAllPath(t *testing.T) {
 
 	call, err := op.Build(map[string]json.RawMessage{"knowledge_base_id": raw("kb"), "slug": raw("concept/a b")})
 	require.NoError(t, err)
-	assert.Equal(t, "/api/v1/knowledgebase/kb/wiki/pages/concept/a%20b", call.Path)
+	assert.Equal(t, "/api/v1/knowledge-bases/kb/wiki/pages/concept/a%20b", call.Path)
 	for _, bad := range []string{"concept/../x", "/abs", "a//b", "."} {
 		_, err = op.Build(map[string]json.RawMessage{"knowledge_base_id": raw("kb"), "slug": raw(bad)})
 		assert.Error(t, err, bad)
@@ -467,7 +467,7 @@ func TestProjectModelEndpointAndCatalog(t *testing.T) {
 	list, ok := Builtin().Get("model.list_providers")
 	require.True(t, ok)
 	body := `{"data":[{"value":"magpie","label":"Magpie","description":"d","icon":"data:x",
-		"modelTypes":["chat"],"models":[{"id":"a","name":"A"}]}]}`
+		"model_types":["chat"],"models":[{"id":"a","name":"A"}]}]}`
 	projected, err = list.Project([]byte(body))
 	require.NoError(t, err)
 	out, _ := json.Marshal(projected.Data)

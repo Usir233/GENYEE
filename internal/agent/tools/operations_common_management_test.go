@@ -17,11 +17,11 @@ func TestDataSourceSyncAlwaysConfirmsAndReturnsProgressHandle(t *testing.T) {
 	for _, approved := range []bool{false, true} {
 		t.Run(map[bool]string{true: "approved", false: "declined"}[approved], func(t *testing.T) {
 			d := &fakeDispatcher{responses: map[string]*operations.Response{
-				"GET /api/v1/datasource/ds1": {
+				"GET /api/v1/data-sources/ds1": {
 					Status: 200,
 					Body:   []byte(`{"id":"ds1","name":"Company docs","sync_deletions":true}`),
 				},
-				"POST /api/v1/datasource/ds1/sync": {
+				"POST /api/v1/data-sources/ds1/sync": {
 					Status: 200,
 					Body:   []byte(`{"id":"log1","data_source_id":"ds1","status":"running"}`),
 				},

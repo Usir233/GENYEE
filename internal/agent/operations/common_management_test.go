@@ -93,7 +93,7 @@ func TestDataSourceOperationsExposeSavedStateOnly(t *testing.T) {
 	assert.Contains(t, projectJSON(t, list, "["+payload+"]"), `"data_source_id":"ds1"`)
 	call, err := list.Build(map[string]json.RawMessage{"knowledge_base_id": raw("kb1")})
 	require.NoError(t, err)
-	assert.Equal(t, "/api/v1/datasource?kb_id=kb1", call.URI())
+	assert.Equal(t, "/api/v1/data-sources?kb_id=kb1", call.URI())
 }
 
 func TestDataSourceSyncLogsAreBoundedAndFollowable(t *testing.T) {
@@ -102,7 +102,7 @@ func TestDataSourceSyncLogsAreBoundedAndFollowable(t *testing.T) {
 		map[string]json.RawMessage{"data_source_id": raw("ds1"), "limit": raw(20), "offset": raw(20)},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "/api/v1/datasource/ds1/logs?limit=20&offset=20", call.URI())
+	assert.Equal(t, "/api/v1/data-sources/ds1/logs?limit=20&offset=20", call.URI())
 	for _, limit := range []int{0, 51} {
 		_, err = logs.Build(map[string]json.RawMessage{"data_source_id": raw("ds1"), "limit": raw(limit)})
 		require.Error(t, err)

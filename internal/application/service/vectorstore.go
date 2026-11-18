@@ -52,6 +52,16 @@ func NewVectorStoreService(
 }
 
 // CreateStore validates and creates a new vector store.
+// GetStore retrieves a vector store by ID within a tenant scope.
+func (s *vectorStoreService) GetStore(ctx context.Context, tenantID uint64, id string) (*types.VectorStore, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
+}
+
+// ListStores lists all vector stores configured for a tenant.
+func (s *vectorStoreService) ListStores(ctx context.Context, tenantID uint64) ([]*types.VectorStore, error) {
+	return s.repo.List(ctx, tenantID)
+}
+
 func (s *vectorStoreService) CreateStore(ctx context.Context, store *types.VectorStore) error {
 	// 1. Basic validation (name, engine_type, tenant_id)
 	if err := store.Validate(); err != nil {

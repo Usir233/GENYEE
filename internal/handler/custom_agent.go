@@ -30,9 +30,9 @@ type sandboxConfigLookup interface {
 
 // CustomAgentHandler defines the HTTP handler for custom agent operations
 type CustomAgentHandler struct {
-	service      interfaces.CustomAgentService
-	imService    *im.Service
-	disabledRepo interfaces.TenantDisabledSharedAgentRepository
+	service         interfaces.CustomAgentService
+	imService       *im.Service
+	disabledService interfaces.TenantDisabledSharedAgentService
 	// userService 仅用于 list 接口批量回填 creator_name，作用见
 	// KnowledgeBaseHandler.userService。
 	userService interfaces.UserService
@@ -40,7 +40,7 @@ type CustomAgentHandler struct {
 	// nil in partially-wired unit tests, where the selection is left unchecked.
 	sandboxConfigs     sandboxConfigLookup
 	usableSkills       usableSkillLister
-	webSearchProviders interfaces.WebSearchProviderRepository
+	webSearchProviders interfaces.WebSearchProviderService
 	desktop            bool
 }
 
@@ -48,17 +48,17 @@ type CustomAgentHandler struct {
 func NewCustomAgentHandler(
 	service interfaces.CustomAgentService,
 	imService *im.Service,
-	disabledRepo interfaces.TenantDisabledSharedAgentRepository,
+	disabledService interfaces.TenantDisabledSharedAgentService,
 	userService interfaces.UserService,
 	sandboxConfigs *service.TenantSandboxConfigService,
 	host service.HostSandboxManager,
 	usableSkills *service.TenantSkillService,
-	webSearchProviders interfaces.WebSearchProviderRepository,
+	webSearchProviders interfaces.WebSearchProviderService,
 ) *CustomAgentHandler {
 	return &CustomAgentHandler{
 		service:            service,
 		imService:          imService,
-		disabledRepo:       disabledRepo,
+		disabledService:    disabledService,
 		userService:        userService,
 		sandboxConfigs:     sandboxConfigs,
 		usableSkills:       usableSkills,
@@ -234,15 +234,15 @@ func (h *CustomAgentHandler) CreateAgent(c *gin.Context) {
 	var req CreateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	if err := authorizeAgentKnowledgeScope(ctx, req.Config); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	if err := h.validateAgentSandboxConfig(ctx, req.Config); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	if err := normalizeAgentReasoningEffort(&req.Config); err != nil {
@@ -271,7 +271,7 @@ func (h *CustomAgentHandler) CreateAgent(c *gin.Context) {
 		return
 	}
 	if err := agent.Config.QuestionSuggestions.Validate(); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -283,7 +283,7 @@ func (h *CustomAgentHandler) CreateAgent(c *gin.Context) {
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		if err == service.ErrAgentNameRequired {
-			c.Error(errors.NewBadRequestError(err.Error()))
+			_ = c.Error(errors.NewBadRequestError(err.Error()))
 			return
 		}
 		// Reached only after the typed sentinels and *errors.AppError
@@ -328,7 +328,7 @@ func (h *CustomAgentHandler) GetAgent(c *gin.Context) {
 	id := secutils.SanitizeForLog(c.Param("id"))
 	if id == "" {
 		logger.Error(ctx, "Agent ID is empty")
-		c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
 		return
 	}
 
@@ -338,11 +338,11 @@ func (h *CustomAgentHandler) GetAgent(c *gin.Context) {
 			"agent_id": id,
 		})
 		if err == service.ErrAgentNotFound {
-			c.Error(errors.NewNotFoundError("Agent not found"))
+			_ = c.Error(errors.NewNotFoundError("Agent not found"))
 			return
 		}
 		if appErr, ok := err.(*errors.AppError); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		// Reached only after the typed sentinels and *errors.AppError above, so
@@ -420,21 +420,24 @@ func (h *CustomAgentHandler) ListAgents(c *gin.Context) {
 	tenantIDVal, exists := c.Get(types.TenantIDContextKey.String())
 	if !exists {
 		logger.Error(ctx, "Workspace ID not found in context")
-		c.Error(errors.NewUnauthorizedError("Missing workspace context"))
+		_ = c.Error(errors.NewUnauthorizedError("Missing workspace context"))
 		return
 	}
 	tenantID, ok := tenantIDVal.(uint64)
 	if !ok {
 		logger.Errorf(ctx, "Tenant ID has unexpected type %T in context", tenantIDVal)
-		c.Error(errors.NewInternalServerError("Invalid workspace context type"))
+		_ = c.Error(errors.NewInternalServerError("Invalid workspace context type"))
 		return
 	}
-	disabledOwnIDs, err := h.disabledRepo.ListDisabledOwnAgentIDs(ctx, tenantID)
+	var disabledOwnIDs []string
+	if h.disabledService != nil {
+		disabledOwnIDs, err = h.disabledService.ListDisabledOwnAgentIDs(ctx, tenantID)
+	}
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"tenant_id": tenantID,
 		})
-		c.Error(errors.NewInternalServerError("Failed to list disabled agent IDs: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("Failed to list disabled agent IDs: " + err.Error()))
 		return
 	}
 
@@ -510,7 +513,7 @@ func (h *CustomAgentHandler) UpdateAgent(c *gin.Context) {
 	id := secutils.SanitizeForLog(c.Param("id"))
 	if id == "" {
 		logger.Error(ctx, "Agent ID is empty")
-		c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
 		return
 	}
 
@@ -518,7 +521,7 @@ func (h *CustomAgentHandler) UpdateAgent(c *gin.Context) {
 	var req UpdateAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	h.saveAgentUpdate(c, id, req)
@@ -583,7 +586,7 @@ func (h *CustomAgentHandler) PatchAgent(c *gin.Context) {
 			_ = c.Error(errors.NewServiceUnavailableError("Search provider lookup unavailable"))
 			return
 		}
-		provider, lookupErr := h.webSearchProviders.GetByID(ctx, existing.TenantID, *patch.WebSearchProviderID)
+		provider, lookupErr := h.webSearchProviders.GetProvider(ctx, existing.TenantID, *patch.WebSearchProviderID)
 		if lookupErr != nil {
 			_ = c.Error(errors.NewInternalServerError("Could not look up search provider"))
 			return
@@ -655,11 +658,11 @@ func (h *CustomAgentHandler) validateAgentSkillNames(
 func (h *CustomAgentHandler) saveAgentUpdate(c *gin.Context, id string, req UpdateAgentRequest) {
 	ctx := c.Request.Context()
 	if err := authorizeAgentKnowledgeScope(ctx, req.Config); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	if err := h.validateAgentSandboxConfig(ctx, req.Config); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	if err := normalizeAgentReasoningEffort(&req.Config); err != nil {
@@ -705,7 +708,7 @@ func (h *CustomAgentHandler) saveAgentUpdate(c *gin.Context, id string, req Upda
 	}
 	agent.EnsureDefaults()
 	if err := agent.Config.QuestionSuggestions.Validate(); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -720,11 +723,11 @@ func (h *CustomAgentHandler) saveAgentUpdate(c *gin.Context, id string, req Upda
 		})
 		switch err {
 		case service.ErrAgentNotFound:
-			c.Error(errors.NewNotFoundError("Agent not found"))
+			_ = c.Error(errors.NewNotFoundError("Agent not found"))
 		case service.ErrCannotModifyBuiltin:
-			c.Error(errors.NewForbiddenError("Cannot modify built-in agent"))
+			_ = c.Error(errors.NewForbiddenError("Cannot modify built-in agent"))
 		case service.ErrAgentNameRequired:
-			c.Error(errors.NewBadRequestError(err.Error()))
+			_ = c.Error(errors.NewBadRequestError(err.Error()))
 		case service.ErrAgentKBScopeNotShareable:
 			_ = c.Error(errors.NewForbiddenError(err.Error()))
 		default:
@@ -773,7 +776,7 @@ func (h *CustomAgentHandler) DeleteAgent(c *gin.Context) {
 	id := secutils.SanitizeForLog(c.Param("id"))
 	if id == "" {
 		logger.Error(ctx, "Agent ID is empty")
-		c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
 		return
 	}
 
@@ -781,7 +784,7 @@ func (h *CustomAgentHandler) DeleteAgent(c *gin.Context) {
 
 	tenantID, ok := types.TenantIDFromContext(ctx)
 	if !ok {
-		c.Error(errors.NewUnauthorizedError("Unauthorized"))
+		_ = c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
 
@@ -789,7 +792,7 @@ func (h *CustomAgentHandler) DeleteAgent(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"agent_id": id,
 		})
-		c.Error(errors.NewInternalServerError("Failed to delete agent IM channels"))
+		_ = c.Error(errors.NewInternalServerError("Failed to delete agent IM channels"))
 		return
 	}
 
@@ -801,9 +804,9 @@ func (h *CustomAgentHandler) DeleteAgent(c *gin.Context) {
 		})
 		switch err {
 		case service.ErrAgentNotFound:
-			c.Error(errors.NewNotFoundError("Agent not found"))
+			_ = c.Error(errors.NewNotFoundError("Agent not found"))
 		case service.ErrCannotDeleteBuiltin:
-			c.Error(errors.NewForbiddenError("Cannot delete built-in agent"))
+			_ = c.Error(errors.NewForbiddenError("Cannot delete built-in agent"))
 		default:
 			// Reached only after the typed sentinels and *errors.AppError above, so
 			// whatever lands here is a raw repository/driver error. Its text
@@ -845,7 +848,7 @@ func (h *CustomAgentHandler) CopyAgent(c *gin.Context) {
 	id := secutils.SanitizeForLog(c.Param("id"))
 	if id == "" {
 		logger.Error(ctx, "Agent ID is empty")
-		c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
 		return
 	}
 
@@ -857,7 +860,7 @@ func (h *CustomAgentHandler) CopyAgent(c *gin.Context) {
 		})
 		switch err {
 		case service.ErrAgentNotFound:
-			c.Error(errors.NewNotFoundError("Agent not found"))
+			_ = c.Error(errors.NewNotFoundError("Agent not found"))
 		default:
 			// Reached only after the typed sentinels and *errors.AppError above, so
 			// whatever lands here is a raw repository/driver error. Its text
@@ -868,7 +871,7 @@ func (h *CustomAgentHandler) CopyAgent(c *gin.Context) {
 		return
 	}
 	if err := authorizeAgentKnowledgeScope(ctx, sourceAgent.Config); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -880,7 +883,7 @@ func (h *CustomAgentHandler) CopyAgent(c *gin.Context) {
 		})
 		switch err {
 		case service.ErrAgentNotFound:
-			c.Error(errors.NewNotFoundError("Agent not found"))
+			_ = c.Error(errors.NewNotFoundError("Agent not found"))
 		default:
 			// Reached only after the typed sentinels and *errors.AppError above, so
 			// whatever lands here is a raw repository/driver error. Its text
@@ -985,7 +988,7 @@ func (h *CustomAgentHandler) GetSuggestedQuestions(c *gin.Context) {
 	id := secutils.SanitizeForLog(c.Param("id"))
 	if id == "" {
 		logger.Error(ctx, "Agent ID is empty")
-		c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Agent ID cannot be empty"))
 		return
 	}
 
@@ -1011,7 +1014,7 @@ func (h *CustomAgentHandler) GetSuggestedQuestions(c *gin.Context) {
 	var tagScopes []types.TagScope
 	if raw := strings.TrimSpace(c.Query("tag_scopes")); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &tagScopes); err != nil {
-			c.Error(errors.NewBadRequestError("tag_scopes must be valid JSON"))
+			_ = c.Error(errors.NewBadRequestError("tag_scopes must be valid JSON"))
 			return
 		}
 	}
@@ -1035,11 +1038,11 @@ func (h *CustomAgentHandler) GetSuggestedQuestions(c *gin.Context) {
 			"agent_id": id,
 		})
 		if err == service.ErrAgentNotFound {
-			c.Error(errors.NewNotFoundError("Agent not found"))
+			_ = c.Error(errors.NewNotFoundError("Agent not found"))
 			return
 		}
 		if appErr, ok := err.(*errors.AppError); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		// Reached only after the typed sentinels and *errors.AppError above, so

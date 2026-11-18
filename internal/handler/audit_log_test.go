@@ -47,7 +47,7 @@ func TestAuditLogHandler_ReturnsEnvelopeAndCursor(t *testing.T) {
 	// Two rows: smallest id appears in the next_cursor field so the
 	// frontend can re-request older pages without re-parsing the body.
 	svc := &stubAuditService{
-		list: func(_ context.Context, tenantID uint64, q *interfaces.AuditLogQuery) ([]*types.AuditLog, error) {
+		list: func(_ context.Context, tenantID uint64, _ *interfaces.AuditLogQuery) ([]*types.AuditLog, error) {
 			if tenantID != 7 {
 				t.Fatalf("expected tenant 7, got %d", tenantID)
 			}
@@ -183,7 +183,9 @@ func newKBActivityHandlerTestRouter(
 }
 
 func TestKnowledgeBaseActivityHandler_UsesKBScope(t *testing.T) {
-	svc := &stubAuditService{list: func(_ context.Context, tenantID uint64, q *interfaces.AuditLogQuery) ([]*types.AuditLog, error) {
+	svc := &stubAuditService{list: func(
+		_ context.Context, tenantID uint64, q *interfaces.AuditLogQuery,
+	) ([]*types.AuditLog, error) {
 		if tenantID != 7 || q.ScopeType != "knowledge_base" || q.ScopeID != "kb-1" {
 			t.Fatalf("unexpected scope: tenant=%d type=%q id=%q", tenantID, q.ScopeType, q.ScopeID)
 		}
@@ -193,7 +195,9 @@ func TestKnowledgeBaseActivityHandler_UsesKBScope(t *testing.T) {
 		return []*types.AuditLog{{ID: 21, TenantID: 7, ScopeType: q.ScopeType, ScopeID: q.ScopeID}}, nil
 	}}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/knowledge-bases/kb-1/activity?after_id=30&limit=10&outcome=partial", nil)
+	req := httptest.NewRequest(
+		http.MethodGet, "/knowledge-bases/kb-1/activity?after_id=30&limit=10&outcome=partial", nil,
+	)
 	newKBActivityHandlerTestRouter(t, svc, 7,
 		&types.KnowledgeBase{ID: "kb-1", TenantID: 7, CreatorID: "creator"},
 		"creator", types.TenantRoleViewer).ServeHTTP(w, req)
@@ -203,7 +207,9 @@ func TestKnowledgeBaseActivityHandler_UsesKBScope(t *testing.T) {
 }
 
 func TestKnowledgeBaseActivityHandler_BlocksSharedWorkspace(t *testing.T) {
-	svc := &stubAuditService{list: func(_ context.Context, _ uint64, _ *interfaces.AuditLogQuery) ([]*types.AuditLog, error) {
+	svc := &stubAuditService{list: func(
+		_ context.Context, _ uint64, _ *interfaces.AuditLogQuery,
+	) ([]*types.AuditLog, error) {
 		t.Fatal("audit list must not be called for a shared workspace")
 		return nil, nil
 	}}
@@ -218,7 +224,9 @@ func TestKnowledgeBaseActivityHandler_BlocksSharedWorkspace(t *testing.T) {
 }
 
 func TestKnowledgeBaseActivityHandler_RequiresCreatorOrAdmin(t *testing.T) {
-	svc := &stubAuditService{list: func(_ context.Context, _ uint64, _ *interfaces.AuditLogQuery) ([]*types.AuditLog, error) {
+	svc := &stubAuditService{list: func(
+		_ context.Context, _ uint64, _ *interfaces.AuditLogQuery,
+	) ([]*types.AuditLog, error) {
 		t.Fatal("audit list must not be called for ordinary members")
 		return nil, nil
 	}}

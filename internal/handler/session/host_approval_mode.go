@@ -71,6 +71,15 @@ func (h *Handler) lookupHostModeSession(c *gin.Context, write bool) (string, boo
 }
 
 // GetHostApprovalMode returns the session's host approval mode and the default.
+// GetHostApprovalMode godoc
+// @Summary      获取会话宿主机审批模式
+// @Tags         会话
+// @Produce      json
+// @Param        id   path      string  true  "会话 ID"
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/host-approval-mode [get]
 func (h *Handler) GetHostApprovalMode(c *gin.Context) {
 	id, ok := h.checkHostModeSession(c)
 	if !ok {
@@ -81,6 +90,16 @@ func (h *Handler) GetHostApprovalMode(c *gin.Context) {
 }
 
 // SetHostApprovalMode switches the session's host approval mode.
+// SetHostApprovalMode godoc
+// @Summary      设置会话宿主机审批模式
+// @Tags         会话
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                  true  "会话 ID"
+// @Param        request  body      map[string]interface{}  true  "Approval mode"
+// @Success      200      {object}  map[string]interface{}
+// @Security     Bearer
+// @Router       /sessions/{id}/host-approval-mode [put]
 func (h *Handler) SetHostApprovalMode(c *gin.Context) {
 	if calledWithAPIKey(c.Request.Context()) {
 		_ = c.Error(errors.NewForbiddenError("API keys cannot modify host approval mode"))

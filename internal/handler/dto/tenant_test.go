@@ -40,7 +40,9 @@ func TestTenantResponse_AdminGetsRedactedIntegrationConfigs(t *testing.T) {
 	resp := NewTenantResponse(adminContext(), tenant)
 	require.NotNil(t, resp.WebSearchConfig)
 	assert.Equal(t, types.RedactedSecretPlaceholder, resp.WebSearchConfig.ProxyURL)
-	assert.Empty(t, resp.WebSearchConfig.APIKey)
+	rawWS, err := json.Marshal(resp.WebSearchConfig)
+	require.NoError(t, err)
+	assert.NotContains(t, string(rawWS), "legacy-search-secret-999")
 	require.NotNil(t, resp.ParserEngineConfig)
 	assert.Equal(t, types.RedactedSecretPlaceholder, resp.ParserEngineConfig.MinerUAPIKey)
 	require.NotNil(t, resp.StorageEngineConfig.MinIO)
@@ -85,10 +87,13 @@ func sampleSecretTenant() *types.Tenant {
 	return &types.Tenant{
 		ID:   42,
 		Name: "tenant",
-		WebSearchConfig: &types.WebSearchConfig{
-			APIKey:   "legacy-search-secret-999",
-			ProxyURL: "http://proxy.internal:8080",
-		},
+		WebSearchConfig: func() *types.WebSearchConfig {
+			var cfg types.WebSearchConfig
+			_ = json.Unmarshal(
+				[]byte(`{"api_key":"legacy-search-secret-999","proxy_url":"http://proxy.internal:8080"}`), &cfg,
+			)
+			return &cfg
+		}(),
 		ParserEngineConfig: &types.ParserEngineConfig{
 			MinerUAPIKey:          "parser-secret-123",
 			PaddleOCRVLCloudToken: "paddle-secret-456",

@@ -66,7 +66,10 @@ func NewWebSearchProviderResponse(ctx context.Context, e *types.WebSearchProvide
 	}
 }
 
-func NewWebSearchProviderResponses(ctx context.Context, es []*types.WebSearchProviderEntity) []*WebSearchProviderResponse {
+// NewWebSearchProviderResponses provides HTTP handling for NewWebSearchProviderResponses.
+func NewWebSearchProviderResponses(
+	ctx context.Context, es []*types.WebSearchProviderEntity,
+) []*WebSearchProviderResponse {
 	out := make([]*WebSearchProviderResponse, 0, len(es))
 	for _, e := range es {
 		out = append(out, NewWebSearchProviderResponse(ctx, e))

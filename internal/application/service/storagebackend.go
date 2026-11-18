@@ -50,6 +50,18 @@ func NewStorageBackendServiceWithResources(
 	return NewStorageBackendService(repo, db, catalog)
 }
 
+// GetByID retrieves a single storage backend scoped to tenantID.
+func (s *StorageBackendService) GetByID(
+	ctx context.Context, tenantID uint64, id string,
+) (*types.StorageBackend, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
+}
+
+// List retrieves all storage backends configured for tenantID.
+func (s *StorageBackendService) List(ctx context.Context, tenantID uint64) ([]*types.StorageBackend, error) {
+	return s.repo.List(ctx, tenantID)
+}
+
 // Create validates, tests connectivity, and persists a new storage backend.
 func (s *StorageBackendService) Create(ctx context.Context, backend *types.StorageBackend) error {
 	if err := backend.Validate(); err != nil {

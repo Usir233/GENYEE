@@ -272,9 +272,9 @@ func RegisterFAQRoutes(r *gin.RouterGroup, handler *handler.FAQHandler, g *rbacG
 		faqRead.GET("/entries", g.Viewer(), g.KBAccessRead("id"), handler.ListEntries)
 		faqRead.GET("/entries/export", g.Viewer(), g.KBAccessRead("id"), handler.ExportEntries)
 		faqRead.GET("/entries/:entry_id", g.Viewer(), g.KBAccessRead("id"), handler.GetEntry)
-		faq.POST("/entries", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.UpsertEntries)
+		faq.POST("/entries/batch", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.UpsertEntries)
 		faq.PATCH("/entries", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.PatchEntriesBatch)
-		faq.POST("/entry", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.CreateEntry)
+		faq.POST("/entries", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.CreateEntry)
 		faq.PUT("/entries/:entry_id", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.UpdateEntry)
 		faq.POST(
 			"/entries/:entry_id/similar-questions",
@@ -446,49 +446,49 @@ func RegisterKnowledgeTagRoutes(r *gin.RouterGroup, tagHandler *handler.TagHandl
 // KBAccessRead (own / org-shared / via shared agent), matching FAQ /
 // chunk / tag read routes. Content mutations (create/update/delete) and
 // maintenance actions (rebuild-links, auto-fix, change issue status)
-// honour per-KB ownership via OwnedWikiKBOrAdmin (PR 5, #1303): the URL
+// honour per-KB ownership via OwnedKBOrAdmin (PR 5, #1303): the URL
 // :kb_id resolves directly to the owning KB so a Contributor who owns
 // the KB can manage its wiki, while a non-owner Contributor gets 403.
 func RegisterWikiPageRoutes(r *gin.RouterGroup, wikiHandler *handler.WikiPageHandler, g *rbacGuards) {
-	wiki := g.apiKeyGroup(r.Group("/knowledgebase/:kb_id/wiki"), apiKeyIngest(apiKeyFullAccess()))
+	wiki := g.apiKeyGroup(r.Group("/knowledge-bases/:id/wiki"), apiKeyIngest(apiKeyFullAccess()))
 	wikiRead := wiki.With(apiKeyRetrieve(apiKeyFullAccess()))
 	{
 		// Page CRUD
-		wikiRead.GET("/pages", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.ListPages)
-		wiki.POST("/pages", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.CreatePage)
-		wiki.PUT("/move-page", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.MovePage)
-		wikiRead.GET("/pages/*slug", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.GetPage)
-		wiki.PUT("/pages/*slug", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.UpdatePage)
-		wiki.DELETE("/pages/*slug", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.DeletePage)
+		wikiRead.GET("/pages", g.Viewer(), g.KBAccessRead("id"), wikiHandler.ListPages)
+		wiki.POST("/pages", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.CreatePage)
+		wiki.PUT("/move-page", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.MovePage)
+		wikiRead.GET("/pages/*slug", g.Viewer(), g.KBAccessRead("id"), wikiHandler.GetPage)
+		wiki.PUT("/pages/*slug", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.UpdatePage)
+		wiki.DELETE("/pages/*slug", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.DeletePage)
 
 		// Revision history (slug is a catch-all like /pages; revert carries
 		// the slug in the body for the same reason move-page does)
-		wikiRead.GET("/revisions/*slug", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.ListRevisions)
-		wiki.POST("/revert", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.RevertPage)
+		wikiRead.GET("/revisions/*slug", g.Viewer(), g.KBAccessRead("id"), wikiHandler.ListRevisions)
+		wiki.POST("/revert", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.RevertPage)
 
 		// Folder tree (directory nodes)
-		wikiRead.GET("/folders", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.ListFolders)
-		wiki.POST("/folders", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.CreateFolder)
-		wiki.PUT("/folders/:folder_id", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.UpdateFolder)
-		wiki.DELETE("/folders/:folder_id", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.DeleteFolder)
+		wikiRead.GET("/folders", g.Viewer(), g.KBAccessRead("id"), wikiHandler.ListFolders)
+		wiki.POST("/folders", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.CreateFolder)
+		wiki.PUT("/folders/:folder_id", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.UpdateFolder)
+		wiki.DELETE("/folders/:folder_id", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.DeleteFolder)
 
 		// Special pages
-		wikiRead.GET("/index", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.GetIndex)
+		wikiRead.GET("/index", g.Viewer(), g.KBAccessRead("id"), wikiHandler.GetIndex)
 
 		// Graph and stats
-		wikiRead.GET("/graph", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.GetGraph)
-		wikiRead.GET("/stats", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.GetStats)
+		wikiRead.GET("/graph", g.Viewer(), g.KBAccessRead("id"), wikiHandler.GetGraph)
+		wikiRead.GET("/stats", g.Viewer(), g.KBAccessRead("id"), wikiHandler.GetStats)
 
 		// Search and maintenance
-		wikiRead.GET("/search", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.SearchPages)
-		wiki.POST("/rebuild-links", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.RebuildLinks)
-		wikiRead.GET("/lint", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.Lint)
-		wiki.POST("/auto-fix", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.AutoFix)
+		wikiRead.GET("/search", g.Viewer(), g.KBAccessRead("id"), wikiHandler.SearchPages)
+		wiki.POST("/rebuild-links", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.RebuildLinks)
+		wikiRead.GET("/lint", g.Viewer(), g.KBAccessRead("id"), wikiHandler.Lint)
+		wiki.POST("/auto-fix", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.AutoFix)
 
 		// Issues
-		wikiRead.GET("/issues", g.Viewer(), g.KBAccessRead("kb_id"), wikiHandler.ListIssues)
+		wikiRead.GET("/issues", g.Viewer(), g.KBAccessRead("id"), wikiHandler.ListIssues)
 		wiki.PUT(
-			"/issues/:issue_id/status", g.OwnedWikiKBOrAdmin(), g.KBAccessWrite("kb_id"), wikiHandler.UpdateIssueStatus,
+			"/issues/:issue_id/status", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), wikiHandler.UpdateIssueStatus,
 		)
 	}
 

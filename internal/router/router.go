@@ -73,7 +73,6 @@ type Params struct {
 	MCPServiceHandler            *handler.MCPServiceHandler
 	MCPCredentialsHandler        *handler.MCPCredentialsHandler
 	MCPOAuthHandler              *handler.MCPOAuthHandler
-	WebSearchHandler             *handler.WebSearchHandler
 	WebSearchProviderHandler     *handler.WebSearchProviderHandler
 	WebSearchCredentialsHandler  *handler.WebSearchProviderCredentialsHandler
 	VectorStoreHandler           *handler.VectorStoreHandler
@@ -319,7 +318,6 @@ func NewRouter(params Params) *gin.Engine {
 		RegisterMCPServiceRoutes(
 			v1, params.MCPServiceHandler, params.MCPCredentialsHandler, params.MCPOAuthHandler, rbacGuards,
 		)
-		RegisterWebSearchRoutes(v1, params.WebSearchHandler, rbacGuards)
 		RegisterWebSearchProviderRoutes(
 			v1, params.WebSearchProviderHandler, params.WebSearchCredentialsHandler, rbacGuards,
 		)

@@ -18,11 +18,11 @@ func TestSyncSettingsApprovalAndAccessPolicy(t *testing.T) {
 	} {
 		for _, approved := range []bool{false, true} {
 			d := &fakeDispatcher{responses: map[string]*operations.Response{
-				"GET /api/v1/datasource/ds1": {
+				"GET /api/v1/data-sources/ds1": {
 					Status: 200,
 					Body:   []byte(`{"id":"ds1","name":"Team docs","knowledge_base_id":"kb1"}`),
 				},
-				"PATCH /api/v1/datasource/ds1/sync-settings": {
+				"PATCH /api/v1/data-sources/ds1/sync-settings": {
 					Status: 200,
 					Body:   []byte(`{"id":"ds1","knowledge_base_id":"kb1","sync_deletions":true}`),
 				},

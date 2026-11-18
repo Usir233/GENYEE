@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 
-	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/application/service"
 	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -40,16 +39,16 @@ func (h *KnowledgeBaseHandler) KBCreatorLookup(c *gin.Context) (string, error) {
 }
 
 // KBCreatorLookupFromKbIDParam is the same lookup as KBCreatorLookup
-// but reads `:kbId` instead of `:id`. Used by the /initialization
-// routes (POST /initialization/initialize/:kbId, PUT
-// /initialization/config/:kbId), which are KB-scoped mutating ops:
+// but reads `:kb_id` instead of `:id`. Used by the /initialization
+// routes (POST /initialization/initialize/:kb_id, PUT
+// /initialization/config/:kb_id), which are KB-scoped mutating ops:
 // changing a KB's embedding/parser/storage configuration is at least
 // as sensitive as updating the KB itself, so it must follow the same
 // "creator OR Admin+" matrix.
 func (h *KnowledgeBaseHandler) KBCreatorLookupFromKbIDParam(c *gin.Context) (string, error) {
-	id := c.Param("kbId")
+	id := c.Param("kb_id")
 	if id == "" {
-		return "", errors.New("missing :kbId param for KB creator lookup")
+		return "", errors.New("missing :kb_id param for KB creator lookup")
 	}
 	return resolveKBCreatorByKBID(c, h.service, id)
 }
@@ -76,7 +75,7 @@ func (h *CustomAgentHandler) AgentCreatorLookup(c *gin.Context) (string, error) 
 	agent, err := h.service.GetAgentByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, service.ErrAgentNotFound) ||
-			errors.Is(err, apprepo.ErrCustomAgentNotFound) {
+			errors.Is(err, types.ErrCustomAgentNotFound) {
 			return "", middleware.ErrResourceNotFound
 		}
 		return "", err
@@ -102,7 +101,6 @@ var (
 	_ middleware.CreatorLookup = (*KnowledgeHandler)(nil).KBCreatorLookupFromKnowledgeID
 	_ middleware.CreatorLookup = (*ChunkHandler)(nil).KBCreatorLookupFromKnowledgeIDParam
 	_ middleware.CreatorLookup = (*ChunkHandler)(nil).KBCreatorLookupFromChunkIDParam
-	_ middleware.CreatorLookup = (*WikiPageHandler)(nil).KBCreatorLookupFromKBPath
 )
 
 // KBCreatorLookupFromKnowledgeID resolves :id (a Knowledge ID) to the
@@ -174,20 +172,6 @@ func (h *ChunkHandler) KBCreatorLookupFromChunkIDParam(c *gin.Context) (string, 
 	return resolveKBCreatorByKnowledgeID(c, h.kgService, chunk.KnowledgeID)
 }
 
-// KBCreatorLookupFromKBPath resolves :kb_id (used by wiki routes) to
-// KnowledgeBase.CreatorID. No chain hop — the wiki page URL already
-// carries the owning KB id, so we go straight to the KB service. The
-// tenant defence-in-depth re-check stays the same as KBCreatorLookup:
-// repo.GetKnowledgeBaseByID is unscoped, so we explicitly compare
-// against the context tenant.
-func (h *WikiPageHandler) KBCreatorLookupFromKBPath(c *gin.Context) (string, error) {
-	kbID := c.Param("kb_id")
-	if kbID == "" {
-		return "", errors.New("missing :kb_id param for wiki owner lookup")
-	}
-	return resolveKBCreatorByKBID(c, h.kbService, kbID)
-}
-
 // resolveKBCreatorByKBID resolves a KB id to CreatorID, scoped to the
 // caller's tenant. Shared by KB, initialization and Wiki route lookups and
 // cross-KB handlers whose body carries kb_id (batch-delete, move, etc.).
@@ -203,7 +187,7 @@ func resolveKBCreatorByKBID(
 	}
 	kb, err := kbService.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
-		if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
+		if errors.Is(err, types.ErrKnowledgeBaseNotFound) {
 			return "", middleware.ErrResourceNotFound
 		}
 		return "", err
@@ -219,7 +203,7 @@ func resolveKBCreatorByKBID(
 
 // resolveKBCreatorByKnowledgeID is the shared body for the knowledge /
 // chunk lookups. The service-layer chain helper does the tenant-scoped
-// fetch (knowledge -> KB) and returns repository sentinel errors;
+// fetch (knowledge -> KB) and returns domain sentinel errors;
 // translating those to middleware.ErrResourceNotFound is the lookup's
 // job, mirroring what KBCreatorLookup does for plain :id routes.
 func resolveKBCreatorByKnowledgeID(
@@ -236,8 +220,8 @@ func resolveKBCreatorByKnowledgeID(
 	}
 	creatorID, err := kgService.GetOwningKBCreatorID(ctx, knowledgeID)
 	if err != nil {
-		if errors.Is(err, apprepo.ErrKnowledgeNotFound) ||
-			errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
+		if errors.Is(err, types.ErrKnowledgeNotFound) ||
+			errors.Is(err, types.ErrKnowledgeBaseNotFound) {
 			return "", middleware.ErrResourceNotFound
 		}
 		return "", err

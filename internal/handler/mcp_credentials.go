@@ -70,13 +70,13 @@ func (h *MCPCredentialsHandler) Put(c *gin.Context) {
 	serviceID := c.Param("id")
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if tenantID == 0 {
-		c.Error(errors.NewBadRequestError("Workspace ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Workspace ID cannot be empty"))
 		return
 	}
 
 	var req mcpCredentialsPutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *MCPCredentialsHandler) Put(c *gin.Context) {
 	if req.APIKey == nil && req.Token == nil && req.ClientSecret == nil {
 		svc, err := h.svc.GetMCPServiceByID(ctx, tenantID, serviceID)
 		if err != nil || svc == nil {
-			c.Error(errors.NewNotFoundError("MCP service not found"))
+			_ = c.Error(errors.NewNotFoundError("MCP service not found"))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": dto.CredentialsResponse{
@@ -103,7 +103,7 @@ func (h *MCPCredentialsHandler) Put(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"service_id": secutils.SanitizeForLog(serviceID),
 		})
-		c.Error(errors.NewInternalServerError("failed to update credentials: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to update credentials: " + err.Error()))
 		return
 	}
 
@@ -140,11 +140,11 @@ func (h *MCPCredentialsHandler) DeleteField(c *gin.Context) {
 	field := c.Param("field")
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if tenantID == 0 {
-		c.Error(errors.NewBadRequestError("Workspace ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Workspace ID cannot be empty"))
 		return
 	}
 	if field != "api_key" && field != "token" && field != "client_secret" {
-		c.Error(errors.NewBadRequestError("unknown credential field: " + secutils.SanitizeForLog(field)))
+		_ = c.Error(errors.NewBadRequestError("unknown credential field: " + secutils.SanitizeForLog(field)))
 		return
 	}
 
@@ -153,7 +153,7 @@ func (h *MCPCredentialsHandler) DeleteField(c *gin.Context) {
 			"service_id": secutils.SanitizeForLog(serviceID),
 			"field":      field,
 		})
-		c.Error(errors.NewInternalServerError("failed to clear credential: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to clear credential: " + err.Error()))
 		return
 	}
 	c.Status(http.StatusNoContent)

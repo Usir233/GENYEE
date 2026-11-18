@@ -390,7 +390,9 @@ func TestListAndReleaseUserSandboxes(t *testing.T) {
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/sandbox-configs/cfg-a/user-sandboxes/d-1/release", nil))
 	require.Equal(t, http.StatusConflict, w.Code)
-	require.JSONEq(t, `{"success":false,"error":"USER_SANDBOX_BUSY"}`, w.Body.String())
+	require.JSONEq(
+		t, `{"success":false,"error":{"code":1005,"message":"USER_SANDBOX_BUSY","details":null}}`, w.Body.String(),
+	)
 	require.Equal(t, uint64(7), svc.releaseTenant)
 	require.Equal(t, "cfg-a", svc.releaseConfig)
 	require.Equal(t, "d-1", svc.releaseDigest)

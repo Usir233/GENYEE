@@ -73,9 +73,14 @@ func TestIMCallbackVerifiesSignatureBeforeHandshakeAndToggleRedactsSecrets(t *te
 	probe := &callbackOrderProbeAdapter{verifyErr: errors.New("forged signature")}
 	imSvc := im.NewService(db, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	defer imSvc.Stop()
-	imSvc.RegisterAdapterFactory("wecom", func(context.Context, *im.IMChannel, func(context.Context, *im.IncomingMessage) error) (im.Adapter, context.CancelFunc, error) {
-		return probe, nil, nil
-	})
+	imSvc.RegisterAdapterFactory(
+		"wecom",
+		func(
+			context.Context, *im.IMChannel, func(context.Context, *im.IncomingMessage) error,
+		) (im.Adapter, context.CancelFunc, error,
+		) {
+			return probe, nil, nil
+		})
 
 	ch := &im.IMChannel{
 		ID:          "ch-probe-1",
@@ -201,7 +206,9 @@ func TestEmbedRelayWebhookEventBlocksSessionOverrideAndForgedContent(t *testing.
 	makeRelayReq := func(body string) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodPost, "/sessions/"+testEmbedSessionID+"/events", bytes.NewBufferString(body))
+		c.Request = httptest.NewRequest(
+			http.MethodPost, "/sessions/"+testEmbedSessionID+"/events", bytes.NewBufferString(body),
+		)
 		c.Request.Header.Set("Content-Type", "application/json")
 		c.Request.Header.Set("X-Embed-Session", sig)
 		c.Params = gin.Params{{Key: "session_id", Value: testEmbedSessionID}}
@@ -212,19 +219,26 @@ func TestEmbedRelayWebhookEventBlocksSessionOverrideAndForgedContent(t *testing.
 	}
 
 	// 1. Overriding session_id in body must be rejected with 403.
-	wOverride := makeRelayReq(`{"type":"message_sent","session_id":"victim-other-session","message_id":"msg-real-user-1"}`)
+	wOverride := makeRelayReq(`{"type":"message_sent","session_id":` +
+		`"victim-other-session","message_id":"msg-real-user-1"}`)
 	if wOverride.Code != http.StatusForbidden {
 		t.Fatalf("session_id override status = %d, want 403; body=%s", wOverride.Code, wOverride.Body.String())
 	}
 
 	// 2. Forged content with no persisted message ID must be rejected with 403.
-	wForged := makeRelayReq(`{"type":"message_sent","session_id":"` + testEmbedSessionID + `","message_id":"unpersisted","query":"FORGED ADMIN COMMAND"}`)
+	wForged := makeRelayReq(
+		`{"type":"message_sent","session_id":"` + testEmbedSessionID +
+			`","message_id":"unpersisted","query":"FORGED ADMIN COMMAND"}`,
+	)
 	if wForged.Code != http.StatusForbidden {
 		t.Fatalf("forged message status = %d, want 403; body=%s", wForged.Code, wForged.Body.String())
 	}
 
 	// 3. A persisted message succeeds; extra client text cannot alter the webhook.
-	wValid := makeRelayReq(`{"type":"message_sent","session_id":"` + testEmbedSessionID + `","message_id":"msg-real-user-1","query":"FORGED ADMIN COMMAND"}`)
+	wValid := makeRelayReq(
+		`{"type":"message_sent","session_id":"` + testEmbedSessionID +
+			`","message_id":"msg-real-user-1","query":"FORGED ADMIN COMMAND"}`,
+	)
 	if wValid.Code != http.StatusOK {
 		t.Fatalf("valid message status = %d, want 200; body=%s", wValid.Code, wValid.Body.String())
 	}
@@ -243,7 +257,9 @@ type stubMCPServiceLookupForEmbed struct {
 	svc *types.MCPService
 }
 
-func (s *stubMCPServiceLookupForEmbed) GetMCPServiceByID(_ context.Context, _ uint64, _ string) (*types.MCPService, error) {
+func (s *stubMCPServiceLookupForEmbed) GetMCPServiceByID(
+	_ context.Context, _ uint64, _ string,
+) (*types.MCPService, error) {
 	if s.svc == nil {
 		return nil, errors.New("not found")
 	}

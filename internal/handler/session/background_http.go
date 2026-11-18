@@ -26,6 +26,15 @@ type backgroundWorkItem struct {
 // ListBackgroundWork returns the session's background items: live ones from the
 // activity registry plus notices finished within the last 24h. Terminal states
 // come from Handler.Status with Detailed false. Nothing here execs a sandbox.
+// ListBackgroundWork godoc
+// @Summary      获取会话后台任务列表
+// @Tags         会话
+// @Produce      json
+// @Param        id   path      string  true  "会话 ID"
+// @Success      200  {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/background-work [get]
 func (h *Handler) ListBackgroundWork(c *gin.Context) {
 	sessionID := paramSessionID(c)
 	ctx := c.Request.Context()
@@ -90,6 +99,16 @@ func (h *Handler) ListBackgroundWork(c *gin.Context) {
 
 // GetBackgroundWork returns one item's detail with output. RunID stays empty:
 // a user-triggered read must not move the model's incremental cursor.
+// GetBackgroundWork godoc
+// @Summary      获取会话后台任务详情
+// @Tags         会话
+// @Produce      json
+// @Param        id       path      string  true  "会话 ID"
+// @Param        work_id  path      string  true  "后台任务 ID"
+// @Success      200      {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/background-work/{work_id} [get]
 func (h *Handler) GetBackgroundWork(c *gin.Context) {
 	sessionID := paramSessionID(c)
 	workID := c.Param("work_id")
@@ -126,6 +145,16 @@ func (h *Handler) GetBackgroundWork(c *gin.Context) {
 
 // CancelBackgroundWork stops one item. Strictly owner-only: mutations must not
 // honour admin read access (same GetOwnedSession rule as steer).
+// CancelBackgroundWork godoc
+// @Summary      取消会话后台任务
+// @Tags         会话
+// @Produce      json
+// @Param        id       path      string  true  "会话 ID"
+// @Param        work_id  path      string  true  "后台任务 ID"
+// @Success      200      {object}  map[string]interface{}
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /sessions/{id}/background-work/{work_id}/cancel [post]
 func (h *Handler) CancelBackgroundWork(c *gin.Context) {
 	sessionID := paramSessionID(c)
 	workID := c.Param("work_id")
@@ -216,15 +245,4 @@ func writeNotFound(c *gin.Context, message string) {
 // and stop the client's poll, while the jobs are still running.
 func writeUnavailable(c *gin.Context, message string) {
 	writeAppError(c, errors.NewServiceUnavailableError(message))
-}
-
-func writeAppError(c *gin.Context, appErr *errors.AppError) {
-	c.AbortWithStatusJSON(appErr.HTTPCode, gin.H{
-		"success": false,
-		"error": gin.H{
-			"code":    appErr.Code,
-			"message": appErr.Message,
-			"details": appErr.Details,
-		},
-	})
 }

@@ -117,9 +117,7 @@ func (a *APIKeyRouteAuthorizer) Middleware() gin.HandlerFunc {
 			return
 		}
 		if err := a.authorize(scope, c.Request.Method, c.FullPath()); err != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "Forbidden: API key scope does not allow this operation",
-			})
+			abortWithStatusError(c, http.StatusForbidden, "Forbidden: API key scope does not allow this operation")
 			return
 		}
 		c.Next()
@@ -163,9 +161,7 @@ func (a *APIKeyRouteAuthorizer) authorize(scope types.TenantAPIKeyScope, method,
 func DenyAPIKeyPrincipal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if _, ok := types.TenantAPIKeyScopeFromContext(c.Request.Context()); ok {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "Forbidden: API keys cannot access this endpoint",
-			})
+			abortWithStatusError(c, http.StatusForbidden, "Forbidden: API keys cannot access this endpoint")
 			return
 		}
 		c.Next()
@@ -197,9 +193,7 @@ func AllowFileServeAPIKey() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			"error": "Forbidden: API key scope does not allow this operation",
-		})
+		abortWithStatusError(c, http.StatusForbidden, "Forbidden: API key scope does not allow this operation")
 	}
 }
 

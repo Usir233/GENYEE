@@ -37,8 +37,7 @@ func AttachAuthenticatedUser(
 	jwtTenantID uint64,
 ) bool {
 	if user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: invalid or expired token"})
-		c.Abort()
+		abortWithStatusError(c, http.StatusUnauthorized, "Unauthorized: invalid or expired token")
 		return false
 	}
 	if jwtTenantID != 0 && strings.TrimSpace(c.GetHeader("X-Tenant-ID")) == "" {

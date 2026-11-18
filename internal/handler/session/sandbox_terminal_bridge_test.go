@@ -76,9 +76,12 @@ func serveTerminalBridge(
 	}))
 	t.Cleanup(server.Close)
 
-	client, _, err := websocket.DefaultDialer.Dial(
+	client, dialResp, err := websocket.DefaultDialer.Dial(
 		"ws"+strings.TrimPrefix(server.URL, "http"), nil,
 	)
+	if dialResp != nil && dialResp.Body != nil {
+		_ = dialResp.Body.Close()
+	}
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = client.Close() })
 	return client
