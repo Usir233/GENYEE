@@ -141,14 +141,16 @@ type AgentQueryData struct {
 type AgentCompleteData struct {
 	// Artifacts contains runtime-delivered child files (types.MessageArtifacts).
 	// Internal only: stream handlers publish sanitized metadata after persistence.
-	Artifacts       interface{}            `json:"-"`
-	SessionID       string                 `json:"session_id"`
-	TotalSteps      int                    `json:"total_steps"`
-	FinalAnswer     string                 `json:"final_answer"`
-	KnowledgeRefs   []interface{}          `json:"knowledge_refs,omitempty"` // []*types.SearchResult
-	AgentSteps      interface{}            `json:"agent_steps,omitempty"`    // []types.AgentStep - detailed execution steps
-	Usage           interface{}            `json:"usage,omitempty"`          // *types.TokenUsage - LLM token usage aggregated over the turn
-	ModelID         string                 `json:"model_id,omitempty"`       // Chat model whose calls produced Usage
+	Artifacts     interface{}   `json:"-"`
+	SessionID     string        `json:"session_id"`
+	TotalSteps    int           `json:"total_steps"`
+	FinalAnswer   string        `json:"final_answer"`
+	KnowledgeRefs []interface{} `json:"knowledge_refs,omitempty"` // []*types.SearchResult
+	// AgentSteps holds []types.AgentStep detailed execution steps.
+	AgentSteps interface{} `json:"agent_steps,omitempty"`
+	// Usage holds *types.TokenUsage LLM token usage aggregated over the turn.
+	Usage           interface{}            `json:"usage,omitempty"`
+	ModelID         string                 `json:"model_id,omitempty"` // Chat model whose calls produced Usage
 	TotalDurationMs int64                  `json:"total_duration_ms"`
 	MessageID       string                 `json:"message_id,omitempty"` // Assistant message ID
 	RequestID       string                 `json:"request_id,omitempty"`
@@ -186,14 +188,15 @@ type AgentToolCallData struct {
 
 // AgentToolResultData represents agent tool execution result data
 type AgentToolResultData struct {
-	ToolCallID string                 `json:"tool_call_id"` // Tool call ID for tracking
-	ToolName   string                 `json:"tool_name"`
-	Output     string                 `json:"output"`
-	Error      string                 `json:"error,omitempty"`
-	Success    bool                   `json:"success"`
-	Duration   int64                  `json:"duration_ms,omitempty"`
-	Iteration  int                    `json:"iteration"`
-	Data       map[string]interface{} `json:"data,omitempty"` // Structured data from tool result (e.g., display_type, formatted results)
+	ToolCallID string `json:"tool_call_id"` // Tool call ID for tracking
+	ToolName   string `json:"tool_name"`
+	Output     string `json:"output"`
+	Error      string `json:"error,omitempty"`
+	Success    bool   `json:"success"`
+	Duration   int64  `json:"duration_ms,omitempty"`
+	Iteration  int    `json:"iteration"`
+	// Data holds structured data from tool result (e.g., display_type, formatted results).
+	Data map[string]interface{} `json:"data,omitempty"`
 }
 
 // AgentReferencesData represents knowledge references data

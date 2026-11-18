@@ -10,6 +10,7 @@ import (
 // rate dashboards misleading.
 type PromptCacheStatus string
 
+// PromptCacheStatus constants report upstream prompt-cache hit outcomes.
 const (
 	PromptCacheStatusUnsupported PromptCacheStatus = "unsupported"
 	PromptCacheStatusUnreported  PromptCacheStatus = "unreported"
@@ -220,21 +221,22 @@ type ChatResponse struct {
 	AnswerEventID string `json:"-"`
 }
 
-// Response type
+// ResponseType identifies a streaming chat or agent event payload kind.
 type ResponseType string
 
+// ResponseType constants emitted over chat and agent SSE streams.
 const (
-	// Answer response type
+	// ResponseTypeAnswer carries assistant answer tokens.
 	ResponseTypeAnswer ResponseType = "answer"
-	// References response type
+	// ResponseTypeReferences carries retrieved knowledge references.
 	ResponseTypeReferences ResponseType = "references"
-	// Thinking response type (for agent thought process)
+	// ResponseTypeThinking carries agent thought-process tokens.
 	ResponseTypeThinking ResponseType = "thinking"
 	// ResponseTypeProgress carries a user-visible intermediate update.
 	ResponseTypeProgress ResponseType = "progress"
-	// Tool call response type (for agent tool invocations)
+	// ResponseTypeToolCall carries an agent tool invocation notification.
 	ResponseTypeToolCall ResponseType = "tool_call"
-	// Tool result response type (for agent tool results)
+	// ResponseTypeToolResult carries an agent tool execution result.
 	ResponseTypeToolResult ResponseType = "tool_result"
 	// ResponseTypeInstallOutput carries installer progress without completing a tool.
 	ResponseTypeInstallOutput ResponseType = "install_output"
@@ -249,15 +251,15 @@ const (
 	// ResponseTypeWorkFinished is a background work event of shared design §7.
 	// Features emit it through service.BackgroundEventEmitter, which picks the stream.
 	ResponseTypeWorkFinished ResponseType = "work_finished"
-	// Error response type
+	// ResponseTypeError carries a streaming error payload.
 	ResponseTypeError ResponseType = "error"
-	// Reflection response type (for agent reflection)
+	// ResponseTypeReflection carries agent reflection output.
 	ResponseTypeReflection ResponseType = "reflection"
-	// Session title response type
+	// ResponseTypeSessionTitle carries an updated session title.
 	ResponseTypeSessionTitle ResponseType = "session_title"
-	// Agent query response type (query received and processing started)
+	// ResponseTypeAgentQuery indicates query receipt and processing start.
 	ResponseTypeAgentQuery ResponseType = "agent_query"
-	// Complete response type (agent complete)
+	// ResponseTypeComplete marks stream completion.
 	ResponseTypeComplete ResponseType = "complete"
 	// ResponseTypeArtifactsPending is sent while skill/sandbox output is being
 	// copied into persistent storage after the answer has already streamed.
@@ -271,24 +273,20 @@ const (
 	// after its prompt was answered. Steps saved before the suspension are
 	// not replayed; the client keeps the ones it already shows.
 	ResponseTypeRunResumed ResponseType = "run_resumed"
-	// ToolApprovalRequired: MCP tool marked dangerous — UI must collect user approval before execution continues
+	// ResponseTypeToolApprovalRequired indicates an MCP tool requires human approval before execution.
 	ResponseTypeToolApprovalRequired ResponseType = "tool_approval_required"
-	// ToolApprovalResolved: user approved/rejected (or timeout); informational for UI replay
+	// ResponseTypeToolApprovalResolved reports that tool approval completed, was rejected, or timed out.
 	ResponseTypeToolApprovalResolved ResponseType = "tool_approval_resolved"
 	// ResponseTypeAgentPromptRequired indicates that the agent asks the user something (ask_user);
 	// data carries the prompt kind and its request JSON.
 	ResponseTypeAgentPromptRequired ResponseType = "agent_prompt_required"
 	// ResponseTypeAgentPromptResolved indicates an answered, declined, timed out or canceled prompt.
 	ResponseTypeAgentPromptResolved ResponseType = "agent_prompt_resolved"
-	// MCPOAuthRequired: an OAuth-enabled MCP service was invoked but the user
-	// has not authorized it — UI must surface an "Authorize" prompt and the
-	// agent pauses until authorization completes (or the wait times out).
+	// ResponseTypeMCPOAuthRequired indicates an OAuth-enabled MCP service needs user authorization.
 	ResponseTypeMCPOAuthRequired ResponseType = "mcp_oauth_required"
-	// MCPOAuthResolved: authorization completed / timed out / canceled;
-	// informational for UI replay.
+	// ResponseTypeMCPOAuthResolved indicates MCP OAuth authorization completed, timed out, or was canceled.
 	ResponseTypeMCPOAuthResolved ResponseType = "mcp_oauth_resolved"
-	// MemoryRecalled: the long-term memories injected into this answer, so
-	// the UI can show and let the user delete what influenced it.
+	// ResponseTypeMemoryRecalled carries the long-term memories injected into this answer.
 	ResponseTypeMemoryRecalled ResponseType = "memory_recalled"
 	// ResponseTypeSteer is the per-run control signal a client POSTs while a
 	// turn is still running. It rides the same StreamManager keyspace as the
@@ -318,7 +316,6 @@ const (
 	ResponseTypeInstallPrompt ResponseType = "install_prompt"
 )
 
-// StreamResponse stream response
 // FinishReasonIncomplete marks a stream that broke before the provider sent a
 // finish reason (read error, timeout, stall). Whatever content and tool calls
 // were collected are a partial response: callers must not treat them as a
@@ -330,6 +327,7 @@ const FinishReasonIncomplete = "incomplete"
 // message was finished, most often because a proxy cut the connection.
 const StreamEndedEarlyError = "the model's response ended before it finished (connection interrupted)"
 
+// StreamResponse represents one SSE event frame emitted during chat or agent streaming.
 type StreamResponse struct {
 	ID                  string                 `json:"id"`
 	ResponseType        ResponseType           `json:"response_type"`

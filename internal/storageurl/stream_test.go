@@ -89,6 +89,11 @@ func TestFindIncompleteMarkdownImage(t *testing.T) {
 			"![alt](" + strings.Repeat("x", maxIncompleteImageBytes),
 			-1,
 		},
+		{
+			"closed image earlier in chunk followed by bare incomplete reference",
+			"Earlier ![done](https://cdn.example.com/a.png) prose and later minio://bucket/10000/part",
+			-1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

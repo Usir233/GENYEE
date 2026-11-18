@@ -174,7 +174,9 @@ func TestBuildEnvVectorStores(t *testing.T) {
 	})
 
 	t.Run("all supported drivers", func(t *testing.T) {
-		stores := BuildEnvVectorStores("postgres,sqlite,elasticsearch_v8,elasticsearch_v7,qdrant,milvus,weaviate,doris,tencent_vectordb", lookup)
+		drivers := "postgres,sqlite,elasticsearch_v8,elasticsearch_v7," +
+			"qdrant,milvus,weaviate,doris,tencent_vectordb"
+		stores := BuildEnvVectorStores(drivers, lookup)
 		require.Len(t, stores, 9)
 
 		ids := make([]string, len(stores))
@@ -432,7 +434,10 @@ func TestGetVectorStoreTypes(t *testing.T) {
 
 	t.Run("display names have no parenthetical suffix", func(t *testing.T) {
 		for _, typ := range types {
-			assert.NotContains(t, typ.DisplayName, "(", "display_name should not contain parenthetical suffix: %s", typ.DisplayName)
+			assert.NotContains(
+				t, typ.DisplayName, "(",
+				"display_name should not contain parenthetical suffix: %s", typ.DisplayName,
+			)
 		}
 	})
 }

@@ -281,7 +281,8 @@ func TestSpan_FinishMetadataMerged(t *testing.T) {
 			continue
 		}
 		meta := spanAttr(s.Attributes, attrObsMetadata)
-		for _, want := range []string{`"stage":"ingest"`, `"task_type":"manual"`, `"outcome":"success"`, `"duration_ms":42`} {
+		wants := []string{`"stage":"ingest"`, `"task_type":"manual"`, `"outcome":"success"`, `"duration_ms":42`}
+		for _, want := range wants {
 			if !strings.Contains(meta, want) {
 				t.Errorf("span metadata %q missing %q", meta, want)
 			}
@@ -341,10 +342,16 @@ func TestStartGeneration_AutoRootExported(t *testing.T) {
 		t.Fatal("generation span was not exported")
 	}
 	if generation.SpanContext.TraceID() != root.SpanContext.TraceID() {
-		t.Errorf("generation trace id %s != root trace id %s", generation.SpanContext.TraceID(), root.SpanContext.TraceID())
+		t.Errorf(
+			"generation trace id %s != root trace id %s",
+			generation.SpanContext.TraceID(), root.SpanContext.TraceID(),
+		)
 	}
 	if generation.Parent.SpanID() != root.SpanContext.SpanID() {
-		t.Errorf("generation parent %s != root span %s (dangling parent)", generation.Parent.SpanID(), root.SpanContext.SpanID())
+		t.Errorf(
+			"generation parent %s != root span %s (dangling parent)",
+			generation.Parent.SpanID(), root.SpanContext.SpanID(),
+		)
 	}
 }
 
@@ -508,8 +515,19 @@ func TestTracerRedactsErrorSecretsAndClonesMetadataConcurrently(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			gen.Finish(nil, nil, errors.New("upstream 401 with Authorization: Bearer sk-live-supersecret987654321 and key=AIzaSySecretKey1234567890"))
-			sp.Finish(nil, map[string]interface{}{"done": true}, errors.New("Post \"https://user:mySecretPass@api.example.com/v1?access_token=tok_xyz_999\": EOF"))
+			gen.Finish(
+				nil,
+				nil,
+				errors.New(
+					"upstream 401 with Authorization: Bearer sk-live-supersecret987654321 "+
+						"and key=AIzaSySecretKey1234567890",
+				),
+			)
+			sp.Finish(
+				nil,
+				map[string]interface{}{"done": true},
+				errors.New(`Post "https://user:mySecretPass@api.example.com/v1?access_token=tok_xyz_999": EOF`),
+			)
 			tr.Finish("ok", map[string]interface{}{"status": 500})
 		}()
 	}

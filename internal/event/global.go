@@ -58,3 +58,8 @@ func HasHandlers(eventType EventType) bool {
 func Clear() {
 	GetGlobalEventBus().Clear()
 }
+
+// Wait blocks until all in-flight asynchronous handlers on the global event bus finish.
+func Wait() {
+	GetGlobalEventBus().Wait()
+}

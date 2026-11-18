@@ -12,7 +12,8 @@ import (
 
 // AgentStreamEvent represents a streaming event from the agent
 type AgentStreamEvent struct {
-	Type      string                 `json:"type"`      // "thought", "tool_call", "tool_result", "final_answer", "error", "references"
+	// Type is one of "thought", "tool_call", "tool_result", "final_answer", "error", or "references".
+	Type      string                 `json:"type"`
 	Content   string                 `json:"content"`   // Incremental content
 	Data      map[string]interface{} `json:"data"`      // Additional structured data
 	Done      bool                   `json:"done"`      // Whether this is the last event

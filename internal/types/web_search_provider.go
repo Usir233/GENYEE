@@ -3,6 +3,7 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -66,7 +67,7 @@ func (WebSearchProviderEntity) TableName() string {
 
 // BeforeCreate is a GORM hook that runs before creating a new record.
 // Automatically generates a UUID for new providers.
-func (e *WebSearchProviderEntity) BeforeCreate(tx *gorm.DB) (err error) {
+func (e *WebSearchProviderEntity) BeforeCreate(_ *gorm.DB) (err error) {
 	if e.ID == "" {
 		e.ID = uuid.New().String()
 	}
@@ -88,7 +89,8 @@ type WebSearchProviderParameters struct {
 	// Base URL for self-hosted search engines (e.g. SearXNG instance URL).
 	// Validated with utils.ValidateURLForSSRF; private hosts must be added to SSRF_WHITELIST.
 	BaseURL string `yaml:"base_url" json:"base_url,omitempty"`
-	// Optional HTTP/HTTPS proxy URL for outbound search requests (e.g. http://host:port); validated with utils.ValidateURLForSSRF.
+	// Optional HTTP/HTTPS proxy URL for outbound search requests (e.g. http://host:port);
+	// validated with utils.ValidateURLForSSRF.
 	// Does not replace the search API endpoint; only tunnels traffic to the official APIs.
 	ProxyURL string `yaml:"proxy_url" json:"proxy_url,omitempty"`
 	// Provider-specific extra configuration for future extensibility
@@ -99,9 +101,11 @@ type WebSearchProviderParameters struct {
 // Encrypts APIKey before persisting to database.
 func (p WebSearchProviderParameters) Value() (driver.Value, error) {
 	if key := utils.GetAESKey(); key != nil && p.APIKey != "" {
-		if encrypted, err := utils.EncryptAESGCM(p.APIKey, key); err == nil {
-			p.APIKey = encrypted
+		encrypted, err := utils.EncryptAESGCM(p.APIKey, key)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt web search provider api_key: %w", err)
 		}
+		p.APIKey = encrypted
 	}
 	return json.Marshal(p)
 }
@@ -119,7 +123,10 @@ func (p *WebSearchProviderParameters) Scan(value interface{}) error {
 	if plain, ok := utils.DecryptStoredSecretLenient(p.APIKey); ok {
 		p.APIKey = plain
 	} else {
-		log.Printf("[crypto] web search provider api_key: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured")
+		log.Printf(
+			"[crypto] web search provider api_key: decrypt failed " +
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+		)
 		p.APIKey = ""
 	}
 	return nil
@@ -238,8 +245,9 @@ func GetWebSearchProviderTypes() []WebSearchProviderTypeInfo {
 			RequiresAPIKey:  false,
 			RequiresBaseURL: true,
 			SupportsProxy:   true,
-			Description:     "Self-hosted SearXNG metasearch instance (provide instance URL; private hosts must be SSRF-whitelisted)",
-			DocsURL:         "https://docs.searxng.org/",
+			Description: "Self-hosted SearXNG metasearch instance " +
+				"(provide instance URL; private hosts must be SSRF-whitelisted)",
+			DocsURL: "https://docs.searxng.org/",
 		},
 		{
 			ID:             "baidu",
@@ -254,8 +262,9 @@ func GetWebSearchProviderTypes() []WebSearchProviderTypeInfo {
 			RequiresAPIKey:         false,
 			SupportsOptionalAPIKey: true,
 			SupportsProxy:          true,
-			Description:            "Keenable web search built for AI agents (keyless by default; an optional API key lifts the rate limit)",
-			DocsURL:                "https://keenable.ai/",
+			Description: "Keenable web search built for AI agents " +
+				"(keyless by default; an optional API key lifts the rate limit)",
+			DocsURL: "https://keenable.ai/",
 		},
 		{
 			ID:             "metaso",
@@ -301,10 +310,22 @@ func GetWebSearchProviderTypes() []WebSearchProviderTypeInfo {
 					Description:    "Select the Zhipu search engine and per-request price tier.",
 					DescriptionKey: "webSearchSettings.configFields.searchEngineDesc",
 					Options: []WebSearchProviderConfigFieldOption{
-						{Label: "Standard · ¥0.01/request", LabelKey: "webSearchSettings.configFields.searchStd", Value: "search_std"},
-						{Label: "Pro · ¥0.03/request", LabelKey: "webSearchSettings.configFields.searchPro", Value: "search_pro"},
-						{Label: "Sogou · ¥0.05/request", LabelKey: "webSearchSettings.configFields.searchSogou", Value: "search_pro_sogou"},
-						{Label: "Quark · ¥0.05/request", LabelKey: "webSearchSettings.configFields.searchQuark", Value: "search_pro_quark"},
+						{
+							Label: "Standard · ¥0.01/request", LabelKey: "webSearchSettings.configFields.searchStd",
+							Value: "search_std",
+						},
+						{
+							Label: "Pro · ¥0.03/request", LabelKey: "webSearchSettings.configFields.searchPro",
+							Value: "search_pro",
+						},
+						{
+							Label: "Sogou · ¥0.05/request", LabelKey: "webSearchSettings.configFields.searchSogou",
+							Value: "search_pro_sogou",
+						},
+						{
+							Label: "Quark · ¥0.05/request", LabelKey: "webSearchSettings.configFields.searchQuark",
+							Value: "search_pro_quark",
+						},
 					},
 				},
 				{

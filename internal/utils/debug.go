@@ -2,35 +2,55 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
-// CleanupStaleRunningTasks 清理可能残留的running task keys
-// 这是一个调试和维护工具，可以用来清理因异常情况导致的残留running keys
-func CleanupStaleRunningTasks(ctx context.Context, redisClient *redis.Client, keyPrefix string, maxAge time.Duration) (int, error) {
-	// 获取所有匹配的keys
-	keys, err := redisClient.Keys(ctx, keyPrefix+"*").Result()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get keys: %w", err)
+// CleanupStaleRunningTasks scans and removes stale running-task Redis keys
+// matching keyPrefix* without blocking Redis via KEYS.
+func CleanupStaleRunningTasks(
+	ctx context.Context,
+	redisClient *redis.Client,
+	keyPrefix string,
+	maxAge time.Duration,
+) (int, error) {
+	if redisClient == nil {
+		return 0, errors.New("redis client is required")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var keys []string
+	var cursor uint64
+	for {
+		batch, nextCursor, err := redisClient.Scan(ctx, cursor, keyPrefix+"*", 100).Result()
+		if err != nil {
+			return 0, fmt.Errorf("failed to scan keys: %w", err)
+		}
+		keys = append(keys, batch...)
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
 	}
 
 	if len(keys) == 0 {
 		return 0, nil
 	}
 
-	// 检查每个key的TTL
 	var staleTasks []string
 	for _, key := range keys {
 		ttl, err := redisClient.TTL(ctx, key).Result()
 		if err != nil {
-			continue // 跳过错误的key
+			continue
 		}
-
-		// 如果TTL小于0（永不过期）或者剩余时间太长（可能是残留的），标记为stale
-		if ttl < 0 || ttl > maxAge {
+		// Persistent keys (ttl == -1) or keys whose remaining TTL exceeds maxAge are stale;
+		// ttl == -2 means the key disappeared concurrently.
+		if ttl == -1 || ttl > maxAge {
 			staleTasks = append(staleTasks, key)
 		}
 	}
@@ -39,7 +59,6 @@ func CleanupStaleRunningTasks(ctx context.Context, redisClient *redis.Client, ke
 		return 0, nil
 	}
 
-	// 删除stale keys
 	deleted, err := redisClient.Del(ctx, staleTasks...).Result()
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete stale keys: %w", err)
@@ -48,14 +67,24 @@ func CleanupStaleRunningTasks(ctx context.Context, redisClient *redis.Client, ke
 	return int(deleted), nil
 }
 
-// CheckRunningTaskStatus 检查指定running task的状态
-func CheckRunningTaskStatus(ctx context.Context, redisClient *redis.Client, runningKey, progressKey string) (map[string]interface{}, error) {
+// CheckRunningTaskStatus inspects the existence and TTL of a running-task key
+// and its associated progress key.
+func CheckRunningTaskStatus(
+	ctx context.Context,
+	redisClient *redis.Client,
+	runningKey, progressKey string,
+) (map[string]interface{}, error) {
+	if redisClient == nil {
+		return nil, errors.New("redis client is required")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	result := make(map[string]interface{})
 
-	// 检查running key
 	runningTaskID, err := redisClient.Get(ctx, runningKey).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			result["running_task_exists"] = false
 		} else {
 			return nil, fmt.Errorf("failed to get running task: %w", err)
@@ -64,15 +93,16 @@ func CheckRunningTaskStatus(ctx context.Context, redisClient *redis.Client, runn
 		result["running_task_exists"] = true
 		result["running_task_id"] = runningTaskID
 
-		// 获取running key的TTL
-		ttl, _ := redisClient.TTL(ctx, runningKey).Result()
+		ttl, ttlErr := redisClient.TTL(ctx, runningKey).Result()
+		if ttlErr != nil {
+			return nil, fmt.Errorf("failed to get running task TTL: %w", ttlErr)
+		}
 		result["running_task_ttl"] = ttl.String()
 	}
 
-	// 检查progress key
 	progressData, err := redisClient.Get(ctx, progressKey).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			result["progress_exists"] = false
 		} else {
 			return nil, fmt.Errorf("failed to get progress: %w", err)
@@ -81,8 +111,10 @@ func CheckRunningTaskStatus(ctx context.Context, redisClient *redis.Client, runn
 		result["progress_exists"] = true
 		result["progress_data"] = progressData
 
-		// 获取progress key的TTL
-		ttl, _ := redisClient.TTL(ctx, progressKey).Result()
+		ttl, ttlErr := redisClient.TTL(ctx, progressKey).Result()
+		if ttlErr != nil {
+			return nil, fmt.Errorf("failed to get progress TTL: %w", ttlErr)
+		}
 		result["progress_ttl"] = ttl.String()
 	}
 

@@ -20,6 +20,7 @@ var (
 // from the queue library's Go enum.
 type RuntimeTaskState string
 
+// RuntimeTaskState constants enumerate queue task execution states.
 const (
 	RuntimeTaskPending   RuntimeTaskState = "pending"
 	RuntimeTaskActive    RuntimeTaskState = "active"
@@ -29,6 +30,7 @@ const (
 	RuntimeTaskCompleted RuntimeTaskState = "completed"
 )
 
+// Valid reports whether s is a known RuntimeTaskState.
 func (s RuntimeTaskState) Valid() bool {
 	switch s {
 	case RuntimeTaskPending, RuntimeTaskActive, RuntimeTaskScheduled,
@@ -43,6 +45,7 @@ func (s RuntimeTaskState) Valid() bool {
 // renders only these actions instead of inferring safety from the state.
 type RuntimeTaskAction string
 
+// RuntimeTaskAction constants enumerate operator actions supported on runtime queue tasks.
 const (
 	RuntimeTaskActionCancel RuntimeTaskAction = "cancel"
 	RuntimeTaskActionRunNow RuntimeTaskAction = "run_now"
@@ -92,6 +95,7 @@ type RuntimeTaskPage struct {
 	HasMore    bool
 }
 
+// Allows reports whether action is permitted for this runtime task state.
 func (t RuntimeTaskInfo) Allows(action RuntimeTaskAction) bool {
 	for _, allowed := range t.AllowedActions {
 		if allowed == action {

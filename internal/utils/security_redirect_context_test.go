@@ -27,7 +27,7 @@ func TestSSRFRedirectDNSHonorsHTTPClientTimeout(t *testing.T) {
 		}
 		resp, err := client.Do(req)
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		return err
 	})
@@ -51,7 +51,9 @@ func TestSSRFRedirectValidationKeepsEarlierDeadline(t *testing.T) {
 				defer cancelRequest()
 				responseCtx, cancelResponse := context.WithTimeout(context.Background(), responseBudget)
 				defer cancelResponse()
-				req, _ := http.NewRequestWithContext(requestCtx, http.MethodGet, "https://audit-redirect-earlier.invalid/", nil)
+				req, _ := http.NewRequestWithContext(
+					requestCtx, http.MethodGet, "https://audit-redirect-earlier.invalid/", nil,
+				)
 				previous, _ := http.NewRequestWithContext(responseCtx, http.MethodGet, "https://previous.example/", nil)
 				req.Response = &http.Response{Request: previous}
 				return newSSRFCheckRedirect(10)(req, nil)

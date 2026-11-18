@@ -116,6 +116,7 @@ func (c *PipelineRequest) CitationsEnabled() bool {
 // QueryIntent represents the classified intent of a user query.
 type QueryIntent string
 
+// QueryIntent constants classify a user query for routing.
 const (
 	IntentKBSearch      QueryIntent = "kb_search"
 	IntentWebSearch     QueryIntent = "web_search"
@@ -382,6 +383,9 @@ func (c *ChatManage) Clone() *ChatManage {
 // EventType represents different stages in the RAG (Retrieval Augmented Generation) pipeline
 type EventType string
 
+// Chat pipeline stage event constants used across chat_pipeline plugins.
+//
+//nolint:revive // Historical ALL_CAPS stage identifiers referenced across chat_pipeline.
 const (
 	LOAD_HISTORY           EventType = "load_history"
 	MEMORY_RECALL          EventType = "memory_recall"

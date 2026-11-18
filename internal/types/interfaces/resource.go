@@ -75,11 +75,16 @@ type UnboundResourceCatalog interface {
 // ScopedResourceContentRepository limits deduplication to the storage instance
 // that will serve the returned reference.
 type ScopedResourceContentRepository interface {
-	GetActiveByContentHashInStorage(ctx context.Context, tenantID uint64, contentHash, backendID string) (*types.StoredResource, error)
+	GetActiveByContentHashInStorage(
+		ctx context.Context, tenantID uint64, contentHash, backendID string,
+	) (*types.StoredResource, error)
 }
 
+// ScopedResourceContentCatalog reuses content-addressed blobs scoped to a storage backend.
 type ScopedResourceContentCatalog interface {
-	ReuseByContentHashInStorage(ctx context.Context, tenantID uint64, contentHash, backendID string, global bool) (string, bool, error)
+	ReuseByContentHashInStorage(
+		ctx context.Context, tenantID uint64, contentHash, backendID string, global bool,
+	) (string, bool, error)
 }
 
 // ResourceRegistration describes one physical object at registration time.

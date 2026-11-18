@@ -41,8 +41,7 @@ const (
 type Config struct {
 	// Enabled is the master switch. If false the entire package is a no-op.
 	Enabled bool
-	// Host is the Langfuse base URL, e.g. https://cloud.langfuse.com or
-	// https://us.cloud.langfuse.com or a self-hosted address.
+	// Host is the self-hosted Langfuse / LiteFuse / OTLP collector base URL.
 	Host string
 	// PublicKey / SecretKey are the project credentials used for Basic Auth.
 	PublicKey string
@@ -188,12 +187,28 @@ func (c Config) Validate() error {
 }
 
 var (
-	reURLUserInfo       = regexp.MustCompile(`(?i)(https?://)([^/\s@]+)@`)
-	reQuerySecretParam  = regexp.MustCompile(`(?i)([?&](?:api[_-]?key|apikey|key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|client[_-]?secret|secret[_-]?key|secret|password|passwd|pwd|auth|authorization|sig|signature|x-amz-signature|x-amz-security-token)=)[^&\s"']+`)
-	reAuthHeaderScheme  = regexp.MustCompile(`(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{6,}`)
-	reHeaderKeySecret   = regexp.MustCompile(`(?i)((?:x-api-key|api-key|authorization|proxy-authorization)\s*[:=]\s*)[^\s"',;]+`)
-	reProviderKeyToken  = regexp.MustCompile(`\b(?:sk-[A-Za-z0-9_-]{8,}|pk-lf-[A-Za-z0-9_-]{6,}|sk-lf-[A-Za-z0-9_-]{6,}|lf_[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{16,})\b`)
-	reJSONSecretKeyPair = regexp.MustCompile(`(?i)("(?:api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|secret[_-]?key|secret|password|passwd|pwd|authorization|auth[_-]?token|private[_-]?key|token)"\s*:\s*)"(?:\\.|[^"\\])*"`)
+	reURLUserInfo = regexp.MustCompile(
+		`(?i)\b((?:https?|postgres(?:ql)?|mysql|rediss?|mongodb(?:\+srv)?|` +
+			`amqps?|clickhouse|s?ftp|socks5)://)([^/\s@'"<>]+)@`,
+	)
+	reQuerySecretParam = regexp.MustCompile(
+		`(?i)([?&](?:api[_-]?key|apikey|key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|` +
+			`client[_-]?secret|secret[_-]?key|secret|password|passwd|pwd|auth|authorization|` +
+			`sig|signature|x-amz-signature|x-amz-security-token)=)[^&\s"']+`,
+	)
+	reAuthHeaderScheme = regexp.MustCompile(`(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{6,}`)
+	reHeaderKeySecret  = regexp.MustCompile(
+		`(?i)((?:x-api-key|api-key|authorization|proxy-authorization)\s*[:=]\s*)[^\s"',;]+`,
+	)
+	reProviderKeyToken = regexp.MustCompile(
+		`\b(?:sk-[A-Za-z0-9_-]{8,}|pk-lf-[A-Za-z0-9_-]{6,}|sk-lf-[A-Za-z0-9_-]{6,}|` +
+			`lf_[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{16,})\b`,
+	)
+	reJSONSecretKeyPair = regexp.MustCompile(
+		`(?i)("(?:api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|` +
+			`secret[_-]?key|secret|password|passwd|pwd|authorization|auth[_-]?token|` +
+			`private[_-]?key|token)"\s*:\s*)"(?:\\.|[^"\\])*"`,
+	)
 )
 
 func isSensitiveTraceKey(rawKey string) bool {
@@ -205,7 +220,8 @@ func isSensitiveTraceKey(rawKey string) bool {
 	case "api_key", "apikey", "api-key", "x-api-key", "key",
 		"token", "access_token", "access-token", "refresh_token", "refresh-token", "id_token",
 		"secret", "secret_key", "secret-key", "client_secret", "client-secret", "private_key",
-		"password", "passwd", "pwd", "auth", "authorization", "cookie",
+		"password", "passwd", "pwd", "auth", "authorization", "cookie", "set-cookie",
+		"dsn", "database_url", "redis_url", "signing_key", "jwt_secret",
 		"sig", "signature", "x-amz-signature", "x-amz-security-token", "x-goog-signature":
 		return true
 	}
@@ -216,7 +232,8 @@ func isSensitiveTraceKey(rawKey string) bool {
 		strings.HasSuffix(k, "_password") ||
 		strings.HasSuffix(k, "-password") ||
 		strings.HasSuffix(k, "_api_key") ||
-		strings.HasSuffix(k, "_apikey")
+		strings.HasSuffix(k, "_apikey") ||
+		strings.HasSuffix(k, "_dsn")
 }
 
 func redactHTTPQuery(rawQuery string) string {
@@ -282,15 +299,6 @@ func trimUTF8Bytes(b []byte) string {
 		return strings.ToValidUTF8(string(b), "")
 	}
 	return string(b)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if s := strings.TrimSpace(v); s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 func parseBool(v string) bool {

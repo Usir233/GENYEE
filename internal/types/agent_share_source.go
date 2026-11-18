@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// AgentSourceTenantIDParam is the query/body key selecting a shared agent's source workspace.
 const AgentSourceTenantIDParam = "agent_source_tenant_id"
 
 // ParseAgentSourceTenantID parses the optional shared-agent source workspace selector.

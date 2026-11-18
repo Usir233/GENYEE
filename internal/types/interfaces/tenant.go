@@ -38,7 +38,9 @@ type TenantService interface {
 	// callers are responsible for resolving GB→bytes.
 	BulkSetStorageQuota(ctx context.Context, quotaBytes int64) (int64, error)
 	// SearchTenants searches tenants with pagination and filters
-	SearchTenants(ctx context.Context, keyword string, tenantID uint64, page, pageSize int) ([]*types.Tenant, int64, error)
+	SearchTenants(
+		ctx context.Context, keyword string, tenantID uint64, page, pageSize int,
+	) ([]*types.Tenant, int64, error)
 	// GetTenantByIDForUser gets a tenant by ID with permission check
 	GetTenantByIDForUser(ctx context.Context, tenantID uint64, userID string) (*types.Tenant, error)
 }
@@ -54,7 +56,9 @@ type TenantRepository interface {
 	// ListTenants lists all tenants
 	ListTenants(ctx context.Context) ([]*types.Tenant, error)
 	// SearchTenants searches tenants with pagination and filters
-	SearchTenants(ctx context.Context, keyword string, tenantID uint64, page, pageSize int) ([]*types.Tenant, int64, error)
+	SearchTenants(
+		ctx context.Context, keyword string, tenantID uint64, page, pageSize int,
+	) ([]*types.Tenant, int64, error)
 	// UpdateTenant updates a tenant
 	UpdateTenant(ctx context.Context, tenant *types.Tenant) error
 	// SetChatHistoryConfig is the only update path for the managed history config.
@@ -69,6 +73,7 @@ type TenantRepository interface {
 	BulkSetStorageQuota(ctx context.Context, quotaBytes int64) (int64, error)
 }
 
+// TenantAPIKeyCreateRequest describes parameters for minting a new tenant or platform API key.
 type TenantAPIKeyCreateRequest struct {
 	TenantID         uint64
 	ScopeType        types.APIKeyScopeType
@@ -79,6 +84,7 @@ type TenantAPIKeyCreateRequest struct {
 	ExpiresAt        *time.Time
 }
 
+// TenantAPIKeyCreateResult pairs a persisted API key metadata record with its one-time raw secret.
 type TenantAPIKeyCreateResult struct {
 	APIKey *types.TenantAPIKey
 	Token  string
@@ -96,6 +102,7 @@ type TenantAPIKeyUpdateRequest struct {
 	ExpiresAt        *time.Time
 }
 
+// TenantAPIKeyRepository persists and queries scoped API keys.
 type TenantAPIKeyRepository interface {
 	CreateAPIKey(ctx context.Context, key *types.TenantAPIKey) error
 	GetAPIKeyByHash(ctx context.Context, hash string) (*types.TenantAPIKey, error)
@@ -115,6 +122,7 @@ type TenantAPIKeyRepository interface {
 	HasKeysWithPlaceholderHash(ctx context.Context) (bool, error)
 }
 
+// TenantAPIKeyService manages creation, authentication, and revocation of scoped API keys.
 type TenantAPIKeyService interface {
 	CreateAPIKey(ctx context.Context, req TenantAPIKeyCreateRequest) (*TenantAPIKeyCreateResult, error)
 	AuthenticateAPIKey(ctx context.Context, token string) (*types.TenantAPIKey, error)

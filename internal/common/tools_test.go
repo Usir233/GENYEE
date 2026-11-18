@@ -1,9 +1,14 @@
 package common
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"math"
 	"net/url"
+	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -99,5 +104,43 @@ func TestDeduplicateWithScoreNaNAndTypedNilPipelineLog(t *testing.T) {
 	logLine := PipelineLog("FETCH", "check", map[string]interface{}{"url": nilURL})
 	if logLine == "" {
 		t.Fatal("expected non-empty PipelineLog output for typed-nil Stringer")
+	}
+}
+
+func TestPipelineLogMasksSensitiveFieldsAndTruncatesRawMessage(t *testing.T) {
+	line := PipelineLog("AUTH", "verify", map[string]interface{}{
+		"api_key": "sk-pipeline-secret-value-123456",
+		"dsn":     "postgres://admin:PipeDBPass99@pg.internal:5432/app",
+		"raw":     json.RawMessage(`"` + strings.Repeat("r", 600) + `"`),
+		"safe":    "visible-value",
+	})
+	for _, secret := range []string{"sk-pipeline-secret-value-123456", "PipeDBPass99"} {
+		if strings.Contains(line, secret) {
+			t.Fatalf("PipelineLog leaked secret %q in %q", secret, line)
+		}
+	}
+	if !strings.Contains(line, "visible-value") {
+		t.Fatalf("PipelineLog dropped safe field: %q", line)
+	}
+	if len(line) > 550 {
+		t.Fatalf("PipelineLog failed to truncate oversized json.RawMessage (len=%d): %q", len(line), line)
+	}
+}
+
+func TestWithDeadlockRetryHonorsContextCancellationAndNilCallback(t *testing.T) {
+	if err := WithDeadlockRetry(context.Background(), nil); err != nil {
+		t.Fatalf("expected nil callback to return nil, got %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Millisecond)
+	defer cancel()
+
+	calls := 0
+	err := WithDeadlockRetry(ctx, func() error {
+		calls++
+		return errors.New("Error 1213: Deadlock found when trying to get lock")
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded during retry wait, got %v (calls=%d)", err, calls)
 	}
 }

@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -140,7 +141,7 @@ func (d *DataSource) TableName() string {
 }
 
 // BeforeCreate hook to generate UUID
-func (d *DataSource) BeforeCreate(tx *gorm.DB) error {
+func (d *DataSource) BeforeCreate(_ *gorm.DB) error {
 	if d.ID == "" {
 		d.ID = uuid.New().String()
 	}
@@ -204,7 +205,7 @@ func (s *SyncLog) TableName() string {
 }
 
 // BeforeCreate hook to generate UUID
-func (s *SyncLog) BeforeCreate(tx *gorm.DB) error {
+func (s *SyncLog) BeforeCreate(_ *gorm.DB) error {
 	if s.ID == "" {
 		s.ID = uuid.New().String()
 	}
@@ -268,8 +269,7 @@ func (d *DataSourceConfig) StripNonSecretCredentials(connectorType string) {
 	if d == nil || d.Credentials == nil {
 		return
 	}
-	switch connectorType {
-	case ConnectorTypeRSS:
+	if connectorType == ConnectorTypeRSS {
 		delete(d.Credentials, "feed_urls")
 		if len(d.Credentials) == 0 {
 			d.Credentials = nil
@@ -540,10 +540,12 @@ func (d *DataSourceConfig) ToJSON() (JSON, error) {
 		encCreds := make(map[string]interface{}, len(out.Credentials))
 		for k, v := range out.Credentials {
 			if s, ok := v.(string); ok && s != "" {
-				if enc, err := utils.EncryptAESGCM(s, key); err == nil {
-					encCreds[k] = enc
-					continue
+				enc, err := utils.EncryptAESGCM(s, key)
+				if err != nil {
+					return nil, fmt.Errorf("encrypt datasource credential %q: %w", k, err)
 				}
+				encCreds[k] = enc
+				continue
 			}
 			encCreds[k] = v
 		}
@@ -613,7 +615,8 @@ func (d *DataSource) ParseConfig() (*DataSourceConfig, error) {
 		// false; the UI surfaces "credential not configured" and the
 		// user can re-enter without losing the rest of the data source.
 		log.Printf(
-			"[crypto] datasource credential %q: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+			"[crypto] datasource credential %q: decrypt failed "+
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
 			k,
 		)
 		config.Credentials[k] = ""
@@ -645,7 +648,7 @@ func (d *DataSource) ParseSyncResult() (*SyncResult, error) {
 	return &result, nil
 }
 
-// ParseSyncLogResult parses the result JSON from sync log
+// ParseResult parses the result JSON from sync log.
 func (s *SyncLog) ParseResult() (*SyncResult, error) {
 	if len(s.Result) == 0 {
 		return nil, nil

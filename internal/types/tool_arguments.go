@@ -42,6 +42,7 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalJSON decodes a ToolCallTarget while preserving exact JSON number representations in Args.
 func (c *ToolCallTarget) UnmarshalJSON(data []byte) error {
 	type plain ToolCallTarget
 	value := struct {

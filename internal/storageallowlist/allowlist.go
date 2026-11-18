@@ -1,3 +1,4 @@
+// Package storageallowlist parses and enforces the STORAGE_ALLOW_LIST provider policy.
 package storageallowlist
 
 import (
@@ -5,6 +6,7 @@ import (
 	"strings"
 )
 
+// AllowListEnv is the environment variable restricting selectable storage providers.
 const AllowListEnv = "STORAGE_ALLOW_LIST"
 
 var supported = []string{"local", "minio", "cos", "tos", "s3", "oss", "ks3", "obs"}
@@ -30,7 +32,7 @@ func AllowedMap() map[string]bool {
 
 	for _, item := range strings.FieldsFunc(raw, func(r rune) bool {
 		switch r {
-		case ',', ';', '|', '\n', '\t', ' ':
+		case ',', ';', '|', '\r', '\n', '\t', ' ':
 			return true
 		default:
 			return false

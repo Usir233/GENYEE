@@ -54,8 +54,9 @@ func TestParseSQL(t *testing.T) {
 			wantWhereText: "grade = 'A'",
 		},
 		{
-			name:          "SELECT with complex WHERE",
-			sql:           "SELECT * FROM products WHERE price BETWEEN 10 AND 100 AND category IN ('electronics', 'books')",
+			name: "SELECT with complex WHERE",
+			sql: "SELECT * FROM products WHERE price BETWEEN 10 AND 100 " +
+				"AND category IN ('electronics', 'books')",
 			wantIsSelect:  true,
 			wantTables:    []string{"products"},
 			wantSelect:    []string{},
@@ -421,8 +422,9 @@ func TestInjectAndConditions(t *testing.T) {
 		want   string
 	}{
 		{
-			name:   "existing WHERE with ORDER BY",
-			sql:    "SELECT id, title FROM knowledges WHERE parse_status = 'completed' ORDER BY created_at DESC LIMIT 10",
+			name: "existing WHERE with ORDER BY",
+			sql: "SELECT id, title FROM knowledges WHERE parse_status = 'completed' " +
+				"ORDER BY created_at DESC LIMIT 10",
 			filter: "knowledges.tenant_id = 123",
 			want: "SELECT id, title FROM knowledges WHERE knowledges.tenant_id = 123 " +
 				"AND parse_status = 'completed' ORDER BY created_at DESC LIMIT 10",
@@ -514,7 +516,8 @@ func TestValidateAndSecureSQL_ScopeCombinesDocumentAndTagFilters(t *testing.T) {
 		t.Fatalf("expected validation to pass, got %#v", validation.Errors)
 	}
 	for _, want := range []string{
-		"chunks.knowledge_base_id = 'kb-1' AND chunks.knowledge_id IN ('doc-1') AND (chunks.tag_id IN ('tag-a') OR EXISTS",
+		"chunks.knowledge_base_id = 'kb-1' AND chunks.knowledge_id IN ('doc-1') " +
+			"AND (chunks.tag_id IN ('tag-a') OR EXISTS",
 		"__genyee_ktr.knowledge_id = chunks.knowledge_id",
 		"__genyee_ktr.tag_id IN ('tag-a')",
 	} {
@@ -523,7 +526,11 @@ func TestValidateAndSecureSQL_ScopeCombinesDocumentAndTagFilters(t *testing.T) {
 		}
 	}
 	if strings.Count(securedSQL, " OR ") != 1 {
-		t.Fatalf("a single scope must only OR chunk tag_id with knowledge_tag_relations, not split document/tag filters:\n%s", securedSQL)
+		t.Fatalf(
+			"a single scope must only OR chunk tag_id with knowledge_tag_relations, "+
+				"not split document/tag filters:\n%s",
+			securedSQL,
+		)
 	}
 }
 
@@ -536,12 +543,24 @@ func TestValidateSQL_JSONNodeBypass(t *testing.T) {
 		name string
 		sql  string
 	}{
-		{"JSON_SCALAR + pg_read_file", "SELECT JSON_SCALAR(pg_read_file('/etc/passwd')) AS data FROM knowledge_bases LIMIT 1"},
-		{"JSON_VALUE + pg_read_file", "SELECT JSON_VALUE(pg_read_file('/etc/passwd'), '$') AS data FROM knowledge_bases LIMIT 1"},
-		{"JSON_QUERY + pg_read_file", "SELECT JSON_QUERY(pg_read_file('/etc/passwd'), '$') AS data FROM knowledge_bases LIMIT 1"},
+		{
+			"JSON_SCALAR + pg_read_file",
+			"SELECT JSON_SCALAR(pg_read_file('/etc/passwd')) AS data FROM knowledge_bases LIMIT 1",
+		},
+		{
+			"JSON_VALUE + pg_read_file",
+			"SELECT JSON_VALUE(pg_read_file('/etc/passwd'), '$') AS data FROM knowledge_bases LIMIT 1",
+		},
+		{
+			"JSON_QUERY + pg_read_file",
+			"SELECT JSON_QUERY(pg_read_file('/etc/passwd'), '$') AS data FROM knowledge_bases LIMIT 1",
+		},
 		{"JSON scalar + lo_export", "SELECT JSON_SCALAR(lo_export(1, '/tmp/x')) FROM knowledge_bases LIMIT 1"},
 		{"JSON() parse + pg_read_file", "SELECT JSON(pg_read_file('/etc/passwd')) FROM knowledge_bases LIMIT 1"},
-		{"JSON_SERIALIZE + pg_read_file", "SELECT JSON_SERIALIZE(pg_read_file('/etc/passwd')) FROM knowledge_bases LIMIT 1"},
+		{
+			"JSON_SERIALIZE + pg_read_file",
+			"SELECT JSON_SERIALIZE(pg_read_file('/etc/passwd')) FROM knowledge_bases LIMIT 1",
+		},
 	}
 
 	for _, tt := range dangerous {
@@ -562,7 +581,8 @@ func TestValidateSQL_DefaultDenyAllowsLegitimate(t *testing.T) {
 		"SELECT COUNT(*) AS c FROM knowledges WHERE parse_status = 'completed'",
 		"SELECT COALESCE(title, 'untitled') FROM knowledges LIMIT 5",
 		"SELECT CASE WHEN file_size > 100 THEN 'big' ELSE 'small' END FROM knowledges LIMIT 5",
-		"SELECT kb.name, COUNT(k.id) FROM knowledge_bases kb LEFT JOIN knowledges k ON kb.id = k.knowledge_base_id GROUP BY kb.id, kb.name",
+		"SELECT kb.name, COUNT(k.id) FROM knowledge_bases kb " +
+			"LEFT JOIN knowledges k ON kb.id = k.knowledge_base_id GROUP BY kb.id, kb.name",
 	}
 	for _, sql := range legit {
 		t.Run(sql, func(t *testing.T) {
@@ -589,10 +609,16 @@ func TestValidateSQL_DuckDBFileRead(t *testing.T) {
 		name string
 		sql  string
 	}{
-		{"read_text in FROM subquery", "SELECT * FROM (SELECT * FROM read_text('/etc/passwd')) AS f, k_data AS k LIMIT 1"},
+		{
+			"read_text in FROM subquery",
+			"SELECT * FROM (SELECT * FROM read_text('/etc/passwd')) AS f, k_data AS k LIMIT 1",
+		},
 		{"read_text in target list", "SELECT read_text('/etc/passwd') FROM k_data LIMIT 1"},
 		{"read_blob in FROM subquery", "SELECT * FROM (SELECT * FROM read_blob('/etc/passwd')) AS f LIMIT 1"},
-		{"nested subquery read_csv", "SELECT * FROM (SELECT * FROM (SELECT * FROM read_csv('/etc/passwd')) AS a) AS b LIMIT 1"},
+		{
+			"nested subquery read_csv",
+			"SELECT * FROM (SELECT * FROM (SELECT * FROM read_csv('/etc/passwd')) AS a) AS b LIMIT 1",
+		},
 	}
 	for _, tt := range dangerous {
 		t.Run(tt.name, func(t *testing.T) {

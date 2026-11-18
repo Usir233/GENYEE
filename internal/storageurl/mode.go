@@ -88,13 +88,15 @@ var badDefault struct {
 	warned map[string]bool
 }
 
+const maxWarnedBadDefaults = 64
+
 func warnBadDefaultOnce(ctx context.Context, raw string, err error) {
 	badDefault.Lock()
 	defer badDefault.Unlock()
 	if badDefault.warned[raw] {
 		return
 	}
-	if badDefault.warned == nil {
+	if badDefault.warned == nil || len(badDefault.warned) >= maxWarnedBadDefaults {
 		badDefault.warned = make(map[string]bool)
 	}
 	badDefault.warned[raw] = true

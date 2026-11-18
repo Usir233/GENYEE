@@ -35,7 +35,11 @@ func FindIncompleteRef(s string) int {
 	}
 	loc = incompleteSchemeSuffixRe.FindStringIndex(s)
 	if loc != nil {
-		for _, scheme := range []string{"resource://", "storage://", "local://", "minio://", "s3://", "cos://", "tos://", "oss://", "obs://", "ks3://"} {
+		schemes := []string{
+			"resource://", "storage://", "local://", "minio://", "s3://",
+			"cos://", "tos://", "oss://", "obs://", "ks3://",
+		}
+		for _, scheme := range schemes {
 			if strings.HasPrefix(scheme, s[loc[0]:]) {
 				return loc[0]
 			}
@@ -64,12 +68,16 @@ const maxIncompleteImageBytes = 2048
 // FindIncompleteMarkdownImage returns the byte offset of an unclosed
 // `![alt](url` suffix at the end of s, or -1 if none.
 func FindIncompleteMarkdownImage(s string) int {
-	// Prefer pairing a trailing reference fragment with the nearest preceding
-	// `![…](` so alt text may itself contain ']' (e.g. `![a[b]](minio://part`).
+	// Prefer pairing a trailing reference fragment with an immediately preceding
+	// `![…](` so alt text may itself contain ']' (e.g. `![a[b]](minio://part`),
+	// while never matching an earlier already-closed `![done](...)` image.
 	if urlIdx := FindIncompleteRef(s); urlIdx >= 0 {
-		if imgIdx := strings.LastIndex(s[:urlIdx], "!["); imgIdx >= 0 {
-			if strings.Contains(s[imgIdx:urlIdx], "](") {
-				return imgIdx
+		if imgIdx := strings.LastIndex(s[:urlIdx], "!["); imgIdx >= 0 && len(s)-imgIdx <= maxIncompleteImageBytes {
+			if closeBracket := strings.LastIndex(s[imgIdx:urlIdx], "]("); closeBracket >= 0 {
+				between := s[imgIdx+closeBracket+2 : urlIdx]
+				if !strings.ContainsAny(between, ") \t\r\n") {
+					return imgIdx
+				}
 			}
 		}
 	}

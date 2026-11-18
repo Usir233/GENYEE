@@ -105,7 +105,9 @@ func TestSyncEmitIsolatesHandlerMetadataMutations(t *testing.T) {
 	bus.On(EventQueryReceived, func(_ context.Context, e Event) error {
 		assert.Equal(t, "test", e.Metadata["origin"])
 		assert.NotContains(t, e.Metadata, "handler", "second handler must not inherit first handler mutations")
-		assert.NotContains(t, e.Metadata, "duration_ms", "second handler must not inherit first handler timing metadata")
+		assert.NotContains(
+			t, e.Metadata, "duration_ms", "second handler must not inherit first handler timing metadata",
+		)
 		return nil
 	})
 

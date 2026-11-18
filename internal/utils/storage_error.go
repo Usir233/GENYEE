@@ -21,9 +21,13 @@ func SanitizeStorageConnectivityError(err error) string {
 		return "连接被拒绝，请确认服务已启动且端口正确"
 	case strings.Contains(msg, "no route to host"):
 		return "无法路由到目标地址，请检查网络配置"
-	case strings.Contains(msg, "i/o timeout") || strings.Contains(msg, "deadline exceeded") || strings.Contains(msg, "context deadline"):
+	case strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "deadline exceeded") ||
+		strings.Contains(msg, "context deadline"):
 		return "连接超时，请检查网络或服务状态"
-	case strings.Contains(msg, "403") || strings.Contains(msg, "AccessDenied") || strings.Contains(msg, "access denied"):
+	case strings.Contains(msg, "403") ||
+		strings.Contains(msg, "AccessDenied") ||
+		strings.Contains(msg, "access denied"):
 		return "认证失败，请检查访问凭证是否正确"
 	case strings.Contains(msg, "certificate") || strings.Contains(msg, "tls") || strings.Contains(msg, "x509"):
 		return "TLS/SSL 证书错误，请检查 SSL 配置"

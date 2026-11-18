@@ -9,9 +9,15 @@ import (
 func TestSQLSecurityRejectsRelationColumnRenaming(t *testing.T) {
 	for _, query := range []string{
 		// cos_config (the tenth physical column) becomes an allowed label.
-		`SELECT kb.description FROM knowledge_bases AS kb (id,name,original_description,tenant_id,chunking_config,image_processing_config,embedding_model_id,summary_model_id,rerank_model_id,description,vlm_config,extract_config)`,
-		`SELECT title FROM knowledges AS k (id,original_owner,knowledge_base_id,type,title,description,source,parse_status,enable_status,embedding_model_id,file_name,file_type,tenant_id)`,
-		`SELECT c.content FROM chunks AS c (id,tenant_id,knowledge_base_id,knowledge_id,original_content,chunk_index,is_enabled,start_at,end_at,pre_chunk_id,next_chunk_id,chunk_type,parent_chunk_id,content)`,
+		`SELECT kb.description FROM knowledge_bases AS kb (` +
+			`id,name,original_description,tenant_id,chunking_config,image_processing_config,` +
+			`embedding_model_id,summary_model_id,rerank_model_id,description,vlm_config,extract_config)`,
+		`SELECT title FROM knowledges AS k (` +
+			`id,original_owner,knowledge_base_id,type,title,description,source,` +
+			`parse_status,enable_status,embedding_model_id,file_name,file_type,tenant_id)`,
+		`SELECT c.content FROM chunks AS c (` +
+			`id,tenant_id,knowledge_base_id,knowledge_id,original_content,chunk_index,is_enabled,` +
+			`start_at,end_at,pre_chunk_id,next_chunk_id,chunk_type,parent_chunk_id,content)`,
 	} {
 		t.Run(query, func(t *testing.T) {
 			secured, validation, err := ValidateAndSecureSQL(query, WithSecurityDefaults(1))

@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// TemporaryDocumentStatus constants represent parsing states of a session temporary document.
 const (
 	TemporaryDocumentStatusUploaded   = "uploaded"
 	TemporaryDocumentStatusProcessing = "processing"
@@ -51,6 +52,7 @@ type TemporaryDocument struct {
 	DeletedAt         gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
+// TableName returns the database table name for TemporaryDocument.
 func (TemporaryDocument) TableName() string { return "temporary_documents" }
 
 // TemporaryDocumentImageDescriptionsKey is the metadata key under which
@@ -80,6 +82,7 @@ func (d *TemporaryDocument) ForClient() *TemporaryDocument {
 	return &out
 }
 
+// BeforeCreate populates default UUID and status values before inserting a TemporaryDocument.
 func (d *TemporaryDocument) BeforeCreate(_ *gorm.DB) error {
 	if d.ID == "" {
 		d.ID = uuid.NewString()
@@ -102,6 +105,7 @@ func (d *TemporaryDocument) BeforeCreate(_ *gorm.DB) error {
 	return nil
 }
 
+// TemporaryDocumentChunk stores one parsed text chunk of a TemporaryDocument.
 type TemporaryDocumentChunk struct {
 	Seq           int    `json:"seq"`
 	Content       string `json:"content"`
@@ -111,6 +115,7 @@ type TemporaryDocumentChunk struct {
 	TokenCount    int    `json:"token_count"`
 }
 
+// TemporaryDocumentImage stores one extracted image reference of a TemporaryDocument.
 type TemporaryDocumentImage struct {
 	OriginalRef string `json:"original_ref,omitempty"`
 	URL         string `json:"url"`
@@ -121,8 +126,15 @@ type TemporaryDocumentImage struct {
 // numbered: the stored images of the parsed text, or the upload itself when it
 // is an image the parser stored nothing for.
 func (d *TemporaryDocument) ViewableImages() []TemporaryDocumentImage {
+	if d == nil {
+		return nil
+	}
 	var refs []TemporaryDocumentImage
-	_ = json.Unmarshal(d.ImageRefs, &refs)
+	if len(d.ImageRefs) > 0 {
+		if err := json.Unmarshal(d.ImageRefs, &refs); err != nil {
+			refs = nil
+		}
+	}
 	images := refs[:0]
 	for _, ref := range refs {
 		if strings.TrimSpace(ref.URL) != "" {
@@ -159,11 +171,13 @@ func NumberAttachmentImages(content string, images []TemporaryDocumentImage) str
 	})
 }
 
+// TemporaryDocumentTaskPayload is the Asynq payload for parsing a temporary document.
 type TemporaryDocumentTaskPayload struct {
 	TenantID   uint64 `json:"tenant_id"`
 	DocumentID string `json:"document_id"`
 }
 
+// TemporaryDocumentCreateOptions configures workspace resource resolution when creating a temporary document.
 type TemporaryDocumentCreateOptions struct {
 	// ResourceTenantID is the verified agent source workspace used to resolve
 	// parser/model dependencies. The document itself remains owned by TenantID.
@@ -182,6 +196,7 @@ type TemporaryDocumentCreateOptions struct {
 	OCRMaxPages int `json:"ocr_max_pages,omitempty"`
 }
 
+// TemporaryDocumentPromptResult bundles resolved prompt attachments and image URLs for chat turns.
 type TemporaryDocumentPromptResult struct {
 	Attachments MessageAttachments
 	ImageURLs   []string

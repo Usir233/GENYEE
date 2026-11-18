@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 // MCPTransportType represents the transport type for MCP service
 type MCPTransportType string
 
+// MCPTransportType constants enumerate supported MCP transport protocols.
 const (
 	MCPTransportSSE            MCPTransportType = "sse"             // Server-Sent Events
 	MCPTransportHTTPStreamable MCPTransportType = "http-streamable" // HTTP Streamable
@@ -31,22 +33,26 @@ type MCPService struct {
 	// UsageInstructions is maintained locally and is not overwritten by directory refresh.
 	UsageInstructions string `json:"usage_instructions" gorm:"type:text;not null;default:''"`
 
-	ID             string             `json:"id"                     gorm:"type:varchar(36);primaryKey"`
-	TenantID       uint64             `json:"tenant_id"              gorm:"uniqueIndex:idx_tenant_name"`
-	Name           string             `json:"name"                   gorm:"type:varchar(255);not null;uniqueIndex:idx_tenant_name"`
-	Description    string             `json:"description"            gorm:"type:text"`
-	Enabled        bool               `json:"enabled"                gorm:"index"`
-	TransportType  MCPTransportType   `json:"transport_type"         gorm:"type:varchar(50);not null"`
-	URL            *string            `json:"url,omitempty"          gorm:"type:varchar(512)"` // Optional: required for SSE/HTTP Streamable
-	Headers        MCPHeaders         `json:"headers"                gorm:"type:json"`
-	AuthConfig     *MCPAuthConfig     `json:"auth_config"            gorm:"type:json"`
-	AdvancedConfig *MCPAdvancedConfig `json:"advanced_config"        gorm:"type:json"`
-	StdioConfig    *MCPStdioConfig    `json:"stdio_config,omitempty" gorm:"type:json"`     // Required for stdio transport
-	EnvVars        MCPEnvVars         `json:"env_vars,omitempty"     gorm:"type:json"`     // Environment variables for stdio
-	IsBuiltin      bool               `json:"is_builtin"             gorm:"default:false"` // Whether this is a builtin MCP service (visible to all workspaces)
-	CreatedAt      time.Time          `json:"created_at"`
-	UpdatedAt      time.Time          `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt     `json:"deleted_at"             gorm:"index"`
+	ID            string           `json:"id" gorm:"type:varchar(36);primaryKey"`
+	TenantID      uint64           `json:"tenant_id" gorm:"uniqueIndex:idx_tenant_name"`
+	Name          string           `json:"name" gorm:"type:varchar(255);not null;uniqueIndex:idx_tenant_name"`
+	Description   string           `json:"description" gorm:"type:text"`
+	Enabled       bool             `json:"enabled" gorm:"index"`
+	TransportType MCPTransportType `json:"transport_type" gorm:"type:varchar(50);not null"`
+	// URL is optional and required for SSE / HTTP Streamable transports.
+	URL            *string            `json:"url,omitempty" gorm:"type:varchar(512)"`
+	Headers        MCPHeaders         `json:"headers" gorm:"type:json"`
+	AuthConfig     *MCPAuthConfig     `json:"auth_config" gorm:"type:json"`
+	AdvancedConfig *MCPAdvancedConfig `json:"advanced_config" gorm:"type:json"`
+	// StdioConfig is required for stdio transport.
+	StdioConfig *MCPStdioConfig `json:"stdio_config,omitempty" gorm:"type:json"`
+	// EnvVars holds environment variables passed to stdio MCP processes.
+	EnvVars MCPEnvVars `json:"env_vars,omitempty" gorm:"type:json"`
+	// IsBuiltin marks a builtin MCP service visible across workspaces.
+	IsBuiltin bool           `json:"is_builtin" gorm:"default:false"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"deleted_at"             gorm:"index"`
 }
 
 // EffectiveUsageInstructions preserves documentation on legacy services until
@@ -168,10 +174,10 @@ func (t *MCPTool) DeclaresReadOnly() bool {
 // whether the tool is enabled and whether calls require human approval.
 // The tool list itself comes from MCP ListTools; this table stores overrides.
 type MCPToolApproval struct {
-	ID              string `json:"id"               gorm:"type:varchar(36);primaryKey"`
-	TenantID        uint64 `json:"tenant_id"        gorm:"not null;uniqueIndex:idx_mcp_tool_approvals_tenant_svc_tool"`
-	ServiceID       string `json:"service_id"       gorm:"type:varchar(36);not null;uniqueIndex:idx_mcp_tool_approvals_tenant_svc_tool;index"`
-	ToolName        string `json:"tool_name"        gorm:"type:varchar(512);not null;uniqueIndex:idx_mcp_tool_approvals_tenant_svc_tool"`
+	ID              string `json:"id" gorm:"type:varchar(36);primaryKey"`
+	TenantID        uint64 `json:"tenant_id" gorm:"not null;uniqueIndex:idx_mcp_tool_approvals_tenant_svc_tool"`
+	ServiceID       string `json:"service_id" gorm:"type:varchar(36);not null;uniqueIndex:idx_mcp_tool_approvals_tenant_svc_tool;index"` //nolint:lll // one-line struct tag
+	ToolName        string `json:"tool_name" gorm:"type:varchar(512);not null;uniqueIndex:idx_mcp_tool_approvals_tenant_svc_tool"`       //nolint:lll // one-line struct tag
 	RequireApproval bool   `json:"require_approval" gorm:"not null;default:false"`
 	// Enabled controls whether this tool is exposed to the Agent. Missing rows
 	// are treated as enabled for backwards compatibility. The DB/GORM default is
@@ -205,7 +211,7 @@ type MCPToolPolicyPatch struct {
 }
 
 // BeforeCreate sets ID for MCPToolApproval.
-func (m *MCPToolApproval) BeforeCreate(tx *gorm.DB) error {
+func (m *MCPToolApproval) BeforeCreate(_ *gorm.DB) error {
 	if m.ID == "" {
 		m.ID = uuid.New().String()
 	}
@@ -234,10 +240,10 @@ type MCPTestResult struct {
 	Resources     []*MCPResource `json:"resources,omitempty"`
 }
 
-// BeforeCreate is a GORM hook that runs before creating a new MCP service
-func (m *MCPService) BeforeCreate(tx *gorm.DB) error {
-	if m.ID == "" {
-		m.ID = uuid.New().String()
+// BeforeCreate is a GORM hook that runs before creating a new MCP service.
+func (s *MCPService) BeforeCreate(_ *gorm.DB) error {
+	if s.ID == "" {
+		s.ID = uuid.New().String()
 	}
 	return nil
 }
@@ -278,19 +284,25 @@ func (c *MCPAuthConfig) Value() (driver.Value, error) {
 	out := *c
 	if key := utils.GetAESKey(); key != nil {
 		if out.APIKey != "" {
-			if encrypted, err := utils.EncryptAESGCM(out.APIKey, key); err == nil {
-				out.APIKey = encrypted
+			encrypted, err := utils.EncryptAESGCM(out.APIKey, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt mcp auth api_key: %w", err)
 			}
+			out.APIKey = encrypted
 		}
 		if out.Token != "" {
-			if encrypted, err := utils.EncryptAESGCM(out.Token, key); err == nil {
-				out.Token = encrypted
+			encrypted, err := utils.EncryptAESGCM(out.Token, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt mcp auth token: %w", err)
 			}
+			out.Token = encrypted
 		}
 		if out.ClientSecret != "" {
-			if encrypted, err := utils.EncryptAESGCM(out.ClientSecret, key); err == nil {
-				out.ClientSecret = encrypted
+			encrypted, err := utils.EncryptAESGCM(out.ClientSecret, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt mcp auth client_secret: %w", err)
 			}
+			out.ClientSecret = encrypted
 		}
 	}
 	return json.Marshal(&out)
@@ -313,13 +325,19 @@ func (c *MCPAuthConfig) Scan(value interface{}) error {
 	if plain, ok := utils.DecryptStoredSecretLenient(c.APIKey); ok {
 		c.APIKey = plain
 	} else {
-		log.Printf("[crypto] mcp auth_config api_key: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured")
+		log.Printf(
+			"[crypto] mcp auth_config api_key: decrypt failed " +
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+		)
 		c.APIKey = ""
 	}
 	if plain, ok := utils.DecryptStoredSecretLenient(c.Token); ok {
 		c.Token = plain
 	} else {
-		log.Printf("[crypto] mcp auth_config token: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured")
+		log.Printf(
+			"[crypto] mcp auth_config token: decrypt failed " +
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+		)
 		c.Token = ""
 	}
 	if plain, ok := utils.DecryptStoredSecretLenient(c.ClientSecret); ok {

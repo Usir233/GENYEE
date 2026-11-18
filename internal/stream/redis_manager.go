@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/common"
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/redis/go-redis/v9"
 )
@@ -40,7 +41,9 @@ func NewRedisStreamManager(redisAddr, redisUsername, redisPassword string,
 	defer cancel()
 	_, err := client.Ping(pingCtx).Result()
 	if err != nil {
-		_ = client.Close()
+		if closeErr := client.Close(); closeErr != nil {
+			logger.Warnf(context.Background(), "redis stream manager: close failed after ping error: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
@@ -148,7 +151,7 @@ func (r *RedisStreamManager) GetEvents(
 	for _, result := range results {
 		var event interfaces.StreamEvent
 		if err := json.Unmarshal([]byte(result), &event); err != nil {
-			// Log error but continue with other events
+			logger.Warnf(ctx, "redis stream manager: skip corrupt stream event in %s: %v", key, err)
 			continue
 		}
 		events = append(events, event)
@@ -192,7 +195,7 @@ func (r *RedisStreamManager) AppendSteerEvents(
 	if err := steerAppendUnique.Run(ctx, r.client, []string{key}, args...).Err(); err != nil {
 		return fmt.Errorf("failed to append steer events to Redis: %w", err)
 	}
-	_ = r.client.PExpire(ctx, r.buildLiveRunKey(sessionID), r.ttl).Err()
+	r.touchLiveRun(ctx, sessionID)
 	return nil
 }
 
@@ -240,6 +243,7 @@ func (r *RedisStreamManager) GetSteerEvents(
 	for _, result := range results {
 		var event interfaces.StreamEvent
 		if err := json.Unmarshal([]byte(result), &event); err != nil {
+			logger.Warnf(ctx, "redis stream manager: skip corrupt steer event in %s: %v", key, err)
 			continue
 		}
 		events = append(events, event)
@@ -317,7 +321,9 @@ func (r *RedisStreamManager) UpdateSteerEventData(
 			return false, fmt.Errorf("failed to update steer event in Redis: %w", err)
 		}
 		if updated == 1 {
-			_ = r.client.PExpire(ctx, key, r.ttl).Err()
+			if expErr := r.client.PExpire(ctx, key, r.ttl).Err(); expErr != nil && !errors.Is(expErr, redis.Nil) {
+				logger.Warnf(ctx, "redis stream manager: refresh steer TTL on %s failed: %v", key, expErr)
+			}
 			return true, nil
 		}
 		// Someone rewrote or removed that slot; re-read and try again.
@@ -476,17 +482,22 @@ func (r *RedisStreamManager) touchLiveRun(ctx context.Context, sessionID string)
 	if sessionID == "" {
 		return
 	}
-	_ = r.client.PExpire(ctx, r.buildLiveRunKey(sessionID), r.ttl).Err()
+	liveKey := r.buildLiveRunKey(sessionID)
+	if err := r.client.PExpire(ctx, liveKey, r.ttl).Err(); err != nil && !errors.Is(err, redis.Nil) {
+		logger.Warnf(ctx, "redis stream manager: refresh live-run TTL on %s failed: %v", liveKey, err)
+	}
 }
 
-// clearLiveRunCAS deletes the marker only when it still names the run being
-// torn down, so a follow-up run that already claimed the session keeps it.
+// clearLiveRunCAS deletes the marker only when its decoded assistant_message_id
+// matches ARGV[1], so neither JSON formatting differences nor crafted request_id
+// substrings can spoof or miss a match.
 var clearLiveRunCAS = redis.NewScript(`
 local raw = redis.call('GET', KEYS[1])
 if not raw then
   return 0
 end
-if string.find(raw, ARGV[1], 1, true) == nil then
+local ok, parsed = pcall(cjson.decode, raw)
+if not ok or type(parsed) ~= 'table' or parsed.assistant_message_id ~= ARGV[1] then
   return 0
 end
 redis.call('DEL', KEYS[1])
@@ -501,15 +512,8 @@ func (r *RedisStreamManager) ClearLiveRun(
 	if assistantMessageID == "" {
 		return nil
 	}
-	// Match the serialized field rather than decoding in Lua: the marker is
-	// written by SetLiveRun above, so the encoding is ours to rely on.
-	idJSON, err := json.Marshal(assistantMessageID)
-	if err != nil {
-		return fmt.Errorf("failed to marshal assistant message id: %w", err)
-	}
-	needle := `"assistant_message_id":` + string(idJSON)
 	if err := clearLiveRunCAS.Run(ctx, r.client,
-		[]string{r.buildLiveRunKey(sessionID)}, needle).Err(); err != nil && err != redis.Nil {
+		[]string{r.buildLiveRunKey(sessionID)}, assistantMessageID).Err(); err != nil && err != redis.Nil {
 		return fmt.Errorf("failed to clear live run marker in Redis: %w", err)
 	}
 	return nil

@@ -302,7 +302,7 @@ func (k *Knowledge) GetMetadata() map[string]string {
 }
 
 // BeforeCreate initializes required defaults for new Knowledge entities.
-func (k *Knowledge) BeforeCreate(tx *gorm.DB) (err error) {
+func (k *Knowledge) BeforeCreate(_ *gorm.DB) (err error) {
 	if k.ID == "" {
 		k.ID = uuid.New().String()
 	}

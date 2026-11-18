@@ -153,6 +153,7 @@ type AuditAPIKey struct {
 	Name string
 }
 
+// WithAuditAPIKey attaches authenticated API key identity metadata to ctx for audit logging.
 func WithAuditAPIKey(ctx context.Context, key AuditAPIKey) context.Context {
 	if key.ID == 0 && key.Name == "" {
 		return ctx
@@ -163,6 +164,7 @@ func WithAuditAPIKey(ctx context.Context, key AuditAPIKey) context.Context {
 	return context.WithValue(ctx, AuditAPIKeyContextKey, key)
 }
 
+// AuditAPIKeyFromContext extracts the authenticated API key metadata from ctx, if present.
 func AuditAPIKeyFromContext(ctx context.Context) (AuditAPIKey, bool) {
 	if ctx == nil {
 		return AuditAPIKey{}, false
@@ -448,13 +450,20 @@ func LLMCallMetadataFromContext(ctx context.Context) (purpose, prefixFingerprint
 }
 
 // LanguageFromContext extracts the language locale string from ctx (e.g. "zh-CN", "en-US").
-// Returns ("", false) when the key is absent.
+// Returns ("", false) when the key is absent or whitespace-only.
 func LanguageFromContext(ctx context.Context) (string, bool) {
 	if ctx == nil {
 		return "", false
 	}
 	v, ok := ctx.Value(LanguageContextKey).(string)
-	return v, ok && v != ""
+	if !ok {
+		return "", false
+	}
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", false
+	}
+	return v, true
 }
 
 // ResolveLanguage resolves the effective locale for work that may carry its own

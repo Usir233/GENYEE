@@ -285,7 +285,7 @@ type CustomAgentConfig struct {
 	// waits for this agent's still-parsing attachments before proceeding with
 	// only the finished ones. 0 falls back to the global default
 	// (GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC).
-	AttachmentParseWaitTimeoutSec int `yaml:"attachment_parse_wait_timeout_sec" json:"attachment_parse_wait_timeout_sec,omitempty"`
+	AttachmentParseWaitTimeoutSec int `yaml:"attachment_parse_wait_timeout_sec" json:"attachment_parse_wait_timeout_sec,omitempty"` //nolint:lll // one-line struct tag
 
 	// ===== Data Analysis Settings =====
 	// Whether to run the legacy in-pipeline DuckDB SQL data-analysis stage when
@@ -364,9 +364,10 @@ type CustomAgentConfig struct {
 	// QuestionSuggestions owns both the static/knowledge-backed prompts shown
 	// before the first user turn and the contextual follow-up questions shown
 	// after a completed assistant answer.
-	QuestionSuggestions *QuestionSuggestionConfig `yaml:"question_suggestions,omitempty" json:"question_suggestions,omitempty"`
+	QuestionSuggestions *QuestionSuggestionConfig `yaml:"question_suggestions,omitempty" json:"question_suggestions,omitempty"` //nolint:lll // one-line struct tag
 }
 
+// SuggestionMode constants configure how opening or follow-up question suggestions are sourced.
 const (
 	SuggestionModeCurated   = "curated"
 	SuggestionModeKnowledge = "knowledge"
@@ -401,11 +402,11 @@ type FollowUpSuggestionConfig struct {
 	Mode                           string   `yaml:"mode" json:"mode"`
 	Count                          int      `yaml:"count" json:"count"`
 	ModelID                        string   `yaml:"model_id,omitempty" json:"model_id,omitempty"`
-	AdditionalInstruction          string   `yaml:"additional_instruction,omitempty" json:"additional_instruction,omitempty"`
+	AdditionalInstruction          string   `yaml:"additional_instruction,omitempty" json:"additional_instruction,omitempty"` //nolint:lll // one-line struct tag
 	Categories                     []string `yaml:"categories,omitempty" json:"categories,omitempty"`
 	MaxContextTurns                int      `yaml:"max_context_turns" json:"max_context_turns"`
 	SuppressOnFallback             bool     `yaml:"suppress_on_fallback" json:"suppress_on_fallback"`
-	SuppressWhenAnswerAsksQuestion bool     `yaml:"suppress_when_answer_asks_question" json:"suppress_when_answer_asks_question"`
+	SuppressWhenAnswerAsksQuestion bool     `yaml:"suppress_when_answer_asks_question" json:"suppress_when_answer_asks_question"` //nolint:lll // one-line struct tag
 	KnowledgeFallback              bool     `yaml:"knowledge_fallback" json:"knowledge_fallback"`
 	AllowRegenerate                bool     `yaml:"allow_regenerate" json:"allow_regenerate"`
 }

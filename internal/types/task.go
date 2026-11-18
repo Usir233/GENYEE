@@ -75,9 +75,15 @@ var queueDefinitions = []QueueDefinition{
 	{Name: QueueSummary, Pool: WorkerPoolEnrichment, Weight: 2, SharedWeight: 2, TaskTypes: []string{
 		TypeSummaryGeneration, TypeDataTableSummary, TypeKnowledgeAutoTag, TypeKnowledgeBaseProfile,
 	}},
-	{Name: QueueMultimodal, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeImageMultimodal}},
+	{
+		Name: QueueMultimodal, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1,
+		TaskTypes: []string{TypeImageMultimodal},
+	},
 	{Name: QueueGraph, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeChunkExtract}},
-	{Name: QueueQuestion, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeQuestionGeneration}},
+	{
+		Name: QueueQuestion, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1,
+		TaskTypes: []string{TypeQuestionGeneration},
+	},
 	{Name: QueueMemory, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeMemoryExtract}},
 	{Name: QueueSync, Pool: WorkerPoolMaintenance, Weight: 2, TaskTypes: []string{TypeDataSourceSync}},
 	{Name: QueueMaintenance, Pool: WorkerPoolMaintenance, Weight: 1, TaskTypes: []string{
@@ -148,6 +154,7 @@ type WorkerPoolConcurrency struct {
 	Wiki        int
 }
 
+// DefaultWorkerPoolConcurrency returns the baseline Asynq worker pool concurrency allocation.
 func DefaultWorkerPoolConcurrency() WorkerPoolConcurrency {
 	return WorkerPoolConcurrency{
 		Core:        DefaultCoreWorkerConcurrency,
@@ -176,14 +183,21 @@ func ResolveWorkerPoolConcurrency(read func(key, env string, fallback int) int) 
 		return value
 	}
 	allocation.Core = positive("asynq.core_concurrency", "GENYEE_ASYNQ_CORE_CONCURRENCY", allocation.Core)
-	allocation.PostProcess = positive("asynq.postprocess_concurrency", "GENYEE_ASYNQ_POSTPROCESS_CONCURRENCY", allocation.PostProcess)
-	allocation.Enrichment = positive("asynq.enrichment_concurrency", "GENYEE_ASYNQ_ENRICHMENT_CONCURRENCY", allocation.Enrichment)
-	allocation.Maintenance = positive("asynq.maintenance_concurrency", "GENYEE_ASYNQ_MAINTENANCE_CONCURRENCY", allocation.Maintenance)
+	allocation.PostProcess = positive(
+		"asynq.postprocess_concurrency", "GENYEE_ASYNQ_POSTPROCESS_CONCURRENCY", allocation.PostProcess,
+	)
+	allocation.Enrichment = positive(
+		"asynq.enrichment_concurrency", "GENYEE_ASYNQ_ENRICHMENT_CONCURRENCY", allocation.Enrichment,
+	)
+	allocation.Maintenance = positive(
+		"asynq.maintenance_concurrency", "GENYEE_ASYNQ_MAINTENANCE_CONCURRENCY", allocation.Maintenance,
+	)
 	allocation.Shared = positive("asynq.shared_concurrency", "GENYEE_ASYNQ_SHARED_CONCURRENCY", allocation.Shared)
 	allocation.Wiki = positive("asynq.wiki_concurrency", "GENYEE_WIKI_ASYNQ_CONCURRENCY", allocation.Wiki)
 	return allocation
 }
 
+// UpstreamTotal returns the sum of non-wiki worker pool concurrencies.
 func (c WorkerPoolConcurrency) UpstreamTotal() int {
 	return c.Core + c.PostProcess + c.Enrichment + c.Maintenance + c.Shared
 }
@@ -231,6 +245,7 @@ type WorkerServerStat struct {
 	Queues      map[string]int
 }
 
+// Asynq background task type identifiers.
 const (
 	TypeChunkExtract             = "chunk:extract"
 	TypeDocumentProcess          = "document:process"           // 文档处理任务
@@ -299,7 +314,7 @@ type ExtractChunkPayload struct {
 // DocumentProcessPayload represents the document process task payload
 type DocumentProcessPayload struct {
 	TracingContext
-	RequestId                string   `json:"request_id"`
+	RequestId                string   `json:"request_id"` //nolint:revive // external callers
 	TenantID                 uint64   `json:"tenant_id"`
 	KnowledgeID              string   `json:"knowledge_id"`
 	KnowledgeBaseID          string   `json:"knowledge_base_id"`
@@ -312,7 +327,8 @@ type DocumentProcessPayload struct {
 	EnableMultimodel         bool     `json:"enable_multimodel"`
 	EnableQuestionGeneration bool     `json:"enable_question_generation"` // 是否启用问题生成
 	QuestionCount            int      `json:"question_count,omitempty"`   // 每个chunk生成的问题数量
-	Language                 string   `json:"language,omitempty"`         // Request locale for {{language}} in prompt templates
+	// Language is the request locale for {{language}} in prompt templates.
+	Language string `json:"language,omitempty"`
 	// Attempt is the per-knowledge attempt number this task belongs to.
 	// Set on enqueue (initial parse → attempt 1; reparse → max+1) so
 	// every span recorded by this task lands on the right attempt
@@ -346,7 +362,8 @@ type QuestionGenerationPayload struct {
 	KnowledgeBaseID string `json:"knowledge_base_id"`
 	KnowledgeID     string `json:"knowledge_id"`
 	QuestionCount   int    `json:"question_count"`
-	// Language is the request locale (e.g. zh-CN, en-US) when the task was enqueued, used for {{language}} / {{lang}} in templates.
+	// Language is the request locale (e.g. zh-CN, en-US) when the task was
+	// enqueued, used for {{language}} / {{lang}} in templates.
 	Language string `json:"language,omitempty"`
 	// Attempt links this task to the parent parse attempt so the worker
 	// can record a postprocess.question subspan under the right attempt's
@@ -493,7 +510,7 @@ type KnowledgeMoveProgress struct {
 // Used for both create (publish) and update operations.
 type ManualProcessPayload struct {
 	TracingContext
-	RequestId       string `json:"request_id"`
+	RequestId       string `json:"request_id"` //nolint:revive // historical field name used by external callers
 	TenantID        uint64 `json:"tenant_id"`
 	KnowledgeID     string `json:"knowledge_id"`
 	KnowledgeBaseID string `json:"knowledge_base_id"`
@@ -596,6 +613,7 @@ type KnowledgeBaseProfilePayload struct {
 // KBCloneTaskStatus represents the status of a knowledge base clone task
 type KBCloneTaskStatus string
 
+// KBCloneTaskStatus constants track progress of asynchronous knowledge-base clone tasks.
 const (
 	KBCloneStatusPending    KBCloneTaskStatus = "pending"
 	KBCloneStatusProcessing KBCloneTaskStatus = "processing"

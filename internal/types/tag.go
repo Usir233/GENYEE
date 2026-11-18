@@ -1,10 +1,13 @@
 package types
 
 import (
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+var sqliteTagSeqMu sync.Mutex
 
 // KnowledgeTag represents a tag (category) under a specific knowledge base.
 // Tags are scoped by knowledge base (and tenant) and are used to categorize
@@ -35,14 +38,19 @@ type KnowledgeTag struct {
 // On PostgreSQL/MySQL the DB sequence handles this, so we skip to avoid
 // duplicate key races under concurrent inserts.
 func (t *KnowledgeTag) BeforeCreate(tx *gorm.DB) error {
-	if tx.Dialector.Name() != "sqlite" {
+	if tx == nil || tx.Name() != "sqlite" {
 		return nil
 	}
 	if t.SeqID == 0 {
+		sqliteTagSeqMu.Lock()
+		defer sqliteTagSeqMu.Unlock()
+
 		var maxSeqID *int64
-		tx.Unscoped().Model(&KnowledgeTag{}).
+		if err := tx.Unscoped().Model(&KnowledgeTag{}).
 			Select("MAX(seq_id)").
-			Scan(&maxSeqID)
+			Scan(&maxSeqID).Error; err != nil {
+			return err
+		}
 		if maxSeqID != nil {
 			t.SeqID = *maxSeqID + 1
 		} else {

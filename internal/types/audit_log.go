@@ -10,6 +10,7 @@ import (
 // RBAC events PR 6 ships.
 type AuditAction string
 
+// AuditAction constants enumerate all workspace and platform audit event types.
 const (
 	// AuditActionMemorySubjectsListed 记录管理员分页查看租户主体摘要，仅包含分页和数量。
 	AuditActionMemorySubjectsListed AuditAction = "memory.subjects_listed"
@@ -141,13 +142,15 @@ const (
 	// password_generated=true only on the create path, idempotent=true
 	// marks a no-op hit on an already-existing identity.
 	// TenantID=0 (system-scope).
-	AuditActionSystemUserCreated   AuditAction = "system.user_created"
+	AuditActionSystemUserCreated AuditAction = "system.user_created"
+	// AuditActionSystemAPIKeyCreated fires when a platform-scoped API key is minted.
 	AuditActionSystemAPIKeyCreated AuditAction = "system.api_key_created"
+	// AuditActionSystemAPIKeyRevoked fires when a platform-scoped API key is revoked.
 	AuditActionSystemAPIKeyRevoked AuditAction = "system.api_key_revoked"
 
-	// Runtime queue mutations are privileged SystemAdmin actions. Retrying an
-	// archived task can repeat its original side effects; deleting one removes
-	// the Redis failure record. Both must leave a platform audit trail.
+	// AuditActionSystemQueueTaskRetried and sibling queue actions record privileged
+	// SystemAdmin runtime queue mutations. Retrying an archived task can repeat its
+	// original side effects; deleting one removes the Redis failure record.
 	AuditActionSystemQueueTaskRetried   AuditAction = "system.queue_task_retried"
 	AuditActionSystemQueueTaskDeleted   AuditAction = "system.queue_task_deleted"
 	AuditActionSystemQueueTaskRunNow    AuditAction = "system.queue_task_run_now"
@@ -157,9 +160,10 @@ const (
 	// detail payload records the queue and how many records were removed.
 	AuditActionSystemQueueArchivedPurged AuditAction = "system.queue_archived_purged"
 
-	// Knowledge-base activity actions. These rows use scope_type=knowledge_base
-	// and scope_id=<kb id>; TargetType/TargetID identify the concrete child
-	// resource when the operation is about a document, tag, data source, or share.
+	// AuditActionKBCreated and sibling knowledge-base activity actions use
+	// scope_type=knowledge_base and scope_id=<kb id>; TargetType/TargetID identify
+	// the concrete child resource when the operation concerns a document, tag,
+	// data source, or share.
 	AuditActionKBCreated        AuditAction = "kb.created"
 	AuditActionKBUpdated        AuditAction = "kb.updated"
 	AuditActionKBDeleted        AuditAction = "kb.deleted"
@@ -206,10 +210,11 @@ const (
 // presenting a queued operation as already completed.
 type AuditOutcome string
 
+// AuditOutcome constants record the outcome of an audited operation.
 const (
 	AuditOutcomeSuccess AuditOutcome = "success"
-	// Accepted means the durable request was created and asynchronous work was
-	// submitted, but the background operation has not reached a terminal state.
+	// AuditOutcomeAccepted means the durable request was created and asynchronous work
+	// was submitted, but the background operation has not reached a terminal state.
 	AuditOutcomeAccepted AuditOutcome = "accepted"
 	AuditOutcomeDenied   AuditOutcome = "denied"
 	AuditOutcomeFailed   AuditOutcome = "failed"
@@ -229,12 +234,12 @@ const (
 // first is `WHERE id < AfterID ORDER BY id DESC`).
 type AuditLog struct {
 	ID            uint64       `json:"id"             gorm:"primaryKey;autoIncrement;index:idx_audit_logs_tenant_scope_desc,priority:4,sort:desc" extensions:"x-agent=event_id"`
-	TenantID      uint64       `json:"tenant_id"      gorm:"not null;index:idx_audit_logs_tenant_id_desc,priority:1;index:idx_audit_logs_tenant_action,priority:1;index:idx_audit_logs_tenant_scope_desc,priority:1"`
-	ActorUserID   string       `json:"actor_user_id"  gorm:"type:varchar(64);default:'';index:idx_audit_logs_actor"`
-	ActorRole     string       `json:"actor_role"     gorm:"type:varchar(32);default:''" extensions:"x-agent"`
-	Action        AuditAction  `json:"action"         gorm:"type:varchar(64);not null;index:idx_audit_logs_tenant_action,priority:2" extensions:"x-agent"`
-	ScopeType     string       `json:"scope_type"     gorm:"type:varchar(32);default:'';index:idx_audit_logs_tenant_scope_desc,priority:2"`
-	ScopeID       string       `json:"scope_id"       gorm:"type:varchar(64);default:'';index:idx_audit_logs_tenant_scope_desc,priority:3"`
+	TenantID      uint64       `json:"tenant_id" gorm:"not null;index:idx_audit_logs_tenant_id_desc,priority:1;index:idx_audit_logs_tenant_action,priority:1;index:idx_audit_logs_tenant_scope_desc,priority:1"` //nolint:lll // one-line struct tag
+	ActorUserID   string       `json:"actor_user_id" gorm:"type:varchar(64);default:'';index:idx_audit_logs_actor"`
+	ActorRole     string       `json:"actor_role" gorm:"type:varchar(32);default:''" extensions:"x-agent"`
+	Action        AuditAction  `json:"action" gorm:"type:varchar(64);not null;index:idx_audit_logs_tenant_action,priority:2" extensions:"x-agent"`
+	ScopeType     string       `json:"scope_type" gorm:"type:varchar(32);default:'';index:idx_audit_logs_tenant_scope_desc,priority:2"` //nolint:lll // one-line struct tag
+	ScopeID       string       `json:"scope_id" gorm:"type:varchar(64);default:'';index:idx_audit_logs_tenant_scope_desc,priority:3"`   //nolint:lll // one-line struct tag
 	TargetType    string       `json:"target_type"    gorm:"type:varchar(32);default:''" extensions:"x-agent"`
 	TargetID      string       `json:"target_id"      gorm:"type:varchar(64);default:''"`
 	TargetUserID  string       `json:"target_user_id" gorm:"type:varchar(36);default:''"`

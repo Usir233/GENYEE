@@ -30,6 +30,7 @@ func newJieba() *gojieba.Jieba {
 // EvaluationStatue represents the status of an evaluation task
 type EvaluationStatue int
 
+// EvaluationStatue constants represent lifecycle states of an evaluation task.
 const (
 	EvaluationStatuePending EvaluationStatue = iota // Task is waiting to start
 	EvaluationStatueRunning                         // Task is in progress
@@ -104,6 +105,7 @@ type GenerationMetrics struct {
 // EvalState represents different stages of evaluation process
 type EvalState int
 
+// EvalState constants mark progress stages within an evaluation pipeline run.
 const (
 	StateBegin             EvalState = iota // Evaluation started
 	StateAfterQaPairs                       // After loading QA pairs

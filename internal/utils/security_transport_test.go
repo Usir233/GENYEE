@@ -25,7 +25,10 @@ func TestSSRFSafeClientValidatesInitialRequestAtFinalSink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err == nil || !strings.Contains(err.Error(), "SSRF") {
 		t.Fatalf("expected final-sink SSRF rejection, got %v", err)
 	}

@@ -15,7 +15,7 @@ func TestNormalizeHost(t *testing.T) {
 		"example.com.":          "example.com",
 		"[::1]:8080":            "::1",
 		"10.0.0.1":              "10.0.0.1",
-		" login.example.co.uk ": "login.example.co.uk",
+		" login.example.co.uk ": "login.example.co.uk", //nolint:gocritic // intentional whitespace test key
 	}
 	for in, want := range cases {
 		got, err := NormalizeHost(in)

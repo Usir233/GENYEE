@@ -127,7 +127,10 @@ func (r *FileServiceResolver) markCrossTenantAuthorized(ref string) {
 	r.crossTenantAuthorized[ref] = struct{}{}
 }
 
-func (r *FileServiceResolver) wrapIfCrossTenantAuthorized(ref string, svc interfaces.FileService) interfaces.FileService {
+func (r *FileServiceResolver) wrapIfCrossTenantAuthorized(
+	ref string,
+	svc interfaces.FileService,
+) interfaces.FileService {
 	if svc == nil || r.crossTenantAuthorized == nil {
 		return svc
 	}

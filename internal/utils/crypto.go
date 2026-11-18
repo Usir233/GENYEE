@@ -52,7 +52,9 @@ func GetAESKey() []byte {
 func ValidateProductionAESKey() error {
 	raw := os.Getenv("SYSTEM_AES_KEY")
 	if len(raw) != 32 || isPlaceholderAESKey(raw) {
-		return errors.New("SYSTEM_AES_KEY must be explicitly configured as a 32-byte non-placeholder secret in release mode")
+		return errors.New(
+			"SYSTEM_AES_KEY must be explicitly configured as a 32-byte non-placeholder secret in release mode",
+		)
 	}
 	return nil
 }
@@ -62,7 +64,10 @@ func ValidateProductionAESKey() error {
 func ValidateProductionJWTSecret(secret string) error {
 	trimmed := strings.TrimSpace(secret)
 	if trimmed == "" || trimmed == "genyee-jwt-secret" || trimmed == "CHANGE-ME-jwt-secret" {
-		return errors.New("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
+		return errors.New(
+			"JWT_SECRET must be explicitly configured in production environment " +
+				"and cannot be empty or default placeholder",
+		)
 	}
 	if len(trimmed) < 32 {
 		return errors.New("JWT_SECRET must be at least 32 bytes in production environment")
@@ -89,13 +94,12 @@ func EncryptAESGCM(plaintext string, key []byte) (string, error) {
 		return "", err
 	}
 
-	nonce := make([]byte, aesgcm.NonceSize())
+	nonce := make([]byte, aesgcm.NonceSize(), aesgcm.NonceSize()+len(plaintext)+aesgcm.Overhead())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", err
 	}
 
-	ciphertext := aesgcm.Seal(nil, nonce, []byte(plaintext), nil)
-	combined := append(nonce, ciphertext...)
+	combined := aesgcm.Seal(nonce, nonce, []byte(plaintext), nil)
 	return EncPrefix + base64.RawURLEncoding.EncodeToString(combined), nil
 }
 

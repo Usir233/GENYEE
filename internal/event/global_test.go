@@ -21,7 +21,7 @@ func TestInstalledGlobalBusReceivesFirstEmission(t *testing.T) {
 	require.Same(t, installed, GetGlobalEventBus())
 }
 
-func TestGlobalBusReplacementIsConcurrentSafe(t *testing.T) {
+func TestGlobalBusReplacementIsConcurrentSafe(_ *testing.T) {
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Add(1)

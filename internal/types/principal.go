@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Principal type constants distinguish web users, API keys, embed visitors, and IM callers.
 const (
 	PrincipalWebUser         = "web_user"
 	PrincipalAPITenant       = "api_tenant"
@@ -53,6 +54,7 @@ type Principal struct {
 	ActingVia string
 }
 
+// Normalize trims whitespace from all string fields of p.
 func (p Principal) Normalize() Principal {
 	return Principal{
 		Type:      strings.TrimSpace(p.Type),
@@ -61,11 +63,13 @@ func (p Principal) Normalize() Principal {
 	}
 }
 
+// Valid reports whether p has both a non-empty normalized Type and ID.
 func (p Principal) Valid() bool {
 	p = p.Normalize()
 	return p.Type != "" && p.ID != ""
 }
 
+// StorageID returns the canonical "<type>:<id>" storage subject key for p, or empty if invalid.
 func (p Principal) StorageID() string {
 	p = p.Normalize()
 	if !p.Valid() {
@@ -74,6 +78,7 @@ func (p Principal) StorageID() string {
 	return p.Type + ":" + p.ID
 }
 
+// WithPrincipal stores a normalized valid Principal on ctx.
 func WithPrincipal(ctx context.Context, principal Principal) context.Context {
 	principal = principal.Normalize()
 	if !principal.Valid() {
@@ -85,6 +90,7 @@ func WithPrincipal(ctx context.Context, principal Principal) context.Context {
 	return context.WithValue(ctx, PrincipalContextKey, principal)
 }
 
+// PrincipalFromContext retrieves a valid normalized Principal from ctx, falling back to UserIDFromContext.
 func PrincipalFromContext(ctx context.Context) (Principal, bool) {
 	if ctx == nil {
 		return Principal{}, false
@@ -98,6 +104,7 @@ func PrincipalFromContext(ctx context.Context) (Principal, bool) {
 	return Principal{}, false
 }
 
+// WithEmbedVisitorID stores a non-empty trimmed embed visitor identifier on ctx.
 func WithEmbedVisitorID(ctx context.Context, visitorID string) context.Context {
 	visitorID = strings.TrimSpace(visitorID)
 	if visitorID == "" {
@@ -109,6 +116,7 @@ func WithEmbedVisitorID(ctx context.Context, visitorID string) context.Context {
 	return context.WithValue(ctx, EmbedVisitorContextKey, visitorID)
 }
 
+// EmbedVisitorIDFromContext extracts the embed visitor identifier from ctx, or empty if unset.
 func EmbedVisitorIDFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -119,7 +127,6 @@ func EmbedVisitorIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// EmbedSessionPrincipal identifies a single embed visitor chat session.
 // MCPEndpointPrincipal identifies calls made through a workspace MCP
 // endpoint. Sessions and messages created by the ask tool are owned by it.
 func MCPEndpointPrincipal(tenantID uint64, endpointID string) Principal {
@@ -129,6 +136,7 @@ func MCPEndpointPrincipal(tenantID uint64, endpointID string) Principal {
 	}
 }
 
+// EmbedSessionPrincipal identifies a single embed visitor chat session.
 func EmbedSessionPrincipal(tenantID uint64, channelID, sessionID string) Principal {
 	return Principal{
 		Type: PrincipalEmbedSession,

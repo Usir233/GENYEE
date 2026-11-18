@@ -30,6 +30,7 @@ type MemoryMessageCursor struct {
 	ID string    `json:"id"`
 }
 
+// After reports whether c strictly follows other in (created_at, id) order.
 func (c MemoryMessageCursor) After(other MemoryMessageCursor) bool {
 	return c.At.After(other.At) || (c.At.Equal(other.At) && c.ID > other.ID)
 }
@@ -62,8 +63,10 @@ type MemoryExtractionState struct {
 	LeaseUntil time.Time `json:"lease_until,omitempty"`
 }
 
+// Value implements driver.Valuer for JSON serialization of MemoryExtractionState.
 func (s MemoryExtractionState) Value() (driver.Value, error) { return json.Marshal(s) }
 
+// Scan implements sql.Scanner for JSON deserialization of MemoryExtractionState.
 func (s *MemoryExtractionState) Scan(value interface{}) error {
 	*s = MemoryExtractionState{}
 	var raw []byte
@@ -83,6 +86,7 @@ func (s *MemoryExtractionState) Scan(value interface{}) error {
 	return json.Unmarshal(raw, s)
 }
 
+// MemoryExtractionBatch holds claimed pending extraction sessions under a worker lease.
 type MemoryExtractionBatch struct {
 	// RetryAt keeps a redelivered task alive while a crashed worker's lease expires.
 	RetryAt  time.Time

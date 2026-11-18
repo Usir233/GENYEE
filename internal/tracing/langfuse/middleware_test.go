@@ -242,7 +242,8 @@ func TestGinMiddlewareRedactsSensitiveQueryParams(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"/api/v1/knowledge-chat/sess-1?api_key=sk-secret-key-12345&access_token=tok_abc987&password=pw123&page=2&lang=zh",
+		"/api/v1/knowledge-chat/sess-1?"+
+			"api_key=sk-secret-key-12345&access_token=tok_abc987&password=pw123&page=2&lang=zh",
 		nil,
 	)
 	w := httptest.NewRecorder()
@@ -268,5 +269,35 @@ func TestGinMiddlewareRedactsSensitiveQueryParams(t *testing.T) {
 	q, _ := got["http.query"].(string)
 	if !strings.Contains(q, "page=2") || !strings.Contains(q, "lang=zh") || !strings.Contains(q, "[REDACTED]") {
 		t.Fatalf("unexpected redacted http.query: %q", q)
+	}
+}
+
+func TestMergeMetadataHeaderRedactsSensitiveKeysAndDSNs(t *testing.T) {
+	md := map[string]interface{}{"http.method": "POST"}
+	mergeMetadataHeader(
+		md,
+		`{"api_key":"sk-live-secret999","dsn":"postgres://admin:TopSecretDBPass@db:5432/genyee","ticket_id":"T-42"}`,
+	)
+	raw, err := json.Marshal(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	for _, secret := range []string{"sk-live-secret999", "TopSecretDBPass"} {
+		if strings.Contains(s, secret) {
+			t.Fatalf("mergeMetadataHeader leaked secret %q in %s", secret, s)
+		}
+	}
+	if md["ticket_id"] != "T-42" {
+		t.Fatalf("expected ticket_id=T-42 to survive, got %v", md)
+	}
+
+	redacted := redactLangfuseText(
+		"dial postgres://genyee:PGSecret77@pg:5432/db and redis://:RedisSecret88@redis:6379/0",
+	)
+	for _, secret := range []string{"PGSecret77", "RedisSecret88"} {
+		if strings.Contains(redacted, secret) {
+			t.Fatalf("redactLangfuseText leaked DSN secret %q in %q", secret, redacted)
+		}
 	}
 }

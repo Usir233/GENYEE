@@ -142,7 +142,10 @@ func TestRetrievalObsHandlesNilElementsAndNaNScores(t *testing.T) {
 		t.Fatalf("expected count=3 non-nil search results, got %v", searchOut["count"])
 	}
 	topHits := searchOut["top_hits"].([]map[string]interface{})
-	if len(topHits) != 3 || topHits[0]["chunk_id"] != "top-1" || topHits[1]["chunk_id"] != "low-1" || topHits[2]["chunk_id"] != "nan-1" {
+	if len(topHits) != 3 ||
+		topHits[0]["chunk_id"] != "top-1" ||
+		topHits[1]["chunk_id"] != "low-1" ||
+		topHits[2]["chunk_id"] != "nan-1" {
 		t.Fatalf("unexpected NaN/nil search ordering: %#v", topHits)
 	}
 

@@ -94,19 +94,20 @@ func shellAssignments(command string) []shellAssignment {
 			start += match[1]
 		}
 		end, value, literal, opaque := shellAssignmentWord(command, start)
-		if match != nil {
+		switch {
+		case match != nil:
 			assignments = append(assignments, shellAssignment{
 				name: command[offset+match[2] : offset+match[3]], value: value,
 				start: start, end: end, literal: literal, capture: captureAllowed && !heredoc,
 			})
-		} else if opaque || embeddedShellAssignmentPattern.MatchString(value) {
+		case opaque || embeddedShellAssignmentPattern.MatchString(value):
 			// A quoted argument may be a child shell script. Hide the whole
 			// word when it contains assignments, but never capture it as the
 			// caller's environment (it may instead be ordinary note text).
 			assignments = append(assignments, shellAssignment{start: offset, end: end})
-		} else if captureAllowed && value == "export" {
+		case captureAllowed && value == "export":
 			exporting = true
-		} else if !exporting && value != "env" {
+		case !exporting && value != "env":
 			captureAllowed = false
 		}
 		offset = end
@@ -124,7 +125,8 @@ func shellAssignmentWord(command string, start int) (end int, value string, lite
 	literal = true
 	for end = start; end < len(command); end++ {
 		c := command[end]
-		if quote == 0 && (c == '(' && end == start || (c == '<' || c == '>') && end+1 < len(command) && command[end+1] == '(') {
+		isProcSub := (c == '<' || c == '>') && end+1 < len(command) && command[end+1] == '('
+		if quote == 0 && (c == '(' && end == start || isProcSub) {
 			return len(command), "", false, true
 		}
 		if quote == '\'' {

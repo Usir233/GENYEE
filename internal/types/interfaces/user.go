@@ -61,7 +61,9 @@ type UserService interface {
 	// On success the target is recorded as the user's last-active-tenant
 	// preference (next login and refresh land there). A preference-write
 	// failure fails the switch so no token pair is issued.
-	SwitchTenant(ctx context.Context, user *types.User, targetTenantID uint64, currentRefreshToken string) (*types.LoginResponse, error)
+	SwitchTenant(
+		ctx context.Context, user *types.User, targetTenantID uint64, currentRefreshToken string,
+	) (*types.LoginResponse, error)
 	// ValidateToken validates an access token. It returns the user
 	// referenced by the token plus the active tenant ID encoded in the
 	// JWT's `tenant_id` claim — the latter lets the auth middleware
@@ -114,7 +116,9 @@ type UserService interface {
 	// UpdateUserPreferences partially updates the calling user's
 	// preferences blob (PATCH semantics: only keys present in `patch`
 	// overwrite existing values). Returns the updated, persisted prefs.
-	UpdateUserPreferences(ctx context.Context, userID string, patch types.UserPreferences) (types.UserPreferences, error)
+	UpdateUserPreferences(
+		ctx context.Context, userID string, patch types.UserPreferences,
+	) (types.UserPreferences, error)
 }
 
 // UserRepository defines the user repository interface

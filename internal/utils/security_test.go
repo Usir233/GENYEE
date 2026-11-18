@@ -2,7 +2,6 @@ package utils
 
 import (
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -200,11 +199,8 @@ func TestValidateURLForSSRF_IPv6Whitelist(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset whitelist singleton so we can set a new value
 			ResetSSRFWhitelistForTest()
-			os.Setenv("SSRF_WHITELIST", tt.whitelist)
-			defer func() {
-				os.Unsetenv("SSRF_WHITELIST")
-				ResetSSRFWhitelistForTest()
-			}()
+			t.Setenv("SSRF_WHITELIST", tt.whitelist)
+			t.Cleanup(ResetSSRFWhitelistForTest)
 
 			err := ValidateURLForSSRF(tt.rawURL)
 			if (err != nil) != tt.wantErr {
@@ -237,13 +233,9 @@ func TestSSRFWhitelistExtraMerge(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ResetSSRFWhitelistForTest()
-			os.Setenv("SSRF_WHITELIST", tc.main)
-			os.Setenv("SSRF_WHITELIST_EXTRA", tc.extra)
-			defer func() {
-				os.Unsetenv("SSRF_WHITELIST")
-				os.Unsetenv("SSRF_WHITELIST_EXTRA")
-				ResetSSRFWhitelistForTest()
-			}()
+			t.Setenv("SSRF_WHITELIST", tc.main)
+			t.Setenv("SSRF_WHITELIST_EXTRA", tc.extra)
+			t.Cleanup(ResetSSRFWhitelistForTest)
 			if got := IsSSRFWhitelisted(tc.host); got != tc.want {
 				t.Fatalf("IsSSRFWhitelisted(%q) main=%q extra=%q = %v, want %v",
 					tc.host, tc.main, tc.extra, got, tc.want)
@@ -313,9 +305,9 @@ func parseIPForTest(t *testing.T, s string) net.IP {
 
 func TestValidateSSRFWhitelistEntriesMatchesRuntimeParser(t *testing.T) {
 	validCases := []struct {
-		entry      string
-		matchHost  string
-		wantMatch  bool
+		entry     string
+		matchHost string
+		wantMatch bool
 	}{
 		{entry: "internal.corp", matchHost: "internal.corp", wantMatch: true},
 		{entry: "internal.corp.", matchHost: "internal.corp", wantMatch: true},

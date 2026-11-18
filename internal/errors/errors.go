@@ -12,17 +12,18 @@ type ErrorCode int
 // System error codes
 const (
 	// Common error codes (1000-1999)
-	ErrBadRequest         ErrorCode = 1000
-	ErrUnauthorized       ErrorCode = 1001
-	ErrForbidden          ErrorCode = 1002
-	ErrNotFound           ErrorCode = 1003
-	ErrMethodNotAllowed   ErrorCode = 1004
-	ErrConflict           ErrorCode = 1005
-	ErrTooManyRequests    ErrorCode = 1006
-	ErrInternalServer     ErrorCode = 1007
-	ErrServiceUnavailable ErrorCode = 1008
-	ErrTimeout            ErrorCode = 1009
-	ErrValidation         ErrorCode = 1010
+	ErrBadRequest            ErrorCode = 1000
+	ErrUnauthorized          ErrorCode = 1001
+	ErrForbidden             ErrorCode = 1002
+	ErrNotFound              ErrorCode = 1003
+	ErrMethodNotAllowed      ErrorCode = 1004
+	ErrConflict              ErrorCode = 1005
+	ErrTooManyRequests       ErrorCode = 1006
+	ErrInternalServer        ErrorCode = 1007
+	ErrServiceUnavailable    ErrorCode = 1008
+	ErrTimeout               ErrorCode = 1009
+	ErrValidation            ErrorCode = 1010
+	ErrRequestEntityTooLarge ErrorCode = 1011
 
 	// Tenant related error codes (2000-2099)
 	ErrTenantNotFound         ErrorCode = 2000
@@ -31,6 +32,7 @@ const (
 	ErrTenantNameRequired     ErrorCode = 2003
 	ErrTenantInvalidStatus    ErrorCode = 2004
 	ErrTenantCreationDisabled ErrorCode = 2005
+	ErrTenantRequired         ErrorCode = 2006
 
 	// Agent related error codes (2100-2199)
 	ErrAgentMissingThinkingModel ErrorCode = 2100
@@ -57,6 +59,9 @@ const (
 	// message text. HTTP semantics are identical to a bad request.
 	ErrImportPrerequisiteMissing ErrorCode = 2400
 
+	// Wiki optimistic concurrency error codes (2500-2599).
+	ErrWikiVersionConflict ErrorCode = 2500
+
 	// Add more error codes here
 )
 
@@ -78,6 +83,9 @@ func (e *AppError) Error() string {
 
 // WithDetails adds error details
 func (e *AppError) WithDetails(details any) *AppError {
+	if e == nil {
+		return nil
+	}
 	e.Details = details
 	return e
 }
@@ -198,7 +206,7 @@ func NewValidationError(message string) *AppError {
 	}
 }
 
-// Tenant related errors
+// NewTenantNotFoundError creates a tenant not found error.
 func NewTenantNotFoundError() *AppError {
 	return &AppError{
 		Code:     ErrTenantNotFound,
@@ -235,7 +243,46 @@ func NewTenantCreationDisabledError() *AppError {
 	}
 }
 
-// Agent related errors
+// NewTenantRequiredError reports that an authenticated user has no active workspace selected.
+func NewTenantRequiredError(message string) *AppError {
+	if message == "" {
+		message = "Workspace required"
+	}
+	return &AppError{
+		Code:     ErrTenantRequired,
+		Message:  message,
+		HTTPCode: http.StatusConflict,
+	}
+}
+
+// NewRequestEntityTooLargeError creates a typed HTTP 413 error when an upload or
+// request payload exceeds the configured size ceiling.
+func NewRequestEntityTooLargeError(message string) *AppError {
+	if message == "" {
+		message = "request entity too large"
+	}
+	return &AppError{
+		Code:     ErrRequestEntityTooLarge,
+		Message:  message,
+		HTTPCode: http.StatusRequestEntityTooLarge,
+	}
+}
+
+// NewWikiVersionConflictError creates a typed HTTP 409 error carrying the
+// authoritative current_version details map.
+func NewWikiVersionConflictError(message string, currentVersion int) *AppError {
+	if message == "" {
+		message = "wiki page version conflict"
+	}
+	return &AppError{
+		Code:     ErrWikiVersionConflict,
+		Message:  message,
+		Details:  map[string]int{"current_version": currentVersion},
+		HTTPCode: http.StatusConflict,
+	}
+}
+
+// NewAgentMissingThinkingModelError creates an error when thinking model is unset.
 func NewAgentMissingThinkingModelError() *AppError {
 	return &AppError{
 		Code:     ErrAgentMissingThinkingModel,
@@ -244,6 +291,7 @@ func NewAgentMissingThinkingModelError() *AppError {
 	}
 }
 
+// NewAgentMissingAllowedToolsError creates an error when allowed tools are empty.
 func NewAgentMissingAllowedToolsError() *AppError {
 	return &AppError{
 		Code:     ErrAgentMissingAllowedTools,
@@ -252,6 +300,7 @@ func NewAgentMissingAllowedToolsError() *AppError {
 	}
 }
 
+// NewAgentInvalidMaxIterationsError creates an error when max iterations is invalid.
 func NewAgentInvalidMaxIterationsError() *AppError {
 	return &AppError{
 		Code:     ErrAgentInvalidMaxIterations,
@@ -260,6 +309,7 @@ func NewAgentInvalidMaxIterationsError() *AppError {
 	}
 }
 
+// NewAgentInvalidTemperatureError creates an error when temperature is out of range.
 func NewAgentInvalidTemperatureError() *AppError {
 	return &AppError{
 		Code:     ErrAgentInvalidTemperature,

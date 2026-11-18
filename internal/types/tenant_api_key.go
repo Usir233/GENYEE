@@ -37,13 +37,16 @@ type TenantAPIKey struct {
 	UpdatedAt    time.Time   `json:"updated_at"`
 }
 
+// APIKeyScopeType distinguishes workspace-scoped keys from platform-scoped keys.
 type APIKeyScopeType string
 
+// APIKeyScopeType constants enumerate supported API key scopes.
 const (
 	APIKeyScopeTenant   APIKeyScopeType = "tenant"
 	APIKeyScopePlatform APIKeyScopeType = "platform"
 )
 
+// NormalizeAPIKeyScopeType returns a canonical APIKeyScopeType, defaulting to APIKeyScopeTenant.
 func NormalizeAPIKeyScopeType(scope APIKeyScopeType) APIKeyScopeType {
 	switch APIKeyScopeType(strings.ToLower(strings.TrimSpace(string(scope)))) {
 	case APIKeyScopePlatform:
@@ -53,10 +56,12 @@ func NormalizeAPIKeyScopeType(scope APIKeyScopeType) APIKeyScopeType {
 	}
 }
 
+// IsPlatform reports whether k is a platform-scoped API key.
 func (k *TenantAPIKey) IsPlatform() bool {
 	return k != nil && NormalizeAPIKeyScopeType(k.ScopeType) == APIKeyScopePlatform
 }
 
+// TenantIDValue returns the dereferenced workspace ID of k, or 0 for platform keys.
 func (k *TenantAPIKey) TenantIDValue() uint64 {
 	if k == nil || k.TenantID == nil {
 		return 0
@@ -64,6 +69,7 @@ func (k *TenantAPIKey) TenantIDValue() uint64 {
 	return *k.TenantID
 }
 
+// TableName returns the database table name for TenantAPIKey.
 func (TenantAPIKey) TableName() string {
 	return "tenant_api_keys"
 }
@@ -72,6 +78,7 @@ func (TenantAPIKey) TableName() string {
 // TenantAPIKey.Capabilities.
 type APIKeyCapability string
 
+// APIKeyCapability constants enumerate additive permissions grantable to scoped API keys.
 const (
 	// APIKeyCapabilityRetrieve lets a key read and search knowledge-base data
 	// within its allowed KB scope without granting chat or content writes.
@@ -155,6 +162,7 @@ const (
 	// principal mode, request headers, and tenant KV. It does not include API
 	// key management, member management, tenant deletion, or ownership transfer.
 	APIKeyCapabilityManageTenantSettings APIKeyCapability = "manage_tenant_settings"
+	// APIKeyCapabilitySystemTenantsRead and sibling platform capabilities grant system-level administrative access.
 	APIKeyCapabilitySystemTenantsRead    APIKeyCapability = "system_tenants_read"
 	APIKeyCapabilitySystemTenantsManage  APIKeyCapability = "system_tenants_manage"
 	APIKeyCapabilitySystemSettingsRead   APIKeyCapability = "system_settings_read"
@@ -242,6 +250,7 @@ func NormalizeAPIKeyCapabilities(in StringArray) StringArray {
 	return out
 }
 
+// BeforeSave encrypts the persisted APIKey display value when SYSTEM_AES_KEY is configured.
 func (k *TenantAPIKey) BeforeSave(tx *gorm.DB) error {
 	if key := utils.GetAESKey(); key != nil && k.APIKey != "" {
 		encrypted, err := utils.EncryptAESGCM(k.APIKey, key)
@@ -251,12 +260,17 @@ func (k *TenantAPIKey) BeforeSave(tx *gorm.DB) error {
 			// persisting an unencrypted secret.
 			return fmt.Errorf("encrypt tenant_api_keys.api_key (id=%d): %w", k.ID, err)
 		}
-		tx.Statement.SetColumn("api_key", encrypted)
+		if tx != nil && tx.Statement != nil {
+			tx.Statement.SetColumn("api_key", encrypted)
+		} else {
+			k.APIKey = encrypted
+		}
 	}
 	return nil
 }
 
-func (k *TenantAPIKey) AfterFind(tx *gorm.DB) error {
+// AfterFind decrypts the persisted APIKey display value after loading from the database.
+func (k *TenantAPIKey) AfterFind(_ *gorm.DB) error {
 	decrypted, err := utils.DecryptStoredSecret(k.APIKey)
 	if err != nil {
 		return fmt.Errorf("decrypt tenant_api_keys.api_key (id=%d): %w", k.ID, err)
@@ -275,6 +289,7 @@ type TenantAPIKeyScope struct {
 	Capabilities     StringArray
 }
 
+// WithTenantAPIKeyScope attaches an authenticated TenantAPIKeyScope to ctx.
 func WithTenantAPIKeyScope(ctx context.Context, scope TenantAPIKeyScope) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
@@ -282,6 +297,7 @@ func WithTenantAPIKeyScope(ctx context.Context, scope TenantAPIKeyScope) context
 	return context.WithValue(ctx, TenantAPIKeyScopeContextKey, scope.Normalize())
 }
 
+// TenantAPIKeyScopeFromContext extracts the authenticated TenantAPIKeyScope from ctx, if present.
 func TenantAPIKeyScopeFromContext(ctx context.Context) (TenantAPIKeyScope, bool) {
 	if ctx == nil {
 		return TenantAPIKeyScope{}, false
@@ -293,6 +309,7 @@ func TenantAPIKeyScopeFromContext(ctx context.Context) (TenantAPIKeyScope, bool)
 	return scope.Normalize(), true
 }
 
+// Normalize canonicalizes scope type, capabilities, and knowledge-base ID lists on s.
 func (s TenantAPIKeyScope) Normalize() TenantAPIKeyScope {
 	return TenantAPIKeyScope{
 		KeyID:            s.KeyID,
@@ -304,6 +321,7 @@ func (s TenantAPIKeyScope) Normalize() TenantAPIKeyScope {
 	}
 }
 
+// IsPlatform reports whether s represents a platform-scoped API key.
 func (s TenantAPIKeyScope) IsPlatform() bool {
 	return NormalizeAPIKeyScopeType(s.ScopeType) == APIKeyScopePlatform
 }
@@ -322,6 +340,7 @@ func (s TenantAPIKeyScope) HasCapability(c APIKeyCapability) bool {
 	return false
 }
 
+// AllowsKnowledgeBase reports whether s permits access to kbID.
 func (s TenantAPIKeyScope) AllowsKnowledgeBase(kbID string) bool {
 	kbID = strings.TrimSpace(kbID)
 	if kbID == "" {
@@ -339,10 +358,12 @@ func (s TenantAPIKeyScope) AllowsKnowledgeBase(kbID string) bool {
 	return false
 }
 
+// IsKnowledgeBaseRestricted reports whether s restricts access to an explicit KB allowlist.
 func (s TenantAPIKeyScope) IsKnowledgeBaseRestricted() bool {
 	return len(s.Normalize().KnowledgeBaseIDs) > 0
 }
 
+// AllowsKnowledgeBases reports whether every non-empty KB ID in kbIDs is permitted by s.
 func (s TenantAPIKeyScope) AllowsKnowledgeBases(kbIDs []string) bool {
 	s = s.Normalize()
 	if len(s.KnowledgeBaseIDs) == 0 {

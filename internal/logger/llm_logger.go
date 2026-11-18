@@ -2,18 +2,22 @@ package logger
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 var llmDebug struct {
-	mu      sync.Mutex
-	enabled bool
-	dir     string
+	mu        sync.Mutex
+	enabled   bool
+	dir       string
+	cleanupWG sync.WaitGroup
 }
 
 func init() {
@@ -26,6 +30,7 @@ func configureLLMDebugLog() {
 		llmDebug.mu.Lock()
 		llmDebug.enabled = false
 		llmDebug.mu.Unlock()
+		llmDebug.cleanupWG.Wait()
 		return
 	}
 
@@ -48,9 +53,13 @@ func configureLLMDebugLog() {
 	llmDebug.mu.Lock()
 	llmDebug.dir = dir
 	llmDebug.enabled = true
+	llmDebug.cleanupWG.Add(1)
 	llmDebug.mu.Unlock()
 
-	go cleanupOldDebugFiles(dir, 7*24*time.Hour)
+	go func(targetDir string) {
+		defer llmDebug.cleanupWG.Done()
+		cleanupOldDebugFiles(targetDir, 7*24*time.Hour)
+	}(dir)
 
 	fmt.Fprintf(os.Stderr, "llm_debug: LLM debug log enabled → %s/\n", dir)
 }
@@ -81,7 +90,10 @@ func cleanupOldDebugFiles(dir string, maxAge time.Duration) {
 			continue
 		}
 		if info.ModTime().Before(cutoff) {
-			_ = os.Remove(filepath.Join(dir, e.Name()))
+			target := filepath.Join(dir, e.Name())
+			if rmErr := os.Remove(target); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				fmt.Fprintf(os.Stderr, "llm_debug: remove expired %s: %v\n", target, rmErr)
+			}
 		}
 	}
 }
@@ -118,8 +130,14 @@ func LLMDebugLog(ctx context.Context, record *LLMCallRecord) {
 		fmt.Fprintf(os.Stderr, "llm_debug: open %s: %v\n", path, err)
 		return
 	}
-	defer f.Close()
-	_, _ = f.WriteString(text)
+	_, writeErr := f.WriteString(text)
+	closeErr := f.Close()
+	if writeErr != nil {
+		fmt.Fprintf(os.Stderr, "llm_debug: write %s: %v\n", path, writeErr)
+	}
+	if closeErr != nil {
+		fmt.Fprintf(os.Stderr, "llm_debug: close %s: %v\n", path, closeErr)
+	}
 }
 
 // maxDebugFilenameID bounds the request-id part of a debug file name, well
@@ -156,23 +174,24 @@ func formatRecord(r *LLMCallRecord) string {
 	b.WriteString("\n")
 	b.WriteString(separator)
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("Time:     %s\n", time.Now().Format("2006-01-02 15:04:05.000")))
-	b.WriteString(fmt.Sprintf("Model:    %s\n", r.Model))
+	fmt.Fprintf(&b, "Time:     %s\n", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Fprintf(&b, "Model:    %s\n", utils.RedactSensitiveString(r.Model))
 	if r.Duration > 0 {
-		b.WriteString(fmt.Sprintf("Duration: %s\n", r.Duration.Round(time.Millisecond)))
+		fmt.Fprintf(&b, "Duration: %s\n", r.Duration.Round(time.Millisecond))
 	}
 
 	for _, s := range r.Sections {
-		b.WriteString(fmt.Sprintf("\n---------- %s ----------\n", s.Title))
-		b.WriteString(s.Content)
-		if !strings.HasSuffix(s.Content, "\n") {
+		fmt.Fprintf(&b, "\n---------- %s ----------\n", s.Title)
+		redactedContent := utils.RedactSensitiveString(s.Content)
+		b.WriteString(redactedContent)
+		if !strings.HasSuffix(redactedContent, "\n") {
 			b.WriteString("\n")
 		}
 	}
 
 	if r.Error != "" {
 		b.WriteString("\n---------- Error ----------\n")
-		b.WriteString(r.Error)
+		b.WriteString(utils.RedactSensitiveString(r.Error))
 		b.WriteString("\n")
 	}
 
@@ -190,8 +209,6 @@ func extractRequestID(ctx context.Context) string {
 	return ""
 }
 
-// ---------- Record types ----------
-
 // LLMCallRecord holds all information for one model API call.
 type LLMCallRecord struct {
 	CallType string // "Chat", "Chat Stream", "Embedding", "Rerank", "VLM"
@@ -206,8 +223,6 @@ type RecordSection struct {
 	Title   string
 	Content string
 }
-
-// ---------- Shared helpers for building sections ----------
 
 // LLMMessage is a simplified chat message for logging.
 type LLMMessage struct {
@@ -230,28 +245,30 @@ type LLMToolCallInfo struct {
 func FormatMessages(messages []LLMMessage) string {
 	var b strings.Builder
 	for _, m := range messages {
-		b.WriteString(fmt.Sprintf("[%s]", m.Role))
+		fmt.Fprintf(&b, "[%s]", m.Role)
 		if m.Name != "" {
-			b.WriteString(fmt.Sprintf(" name=%s", m.Name))
+			fmt.Fprintf(&b, " name=%s", m.Name)
 		}
 		if m.ToolCallID != "" {
-			b.WriteString(fmt.Sprintf(" tool_call_id=%s", m.ToolCallID))
+			fmt.Fprintf(&b, " tool_call_id=%s", m.ToolCallID)
 		}
 		b.WriteString("\n")
 
 		if m.Content != "" {
-			b.WriteString(m.Content)
+			b.WriteString(utils.RedactSensitiveString(m.Content))
 			b.WriteString("\n")
 		}
 		for _, img := range m.Images {
-			if len([]rune(img)) > 80 {
-				b.WriteString(fmt.Sprintf("[image: %s (%d bytes)]\n", TruncateRunes(img, 80), len(img)))
+			redactedImg := utils.RedactSensitiveString(img)
+			if len([]rune(redactedImg)) > 80 {
+				fmt.Fprintf(&b, "[image: %s (%d bytes)]\n", TruncateRunes(redactedImg, 80), len(redactedImg))
 			} else {
-				b.WriteString(fmt.Sprintf("[image: %s]\n", img))
+				fmt.Fprintf(&b, "[image: %s]\n", redactedImg)
 			}
 		}
 		for _, tc := range m.ToolCalls {
-			b.WriteString(fmt.Sprintf("  -> tool_call: id=%s, func=%s, args=%s\n", tc.ID, tc.FuncName, tc.Arguments))
+			fmt.Fprintf(&b, "  -> tool_call: id=%s, func=%s, args=%s\n",
+				tc.ID, tc.FuncName, utils.RedactSensitiveString(tc.Arguments))
 		}
 		b.WriteString("\n")
 	}
@@ -262,7 +279,8 @@ func FormatMessages(messages []LLMMessage) string {
 func FormatToolCalls(tcs []LLMToolCallInfo) string {
 	var b strings.Builder
 	for _, tc := range tcs {
-		b.WriteString(fmt.Sprintf("[tool_call] id=%s, func=%s\n%s\n\n", tc.ID, tc.FuncName, tc.Arguments))
+		fmt.Fprintf(&b, "[tool_call] id=%s, func=%s\n%s\n\n",
+			tc.ID, tc.FuncName, utils.RedactSensitiveString(tc.Arguments))
 	}
 	return b.String()
 }
@@ -270,6 +288,9 @@ func FormatToolCalls(tcs []LLMToolCallInfo) string {
 // TruncateRunes truncates a string to maxRunes runes, appending "..." if truncated.
 // This is safe for multi-byte UTF-8 characters (e.g. Chinese).
 func TruncateRunes(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
 	runes := []rune(s)
 	if len(runes) <= maxRunes {
 		return s

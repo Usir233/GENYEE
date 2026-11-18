@@ -321,6 +321,7 @@ type FAQEntryPayload struct {
 	IsRecommended *bool `json:"is_recommended,omitempty" extensions:"x-agent"`
 }
 
+// FAQBatchMode constants specify how batch FAQ imports handle existing entries.
 const (
 	FAQBatchModeAppend  = "append"
 	FAQBatchModeReplace = "replace"
@@ -428,8 +429,9 @@ const (
 	FAQImportStatusFailed FAQImportTaskStatus = "failed"
 )
 
-// FAQImportProgress represents the progress of an FAQ import task stored in Redis
-// When Status is "completed", the result fields (SkippedCount, ImportMode, ImportedAt, DisplayStatus, ProcessingTime) are populated.
+// FAQImportProgress represents the progress of an FAQ import task stored in Redis.
+// When Status is "completed", result fields (SkippedCount, ImportMode, ImportedAt,
+// DisplayStatus, ProcessingTime) are populated.
 type FAQImportProgress struct {
 	TaskID             string              `json:"task_id"`                        // UUID for the import task
 	KBID               string              `json:"kb_id"`                          // Knowledge Base ID
@@ -464,6 +466,7 @@ type FAQImportProgress struct {
 }
 
 // FAQImportMetadata 存储在Knowledge.Metadata中的FAQ导入任务信息
+//
 // Deprecated: Use FAQImportProgress with Redis storage instead
 type FAQImportMetadata struct {
 	ImportProgress  int `json:"import_progress"` // 0-100
@@ -601,7 +604,7 @@ func NormalizeQuestion(q string) string {
 	q = strings.ToLower(q)
 
 	// 3. 去除首尾标点符号
-	q = strings.Trim(q, `？。，；、：""！?.,;!:'""`)
+	q = strings.Trim(q, `？。，；、：！?.,;!:'"`)
 
 	// 4. 繁体转简体
 	q = toSimplified(q)

@@ -25,7 +25,7 @@ import (
 // Call once at the start of main(), before container.BuildContainer.
 func SilenceGinRouteSpam() {
 	var count int64
-	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+	gin.DebugPrintRouteFunc = func(_, _, _ string, _ int) {
 		atomic.AddInt64(&count, 1)
 	}
 	// gin.DebugPrintFunc handles non-route debug lines (e.g. "Listening
@@ -139,7 +139,8 @@ func LogStartupEnv(ctx context.Context) {
 	// nil (== "no encryption") when len != 32.
 	if k := os.Getenv("SYSTEM_AES_KEY"); k != "" && len(k) != 32 {
 		logger.Warnf(ctx,
-			"[startup-env] SYSTEM_AES_KEY is set but %d bytes long; AES-256 requires exactly 32 bytes — encryption is DISABLED",
+			"[startup-env] SYSTEM_AES_KEY is set but %d bytes long; "+
+				"AES-256 requires exactly 32 bytes — encryption is DISABLED",
 			len(k))
 	}
 	// Upgrades from example configs keep the published example AES key,
@@ -153,7 +154,8 @@ func LogStartupEnv(ctx context.Context) {
 	}
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("REDIS_TLS_INSECURE_SKIP_VERIFY")), "true") {
 		logger.Warn(ctx,
-			"[startup-env] REDIS_TLS_INSECURE_SKIP_VERIFY=true — Redis TLS certificate verification is DISABLED; do not use in production")
+			"[startup-env] REDIS_TLS_INSECURE_SKIP_VERIFY=true — "+
+				"Redis TLS certificate verification is DISABLED; do not use in production")
 	}
 }
 

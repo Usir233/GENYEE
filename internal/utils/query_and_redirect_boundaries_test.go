@@ -63,7 +63,10 @@ func TestSSRFCrossOriginRedirect(t *testing.T) {
 	// Test the redirect policy with a plain local transport; target blocking
 	// must happen even when both destinations would otherwise be trusted.
 	client := &http.Client{CheckRedirect: newSSRFCheckRedirect(10)}
-	_, err := client.Post(source.URL, "application/json", strings.NewReader(`{"client_secret":"synthetic"}`))
+	resp, err := client.Post(source.URL, "application/json", strings.NewReader(`{"client_secret":"synthetic"}`))
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	require.Error(t, err)
 	require.False(t, reached)
 	req, err := http.NewRequest("GET", "https://example.com", nil)

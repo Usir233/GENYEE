@@ -11,10 +11,12 @@ import (
 
 const storageBackendScheme = "storage://"
 
+// BuildStorageBackendPath formats a backend-scoped storage URI for backendID and providerPath.
 func BuildStorageBackendPath(backendID, providerPath string) string {
 	return storageBackendScheme + strings.TrimSpace(backendID) + "/" + providerPath
 }
 
+// ParseStorageBackendPath extracts backendID and inner providerPath from a storage:// URI.
 func ParseStorageBackendPath(path string) (backendID, providerPath string, ok bool) {
 	if !strings.HasPrefix(path, storageBackendScheme) {
 		return "", "", false
@@ -89,7 +91,7 @@ type KnowledgeBase struct {
 	// ASR config (Automatic Speech Recognition)
 	ASRConfig ASRConfig `yaml:"asr_config"              json:"asr_config"              gorm:"type:json" extensions:"x-agent,x-agent-detail"`
 	// Storage provider config (new): only stores provider selection; credentials from workspace StorageEngineConfig
-	StorageProviderConfig *StorageProviderConfig `yaml:"storage_provider_config" json:"storage_provider_config"  gorm:"column:storage_provider_config;type:jsonb"`
+	StorageProviderConfig *StorageProviderConfig `yaml:"storage_provider_config" json:"storage_provider_config" gorm:"column:storage_provider_config;type:jsonb"` //nolint:lll // one-line struct tag
 	// StorageBackendID binds this KB to one concrete storage instance. The
 	// legacy provider field remains readable during migration only.
 	StorageBackendID *string `yaml:"storage_backend_id" json:"storage_backend_id,omitempty" gorm:"column:storage_backend_id;type:varchar(36);default:null" extensions:"x-agent=storage_backend_id"`
@@ -369,10 +371,12 @@ type StorageProviderConfig struct {
 	Provider string `yaml:"provider" json:"provider"` // "local", "minio", "cos", "tos", "s3", "oss", "ks3", "obs"
 }
 
+// Value implements driver.Valuer for JSON serialization of StorageProviderConfig.
 func (c StorageProviderConfig) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
+// Scan implements sql.Scanner for JSON deserialization of StorageProviderConfig.
 func (c *StorageProviderConfig) Scan(value interface{}) error {
 	b, ok := asJSONScanBytes(value)
 	if !ok {
@@ -381,8 +385,9 @@ func (c *StorageProviderConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-// Deprecated: StorageConfig is the legacy COS configuration stored in the cos_config column.
-// New code should use StorageProviderConfig. Kept for backward compatibility with old data.
+// StorageConfig is the legacy COS configuration stored in the cos_config column.
+//
+// Deprecated: New code should use StorageProviderConfig. Kept for backward compatibility with old data.
 type StorageConfig struct {
 	// Secret ID (COS) / Access Key ID (S3, MinIO)
 	SecretID string `yaml:"secret_id"   json:"secret_id"`
@@ -406,10 +411,12 @@ type StorageConfig struct {
 	ForcePathStyle bool `yaml:"force_path_style" json:"force_path_style,omitempty"`
 }
 
+// Value implements driver.Valuer for JSON serialization of StorageConfig.
 func (c StorageConfig) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
+// Scan implements sql.Scanner for JSON deserialization of StorageConfig.
 func (c *StorageConfig) Scan(value interface{}) error {
 	b, ok := asJSONScanBytes(value)
 	if !ok {

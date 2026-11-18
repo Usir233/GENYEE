@@ -21,11 +21,12 @@ import (
 func newExporter(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
 	var endpoint string
 	trimmedHost := strings.TrimRight(cfg.Host, "/")
-	if strings.HasSuffix(trimmedHost, "/v1/traces") || strings.HasSuffix(trimmedHost, "/api/public/otel/v1/traces") {
+	switch {
+	case strings.HasSuffix(trimmedHost, "/v1/traces") || strings.HasSuffix(trimmedHost, "/api/public/otel/v1/traces"):
 		endpoint = trimmedHost
-	} else if cfg.PublicKey != "" && cfg.SecretKey != "" {
+	case cfg.PublicKey != "" && cfg.SecretKey != "":
 		endpoint = trimmedHost + "/api/public/otel/v1/traces"
-	} else {
+	default:
 		// Keyless standard OTLP / Jaeger exporter endpoint
 		endpoint = trimmedHost + "/v1/traces"
 	}

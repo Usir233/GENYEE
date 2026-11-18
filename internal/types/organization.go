@@ -134,6 +134,7 @@ func (OrganizationTenantMember) TableName() string {
 // JoinRequestStatus represents the status of a join request
 type JoinRequestStatus string
 
+// JoinRequestStatus constants represent review states of an organization join or role-upgrade request.
 const (
 	JoinRequestStatusPending  JoinRequestStatus = "pending"
 	JoinRequestStatusApproved JoinRequestStatus = "approved"
@@ -245,7 +246,7 @@ type AgentShare struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
-	Agent          *CustomAgent   `json:"agent,omitempty" gorm:"foreignKey:AgentID,SourceTenantID;references:ID,TenantID"`
+	Agent          *CustomAgent   `json:"agent,omitempty" gorm:"foreignKey:AgentID,SourceTenantID;references:ID,TenantID"` //nolint:lll // one-line struct tag
 	Organization   *Organization  `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 }
 
@@ -280,8 +281,9 @@ type SourceFromAgentInfo struct {
 	KBSelectionMode string `json:"kb_selection_mode"` // "all" | "selected" | "none"; for drawer copy "该智能体对知识库的策略"
 }
 
-// OrganizationSharedKnowledgeBaseItem is used by GET /organizations/:id/shared-knowledge-bases (space-scoped list including mine).
-// When SourceFromAgent is set, the KB is from a shared agent's config (no direct KB share); show as read-only and "来自智能体 XXX".
+// OrganizationSharedKnowledgeBaseItem is used by GET /organizations/:id/shared-knowledge-bases
+// (space-scoped list including mine). When SourceFromAgent is set, the KB is from a shared
+// agent's config (no direct KB share); show as read-only and "来自智能体 XXX".
 type OrganizationSharedKnowledgeBaseItem struct {
 	SharedKnowledgeBaseInfo
 	IsMine          bool                 `json:"is_mine"`
@@ -317,7 +319,8 @@ type CreateOrganizationRequest struct {
 	Description            string `json:"description" binding:"max=1000"`
 	Avatar                 string `json:"avatar" binding:"omitempty,max=512"` // optional avatar URL
 	InviteCodeValidityDays *int   `json:"invite_code_validity_days"`          // optional: 0=never, 1, 7, 30; default 7
-	MemberLimit            *int   `json:"member_limit"`                       // optional: max members; 0=unlimited; default 50
+	// MemberLimit is the optional max member count (0=unlimited; default 50).
+	MemberLimit *int `json:"member_limit"`
 }
 
 // UpdateOrganizationRequest represents a request to update an organization
@@ -349,16 +352,18 @@ type JoinOrganizationRequest struct {
 
 // SubmitJoinRequestRequest represents a request to submit a join request for approval
 type SubmitJoinRequestRequest struct {
-	InviteCode string        `json:"invite_code" binding:"required,min=8,max=32"`
-	Message    string        `json:"message" binding:"max=500"`
-	Role       OrgMemberRole `json:"role"` // Optional: role the applicant requests (admin/editor/viewer); default viewer
+	InviteCode string `json:"invite_code" binding:"required,min=8,max=32"`
+	Message    string `json:"message" binding:"max=500"`
+	// Role is the optional role the applicant requests (admin/editor/viewer); default viewer.
+	Role OrgMemberRole `json:"role"`
 }
 
 // ReviewJoinRequestRequest represents a request to review a join request
 type ReviewJoinRequestRequest struct {
-	Approved bool          `json:"approved"`
-	Message  string        `json:"message" binding:"max=500"`
-	Role     OrgMemberRole `json:"role"` // Optional: role to assign when approving; overrides applicant's requested role
+	Approved bool   `json:"approved"`
+	Message  string `json:"message" binding:"max=500"`
+	// Role is the optional role to assign when approving; overrides applicant's requested role.
+	Role OrgMemberRole `json:"role"`
 }
 
 // RequestRoleUpgradeRequest represents a request to upgrade role in an organization
@@ -464,22 +469,24 @@ type TenantInviteCandidate struct {
 
 // KnowledgeBaseShareResponse represents a share record in API responses
 type KnowledgeBaseShareResponse struct {
-	ID                string    `json:"id"`
-	KnowledgeBaseID   string    `json:"knowledge_base_id"`
-	KnowledgeBaseName string    `json:"knowledge_base_name"`
-	KnowledgeBaseType string    `json:"knowledge_base_type"`
-	KnowledgeCount    int64     `json:"knowledge_count"`
-	ChunkCount        int64     `json:"chunk_count"`
-	OrganizationID    string    `json:"organization_id"`
-	OrganizationName  string    `json:"organization_name"`
-	SharedByUserID    string    `json:"shared_by_user_id"`
-	SharedByUsername  string    `json:"shared_by_username"`
-	SourceTenantID    uint64    `json:"source_tenant_id"`
-	Permission        string    `json:"permission"`     // Share permission (what the space was granted: viewer/editor)
-	MyRoleInOrg       string    `json:"my_role_in_org"` // Current user's role in this organization (admin/editor/viewer)
-	MyPermission      string    `json:"my_permission"`  // Effective permission for current user = min(Permission, MyRoleInOrg)
-	CreatedAt         time.Time `json:"created_at"`
-	RequireApproval   bool      `json:"require_approval"`
+	ID                string `json:"id"`
+	KnowledgeBaseID   string `json:"knowledge_base_id"`
+	KnowledgeBaseName string `json:"knowledge_base_name"`
+	KnowledgeBaseType string `json:"knowledge_base_type"`
+	KnowledgeCount    int64  `json:"knowledge_count"`
+	ChunkCount        int64  `json:"chunk_count"`
+	OrganizationID    string `json:"organization_id"`
+	OrganizationName  string `json:"organization_name"`
+	SharedByUserID    string `json:"shared_by_user_id"`
+	SharedByUsername  string `json:"shared_by_username"`
+	SourceTenantID    uint64 `json:"source_tenant_id"`
+	Permission        string `json:"permission"` // Share permission (what the space was granted: viewer/editor)
+	// MyRoleInOrg is the current user's role in this organization (admin/editor/viewer).
+	MyRoleInOrg string `json:"my_role_in_org"`
+	// MyPermission is the effective permission for the current user = min(Permission, MyRoleInOrg).
+	MyPermission    string    `json:"my_permission"`
+	CreatedAt       time.Time `json:"created_at"`
+	RequireApproval bool      `json:"require_approval"`
 }
 
 // AgentShareResponse represents an agent share record in API responses
@@ -545,9 +552,10 @@ type ListSearchableOrganizationsResponse struct {
 
 // JoinByOrganizationIDRequest is used to join a searchable organization by ID (no invite code)
 type JoinByOrganizationIDRequest struct {
-	OrganizationID string        `json:"organization_id" binding:"required"`
-	Message        string        `json:"message" binding:"max=500"` // Optional message for join request
-	Role           OrgMemberRole `json:"role"`                      // Optional: requested role (admin/editor/viewer); default viewer
+	OrganizationID string `json:"organization_id" binding:"required"`
+	Message        string `json:"message" binding:"max=500"` // Optional message for join request
+	// Role is the optional requested role (admin/editor/viewer); default viewer.
+	Role OrgMemberRole `json:"role"`
 }
 
 // JoinRequestResponse represents a join request in API responses

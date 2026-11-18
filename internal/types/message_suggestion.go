@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// Suggestion placement, status, source, and action constants for follow-up question suggestions.
 const (
 	SuggestionPlacementAfterAnswer = "after_answer"
 
@@ -39,8 +40,10 @@ type SuggestionItem struct {
 	KnowledgeBaseIDs []string `json:"knowledge_base_ids,omitempty"`
 }
 
+// SuggestionItems is a JSON-serialized slice of SuggestionItem values.
 type SuggestionItems []SuggestionItem
 
+// Value implements driver.Valuer for JSON serialization of SuggestionItems.
 func (s SuggestionItems) Value() (driver.Value, error) {
 	if s == nil {
 		s = SuggestionItems{}
@@ -48,6 +51,7 @@ func (s SuggestionItems) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
+// Scan implements sql.Scanner for JSON deserialization of SuggestionItems.
 func (s *SuggestionItems) Scan(value interface{}) error {
 	b, ok := asJSONScanBytes(value)
 	if !ok {
@@ -84,8 +88,10 @@ type MessageSuggestionSet struct {
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
+// TableName returns the database table name for MessageSuggestionSet.
 func (MessageSuggestionSet) TableName() string { return "message_suggestion_sets" }
 
+// BeforeCreate populates a default UUID before inserting a MessageSuggestionSet.
 func (s *MessageSuggestionSet) BeforeCreate(_ *gorm.DB) error {
 	if s.ID == "" {
 		s.ID = uuid.NewString()
@@ -109,4 +115,5 @@ type MessageSuggestionEvent struct {
 	CreatedAt       time.Time `json:"created_at" gorm:"index"`
 }
 
+// TableName returns the database table name for MessageSuggestionEvent.
 func (MessageSuggestionEvent) TableName() string { return "message_suggestion_events" }

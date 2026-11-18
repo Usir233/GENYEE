@@ -26,4 +26,36 @@ func TestIsAppErrorUnwrapsWrappedAndRejectsTypedNil(t *testing.T) {
 	if s := typedNil.Error(); s != "" {
 		t.Fatalf("(*AppError)(nil).Error() = %q, want empty string", s)
 	}
+	if gotDetails := typedNil.WithDetails("ignored"); gotNilDetails(gotDetails) {
+		t.Fatalf("(*AppError)(nil).WithDetails() = %+v, want nil", gotDetails)
+	}
+}
+
+func gotNilDetails(e *AppError) bool {
+	return e != nil
+}
+
+func TestTypedErrorConstructorsForTenantEntitySizeAndWikiConflict(t *testing.T) {
+	tenantErr := NewTenantRequiredError("")
+	if tenantErr.Code != ErrTenantRequired ||
+		tenantErr.HTTPCode != http.StatusConflict ||
+		tenantErr.Message != "Workspace required" {
+		t.Fatalf("unexpected NewTenantRequiredError: %+v", tenantErr)
+	}
+
+	largeErr := NewRequestEntityTooLargeError("")
+	if largeErr.Code != ErrRequestEntityTooLarge ||
+		largeErr.HTTPCode != http.StatusRequestEntityTooLarge ||
+		largeErr.Message == "" {
+		t.Fatalf("unexpected NewRequestEntityTooLargeError: %+v", largeErr)
+	}
+
+	wikiErr := NewWikiVersionConflictError("", 7)
+	if wikiErr.Code != ErrWikiVersionConflict || wikiErr.HTTPCode != http.StatusConflict {
+		t.Fatalf("unexpected NewWikiVersionConflictError: %+v", wikiErr)
+	}
+	details, ok := wikiErr.Details.(map[string]int)
+	if !ok || details["current_version"] != 7 {
+		t.Fatalf("expected current_version=7 details, got %#v", wikiErr.Details)
+	}
 }

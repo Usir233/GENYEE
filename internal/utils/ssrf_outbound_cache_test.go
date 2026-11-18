@@ -90,10 +90,18 @@ func TestSSRFValidatingRoundTripperUsesOutboundCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := rt.RoundTrip(req1); err == nil {
+	resp1, err := rt.RoundTrip(req1)
+	if resp1 != nil && resp1.Body != nil {
+		_ = resp1.Body.Close()
+	}
+	if err == nil {
 		t.Fatal("expected base transport error, validation should pass")
 	}
-	if _, err := rt.RoundTrip(req2); err == nil {
+	resp2, err := rt.RoundTrip(req2)
+	if resp2 != nil && resp2.Body != nil {
+		_ = resp2.Body.Close()
+	}
+	if err == nil {
 		t.Fatal("expected base transport error, validation should pass")
 	}
 	if got := SSRFOutboundValidationMissesForTest(); got != 1 {

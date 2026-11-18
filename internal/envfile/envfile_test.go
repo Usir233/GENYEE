@@ -86,6 +86,31 @@ func TestLoadInvalidSyntaxIsReported(t *testing.T) {
 	assert.Contains(t, err.Error(), ".env.lite")
 }
 
+func TestLoadRejectsDirectoryAndOversizedEnvFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ENV_FILE", dir)
+	err := Load(false)
+	require.Error(t, err, "ENV_FILE pointing to a directory must fail cleanly")
+
+	huge := filepath.Join(dir, "huge.env")
+	payload := make([]byte, (1<<20)+128)
+	for i := range payload {
+		payload[i] = 'A'
+	}
+	require.NoError(t, os.WriteFile(huge, payload, 0o600))
+	t.Setenv("ENV_FILE", huge)
+	err = Load(false)
+	require.Error(t, err, "oversized ENV_FILE must be rejected by bounded reader")
+}
+
+func TestLoadLiteSkipsDirectoryNamedEnvLite(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, ".env.lite"), 0o755))
+	t.Chdir(dir)
+	unsetEnvForTest(t, "ENV_FILE")
+	require.NoError(t, Load(true), "a directory named .env.lite in cwd must not crash Lite startup")
+}
+
 func unsetEnvForTest(t *testing.T, keys ...string) {
 	t.Helper()
 	for _, key := range keys {

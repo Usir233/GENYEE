@@ -38,7 +38,7 @@ func Install(records map[string][]string) (restore func(), err error) {
 	}
 	tcp, err := net.Listen("tcp", udp.LocalAddr().String())
 	if err != nil {
-		udp.Close()
+		_ = udp.Close()
 		return nil, err
 	}
 	original := net.DefaultResolver
@@ -51,7 +51,12 @@ func Install(records map[string][]string) (restore func(), err error) {
 		question := request.Questions[0]
 		hostname := strings.ToLower(strings.TrimSuffix(question.Name.String(), "."))
 		response := dnsmessage.Message{
-			Header:    dnsmessage.Header{ID: request.ID, Response: true, RecursionDesired: request.RecursionDesired, RecursionAvailable: true},
+			Header: dnsmessage.Header{
+				ID:                 request.ID,
+				Response:           true,
+				RecursionDesired:   request.RecursionDesired,
+				RecursionAvailable: true,
+			},
 			Questions: request.Questions,
 		}
 		addresses, known := answers[hostname]
@@ -85,15 +90,26 @@ func Install(records map[string][]string) (restore func(), err error) {
 			response.RCode = dnsmessage.RCodeNameError
 		}
 		for _, ip := range addresses {
-			header := dnsmessage.ResourceHeader{Name: question.Name, Type: question.Type, Class: dnsmessage.ClassINET, TTL: 60}
+			header := dnsmessage.ResourceHeader{
+				Name:  question.Name,
+				Type:  question.Type,
+				Class: dnsmessage.ClassINET,
+				TTL:   60,
+			}
 			if ipv4 := ip.To4(); question.Type == dnsmessage.TypeA && ipv4 != nil {
 				var address [4]byte
 				copy(address[:], ipv4)
-				response.Answers = append(response.Answers, dnsmessage.Resource{Header: header, Body: &dnsmessage.AResource{A: address}})
+				response.Answers = append(response.Answers, dnsmessage.Resource{
+					Header: header,
+					Body:   &dnsmessage.AResource{A: address},
+				})
 			} else if question.Type == dnsmessage.TypeAAAA && ip.To4() == nil {
 				var address [16]byte
 				copy(address[:], ip.To16())
-				response.Answers = append(response.Answers, dnsmessage.Resource{Header: header, Body: &dnsmessage.AAAAResource{AAAA: address}})
+				response.Answers = append(response.Answers, dnsmessage.Resource{
+					Header: header,
+					Body:   &dnsmessage.AAAAResource{AAAA: address},
+				})
 			}
 		}
 		wire, _ := response.Pack()
@@ -129,7 +145,7 @@ func Install(records map[string][]string) (restore func(), err error) {
 			workers.Add(1)
 			go func() {
 				defer workers.Done()
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 				_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 				var size uint16
 				if binary.Read(conn, binary.BigEndian, &size) != nil {
@@ -157,8 +173,8 @@ func Install(records map[string][]string) (restore func(), err error) {
 		once.Do(func() {
 			net.DefaultResolver = original
 			cancel()
-			udp.Close()
-			tcp.Close()
+			_ = udp.Close()
+			_ = tcp.Close()
 			workers.Wait()
 		})
 	}, nil

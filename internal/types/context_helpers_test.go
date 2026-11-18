@@ -168,7 +168,8 @@ func TestLanguageFromContextOrDefault(t *testing.T) {
 }
 
 func TestMCPOAuthNonInteractive(t *testing.T) {
-	if IsMCPOAuthNonInteractive(nil) {
+	var nilCtx context.Context
+	if IsMCPOAuthNonInteractive(nilCtx) { //nolint:staticcheck // verifying defensive nil-context handling
 		t.Fatal("nil context should not be non-interactive")
 	}
 	if IsMCPOAuthNonInteractive(context.Background()) {
@@ -186,17 +187,34 @@ func TestMCPOAuthNonInteractive(t *testing.T) {
 }
 
 func TestLanguageFromContext(t *testing.T) {
+	var nilCtx context.Context
 	tests := []struct {
 		name        string
-		setupCtx    func() interface{}
+		ctx         context.Context
 		expectValue string
 		expectOK    bool
 	}{
 		{
-			name: "empty context",
-			setupCtx: func() interface{} {
-				return nil
-			},
+			name:        "nil context",
+			ctx:         nilCtx,
+			expectValue: "",
+			expectOK:    false,
+		},
+		{
+			name:        "empty background context",
+			ctx:         context.Background(),
+			expectValue: "",
+			expectOK:    false,
+		},
+		{
+			name:        "explicit locale",
+			ctx:         context.WithValue(context.Background(), LanguageContextKey, "en-US"),
+			expectValue: "en-US",
+			expectOK:    true,
+		},
+		{
+			name:        "whitespace-only locale",
+			ctx:         context.WithValue(context.Background(), LanguageContextKey, "   "),
 			expectValue: "",
 			expectOK:    false,
 		},
@@ -204,10 +222,9 @@ func TestLanguageFromContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// These are basic smoke tests
-			// Real context testing would require context.Context objects
-			if tt.setupCtx == nil {
-				t.Skip("skipping context-dependent test")
+			got, ok := LanguageFromContext(tt.ctx)
+			if got != tt.expectValue || ok != tt.expectOK {
+				t.Fatalf("LanguageFromContext() = (%q, %v), want (%q, %v)", got, ok, tt.expectValue, tt.expectOK)
 			}
 		})
 	}
@@ -222,7 +239,9 @@ func TestLLMCallMetadataContext(t *testing.T) {
 }
 
 func TestTaskRetryMetadataContext(t *testing.T) {
-	if _, _, ok := TaskRetryMetadataFromContext(nil); ok {
+	var nilCtx context.Context
+	//nolint:staticcheck // verifying defensive nil-context handling
+	if _, _, ok := TaskRetryMetadataFromContext(nilCtx); ok {
 		t.Fatal("nil context should not contain task retry metadata")
 	}
 	if _, _, ok := TaskRetryMetadataFromContext(context.Background()); ok {

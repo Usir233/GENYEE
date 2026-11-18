@@ -37,7 +37,11 @@ func TestOutboundSSRFCacheRevokesAndRestoresAllowance(t *testing.T) {
 	SetSSRFWhitelistFromRaw("127.0.0.1")
 	require.NoError(t, validateURLForSSRFForOutbound("http://127.0.0.1/a"))
 	SetSSRFWhitelistFromRaw("")
-	require.Error(t, validateURLForSSRFForOutbound("http://127.0.0.1/b"), "a cached allow result cannot outlive removal")
+	require.Error(
+		t, validateURLForSSRFForOutbound("http://127.0.0.1/b"), "a cached allow result cannot outlive removal",
+	)
 	SetSSRFWhitelistFromRaw("127.0.0.1")
-	require.NoError(t, validateURLForSSRFForOutbound("http://127.0.0.1/c"), "a cached deny result cannot outlive restoration")
+	require.NoError(
+		t, validateURLForSSRFForOutbound("http://127.0.0.1/c"), "a cached deny result cannot outlive restoration",
+	)
 }

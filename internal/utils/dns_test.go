@@ -27,7 +27,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestSSRFSafeURLRejectsRestrictedDNSAnswers(t *testing.T) {
-	for _, hostname := range []string{"loopback.fixture.invalid", "benchmark.fixture.invalid", "mixed.fixture.invalid"} {
+	hostnames := []string{"loopback.fixture.invalid", "benchmark.fixture.invalid", "mixed.fixture.invalid"}
+	for _, hostname := range hostnames {
 		t.Run(hostname, func(t *testing.T) {
 			ok, reason := isSSRFSafeURL("https://" + hostname)
 			if ok || !strings.Contains(reason, "restricted") {

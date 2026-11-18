@@ -12,7 +12,11 @@ func TestHasKnowledgeRetrievalScope(t *testing.T) {
 	}{
 		{name: "empty", want: false},
 		{name: "nil target", searchTargets: SearchTargets{nil}, want: false},
-		{name: "empty document target", searchTargets: SearchTargets{{Type: SearchTargetTypeKnowledge, KnowledgeBaseID: "kb-1"}}, want: false},
+		{
+			name:          "empty document target",
+			searchTargets: SearchTargets{{Type: SearchTargetTypeKnowledge, KnowledgeBaseID: "kb-1"}},
+			want:          false,
+		},
 		{name: "knowledge base IDs", knowledgeBaseIDs: []string{"kb-1"}, want: true},
 		{name: "knowledge IDs", knowledgeIDs: []string{"doc-1"}, want: true},
 		{

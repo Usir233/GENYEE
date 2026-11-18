@@ -28,7 +28,7 @@ func ToInterfaceSlice[T any](slice []T) []interface{} {
 	return interfaceSlice
 }
 
-// []string -> string, " join, space separated
+// StringSliceJoin quotes each string in slice and joins them with spaces.
 func StringSliceJoin(slice []string) string {
 	result := make([]string, len(slice))
 	for i, v := range slice {
@@ -37,6 +37,7 @@ func StringSliceJoin(slice []string) string {
 	return strings.Join(result, " ")
 }
 
+// GetAttrs projects each element of attrs through extract and returns the resulting slice.
 func GetAttrs[A, B any](extract func(A) B, attrs ...A) []B {
 	result := make([]B, len(attrs))
 	for i, attr := range attrs {
@@ -113,6 +114,7 @@ func DeduplicateWithScore[T ScoreComparable, K comparable](keyFunc func(T) K, it
 // Compiled once: ParseLLMJsonResponse runs on the graph-extraction path.
 var jsonCodeFenceRE = regexp.MustCompile("```(?:json)?\\s*([\\s\\S]*?)```")
 
+// ParseLLMJsonResponse parses a JSON response from an LLM, extracting fenced Markdown JSON blocks when needed.
 func ParseLLMJsonResponse(content string, target interface{}) error {
 	// First, try to parse directly as JSON
 	err := json.Unmarshal([]byte(content), target)
@@ -257,7 +259,12 @@ func PipelineLog(stage, action string, fields map[string]interface{}) string {
 			builder.WriteString(" ")
 			builder.WriteString(key)
 			builder.WriteString("=")
-			builder.WriteString(secutils.SanitizeForLog(formatPipelineLogValue(fields[key])))
+			if secutils.IsSensitiveLogKey(key) {
+				builder.WriteString(`"[REDACTED]"`)
+				continue
+			}
+			formatted := formatPipelineLogValue(fields[key])
+			builder.WriteString(secutils.SanitizeForLog(secutils.RedactSensitiveString(formatted)))
 		}
 	}
 	return builder.String()
@@ -285,14 +292,17 @@ func formatPipelineLogValue(value interface{}) string {
 	switch v := value.(type) {
 	case string:
 		return strconv.Quote(truncatePipelineValue(v))
+	case json.RawMessage:
+		bytes, err := v.MarshalJSON()
+		if err != nil {
+			return strconv.Quote(truncatePipelineValue(string(v)))
+		}
+		return truncatePipelineValue(string(bytes))
 	case fmt.Stringer:
-		if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr && rv.IsNil() {
+		if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer && rv.IsNil() {
 			return "<nil>"
 		}
 		return strconv.Quote(truncatePipelineValue(v.String()))
-	case json.RawMessage:
-		bytes, _ := v.MarshalJSON()
-		return string(bytes)
 	default:
 		return fmt.Sprintf("%v", v)
 	}
@@ -307,6 +317,7 @@ func truncatePipelineValue(content string) string {
 	return string(runes[:pipelineLogValueMaxRune]) + pipelineTruncateEll
 }
 
+// TruncateForLog collapses newlines and truncates content to the pipeline log rune limit.
 func TruncateForLog(content string) string {
 	return truncatePipelineValue(content)
 }

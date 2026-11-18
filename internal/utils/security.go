@@ -54,9 +54,13 @@ func SanitizeHTML(input string) string {
 		return ""
 	}
 
-	// 检查输入长度
+	// Truncate on a UTF-8 rune boundary so multi-byte characters are never split.
 	if len(input) > 10000 {
-		input = input[:10000]
+		cut := 10000
+		for cut > 0 && !utf8.RuneStart(input[cut]) {
+			cut--
+		}
+		input = input[:cut]
 	}
 
 	// 检查是否包含潜在的 XSS 攻击
@@ -436,13 +440,17 @@ func isSSRFSafeURLContext(ctx context.Context, rawURL string) (bool, string) {
 	// This prevents DNS rebinding attacks where a domain resolves to internal IPs
 	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", hostname)
 	if err != nil {
-		return false, fmt.Sprintf("DNS resolution failed for hostname %s: cannot verify if it resolves to safe IP", hostname)
+		return false, fmt.Sprintf(
+			"DNS resolution failed for hostname %s: cannot verify if it resolves to safe IP", hostname,
+		)
 	}
 
 	// Check if any resolved IP is restricted
 	for _, resolvedIP := range ips {
 		if restricted, reason := isRestrictedIP(resolvedIP); restricted {
-			return false, fmt.Sprintf("hostname %s resolves to restricted IP %s: %s", hostname, resolvedIP.String(), reason)
+			return false, fmt.Sprintf(
+				"hostname %s resolves to restricted IP %s: %s", hostname, resolvedIP.String(), reason,
+			)
 		}
 	}
 
@@ -600,10 +608,14 @@ func ValidateStdioCommand(command string) error {
 		return fmt.Errorf("command cannot be empty")
 	}
 	if strings.ContainsAny(trimmed, "/\\") || strings.Contains(trimmed, "..") {
-		return fmt.Errorf("command '%s' must be a bare executable name without path separators", SanitizeForLog(trimmed))
+		return fmt.Errorf(
+			"command '%s' must be a bare executable name without path separators", SanitizeForLog(trimmed),
+		)
 	}
 	if !AllowedStdioCommands[trimmed] {
-		return fmt.Errorf("command '%s' is not in the allowed list. Allowed commands: uvx, npx", SanitizeForLog(trimmed))
+		return fmt.Errorf(
+			"command '%s' is not in the allowed list. Allowed commands: uvx, npx", SanitizeForLog(trimmed),
+		)
 	}
 	return nil
 }
@@ -654,7 +666,11 @@ func ValidateStdioEnvVars(envVars map[string]string) error {
 
 		// Check key length
 		if len(key) > 256 {
-			return fmt.Errorf("environment variable name '%s' exceeds maximum length", SanitizeForLog(key[:50]))
+			cut := 50
+			for cut > 0 && !utf8.RuneStart(key[cut]) {
+				cut--
+			}
+			return fmt.Errorf("environment variable name '%s' exceeds maximum length", SanitizeForLog(key[:cut]))
 		}
 
 		// Check value length
@@ -810,6 +826,7 @@ type SSRFValidatingRoundTripper struct {
 	Base http.RoundTripper
 }
 
+// RoundTrip validates the outbound request URL against SSRF rules before delegating to Base.
 func (t *SSRFValidatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req == nil || req.URL == nil {
 		return nil, fmt.Errorf("outbound request blocked: request URL is required")
@@ -956,7 +973,9 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 	// Validate all resolved IPs
 	for _, ipAddr := range ips {
 		if restricted, reason := isRestrictedIP(ipAddr.IP); restricted {
-			return nil, fmt.Errorf("connection blocked: %s resolves to restricted IP %s (%s)", host, ipAddr.IP.String(), reason)
+			return nil, fmt.Errorf(
+				"connection blocked: %s resolves to restricted IP %s (%s)", host, ipAddr.IP.String(), reason,
+			)
 		}
 	}
 
@@ -1106,7 +1125,9 @@ type parsedSSRFWhitelistEntry struct {
 // stay strictly in lockstep.
 func parseSSRFWhitelistEntry(entry string) (parsedSSRFWhitelistEntry, error) {
 	if strings.Contains(entry, "://") {
-		return parsedSSRFWhitelistEntry{}, fmt.Errorf("whitelist entry %q must be a host, wildcard, or CIDR, not a URL", entry)
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf(
+			"whitelist entry %q must be a host, wildcard, or CIDR, not a URL", entry,
+		)
 	}
 	if strings.ContainsAny(entry, "?#@\\") {
 		return parsedSSRFWhitelistEntry{}, fmt.Errorf("whitelist entry %q contains invalid URL characters", entry)
@@ -1126,20 +1147,28 @@ func parseSSRFWhitelistEntry(entry string) (parsedSSRFWhitelistEntry, error) {
 	if strings.HasPrefix(entry, "*.") {
 		domainPart := entry[2:]
 		if domainPart == "" {
-			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard entry %q is missing a domain (use *.example.com)", entry)
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf(
+				"wildcard entry %q is missing a domain (use *.example.com)", entry,
+			)
 		}
 		if strings.Contains(domainPart, "*") {
-			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry)
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf(
+				"wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry,
+			)
 		}
 		if strings.ContainsAny(domainPart, ":[]") {
-			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard entry %q must not include a port or IPv6 literal", entry)
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf(
+				"wildcard entry %q must not include a port or IPv6 literal", entry,
+			)
 		}
 		normDomain, normErr := normalizeSSRFHostname(domainPart)
 		if normErr != "" {
 			return parsedSSRFWhitelistEntry{}, fmt.Errorf("invalid wildcard entry %q: %s", entry, normErr)
 		}
 		if net.ParseIP(normDomain) != nil || isIPLikeHostname(normDomain) {
-			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard entry %q must target a domain name, not an IP literal (use CIDR instead)", entry)
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf(
+				"wildcard entry %q must target a domain name, not an IP literal (use CIDR instead)", entry,
+			)
 		}
 		return parsedSSRFWhitelistEntry{kind: ssrfWhitelistEntrySuffix, suffix: "." + normDomain}, nil
 	}
@@ -1148,7 +1177,9 @@ func parseSSRFWhitelistEntry(entry string) (parsedSSRFWhitelistEntry, error) {
 	// implement glob matching, so the entry would silently never
 	// match. Surface it loudly.
 	if strings.Contains(entry, "*") {
-		return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry)
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf(
+			"wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry,
+		)
 	}
 	// Exact host or literal IP (ports and bracketed literals are rejected so
 	// entries cannot look valid at save time while failing parsed.Hostname() match).
@@ -1503,17 +1534,17 @@ func ValidateURLForSSRFContext(ctx context.Context, rawURL string) error {
 	return nil
 }
 
-// IsSystemProxy 判断是否为系统代理
+// IsSystemProxy reports whether host matches HTTP_PROXY or HTTPS_PROXY.
 func IsSystemProxy(host string) bool {
 	proxyCfg := httpproxy.FromEnvironment()
-	for _, proxyUrl := range []string{
+	for _, proxyURL := range []string{
 		proxyCfg.HTTPProxy,
 		proxyCfg.HTTPSProxy,
 	} {
-		if proxyUrl == "" {
+		if proxyURL == "" {
 			continue
 		}
-		if parse, err := url.Parse(proxyUrl); err == nil {
+		if parse, err := url.Parse(proxyURL); err == nil {
 			if parse.Host == host {
 				return true
 			}

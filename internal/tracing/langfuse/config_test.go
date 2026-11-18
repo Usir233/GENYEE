@@ -35,7 +35,10 @@ func TestLoadConfigFromEnv_CredentialsNeverSelectAnImplicitHost(t *testing.T) {
 		t.Setenv("LANGFUSE_ENABLED", enabled)
 		cfg := LoadConfigFromEnv()
 		if cfg.Enabled || cfg.Host != "" {
-			t.Fatalf("flag %q selected an implicit tracing destination: enabled=%v host=%q", enabled, cfg.Enabled, cfg.Host)
+			t.Fatalf(
+				"flag %q selected an implicit tracing destination: enabled=%v host=%q",
+				enabled, cfg.Enabled, cfg.Host,
+			)
 		}
 	}
 }
@@ -89,7 +92,11 @@ func TestConfigValidate(t *testing.T) {
 		{"enabled without host fails", Config{Enabled: true, PublicKey: "pk", SecretKey: "sk"}, true},
 		{"enabled without keys passes (keyless standard OTLP)", Config{Enabled: true, Host: "https://x"}, false},
 		{"enabled with partial keys fails", Config{Enabled: true, Host: "https://x", PublicKey: "pk"}, true},
-		{"enabled with all fields passes", Config{Enabled: true, Host: "https://x", PublicKey: "pk", SecretKey: "sk"}, false},
+		{
+			"enabled with all fields passes",
+			Config{Enabled: true, Host: "https://x", PublicKey: "pk", SecretKey: "sk"},
+			false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -142,7 +149,10 @@ func TestConfigValidateNormalizeAndReinitShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Init programmatic defaults failed: %v", err)
 	}
-	if m1.cfg.QueueSize != 2048 || m1.cfg.FlushAt != 15 || m1.cfg.SampleRate != 1.0 || m1.cfg.FlushInterval != 3*time.Second {
+	if m1.cfg.QueueSize != 2048 ||
+		m1.cfg.FlushAt != 15 ||
+		m1.cfg.SampleRate != 1.0 ||
+		m1.cfg.FlushInterval != 3*time.Second {
 		t.Fatalf("programmatic Init did not normalize zero-value defaults: %+v", m1.cfg)
 	}
 	if !m1.Enabled() {

@@ -3,8 +3,10 @@
 package envfile
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,22 +14,19 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// maxEnvFileBytes bounds dotenv files read at startup (1 MiB).
+const maxEnvFileBytes = 1 << 20
+
 // Load reads ENV_FILE when it is set, on any build. Otherwise it only acts on
 // Lite builds, loading .env.lite — first beside the running executable (the
 // tarball layout), then the current working directory (the repo/dev layout).
-// There is deliberately no .env fallback: a standard binary built in the repo
-// root must never pick up Lite defaults, and on Lite builds .env.lite is the
-// single source of file defaults, so a stray .env cannot flip Lite into the
-// Redis/Asynq path or enable Langfuse tracing.
 //
-// godotenv never overwrites a variable already present in the process
-// environment, so deployment-level settings always win over files.
-//
-// Missing default files are normal and ignored. An explicitly requested file,
-// or a present file with invalid syntax, is reported to the caller.
+// Process environment variables always take precedence over dotenv values.
+// Missing default files (or directories named .env.lite) are ignored; an
+// explicitly requested file, an oversized file, or invalid syntax is reported.
 func Load(lite bool) error {
 	if path := strings.TrimSpace(os.Getenv("ENV_FILE")); path != "" {
-		if err := godotenv.Load(path); err != nil {
+		if err := loadBoundedDotenv(path, false); err != nil {
 			return fmt.Errorf("load ENV_FILE %q: %w", path, err)
 		}
 		return nil
@@ -37,13 +36,59 @@ func Load(lite bool) error {
 	}
 
 	for _, path := range liteDotenvPaths() {
-		if err := godotenv.Load(path); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+		err := loadBoundedDotenv(path, true)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) || errors.Is(err, errSkippedDirectory) {
 				continue
 			}
 			return fmt.Errorf("load %s: %w", path, err)
 		}
 		return nil
+	}
+	return nil
+}
+
+var errSkippedDirectory = errors.New("dotenv candidate is a directory")
+
+func loadBoundedDotenv(path string, skipDir bool) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		if skipDir {
+			return errSkippedDirectory
+		}
+		return fmt.Errorf("path is a directory, expected regular env file")
+	}
+	if info.Size() > maxEnvFileBytes {
+		return fmt.Errorf("env file exceeds maximum size of %d bytes", maxEnvFileBytes)
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	raw, err := io.ReadAll(io.LimitReader(f, maxEnvFileBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(raw) > maxEnvFileBytes {
+		return fmt.Errorf("env file exceeds maximum size of %d bytes", maxEnvFileBytes)
+	}
+
+	parsed, err := godotenv.Parse(bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	for k, v := range parsed {
+		if _, exists := os.LookupEnv(k); !exists {
+			if setErr := os.Setenv(k, v); setErr != nil {
+				return setErr
+			}
+		}
 	}
 	return nil
 }
@@ -54,7 +99,10 @@ func liteDotenvPaths() []string {
 	paths := []string{".env.lite"}
 	if exe, err := os.Executable(); err == nil {
 		if dir := filepath.Dir(exe); dir != "" && dir != "." {
-			paths = append([]string{filepath.Join(dir, ".env.lite")}, paths...)
+			candidate := filepath.Join(dir, ".env.lite")
+			if cwd, cwdErr := os.Getwd(); cwdErr != nil || filepath.Clean(dir) != filepath.Clean(cwd) {
+				paths = append([]string{candidate}, paths...)
+			}
 		}
 	}
 	return paths

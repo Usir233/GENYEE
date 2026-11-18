@@ -3,6 +3,7 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 // ModelType represents the type of AI model
 type ModelType string
 
+// ModelType constants classify model capabilities in the catalog.
 const (
 	ModelTypeEmbedding   ModelType = "Embedding"   // Embedding model
 	ModelTypeRerank      ModelType = "Rerank"      // Rerank model
@@ -25,6 +27,7 @@ const (
 // ModelStatus represents the status of the model
 type ModelStatus string
 
+// ModelStatus constants represent lifecycle states of a registered model.
 const (
 	ModelStatusActive         ModelStatus = "active"          // Model is active
 	ModelStatusDownloading    ModelStatus = "downloading"     // Model is downloading
@@ -93,6 +96,7 @@ func (d ModelUsageDetails) InUse() bool {
 // ModelSource represents the source of the model
 type ModelSource string
 
+// ModelSource constants identify where a model is hosted.
 const (
 	ModelSourceLocal       ModelSource = "local"        // Local model
 	ModelSourceRemote      ModelSource = "remote"       // Remote model
@@ -122,20 +126,25 @@ type EmbeddingParameters struct {
 	SupportsDimensionOverride bool `yaml:"supports_dimension_override" json:"supports_dimension_override"`
 }
 
+// ModelParameters stores endpoint, credential, and capability settings for a model.
 type ModelParameters struct {
 	BaseURL             string              `yaml:"base_url"             json:"base_url"`
 	APIKey              string              `yaml:"api_key"              json:"api_key"`
 	InterfaceType       string              `yaml:"interface_type"       json:"interface_type"`
 	EmbeddingParameters EmbeddingParameters `yaml:"embedding_parameters" json:"embedding_parameters"`
-	ParameterSize       string              `yaml:"parameter_size"       json:"parameter_size"` // Ollama model parameter size (e.g., "7B", "13B", "70B")
-	Provider            string              `yaml:"provider"             json:"provider"`       // Provider identifier: openai, aliyun, zhipu, generic
-	ExtraConfig         map[string]string   `yaml:"extra_config"         json:"extra_config"`   // Provider-specific configuration
+	// ParameterSize is the Ollama model parameter size (e.g., "7B", "13B", "70B").
+	ParameterSize string `yaml:"parameter_size" json:"parameter_size"`
+	// Provider identifies the model provider (e.g., openai, aliyun, zhipu, generic).
+	Provider string `yaml:"provider" json:"provider"`
+	// ExtraConfig stores provider-specific configuration key-value pairs.
+	ExtraConfig map[string]string `yaml:"extra_config" json:"extra_config"`
 	// CustomHeaders 允许在调用远程模型 API 时附加自定义 HTTP 请求头，
 	// 用途类似 Python OpenAI SDK 的 extra_headers 参数，
 	// 常见场景包括透传企业网关鉴权信息、追踪 ID、路由标识等。
 	// 保留字段（Authorization、api-key、Content-Type、Accept 等）会在运行期被忽略以避免破坏签名/鉴权流程。
-	CustomHeaders  map[string]string `yaml:"custom_headers,omitempty" json:"custom_headers,omitempty"`
-	SupportsVision bool              `yaml:"supports_vision"      json:"supports_vision"` // Whether the model accepts image/multimodal input
+	CustomHeaders map[string]string `yaml:"custom_headers,omitempty" json:"custom_headers,omitempty"`
+	// SupportsVision reports whether the model accepts image/multimodal input.
+	SupportsVision bool `yaml:"supports_vision" json:"supports_vision"`
 	// ContextWindow is the model's total context window in tokens and
 	// MaxOutputTokens the most it emits in one response. Both are provider
 	// facts the agent cannot discover but has to act on: the context window is
@@ -262,14 +271,18 @@ type Model struct {
 func (c ModelParameters) Value() (driver.Value, error) {
 	if key := utils.GetAESKey(); key != nil {
 		if c.APIKey != "" {
-			if encrypted, err := utils.EncryptAESGCM(c.APIKey, key); err == nil {
-				c.APIKey = encrypted
+			encrypted, err := utils.EncryptAESGCM(c.APIKey, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt model parameters api_key: %w", err)
 			}
+			c.APIKey = encrypted
 		}
 		if c.AppSecret != "" {
-			if encrypted, err := utils.EncryptAESGCM(c.AppSecret, key); err == nil {
-				c.AppSecret = encrypted
+			encrypted, err := utils.EncryptAESGCM(c.AppSecret, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt model parameters app_secret: %w", err)
 			}
+			c.AppSecret = encrypted
 		}
 	}
 	return json.Marshal(c)
@@ -291,13 +304,19 @@ func (c *ModelParameters) Scan(value interface{}) error {
 	if plain, ok := utils.DecryptStoredSecretLenient(c.APIKey); ok {
 		c.APIKey = plain
 	} else {
-		log.Printf("[crypto] model parameters api_key: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured")
+		log.Printf(
+			"[crypto] model parameters api_key: decrypt failed " +
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+		)
 		c.APIKey = ""
 	}
 	if plain, ok := utils.DecryptStoredSecretLenient(c.AppSecret); ok {
 		c.AppSecret = plain
 	} else {
-		log.Printf("[crypto] model parameters app_secret: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured")
+		log.Printf(
+			"[crypto] model parameters app_secret: decrypt failed " +
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+		)
 		c.AppSecret = ""
 	}
 	return nil
@@ -307,7 +326,7 @@ func (c *ModelParameters) Scan(value interface{}) error {
 // Generates a UUID only when the caller has not supplied an ID — preserves
 // stable IDs declared in built-in model YAML config while keeping the
 // existing UUID behaviour for API-driven model creation.
-func (m *Model) BeforeCreate(tx *gorm.DB) (err error) {
+func (m *Model) BeforeCreate(_ *gorm.DB) (err error) {
 	if m.ID == "" {
 		m.ID = uuid.New().String()
 	}

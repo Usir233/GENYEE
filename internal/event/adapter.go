@@ -1,3 +1,4 @@
+// Package event implements the in-process synchronous and asynchronous event bus.
 package event
 
 import (
@@ -6,8 +7,10 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
-// EventBusAdapter adapts *EventBus to types.EventBusInterface
-// This allows EventBus to be used through the interface without circular dependencies
+// EventBusAdapter adapts *EventBus to types.EventBusInterface.
+// This allows EventBus to be used through the interface without circular dependencies.
+//
+//nolint:revive // EventBusAdapter is the historical name every caller uses.
 type EventBusAdapter struct {
 	bus *EventBus
 }
@@ -19,12 +22,11 @@ func NewEventBusAdapter(bus *EventBus) types.EventBusInterface {
 
 // On registers an event handler for a specific event type
 func (a *EventBusAdapter) On(eventType types.EventType, handler types.EventHandler) {
-	// Convert types.EventType to event.EventType
+	if a == nil || a.bus == nil || handler == nil {
+		return
+	}
 	evtType := EventType(eventType)
-
-	// Convert types.EventHandler to event.EventHandler
 	evtHandler := func(ctx context.Context, evt Event) error {
-		// Convert event.Event to types.Event
 		typesEvt := types.Event{
 			ID:        evt.ID,
 			Type:      types.EventType(evt.Type),
@@ -41,7 +43,9 @@ func (a *EventBusAdapter) On(eventType types.EventType, handler types.EventHandl
 
 // Emit publishes an event to all registered handlers
 func (a *EventBusAdapter) Emit(ctx context.Context, evt types.Event) error {
-	// Convert types.Event to event.Event
+	if a == nil || a.bus == nil {
+		return nil
+	}
 	eventEvt := Event{
 		ID:        evt.ID,
 		Type:      EventType(evt.Type),

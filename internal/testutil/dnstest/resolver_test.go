@@ -20,12 +20,18 @@ func TestInstallAnswersAndRestoresResolver(t *testing.T) {
 	for _, network := range []string{"udp", "tcp"} {
 		t.Run(network, func(t *testing.T) {
 			dial := net.DefaultResolver.Dial
-			resolver := &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _ string, address string) (net.Conn, error) {
-				return dial(ctx, network, address)
-			}}
+			resolver := &net.Resolver{
+				PreferGo: true,
+				Dial: func(ctx context.Context, _ string, address string) (net.Conn, error) {
+					return dial(ctx, network, address)
+				},
+			}
 			ips, err := resolver.LookupIP(context.Background(), "ip", "public.fixture.invalid")
 			require.NoError(t, err)
-			require.ElementsMatch(t, []net.IP{net.ParseIP("93.184.216.34").To4(), net.ParseIP("2606:4700:4700::1111")}, ips)
+			require.ElementsMatch(t, []net.IP{
+				net.ParseIP("93.184.216.34").To4(),
+				net.ParseIP("2606:4700:4700::1111"),
+			}, ips)
 			ips, err = resolver.LookupIP(context.Background(), "ip4", "private.fixture.invalid")
 			require.NoError(t, err)
 			require.Equal(t, []net.IP{net.ParseIP("127.0.0.1").To4()}, ips)

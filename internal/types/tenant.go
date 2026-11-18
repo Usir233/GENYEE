@@ -109,9 +109,9 @@ type Tenant struct {
 	// Credentials config: third-party provider credentials (e.g. provider API keys)
 	Credentials *CredentialsConfig `yaml:"credentials" json:"credentials" gorm:"type:jsonb"`
 	// Storage engine config: parameters for Local, MinIO, COS. Used for document/file storage and docreader.
-	StorageEngineConfig *StorageEngineConfig `yaml:"storage_engine_config" json:"storage_engine_config" gorm:"type:jsonb"`
+	StorageEngineConfig *StorageEngineConfig `yaml:"storage_engine_config" json:"storage_engine_config" gorm:"type:jsonb"` //nolint:lll // one-line struct tag
 	// DefaultStorageBackendID is the workspace default concrete storage instance.
-	DefaultStorageBackendID *string `yaml:"default_storage_backend_id" json:"default_storage_backend_id,omitempty" gorm:"column:default_storage_backend_id;type:varchar(36)"`
+	DefaultStorageBackendID *string `yaml:"default_storage_backend_id" json:"default_storage_backend_id,omitempty" gorm:"column:default_storage_backend_id;type:varchar(36)"` //nolint:lll // one-line struct tag
 	// Chat history config: knowledge base configuration for indexing and searching chat messages via vector search
 	ChatHistoryConfig *ChatHistoryConfig `yaml:"chat_history_config" json:"chat_history_config" gorm:"type:jsonb"`
 	// Retrieval config: global search/retrieval parameters shared by knowledge search and message search
@@ -146,7 +146,7 @@ func (t *Tenant) GetEffectiveEngines() []RetrieverEngineParams {
 }
 
 // BeforeCreate is a hook function that is called before creating a tenant
-func (t *Tenant) BeforeCreate(tx *gorm.DB) error {
+func (t *Tenant) BeforeCreate(_ *gorm.DB) error {
 	if t.RetrieverEngines.Engines == nil {
 		t.RetrieverEngines.Engines = []RetrieverEngineParams{}
 	}
@@ -184,11 +184,12 @@ func (c *RetrieverEngines) Scan(value interface{}) error {
 // CredentialsConfig holds third-party provider credentials at the tenant level.
 // Stored as a single JSONB column; each provider is a nested object so new
 // providers can be added without schema changes.
-type CredentialsConfig struct {
-}
+type CredentialsConfig struct{}
 
+// APIPrincipalMode controls how external API callers identify per-user principals.
 type APIPrincipalMode string
 
+// APIPrincipalMode constants enumerate supported external caller principal propagation modes.
 const (
 	APIPrincipalModeTenant      APIPrincipalMode = "tenant"
 	APIPrincipalModeDirect      APIPrincipalMode = "direct_header"
@@ -209,6 +210,7 @@ type APIPrincipalConfig struct {
 	HMACSecret          string `json:"hmac_secret,omitempty"`
 }
 
+// Value implements driver.Valuer with AES-GCM encryption of HMACSecret.
 func (c *APIPrincipalConfig) Value() (driver.Value, error) {
 	if c == nil {
 		return nil, nil
@@ -216,14 +218,17 @@ func (c *APIPrincipalConfig) Value() (driver.Value, error) {
 	cp := *c
 	if cp.HMACSecret != "" {
 		if key := utils.GetAESKey(); key != nil {
-			if encrypted, err := utils.EncryptAESGCM(cp.HMACSecret, key); err == nil {
-				cp.HMACSecret = encrypted
+			encrypted, err := utils.EncryptAESGCM(cp.HMACSecret, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt tenant api_principal_config.hmac_secret: %w", err)
 			}
+			cp.HMACSecret = encrypted
 		}
 	}
 	return json.Marshal(&cp)
 }
 
+// Scan implements sql.Scanner with lenient decryption of HMACSecret.
 func (c *APIPrincipalConfig) Scan(value interface{}) error {
 	b, ok := asJSONScanBytes(value)
 	if !ok {
@@ -235,7 +240,10 @@ func (c *APIPrincipalConfig) Scan(value interface{}) error {
 	if plain, ok := utils.DecryptStoredSecretLenient(c.HMACSecret); ok {
 		c.HMACSecret = plain
 	} else {
-		log.Printf("[crypto] tenant api_principal_config.hmac_secret: decrypt failed (SYSTEM_AES_KEY missing/rotated?), treating as unconfigured")
+		log.Printf(
+			"[crypto] tenant api_principal_config.hmac_secret: decrypt failed " +
+				"(SYSTEM_AES_KEY missing/rotated?), treating as unconfigured",
+		)
 		c.HMACSecret = ""
 	}
 	return nil
@@ -277,9 +285,10 @@ type ParserEngineConfig struct {
 	MinerUServerAPIKey string `json:"mineru_server_api_key,omitempty"` // 4.0+：服务端 --api-key
 	MinerUTier         string `json:"mineru_tier,omitempty"`           // 4.0+：flash/basic/standard/advanced，空为服务端默认
 	// 以下 backend、vLLM、公式/表格、语言参数仅对 3.x 及更早版本生效。
-	MinerUModel         string `json:"mineru_model,omitempty"`          // backend: pipeline, vlm-*, hybrid-*
-	MinerUEffort        string `json:"mineru_effort,omitempty"`         // hybrid: medium/high; empty = server default
-	MinerUVLMServerURL  string `json:"mineru_vlm_server_url,omitempty"` // vLLM 服务器地址 (vlm-http-client / hybrid-http-client)
+	MinerUModel  string `json:"mineru_model,omitempty"`  // backend: pipeline, vlm-*, hybrid-*
+	MinerUEffort string `json:"mineru_effort,omitempty"` // hybrid: medium/high; empty = server default
+	// MinerUVLMServerURL is the vLLM server URL (vlm-http-client / hybrid-http-client).
+	MinerUVLMServerURL  string `json:"mineru_vlm_server_url,omitempty"`
 	MinerUEnableFormula *bool  `json:"mineru_enable_formula,omitempty"`
 	MinerUEnableTable   *bool  `json:"mineru_enable_table,omitempty"`
 	MinerUParseMethod   string `json:"mineru_parse_method,omitempty"`
@@ -314,6 +323,7 @@ type ParserEngineConfig struct {
 	PaddleOCRVLCloudUseChartRecognition *bool  `json:"paddleocr_vl_cloud_use_chart_recognition,omitempty"`
 }
 
+// MinerU parse method constants.
 const (
 	MinerUParseMethodAuto = "auto"
 	MinerUParseMethodOCR  = "ocr"
@@ -340,6 +350,7 @@ func ResolveMinerUParseMethod(method string, legacyOCREnabled *bool) string {
 	return MinerUParseMethodAuto
 }
 
+// ResolveChatParserEngine returns the configured parser engine for fileType in chat attachments.
 func (c *ParserEngineConfig) ResolveChatParserEngine(fileType string) string {
 	if c != nil {
 		normalized := normalizeParserFileType(fileType)
@@ -474,7 +485,8 @@ func (c *ParserEngineConfig) Scan(value interface{}) error {
 // StorageEngineConfig holds tenant-level storage engine parameters for Local, MinIO, COS, TOS, S3, OSS, KS3, and OBS.
 // Knowledge bases select which provider to use; parameters are read from here.
 type StorageEngineConfig struct {
-	DefaultProvider string             `json:"default_provider"` // "local", "minio", "cos", "tos", "s3", "oss", "ks3", "obs"
+	// DefaultProvider is one of "local", "minio", "cos", "tos", "s3", "oss", "ks3", or "obs".
+	DefaultProvider string             `json:"default_provider"`
 	Local           *LocalEngineConfig `json:"local,omitempty"`
 	MinIO           *MinIOEngineConfig `json:"minio,omitempty"`
 	COS             *COSEngineConfig   `json:"cos,omitempty"`

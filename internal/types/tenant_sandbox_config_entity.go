@@ -1,4 +1,4 @@
-// Package types: sandbox backend config entity.
+// Package types defines the sandbox backend configuration entity and related domain models.
 //
 // A workspace holds several named sandbox configs so different agents can run
 // on different backends (e.g. a big-memory E2B account for data analysis, a

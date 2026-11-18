@@ -37,7 +37,10 @@ func TestSafeContentTypeByFilename_BlocksActiveBrowserContentAndDirectoryDots(t 
 	} {
 		ct, inline := SafeContentTypeByFilename(pathWithDirDot)
 		if ct != "application/octet-stream" {
-			t.Errorf("SafeContentTypeByFilename(%q) misclassified directory dot as %q (inline=%v)", pathWithDirDot, ct, inline)
+			t.Errorf(
+				"SafeContentTypeByFilename(%q) misclassified directory dot as %q (inline=%v)",
+				pathWithDirDot, ct, inline,
+			)
 		}
 	}
 

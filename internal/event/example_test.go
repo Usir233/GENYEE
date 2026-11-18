@@ -14,7 +14,7 @@ func ExampleEventBus_basic() {
 	bus := NewEventBus()
 
 	// Register a handler
-	bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryReceived, func(_ context.Context, event Event) error {
 		fmt.Printf("Query received: %v\n", event.Data)
 		return nil
 	})
@@ -35,7 +35,7 @@ func ExampleEventBus_middleware() {
 	bus := NewEventBus()
 
 	// Create a handler with middleware
-	handler := func(ctx context.Context, event Event) error {
+	handler := func(_ context.Context, event Event) error {
 		data := event.Data.(QueryData)
 		fmt.Printf("Processing query: %s\n", data.OriginalQuery)
 		return nil
@@ -64,28 +64,28 @@ func ExampleEventBus_pipeline() {
 	bus := NewEventBus()
 
 	// Step 1: Query received
-	bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryReceived, func(_ context.Context, event Event) error {
 		data := event.Data.(QueryData)
 		fmt.Printf("1. Query received: %s\n", data.OriginalQuery)
 		return nil
 	})
 
 	// Step 2: Query rewrite
-	bus.On(EventQueryRewrite, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryRewrite, func(_ context.Context, event Event) error {
 		data := event.Data.(QueryData)
 		fmt.Printf("2. Rewriting query: %s\n", data.OriginalQuery)
 		return nil
 	})
 
 	// Step 3: Retrieval
-	bus.On(EventRetrievalStart, func(ctx context.Context, event Event) error {
+	bus.On(EventRetrievalStart, func(_ context.Context, event Event) error {
 		data := event.Data.(RetrievalData)
 		fmt.Printf("3. Starting retrieval for: %s\n", data.Query)
 		return nil
 	})
 
 	// Step 4: Rerank
-	bus.On(EventRerankStart, func(ctx context.Context, event Event) error {
+	bus.On(EventRerankStart, func(_ context.Context, event Event) error {
 		data := event.Data.(RerankData)
 		fmt.Printf("4. Starting rerank for: %s\n", data.Query)
 		return nil
@@ -132,17 +132,17 @@ func TestEventBus_MultipleHandlers(t *testing.T) {
 	counter := 0
 
 	// Register multiple handlers
-	bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryReceived, func(_ context.Context, _ Event) error {
 		counter++
 		return nil
 	})
 
-	bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryReceived, func(_ context.Context, _ Event) error {
 		counter++
 		return nil
 	})
 
-	bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryReceived, func(_ context.Context, _ Event) error {
 		counter++
 		return nil
 	})
@@ -168,7 +168,7 @@ func TestEventBus_Async(t *testing.T) {
 
 	// Register handlers
 	for i := 0; i < 3; i++ {
-		bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+		bus.On(EventQueryReceived, func(_ context.Context, _ Event) error {
 			time.Sleep(100 * time.Millisecond)
 			done <- true
 			return nil
@@ -208,7 +208,7 @@ func TestEventBus_EmitAndWait(t *testing.T) {
 
 	// Register handlers
 	for i := 0; i < 3; i++ {
-		bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+		bus.On(EventQueryReceived, func(_ context.Context, _ Event) error {
 			time.Sleep(50 * time.Millisecond)
 			counter.Add(1)
 			return nil
@@ -235,7 +235,7 @@ func BenchmarkEventBus_Emit(b *testing.B) {
 	ctx := context.Background()
 	bus := NewEventBus()
 
-	bus.On(EventQueryReceived, func(ctx context.Context, event Event) error {
+	bus.On(EventQueryReceived, func(_ context.Context, _ Event) error {
 		return nil
 	})
 

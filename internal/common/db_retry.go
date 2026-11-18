@@ -1,3 +1,4 @@
+// Package common provides shared retry, TLS, JSON extraction, and pipeline logging helpers.
 package common
 
 import (
@@ -10,10 +11,13 @@ import (
 
 const defaultMaxDeadlockRetries = 3
 
-// WithDeadlockRetry retries fn when MySQL returns Error 1213 (deadlock).
+// WithDeadlockRetry retries fn when MySQL/Doris returns Error 1213 (deadlock).
 // Retries up to 3 times with exponential backoff (50ms, 100ms, 200ms).
 // Safe for all DB drivers — non-deadlock errors are returned immediately.
 func WithDeadlockRetry(ctx context.Context, fn func() error) error {
+	if fn == nil {
+		return nil
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -27,17 +31,24 @@ func WithDeadlockRetry(ctx context.Context, fn func() error) error {
 			wait := time.Duration(50<<attempt) * time.Millisecond
 			logger.Warnf(ctx, "[DeadlockRetry] attempt %d/%d failed with deadlock, retrying in %v: %v",
 				attempt+1, defaultMaxDeadlockRetries, wait, err)
+			timer := time.NewTimer(wait)
 			select {
 			case <-ctx.Done():
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
 				return ctx.Err()
-			case <-time.After(wait):
+			case <-timer.C:
 			}
 		}
 	}
 	return err
 }
 
-// IsDeadlockError checks whether err is a MySQL deadlock (Error 1213).
+// IsDeadlockError checks whether err is a MySQL/Doris deadlock (Error 1213).
 func IsDeadlockError(err error) bool {
 	if err == nil {
 		return false

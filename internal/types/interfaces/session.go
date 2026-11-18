@@ -55,7 +55,9 @@ type SessionService interface {
 	// GenerateTitleAsync generates a title for the session asynchronously
 	// It emits an event when the title is generated
 	// modelID: optional model ID to use for title generation (if empty, uses first available KnowledgeQA model)
-	GenerateTitleAsync(ctx context.Context, session *types.Session, userQuery string, modelID string, eventBus *event.EventBus)
+	GenerateTitleAsync(
+		ctx context.Context, session *types.Session, userQuery string, modelID string, eventBus *event.EventBus,
+	)
 	// KnowledgeQA performs knowledge-based question answering.
 	// Events are emitted through eventBus (references, answer chunks, completion).
 	KnowledgeQA(ctx context.Context, req *types.QARequest, eventBus *event.EventBus) error
@@ -93,7 +95,9 @@ type SessionRepository interface {
 	// GetByTenantID gets all sessions visible to the tenant/user scope.
 	GetByTenantID(ctx context.Context, tenantID uint64, userID string) ([]*types.Session, error)
 	// GetPagedByTenantID gets paged sessions visible to the tenant/user scope.
-	GetPagedByTenantID(ctx context.Context, tenantID uint64, userID string, page *types.Pagination) ([]*types.Session, int64, error)
+	GetPagedByTenantID(
+		ctx context.Context, tenantID uint64, userID string, page *types.Pagination,
+	) ([]*types.Session, int64, error)
 	// QueryPaged lists sessions with filters, user-scoped ownership and pin-aware ordering.
 	QueryPaged(ctx context.Context, q *types.SessionListQuery) ([]*types.SessionListItem, int64, error)
 	// Update updates a session visible to the tenant/user scope.
@@ -103,7 +107,9 @@ type SessionRepository interface {
 	// UpdateLastRequestState persists the most recent input-bar state for a
 	// session (agent, model, KB scope, etc.) so the chat UI can restore it
 	// when the session is reopened. Scope rules match Update.
-	UpdateLastRequestState(ctx context.Context, tenantID uint64, userID string, sessionID string, state *types.SessionLastRequestState) (int64, error)
+	UpdateLastRequestState(
+		ctx context.Context, tenantID uint64, userID string, sessionID string, state *types.SessionLastRequestState,
+	) (int64, error)
 	// SetPinned pins or unpins a session row scoped by tenant.
 	// userID, when non-empty, is enforced so users cannot pin sessions they don't own.
 	// Returns the number of rows affected; 0 means the session doesn't exist or is

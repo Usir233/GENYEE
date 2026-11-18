@@ -38,3 +38,8 @@ func TestIsAllowed_EmptyProvider(t *testing.T) {
 	t.Setenv(AllowListEnv, "minio")
 	require.True(t, IsAllowed(""))
 }
+
+func TestAllowedMap_HandlesCRAndCRLFDelimiters(t *testing.T) {
+	t.Setenv(AllowListEnv, "minio\rcos\r\ns3")
+	assert.Equal(t, []string{"minio", "cos", "s3"}, AllowedList())
+}

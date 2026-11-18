@@ -27,6 +27,7 @@ const (
 	SkillSnapshotStateDeleted    = "deleted"
 )
 
+// SkillSnapshotTrigger constants record what triggered a sandbox skill snapshot build.
 const (
 	SkillSnapshotTriggerInstall = "install"
 	SkillSnapshotTriggerRemove  = "remove"

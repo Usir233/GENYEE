@@ -16,7 +16,7 @@ func assertDNSCancellation(t *testing.T, want error, run func(context.Context) e
 	original := net.DefaultResolver
 	started, release := make(chan struct{}), make(chan struct{})
 	var signal, releaseOnce sync.Once
-	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		signal.Do(func() { close(started) })
 		select {
 		case <-release:
@@ -47,7 +47,8 @@ func assertDNSCancellation(t *testing.T, want error, run func(context.Context) e
 		t.Error("canceled call remains blocked in actual whitelist/SSRF DNS validation")
 		releaseOnce.Do(func() { close(release) })
 		select {
-		case <-done:
+		case err := <-done:
+			_ = err
 		case <-time.After(time.Second):
 			t.Error("call did not settle after fixture release")
 		}
@@ -60,10 +61,14 @@ func TestSSRFSinkDNSCancellation(t *testing.T) {
 	assertDNSCancellation(t, context.Canceled, func(ctx context.Context) error {
 		client := NewSSRFSafeHTTPClientWithTransport(DefaultSSRFSafeHTTPClientConfig(), &recordingRoundTripper{})
 		req, _ := http.NewRequestWithContext(ctx, "GET", "https://audit-slow-http.invalid", nil)
-		_, err := client.Do(req)
+		resp, err := client.Do(req)
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 		return err
 	})
 }
+
 func TestSSRFDialCIDRDNSCancellation(t *testing.T) {
 	SetSSRFWhitelistFromRaw("10.0.0.0/8")
 	t.Cleanup(ResetSSRFWhitelistForTest)
@@ -81,7 +86,10 @@ func TestSSRFSinkDNSHonorsHTTPClientTimeout(t *testing.T) {
 		config.Timeout = 30 * time.Millisecond
 		client := NewSSRFSafeHTTPClientWithTransport(config, &recordingRoundTripper{})
 		req, _ := http.NewRequestWithContext(ctx, "GET", "https://audit-slow-timeout.invalid", nil)
-		_, err := client.Do(req)
+		resp, err := client.Do(req)
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 		return err
 	})
 }

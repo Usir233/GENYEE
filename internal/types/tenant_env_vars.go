@@ -133,13 +133,13 @@ func (v *SkillEnvVars) Scan(value interface{}) error {
 // IM user of a workspace share a single credential.
 type TenantUserEnvVar struct {
 	ID       string `gorm:"type:varchar(36);primaryKey"`
-	TenantID uint64 `gorm:"uniqueIndex:uq_user_env_var,priority:1;index:idx_user_env_var_skill,priority:1;index:idx_user_env_var_config,priority:1"`
+	TenantID uint64 `gorm:"uniqueIndex:uq_user_env_var,priority:1;index:idx_user_env_var_skill,priority:1;index:idx_user_env_var_config,priority:1"` //nolint:lll // one-line struct tag
 
 	PrincipalType string `gorm:"type:varchar(32);not null;uniqueIndex:uq_user_env_var,priority:2"`
 	PrincipalID   string `gorm:"type:varchar(512);not null;uniqueIndex:uq_user_env_var,priority:3"`
 
-	SandboxConfigID string `gorm:"type:varchar(36);not null;uniqueIndex:uq_user_env_var,priority:4;index:idx_user_env_var_config,priority:2"`
-	SkillID         string `gorm:"type:varchar(36);not null;uniqueIndex:uq_user_env_var,priority:5;index:idx_user_env_var_skill,priority:2"`
+	SandboxConfigID string `gorm:"type:varchar(36);not null;uniqueIndex:uq_user_env_var,priority:4;index:idx_user_env_var_config,priority:2"` //nolint:lll // one-line struct tag
+	SkillID         string `gorm:"type:varchar(36);not null;uniqueIndex:uq_user_env_var,priority:5;index:idx_user_env_var_skill,priority:2"`  //nolint:lll // one-line struct tag
 	Name            string `gorm:"type:varchar(255);not null;uniqueIndex:uq_user_env_var,priority:6"`
 
 	// Value is AES-GCM encrypted at rest by BeforeSave and decrypted by
@@ -154,14 +154,16 @@ type TenantUserEnvVar struct {
 // TableName pins the table so GORM's pluralizer cannot drift.
 func (TenantUserEnvVar) TableName() string { return "tenant_user_env_vars" }
 
-func (e *TenantUserEnvVar) BeforeCreate(tx *gorm.DB) error {
+// BeforeCreate populates a default UUID and encrypts Value before inserting a TenantUserEnvVar.
+func (e *TenantUserEnvVar) BeforeCreate(_ *gorm.DB) error {
 	if e.ID == "" {
 		e.ID = uuid.New().String()
 	}
 	return e.encryptValue()
 }
 
-func (e *TenantUserEnvVar) BeforeSave(tx *gorm.DB) error {
+// BeforeSave encrypts the environment variable value before saving.
+func (e *TenantUserEnvVar) BeforeSave(_ *gorm.DB) error {
 	return e.encryptValue()
 }
 
@@ -177,7 +179,8 @@ func (e *TenantUserEnvVar) encryptValue() error {
 	return nil
 }
 
-func (e *TenantUserEnvVar) AfterFind(tx *gorm.DB) error {
+// AfterFind decrypts the stored environment variable value after loading from the database.
+func (e *TenantUserEnvVar) AfterFind(_ *gorm.DB) error {
 	e.Value = decryptEnvValue("tenant_user_env_vars", e.Name, e.Value)
 	return nil
 }

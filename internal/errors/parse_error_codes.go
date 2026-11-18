@@ -1,4 +1,5 @@
-// Package errors: parse stage error codes.
+// Package errors defines canonical application error codes, HTTP envelopes,
+// and parse stage failure codes.
 //
 // These constants are the stable wire format the frontend uses to map a
 // failure to a localized "what to do about it" message. Adding a new code

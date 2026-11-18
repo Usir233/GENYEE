@@ -242,19 +242,6 @@ var validBuiltinModelStatuses = map[ModelStatus]struct{}{
 	ModelStatusDownloadFailed: {},
 }
 
-// validateBuiltinModelEntry returns nil if the entry is loadable, or an
-// error describing what's wrong. Catches the failure modes that would
-// either crash the INSERT or silently produce an unusable row:
-//
-//   - empty id (cannot UPSERT)
-//   - id longer than the DB column (PG/SQLite cap at varchar(64),
-//     see ModelIDMaxLen) which would fail at INSERT time
-//   - empty or misspelled type (provider factories match exact strings)
-//   - explicit non-empty status outside the known set
-//
-// Source is intentionally NOT validated against a fixed list because the
-// provider matrix in internal/models/* keeps growing and a too-strict
-// check here would force changes in two places per new provider.
 // ValidateModelParameters is set at startup to runtime.ValidateRow. It is a
 // hook rather than a direct call because internal/models/catalog imports this
 // package, so the dependency can only run in this direction. A nil hook (unit
@@ -275,6 +262,19 @@ func warnOnUnresolvableParameters(m *Model) {
 	}
 }
 
+// validateBuiltinModelEntry returns nil if the entry is loadable, or an
+// error describing what's wrong. Catches the failure modes that would
+// either crash the INSERT or silently produce an unusable row:
+//
+//   - empty id (cannot UPSERT)
+//   - id longer than the DB column (PG/SQLite cap at varchar(64),
+//     see ModelIDMaxLen) which would fail at INSERT time
+//   - empty or misspelled type (provider factories match exact strings)
+//   - explicit non-empty status outside the known set
+//
+// Source is intentionally NOT validated against a fixed list because the
+// provider matrix in internal/models/* keeps growing and a too-strict
+// check here would force changes in two places per new provider.
 func validateBuiltinModelEntry(e *BuiltinModelEntry, index int) error {
 	if e.ID == "" {
 		return errBuiltinModel("entry %d has empty id", index)

@@ -1,3 +1,4 @@
+// Package stream provides in-memory and Redis-backed SSE stream and notice managers.
 package stream
 
 import (

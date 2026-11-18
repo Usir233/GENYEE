@@ -119,10 +119,20 @@ func mergeMetadataHeader(md map[string]interface{}, raw string) {
 		if merged >= maxLangfuseMetadataHeaderKeys {
 			break
 		}
-		if _, exists := md[k]; !exists && isScalarMetadataValue(extra[k]) {
-			md[k] = extra[k]
-			merged++
+		if _, exists := md[k]; exists || !isScalarMetadataValue(extra[k]) {
+			continue
 		}
+		if isSensitiveTraceKey(k) {
+			md[k] = "[REDACTED]"
+			merged++
+			continue
+		}
+		if s, ok := extra[k].(string); ok {
+			md[k] = redactLangfuseText(s)
+		} else {
+			md[k] = extra[k]
+		}
+		merged++
 	}
 }
 
@@ -168,7 +178,8 @@ func shouldTrace(c *gin.Context) bool {
 	case strings.HasPrefix(path, "/api/v1/knowledge-chat"),
 		strings.HasPrefix(path, "/api/v1/agent-chat"),
 		strings.HasPrefix(path, "/api/v1/knowledge-search"),
-		strings.HasPrefix(path, "/api/v1/sessions") && strings.Contains(path, "generate_title"),
+		strings.HasPrefix(path, "/api/v1/sessions") &&
+			(strings.Contains(path, "generate_title") || strings.Contains(path, "generate-title")),
 		strings.HasPrefix(path, "/api/v1/initialization/remote/check"),
 		strings.HasPrefix(path, "/api/v1/initialization/embedding/test"),
 		strings.HasPrefix(path, "/api/v1/initialization/rerank/check"),
@@ -206,7 +217,8 @@ func shouldTrace(c *gin.Context) bool {
 		case strings.HasPrefix(path, "/api/v1/chunks/") && method == "PUT":
 			return true
 		// Manual data source sync triggers asynq sync.
-		case strings.Contains(path, "/datasource/") && strings.HasSuffix(path, "/sync"):
+		case (strings.Contains(path, "/datasource/") || strings.Contains(path, "/data-sources/")) &&
+			strings.HasSuffix(path, "/sync"):
 			return true
 		}
 	}

@@ -16,20 +16,21 @@ var defaultHTTPClient = NewSSRFSafeHTTPClient(SSRFSafeHTTPClientConfig{
 // DownloadBytes fetches the content at the given HTTP(S) URL and returns the
 // raw bytes. It reuses a package-level http.Client with a 60-second timeout.
 // Responses exceeding the configured MAX_FILE_SIZE_MB limit are rejected.
-func DownloadBytes(url string) ([]byte, error) {
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return nil, fmt.Errorf("unsupported URL scheme: %s", url)
+func DownloadBytes(rawURL string) ([]byte, error) {
+	lower := strings.ToLower(strings.TrimSpace(rawURL))
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		return nil, fmt.Errorf("unsupported URL scheme: %s", RedactSensitiveString(rawURL))
 	}
-	if err := ValidateURLForSSRF(url); err != nil {
+	if err := ValidateURLForSSRF(rawURL); err != nil {
 		return nil, fmt.Errorf("URL rejected by SSRF policy: %w", err)
 	}
-	resp, err := defaultHTTPClient.Get(url)
+	resp, err := defaultHTTPClient.Get(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP GET: %w", err)
+		return nil, fmt.Errorf("HTTP GET: %s", RedactSensitiveString(err.Error()))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d for %s", resp.StatusCode, url)
+		return nil, fmt.Errorf("HTTP %d for %s", resp.StatusCode, RedactSensitiveString(rawURL))
 	}
 	maxBytes := GetMaxFileSize()
 	if resp.ContentLength > maxBytes {

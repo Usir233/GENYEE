@@ -171,6 +171,7 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 
+// OIDCAuthURLResponse carries the authorization redirect URL generated for OIDC login.
 type OIDCAuthURLResponse struct {
 	Success             bool   `json:"success"`
 	ProviderDisplayName string `json:"provider_display_name,omitempty"`
@@ -184,12 +185,14 @@ type OIDCAuthURLResponse struct {
 	PKCEVerifier string `json:"-"`
 }
 
+// OIDCConfigResponse reports public OIDC login enablement and display metadata.
 type OIDCConfigResponse struct {
 	Success             bool   `json:"success"`
 	Enabled             bool   `json:"enabled"`
 	ProviderDisplayName string `json:"provider_display_name,omitempty"`
 }
 
+// OIDCCallbackResponse carries tokens and user state issued after an OIDC callback.
 type OIDCCallbackResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message,omitempty"`
@@ -208,6 +211,7 @@ type OIDCCallbackResponse struct {
 	IsNewUser    bool         `json:"is_new_user,omitempty"`
 }
 
+// OIDCUserInfo holds normalized identity claims returned by an OIDC provider.
 type OIDCUserInfo struct {
 	Subject  string                 `json:"subject,omitempty"`
 	Username string                 `json:"username,omitempty"`
@@ -246,11 +250,13 @@ type AdminCreateUserRequest struct {
 // authority for the target tenant and role.
 type TenantProvisioningMode string
 
+// TenantProvisioningMode constants control workspace provisioning on first user registration.
 const (
 	TenantProvisioningCreatePersonal TenantProvisioningMode = "create_personal"
 	TenantProvisioningTenantless     TenantProvisioningMode = "tenantless"
 )
 
+// IsValid reports whether m is a supported TenantProvisioningMode.
 func (m TenantProvisioningMode) IsValid() bool {
 	return m == TenantProvisioningCreatePersonal || m == TenantProvisioningTenantless
 }

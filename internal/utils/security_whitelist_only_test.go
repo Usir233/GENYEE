@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"errors"
-	"net"
 	"strings"
 	"testing"
 )
@@ -74,7 +73,7 @@ func TestSSRFWhitelistOnlyEnabledParsesLikeTheRestOfTheRepo(t *testing.T) {
 		"True":    true,
 		"1":       true,
 		"t":       true,
-		" true ":  true,
+		" true ":  true, //nolint:gocritic // intentional whitespace test key
 		"yes":     true, // unparsable: fail closed rather than silently off
 		"on":      true,
 		"enabled": true,
@@ -153,24 +152,15 @@ func TestSSRFSafeDialContext_WhitelistOnlyRefusesNamesBeforeDNS(t *testing.T) {
 // addresses fall inside; whitelist-only mode matches by name only, because
 // that lookup is the query the mode exists to prevent.
 func TestIsSSRFWhitelisted_WhitelistOnlyMatchesByNameOnly(t *testing.T) {
-	ips, err := net.LookupIP("localhost")
-	loopback := false
-	for _, ip := range ips {
-		if ip.IsLoopback() {
-			loopback = true
-		}
-	}
-	if err != nil || !loopback {
-		t.Skip("localhost does not resolve to a loopback address here; the CIDR fallback cannot be exercised")
-	}
+	const loopbackHost = "loopback.fixture.invalid"
 
 	whitelistOnly(t, "127.0.0.0/8,::1/128,api.internal", "false")
-	if !IsSSRFWhitelisted("localhost") {
+	if !IsSSRFWhitelisted(loopbackHost) {
 		t.Fatal("with the mode off a hostname is matched by what it resolves to")
 	}
 
 	whitelistOnly(t, "127.0.0.0/8,::1/128,api.internal", "true")
-	if IsSSRFWhitelisted("localhost") {
+	if IsSSRFWhitelisted(loopbackHost) {
 		t.Fatal("whitelist-only mode must match by name, never by resolved address")
 	}
 	if !IsSSRFWhitelisted("api.internal") || !IsSSRFWhitelisted("127.0.0.1") {

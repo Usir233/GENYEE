@@ -327,7 +327,9 @@ func TestNewRequestRewriter_BlocksCrossTenantResourceAndProviderURIs(t *testing.
 	strictNoCatalog := NewRequestRewriter(ctx, ModePublic, &stubFileService{}, nil, WithStrictAuth())
 	assert.Equal(t, ownRef, strictNoCatalog.Ref(ctx, ownRef),
 		"WithStrictAuth without catalog must fail closed")
-	noTenantRewriter := NewRequestRewriter(context.Background(), ModePublic, &stubFileService{}, nil, WithRequestResources(catalog, nil))
+	noTenantRewriter := NewRequestRewriter(
+		context.Background(), ModePublic, &stubFileService{}, nil, WithRequestResources(catalog, nil),
+	)
 	assert.Equal(t, ownRef, noTenantRewriter.Ref(context.Background(), ownRef),
 		"missing tenant context with catalog must fail closed")
 }

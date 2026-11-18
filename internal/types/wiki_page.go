@@ -325,7 +325,7 @@ type WikiPageRevision struct {
 	ID              string      `json:"id" gorm:"type:varchar(36);primaryKey"`
 	TenantID        uint64      `json:"tenant_id" gorm:"index"`
 	KnowledgeBaseID string      `json:"knowledge_base_id" gorm:"type:varchar(36);index:idx_wiki_page_revisions_kb_slug"`
-	PageID          string      `json:"page_id" gorm:"type:varchar(36);uniqueIndex:idx_wiki_page_revisions_page_version"`
+	PageID          string      `json:"page_id" gorm:"type:varchar(36);uniqueIndex:idx_wiki_page_revisions_page_version"` //nolint:lll // one-line struct tag
 	Slug            string      `json:"slug" gorm:"type:varchar(255);index:idx_wiki_page_revisions_kb_slug"`
 	Version         int         `json:"version" gorm:"uniqueIndex:idx_wiki_page_revisions_page_version" extensions:"x-agent"`
 	Title           string      `json:"title" gorm:"type:varchar(512)" extensions:"x-agent"`

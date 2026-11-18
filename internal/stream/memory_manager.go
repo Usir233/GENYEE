@@ -8,7 +8,9 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
-// memoryStreamData holds stream events in memory
+const defaultMemoryStreamTTL = time.Hour
+
+// memoryStreamData holds stream events in memory.
 type memoryStreamData struct {
 	events      []interfaces.StreamEvent
 	steerEvents []interfaces.StreamEvent // control-plane events, never surfaced on SSE
@@ -20,31 +22,80 @@ type memoryStreamData struct {
 type liveRunMarker struct {
 	assistantMessageID string
 	requestID          string
+	updatedAt          time.Time
 }
 
-// MemoryStreamManager implements StreamManager using in-memory storage
+// MemoryStreamManager implements StreamManager using bounded TTL in-memory storage.
 type MemoryStreamManager struct {
 	// Map: sessionID -> messageID -> stream data
 	streams map[string]map[string]*memoryStreamData
 	// Map: sessionID -> the run currently generating. Single-process only,
-	// which is exactly why the memory backend is not suitable for a
-	// multi-replica deployment (see stream.NewStreamManager).
-	liveRuns map[string]liveRunMarker
-	mu       sync.RWMutex
+	// which is why the memory backend is intended for Lite / single-replica mode.
+	liveRuns  map[string]liveRunMarker
+	ttl       time.Duration
+	lastSweep time.Time
+	mu        sync.RWMutex
 }
 
-// NewMemoryStreamManager creates a new in-memory stream manager
+// NewMemoryStreamManager creates a new in-memory stream manager with the default 1h TTL.
 func NewMemoryStreamManager() *MemoryStreamManager {
+	return NewMemoryStreamManagerWithTTL(defaultMemoryStreamTTL)
+}
+
+// NewMemoryStreamManagerWithTTL creates an in-memory stream manager with a custom TTL.
+func NewMemoryStreamManagerWithTTL(ttl time.Duration) *MemoryStreamManager {
+	if ttl <= 0 {
+		ttl = defaultMemoryStreamTTL
+	}
 	return &MemoryStreamManager{
 		streams:  make(map[string]map[string]*memoryStreamData),
 		liveRuns: make(map[string]liveRunMarker),
+		ttl:      ttl,
 	}
 }
 
-// getOrCreateStream gets or creates stream data
+// evictExpiredLocked removes expired streams and live-run markers under m.mu write lock.
+func (m *MemoryStreamManager) evictExpiredLocked(now time.Time) {
+	cutoff := now.Add(-m.ttl)
+	for sessionID, marker := range m.liveRuns {
+		if !marker.updatedAt.IsZero() && marker.updatedAt.Before(cutoff) {
+			delete(m.liveRuns, sessionID)
+		}
+	}
+	for sessionID, sessionMap := range m.streams {
+		for messageID, data := range sessionMap {
+			data.mu.RLock()
+			expired := !data.lastUpdated.IsZero() && data.lastUpdated.Before(cutoff)
+			data.mu.RUnlock()
+			if expired {
+				delete(sessionMap, messageID)
+			}
+		}
+		if len(sessionMap) == 0 {
+			delete(m.streams, sessionID)
+		}
+	}
+	m.lastSweep = now
+}
+
+func (m *MemoryStreamManager) touchSessionLocked(sessionID string, now time.Time) {
+	if sessionID == "" {
+		return
+	}
+	if marker, ok := m.liveRuns[sessionID]; ok {
+		marker.updatedAt = now
+		m.liveRuns[sessionID] = marker
+	}
+}
+
+// getOrCreateStream gets or creates stream data while sweeping expired entries.
 func (m *MemoryStreamManager) getOrCreateStream(sessionID, messageID string) *memoryStreamData {
+	now := time.Now()
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.evictExpiredLocked(now)
+	m.touchSessionLocked(sessionID, now)
 
 	if _, exists := m.streams[sessionID]; !exists {
 		m.streams[sessionID] = make(map[string]*memoryStreamData)
@@ -53,17 +104,23 @@ func (m *MemoryStreamManager) getOrCreateStream(sessionID, messageID string) *me
 	if _, exists := m.streams[sessionID][messageID]; !exists {
 		m.streams[sessionID][messageID] = &memoryStreamData{
 			events:      make([]interfaces.StreamEvent, 0),
-			lastUpdated: time.Now(),
+			lastUpdated: now,
 		}
 	}
 
 	return m.streams[sessionID][messageID]
 }
 
-// getStream gets existing stream data (returns nil if not found)
-func (m *MemoryStreamManager) getStream(sessionID, messageID string) *memoryStreamData {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+// getStream gets existing non-expired stream data (returns nil if missing or expired).
+func (m *MemoryStreamManager) getStream(sessionID, messageID string, touchLive bool) *memoryStreamData {
+	now := time.Now()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.evictExpiredLocked(now)
+	if touchLive {
+		m.touchSessionLocked(sessionID, now)
+	}
 
 	if sessionMap, exists := m.streams[sessionID]; exists {
 		return sessionMap[messageID]
@@ -82,9 +139,9 @@ func cloneStreamEvent(ev interfaces.StreamEvent) interfaces.StreamEvent {
 	return ev
 }
 
-// AppendEvent appends a single event to the stream
+// AppendEvent appends a single event to the stream.
 func (m *MemoryStreamManager) AppendEvent(
-	ctx context.Context,
+	_ context.Context,
 	sessionID, messageID string,
 	event interfaces.StreamEvent,
 ) error {
@@ -94,12 +151,10 @@ func (m *MemoryStreamManager) AppendEvent(
 	defer stream.mu.Unlock()
 
 	ev := cloneStreamEvent(event)
-	// Set timestamp if not already set
 	if ev.Timestamp.IsZero() {
 		ev.Timestamp = time.Now()
 	}
 
-	// Append event
 	stream.events = append(stream.events, ev)
 	stream.lastUpdated = time.Now()
 
@@ -108,7 +163,7 @@ func (m *MemoryStreamManager) AppendEvent(
 
 // ResetEvents drops the message's events, keeping its steer events.
 func (m *MemoryStreamManager) ResetEvents(_ context.Context, sessionID, messageID string) error {
-	stream := m.getStream(sessionID, messageID)
+	stream := m.getStream(sessionID, messageID, false)
 	if stream == nil {
 		return nil
 	}
@@ -119,39 +174,34 @@ func (m *MemoryStreamManager) ResetEvents(_ context.Context, sessionID, messageI
 	return nil
 }
 
-// GetEvents gets events starting from offset
-// Returns: events slice, next offset, error
+// GetEvents gets events starting from offset, returning events slice, next offset, and error.
 func (m *MemoryStreamManager) GetEvents(
-	ctx context.Context,
+	_ context.Context,
 	sessionID, messageID string,
 	fromOffset int,
 ) ([]interfaces.StreamEvent, int, error) {
 	if fromOffset < 0 {
 		fromOffset = 0
 	}
-	stream := m.getStream(sessionID, messageID)
+	stream := m.getStream(sessionID, messageID, true)
 	if stream == nil {
-		// Stream doesn't exist yet
 		return []interfaces.StreamEvent{}, fromOffset, nil
 	}
 
-	stream.mu.RLock()
-	defer stream.mu.RUnlock()
-
-	// Check if offset is beyond current events
+	stream.mu.Lock()
+	stream.lastUpdated = time.Now()
 	if fromOffset >= len(stream.events) {
+		stream.mu.Unlock()
 		return []interfaces.StreamEvent{}, fromOffset, nil
 	}
 
-	// Get events from offset to end
 	events := stream.events[fromOffset:]
 	nextOffset := len(stream.events)
-
-	// Return copy of events to avoid race conditions
 	eventsCopy := make([]interfaces.StreamEvent, len(events))
 	for i := range events {
 		eventsCopy[i] = cloneStreamEvent(events[i])
 	}
+	stream.mu.Unlock()
 
 	return eventsCopy, nextOffset, nil
 }
@@ -199,15 +249,15 @@ func (m *MemoryStreamManager) GetSteerEvents(
 	if fromOffset < 0 {
 		fromOffset = 0
 	}
-	stream := m.getStream(sessionID, messageID)
+	stream := m.getStream(sessionID, messageID, true)
 	if stream == nil {
 		return []interfaces.StreamEvent{}, fromOffset, nil
 	}
 
-	stream.mu.RLock()
-	defer stream.mu.RUnlock()
-
+	stream.mu.Lock()
+	stream.lastUpdated = time.Now()
 	if fromOffset >= len(stream.steerEvents) {
+		stream.mu.Unlock()
 		return []interfaces.StreamEvent{}, fromOffset, nil
 	}
 
@@ -217,6 +267,7 @@ func (m *MemoryStreamManager) GetSteerEvents(
 	for i := range events {
 		eventsCopy[i] = cloneStreamEvent(events[i])
 	}
+	stream.mu.Unlock()
 	return eventsCopy, nextOffset, nil
 }
 
@@ -226,7 +277,7 @@ func (m *MemoryStreamManager) UpdateSteerEventData(
 	sessionID, messageID, eventID string,
 	data map[string]interface{},
 ) (bool, error) {
-	stream := m.getStream(sessionID, messageID)
+	stream := m.getStream(sessionID, messageID, false)
 	if stream == nil {
 		return false, nil
 	}
@@ -237,8 +288,6 @@ func (m *MemoryStreamManager) UpdateSteerEventData(
 		if stream.steerEvents[i].ID != eventID {
 			continue
 		}
-		// Copy before mutating: GetSteerEvents hands out a shallow copy of the
-		// slice, so callers may still hold the old Data map.
 		merged := make(map[string]interface{}, len(stream.steerEvents[i].Data)+len(data))
 		for k, v := range stream.steerEvents[i].Data {
 			merged[k] = v
@@ -258,7 +307,7 @@ func (m *MemoryStreamManager) DeleteSteerEvent(
 	_ context.Context,
 	sessionID, messageID, eventID string,
 ) (bool, error) {
-	stream := m.getStream(sessionID, messageID)
+	stream := m.getStream(sessionID, messageID, false)
 	if stream == nil {
 		return false, nil
 	}
@@ -286,14 +335,17 @@ func (m *MemoryStreamManager) SetLiveRun(
 	_ context.Context,
 	sessionID, assistantMessageID, requestID string,
 ) error {
+	now := time.Now()
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.evictExpiredLocked(now)
 	if existing, ok := m.liveRuns[sessionID]; ok && existing.assistantMessageID != assistantMessageID {
 		return ErrLiveRunExists
 	}
 	m.liveRuns[sessionID] = liveRunMarker{
 		assistantMessageID: assistantMessageID,
 		requestID:          requestID,
+		updatedAt:          now,
 	}
 	return nil
 }
@@ -303,11 +355,14 @@ func (m *MemoryStreamManager) ClaimLiveRun(
 	_ context.Context,
 	sessionID, assistantMessageID, requestID string,
 ) error {
+	now := time.Now()
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.evictExpiredLocked(now)
 	m.liveRuns[sessionID] = liveRunMarker{
 		assistantMessageID: assistantMessageID,
 		requestID:          requestID,
+		updatedAt:          now,
 	}
 	return nil
 }
@@ -317,12 +372,16 @@ func (m *MemoryStreamManager) GetLiveRun(
 	_ context.Context,
 	sessionID string,
 ) (string, string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	now := time.Now()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.evictExpiredLocked(now)
 	marker, ok := m.liveRuns[sessionID]
 	if !ok {
 		return "", "", nil
 	}
+	marker.updatedAt = now
+	m.liveRuns[sessionID] = marker
 	return marker.assistantMessageID, marker.requestID, nil
 }
 
@@ -364,5 +423,5 @@ func (m *MemoryStreamManager) DropMessageStreams(
 	return nil
 }
 
-// Ensure MemoryStreamManager implements StreamManager interface
+// Ensure MemoryStreamManager implements StreamManager interface.
 var _ interfaces.StreamManager = (*MemoryStreamManager)(nil)

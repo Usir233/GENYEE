@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -88,7 +89,9 @@ func ValidateTaskID(taskID string) error {
 // Task types may contain underscores (e.g. "faq_import", "kb_clone"), so the
 // parser locates the tenant/timestamp pair rather than assuming parts[0] is
 // the full task type.
-func ParseTaskID(taskID string) (taskType string, tenantID uint64, timestamp int64, uuidPart string, businessID string, err error) {
+func ParseTaskID(
+	taskID string,
+) (taskType string, tenantID uint64, timestamp int64, uuidPart string, businessID string, err error) {
 	parts := strings.Split(taskID, "_")
 	if len(parts) < 4 {
 		err = fmt.Errorf("invalid task ID format: %s", taskID)
@@ -138,11 +141,14 @@ func sanitizeTaskType(taskType string) string {
 	return strings.ToLower(taskType)
 }
 
-// sanitizeBusinessID ensures business ID is safe for use in task ID
+// sanitizeBusinessID ensures business ID is safe for use in task ID.
 func sanitizeBusinessID(businessID string) string {
-	// Take first 12 characters and replace special characters
 	if len(businessID) > 12 {
-		businessID = businessID[:12]
+		cut := 12
+		for cut > 0 && !utf8.RuneStart(businessID[cut]) {
+			cut--
+		}
+		businessID = businessID[:cut]
 	}
 	businessID = strings.ReplaceAll(businessID, "-", "")
 	businessID = strings.ReplaceAll(businessID, "_", "")

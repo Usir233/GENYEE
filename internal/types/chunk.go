@@ -3,11 +3,15 @@
 package types
 
 import (
+	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+var sqliteChunkSeqMu sync.Mutex
 
 // ChunkType 定义了不同类型的 Chunk
 type ChunkType = string
@@ -53,6 +57,7 @@ func IsImageChildChunkType(t ChunkType) bool {
 // ChunkStatus 定义了不同状态的 Chunk
 type ChunkStatus int
 
+// ChunkStatus constants track indexing progress of a chunk.
 const (
 	ChunkStatusDefault ChunkStatus = 0
 	// ChunkStatusStored 表示已存储的 Chunk
@@ -185,6 +190,8 @@ type Chunk struct {
 	ContentHash string `json:"content_hash"             gorm:"type:varchar(64)"`
 	// 图片信息，存储为 JSON
 	ImageInfo string `json:"image_info"               gorm:"type:text"`
+	// 视频信息，存储为 JSON（对应 chunks.video_info 列）
+	VideoInfo string `json:"video_info,omitempty"     gorm:"type:text"`
 	// Chunk creation time
 	CreatedAt time.Time `json:"created_at"`
 	// Chunk last update time
@@ -238,7 +245,7 @@ func (c *Chunk) EmbeddingContent() string {
 func AssignChunkSeqIDs(tx *gorm.DB, chunks []*Chunk) error {
 	needAssign := false
 	for _, c := range chunks {
-		if c.SeqID == 0 {
+		if c != nil && c.SeqID == 0 {
 			needAssign = true
 			break
 		}
@@ -246,6 +253,12 @@ func AssignChunkSeqIDs(tx *gorm.DB, chunks []*Chunk) error {
 	if !needAssign {
 		return nil
 	}
+	if tx == nil {
+		return errors.New("assign chunk seq_ids: gorm db is required")
+	}
+
+	sqliteChunkSeqMu.Lock()
+	defer sqliteChunkSeqMu.Unlock()
 
 	var maxSeqID *int64
 	if err := tx.Unscoped().Model(&Chunk{}).Select("MAX(seq_id)").Scan(&maxSeqID).Error; err != nil {
@@ -256,7 +269,7 @@ func AssignChunkSeqIDs(tx *gorm.DB, chunks []*Chunk) error {
 		next = *maxSeqID + 1
 	}
 	for _, c := range chunks {
-		if c.SeqID == 0 {
+		if c != nil && c.SeqID == 0 {
 			c.SeqID = next
 			next++
 		}

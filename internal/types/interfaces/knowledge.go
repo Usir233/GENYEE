@@ -47,9 +47,13 @@ type KnowledgeService interface {
 	) (*types.Knowledge, error)
 	// CreateKnowledgeFromPassage creates knowledge from text passages.
 	// channel identifies the ingestion channel; empty defaults to "web".
-	CreateKnowledgeFromPassage(ctx context.Context, kbID string, passage []string, channel string) (*types.Knowledge, error)
+	CreateKnowledgeFromPassage(
+		ctx context.Context, kbID string, passage []string, channel string,
+	) (*types.Knowledge, error)
 	// CreateKnowledgeFromPassageSync creates knowledge from text passages and waits until chunks are indexed.
-	CreateKnowledgeFromPassageSync(ctx context.Context, kbID string, passage []string, channel string) (*types.Knowledge, error)
+	CreateKnowledgeFromPassageSync(
+		ctx context.Context, kbID string, passage []string, channel string,
+	) (*types.Knowledge, error)
 	// CreateKnowledgeFromManual creates or saves manual Markdown knowledge content.
 	// channel identifies the ingestion channel; empty defaults to "web".
 	CreateKnowledgeFromManual(
@@ -72,7 +76,8 @@ type KnowledgeService interface {
 	GetOwningKBCreatorID(ctx context.Context, knowledgeID string) (string, error)
 	// GetKnowledgeBatch retrieves a batch of knowledge by IDs.
 	GetKnowledgeBatch(ctx context.Context, tenantID uint64, ids []string) ([]*types.Knowledge, error)
-	// GetKnowledgeBatchWithSharedAccess retrieves knowledge by IDs including items from shared KBs the user has access to.
+	// GetKnowledgeBatchWithSharedAccess retrieves knowledge by IDs including
+	// items from shared KBs the user has access to.
 	GetKnowledgeBatchWithSharedAccess(ctx context.Context, tenantID uint64, ids []string) ([]*types.Knowledge, error)
 	// ListKnowledgeIDsByTagIDs returns document knowledge IDs carrying any of
 	// the specified KB-local tags.
@@ -181,7 +186,9 @@ type KnowledgeService interface {
 	// GetFAQEntry retrieves a single FAQ entry by seq_id.
 	GetFAQEntry(ctx context.Context, kbID string, entrySeqID int64) (*types.FAQEntry, error)
 	// UpdateFAQEntry updates a single FAQ entry.
-	UpdateFAQEntry(ctx context.Context, kbID string, entrySeqID int64, payload *types.FAQEntryPayload) (*types.FAQEntry, error)
+	UpdateFAQEntry(
+		ctx context.Context, kbID string, entrySeqID int64, payload *types.FAQEntryPayload,
+	) (*types.FAQEntry, error)
 	// AddSimilarQuestions adds similar questions to a FAQ entry.
 	AddSimilarQuestions(ctx context.Context, kbID string, entrySeqID int64, questions []string) (*types.FAQEntry, error)
 	// UpdateFAQEntryFieldsBatch updates multiple fields for FAQ entries in batch.
@@ -240,9 +247,18 @@ type KnowledgeService interface {
 	UpdateLastFAQImportResultDisplayStatus(ctx context.Context, kbID string, displayStatus string) error
 	// SearchKnowledge searches knowledge items by keyword across the tenant.
 	// fileTypes: optional list of file extensions to filter by (e.g., ["csv", "xlsx"])
-	SearchKnowledge(ctx context.Context, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error)
-	// SearchKnowledgeForScopes searches knowledge within the given (tenant_id, kb_id) scopes (e.g. for shared agent context).
-	SearchKnowledgeForScopes(ctx context.Context, scopes []types.KnowledgeSearchScope, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error)
+	SearchKnowledge(
+		ctx context.Context, keyword string, offset, limit int, fileTypes []string,
+	) ([]*types.Knowledge, bool, int64, error)
+	// SearchKnowledgeForScopes searches knowledge within the given
+	// (tenant_id, kb_id) scopes (e.g. for shared agent context).
+	SearchKnowledgeForScopes(
+		ctx context.Context,
+		scopes []types.KnowledgeSearchScope,
+		keyword string,
+		offset, limit int,
+		fileTypes []string,
+	) ([]*types.Knowledge, bool, int64, error)
 }
 
 // KnowledgeRepository defines the interface for knowledge repositories.
@@ -352,14 +368,20 @@ type KnowledgeRepository interface {
 	CountKnowledgeByStatus(ctx context.Context, tenantID uint64, kbID string, parseStatuses []string) (int64, error)
 	// SearchKnowledge searches knowledge items by keyword across the tenant.
 	// fileTypes: optional list of file extensions to filter by (e.g., ["csv", "xlsx"])
-	SearchKnowledge(ctx context.Context, tenantID uint64, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, error)
+	SearchKnowledge(
+		ctx context.Context, tenantID uint64, keyword string, offset, limit int, fileTypes []string,
+	) ([]*types.Knowledge, bool, error)
 
 	// FindByMetadataKey finds a knowledge item by a key-value pair in the metadata JSON column.
 	// Used by data source sync to locate existing items by external_id.
-	FindByMetadataKey(ctx context.Context, tenantID uint64, kbID string, key string, value string) (*types.Knowledge, error)
+	FindByMetadataKey(
+		ctx context.Context, tenantID uint64, kbID string, key string, value string,
+	) (*types.Knowledge, error)
 	// FindByMetadataKeyPrefix finds knowledge items whose metadata[key] starts
 	// with the given prefix. Used to sweep an external node's attachment sub-items.
-	FindByMetadataKeyPrefix(ctx context.Context, tenantID uint64, kbID string, key string, prefix string) ([]*types.Knowledge, error)
+	FindByMetadataKeyPrefix(
+		ctx context.Context, tenantID uint64, kbID string, key string, prefix string,
+	) ([]*types.Knowledge, error)
 	// FindByDataSourceExternalID finds a knowledge item owned by one data source
 	// and identified by the source's external item ID.
 	FindByDataSourceExternalID(
@@ -370,8 +392,15 @@ type KnowledgeRepository interface {
 	HardDeleteKnowledge(ctx context.Context, tenantID uint64, id string) error
 	// HardDeleteKnowledgeList is the batch counterpart of HardDeleteKnowledge.
 	HardDeleteKnowledgeList(ctx context.Context, tenantID uint64, ids []string) error
-	// SearchKnowledgeInScopes searches knowledge items by keyword within the given (tenant_id, kb_id) scopes (own + shared).
-	SearchKnowledgeInScopes(ctx context.Context, scopes []types.KnowledgeSearchScope, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error)
+	// SearchKnowledgeInScopes searches knowledge items by keyword within the
+	// given (tenant_id, kb_id) scopes (own + shared).
+	SearchKnowledgeInScopes(
+		ctx context.Context,
+		scopes []types.KnowledgeSearchScope,
+		keyword string,
+		offset, limit int,
+		fileTypes []string,
+	) ([]*types.Knowledge, bool, int64, error)
 	// ListIDsByTagIDs returns all knowledge IDs that have any of the specified tag IDs (OR semantics).
 	ListIDsByTagIDs(ctx context.Context, tenantID uint64, kbID string, tagIDs []string) ([]string, error)
 	// SetKnowledgeTags replaces all tags for a single knowledge entry (deletes old, inserts new).

@@ -12,45 +12,48 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 )
 
-// EventType represents the type of event in the system
+// EventType represents the type of event in the system.
+//
+//nolint:revive // EventType is the historical name every caller uses.
 type EventType string
 
+// System event type constants emitted across query, retrieval, chat, and agent lifecycles.
 const (
-	// Query processing events
+	// EventQueryReceived indicates a user query arrived.
 	EventQueryReceived   EventType = "query.received"   // 用户查询到达
 	EventQueryValidated  EventType = "query.validated"  // 查询验证完成
 	EventQueryPreprocess EventType = "query.preprocess" // 查询预处理
 	EventQueryRewrite    EventType = "query.rewrite"    // 查询改写
 	EventQueryRewritten  EventType = "query.rewritten"  // 查询改写完成
 
-	// Retrieval events
+	// EventRetrievalStart indicates retrieval started.
 	EventRetrievalStart    EventType = "retrieval.start"    // 检索开始
 	EventRetrievalVector   EventType = "retrieval.vector"   // 向量检索
 	EventRetrievalKeyword  EventType = "retrieval.keyword"  // 关键词检索
 	EventRetrievalEntity   EventType = "retrieval.entity"   // 实体检索
 	EventRetrievalComplete EventType = "retrieval.complete" // 检索完成
 
-	// Rerank events
+	// EventRerankStart indicates reranking started.
 	EventRerankStart    EventType = "rerank.start"    // 排序开始
 	EventRerankComplete EventType = "rerank.complete" // 排序完成
 
-	// Merge events
+	// EventMergeStart indicates chunk merging started.
 	EventMergeStart    EventType = "merge.start"    // 合并开始
 	EventMergeComplete EventType = "merge.complete" // 合并完成
 
-	// Chat completion events
+	// EventChatStart indicates chat generation started.
 	EventChatStart    EventType = "chat.start"    // 聊天生成开始
 	EventChatComplete EventType = "chat.complete" // 聊天生成完成
 	EventChatStream   EventType = "chat.stream"   // 聊天流式输出
 
-	// Agent events
+	// EventAgentQuery indicates an agent query started.
 	EventAgentQuery    EventType = "agent.query"    // Agent 查询开始
 	EventAgentPlan     EventType = "agent.plan"     // Agent 计划生成
 	EventAgentStep     EventType = "agent.step"     // Agent 步骤执行
 	EventAgentTool     EventType = "agent.tool"     // Agent 工具调用
 	EventAgentComplete EventType = "agent.complete" // Agent 完成
 
-	// Agent streaming events (for real-time feedback)
+	// EventAgentProgress delivers real-time user-facing intermediate updates.
 	EventAgentProgress      EventType = "progress"       // User-facing intermediate update
 	EventAgentThought       EventType = "thought"        // Agent 思考过程
 	EventAgentCommandOutput EventType = "command_output" // bounded command output
@@ -60,7 +63,7 @@ const (
 	EventAgentReferences    EventType = "references"     // 知识引用
 	EventAgentFinalAnswer   EventType = "final_answer"   // 最终答案
 
-	// MCP tool human approval (issue #1173)
+	// EventToolApprovalRequired requests human approval for a dangerous MCP tool (issue #1173).
 	EventToolApprovalRequired EventType = "tool_approval_required"
 	EventToolApprovalResolved EventType = "tool_approval_resolved"
 
@@ -69,18 +72,15 @@ const (
 	EventAgentPromptRequired EventType = "agent_prompt_required"
 	EventAgentPromptResolved EventType = "agent_prompt_resolved"
 
-	// MCP OAuth in-conversation authorization prompt: emitted when an
-	// OAuth-enabled MCP service is invoked but the current user has not
-	// authorized it yet. The agent pauses until the user authorizes (or the
-	// wait times out / is canceled).
+	// EventMCPOAuthRequired emits an in-conversation MCP OAuth authorization prompt when an
+	// OAuth-enabled MCP service is invoked before the current user has authorized it.
 	EventMCPOAuthRequired EventType = "mcp_oauth_required"
 	EventMCPOAuthResolved EventType = "mcp_oauth_resolved"
 
-	// Error events
+	// EventError represents a pipeline or agent error event.
 	EventError EventType = "error" // 错误事件
 
-	// Long-term memory recalled for this turn. Emitted once, before the answer
-	// streams, so the UI can show which memories the answer saw.
+	// EventMemoryRecalled carries long-term memories recalled for this turn before the answer streams.
 	EventMemoryRecalled EventType = "memory_recalled"
 
 	// EventContextCompacted is emitted when older conversation was summarized
@@ -92,10 +92,10 @@ const (
 	// agent drainSteerMessages).
 	EventUserMessageInjected EventType = "user_message_injected"
 
-	// Session events
+	// EventSessionTitle notifies listeners of an updated session title.
 	EventSessionTitle EventType = "session_title" // 会话标题更新
 
-	// Control events
+	// EventStop signals cancellation of in-flight generation.
 	EventStop EventType = "stop" // 停止对话生成
 )
 
@@ -109,7 +109,9 @@ type Event struct {
 	RequestID string                 // 请求ID
 }
 
-// EventHandler is a function that handles events
+// EventHandler is a function that handles events.
+//
+//nolint:revive // EventHandler is the historical name every caller uses.
 type EventHandler func(ctx context.Context, event Event) error
 
 // snapshotEventForHandler returns a per-handler copy of the event with an
@@ -121,11 +123,14 @@ func snapshotEventForHandler(event Event) Event {
 	return e
 }
 
-// EventBus manages event publishing and subscription
+// EventBus manages event publishing and subscription.
+//
+//nolint:revive // EventBus is the historical name every caller uses.
 type EventBus struct {
 	mu        sync.RWMutex
 	handlers  map[EventType][]EventHandler
-	asyncMode bool // 是否异步处理事件
+	asyncMode bool
+	asyncWG   sync.WaitGroup
 }
 
 // NewEventBus creates a new EventBus instance
@@ -168,7 +173,9 @@ func (eb *EventBus) Off(eventType EventType) {
 // Returns error if any handler fails (in sync mode)
 // Automatically generates an ID for the event if not provided (from source)
 func (eb *EventBus) Emit(ctx context.Context, event Event) error {
-	// Auto-generate ID if not provided (from source)
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if event.ID == "" {
 		event.ID = uuid.New().String()
 	}
@@ -178,35 +185,32 @@ func (eb *EventBus) Emit(ctx context.Context, event Event) error {
 	eb.mu.RUnlock()
 
 	if len(handlers) == 0 {
-		// No handlers registered for this event type
 		return nil
 	}
 
 	if eb.asyncMode {
-		// Async mode: fire and forget. Each handler gets its own copy of the
-		// event: handlers may annotate what they receive (the WithTiming
-		// middleware writes Metadata["duration_ms"]), and a shared metadata
-		// map written from concurrent goroutines is a fatal concurrent-map
-		// panic the per-handler recover() cannot catch.
 		for _, handler := range handlers {
 			if handler == nil {
 				continue
 			}
-			h := handler // capture loop variable
+			h := handler
 			e := snapshotEventForHandler(event)
+			eb.asyncWG.Add(1)
 			go func() {
+				defer eb.asyncWG.Done()
 				defer func() {
 					if r := recover(); r != nil {
 						logger.Errorf(ctx, "event handler panic recovered (type=%s): %v", event.Type, r)
 					}
 				}()
-				_ = h(ctx, e)
+				if err := h(ctx, e); err != nil {
+					logger.Errorf(ctx, "async event handler failed (type=%s): %v", event.Type, err)
+				}
 			}()
 		}
 		return nil
 	}
 
-	// Sync mode: execute handlers sequentially with isolated event metadata and panic recovery
 	for _, handler := range handlers {
 		if handler == nil {
 			continue
@@ -229,11 +233,19 @@ func callEventHandlerSafe(ctx context.Context, eventType EventType, handler Even
 	return handler(ctx, event)
 }
 
-// EmitAndWait publishes an event and waits for all handlers to complete
-// This method works in both sync and async mode
-// Automatically generates an ID for the event if not provided (from source)
+// Wait blocks until all in-flight asynchronous event handlers complete.
+func (eb *EventBus) Wait() {
+	if eb == nil {
+		return
+	}
+	eb.asyncWG.Wait()
+}
+
+// EmitAndWait publishes an event and waits for all handlers to complete.
 func (eb *EventBus) EmitAndWait(ctx context.Context, event Event) error {
-	// Auto-generate ID if not provided (from source)
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if event.ID == "" {
 		event.ID = uuid.New().String()
 	}
@@ -250,8 +262,11 @@ func (eb *EventBus) EmitAndWait(ctx context.Context, event Event) error {
 	errChan := make(chan error, len(handlers))
 
 	for _, handler := range handlers {
+		if handler == nil {
+			continue
+		}
 		wg.Add(1)
-		h := handler // capture loop variable
+		h := handler
 		e := snapshotEventForHandler(event)
 
 		go func() {
@@ -270,7 +285,6 @@ func (eb *EventBus) EmitAndWait(ctx context.Context, event Event) error {
 	wg.Wait()
 	close(errChan)
 
-	// Collect errors
 	for err := range errChan {
 		if err != nil {
 			return fmt.Errorf("event handler failed for %s: %w", event.Type, err)

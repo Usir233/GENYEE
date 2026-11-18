@@ -70,7 +70,9 @@ func TestOutboundSSRFWaiterCancellationIsIndependent(t *testing.T) {
 			}
 			finish()
 			<-leader
-			require.NoError(t, validateURLForSSRFForOutboundContext(context.Background(), target), "cancellation is not cached")
+			require.NoError(
+				t, validateURLForSSRFForOutboundContext(context.Background(), target), "cancellation is not cached",
+			)
 		})
 	}
 }

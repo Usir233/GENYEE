@@ -3,6 +3,7 @@ package types
 // SourceType represents the type of content source
 type SourceType int
 
+// SourceType constants identify the source kind of an embedding record.
 const (
 	ChunkSourceType   SourceType = iota // Source is a text chunk
 	PassageSourceType                   // Source is a passage
@@ -18,6 +19,7 @@ const (
 // MatchType represents the type of matching algorithm
 type MatchType int
 
+// MatchType constants describe how a search result was matched.
 const (
 	MatchTypeEmbedding MatchType = iota
 	MatchTypeKeywords

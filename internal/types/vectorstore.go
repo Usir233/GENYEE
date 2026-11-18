@@ -62,7 +62,7 @@ func (VectorStore) TableName() string {
 
 // BeforeCreate is a GORM hook that runs before creating a new record.
 // Automatically generates a UUID for new vector stores.
-func (v *VectorStore) BeforeCreate(tx *gorm.DB) error {
+func (v *VectorStore) BeforeCreate(_ *gorm.DB) error {
 	if v.ID == "" {
 		v.ID = uuid.New().String()
 	}
@@ -161,14 +161,18 @@ type ConnectionConfig struct {
 func (c ConnectionConfig) Value() (driver.Value, error) {
 	if key := utils.GetAESKey(); key != nil {
 		if c.Password != "" {
-			if encrypted, err := utils.EncryptAESGCM(c.Password, key); err == nil {
-				c.Password = encrypted
+			encrypted, err := utils.EncryptAESGCM(c.Password, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt vector store connection password: %w", err)
 			}
+			c.Password = encrypted
 		}
 		if c.APIKey != "" {
-			if encrypted, err := utils.EncryptAESGCM(c.APIKey, key); err == nil {
-				c.APIKey = encrypted
+			encrypted, err := utils.EncryptAESGCM(c.APIKey, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt vector store connection api_key: %w", err)
 			}
+			c.APIKey = encrypted
 		}
 	}
 	return json.Marshal(c)
@@ -247,21 +251,32 @@ type IndexConfig struct {
 	CollectionName   string `yaml:"collection_name" json:"collection_name,omitempty"`       // Milvus
 
 	// --- Scalability fields ---
-	ShardNumber       int `yaml:"shard_number" json:"shard_number,omitempty"`               // Qdrant: number of shards per collection
-	ReplicationFactor int `yaml:"replication_factor" json:"replication_factor,omitempty"`   // Qdrant, Weaviate: number of replicas
-	ShardsNum         int `yaml:"shards_num" json:"shards_num,omitempty"`                   // Milvus: number of shards per collection (CreateCollection)
-	ReplicaNumber     int `yaml:"replica_number" json:"replica_number,omitempty"`           // Milvus LoadCollection / Tencent VectorDB CreateCollection replicas
-	DesiredShardCount int `yaml:"desired_shard_count" json:"desired_shard_count,omitempty"` // Weaviate: number of shards per collection
-	BucketsNum        int `yaml:"buckets_num" json:"buckets_num,omitempty"`                 // Doris: number of buckets per table (DISTRIBUTED BY HASH ... BUCKETS N)
-	ReplicationNum    int `yaml:"replication_num" json:"replication_num,omitempty"`         // Doris: replication_num PROPERTIES
+	// ShardNumber sets Qdrant shards per collection.
+	ShardNumber int `yaml:"shard_number" json:"shard_number,omitempty"`
+	// ReplicationFactor sets Qdrant / Weaviate replica count.
+	ReplicationFactor int `yaml:"replication_factor" json:"replication_factor,omitempty"`
+	// ShardsNum sets Milvus shards per collection (CreateCollection).
+	ShardsNum int `yaml:"shards_num" json:"shards_num,omitempty"`
+	// ReplicaNumber sets Milvus LoadCollection / Tencent VectorDB CreateCollection replicas.
+	ReplicaNumber int `yaml:"replica_number" json:"replica_number,omitempty"`
+	// DesiredShardCount sets Weaviate shards per collection.
+	DesiredShardCount int `yaml:"desired_shard_count" json:"desired_shard_count,omitempty"`
+	// BucketsNum sets Doris buckets per table (DISTRIBUTED BY HASH ... BUCKETS N).
+	BucketsNum int `yaml:"buckets_num" json:"buckets_num,omitempty"`
+	// ReplicationNum sets Doris replication_num PROPERTIES.
+	ReplicationNum int `yaml:"replication_num" json:"replication_num,omitempty"`
 
 	// --- OpenSearch k-NN HNSW fields ---
 	// All omitempty so other engines' serialized IndexConfig is unchanged.
 	// Zero / empty values fall back to the driver defaults in buildInternalCfg.
-	HNSWM              int    `yaml:"hnsw_m" json:"hnsw_m,omitempty"`                             // OpenSearch: HNSW graph degree (M)
-	HNSWEFConstruction int    `yaml:"hnsw_ef_construction" json:"hnsw_ef_construction,omitempty"` // OpenSearch: HNSW index-build candidate list size
-	HNSWEFSearch       int    `yaml:"hnsw_ef_search" json:"hnsw_ef_search,omitempty"`             // OpenSearch: HNSW search candidate list size (faiss; lucene reads at query time)
-	KNNEngine          string `yaml:"knn_engine" json:"knn_engine,omitempty"`                     // OpenSearch: k-NN backend ("lucene" | "faiss")
+	// HNSWM sets OpenSearch HNSW graph degree (M).
+	HNSWM int `yaml:"hnsw_m" json:"hnsw_m,omitempty"`
+	// HNSWEFConstruction sets OpenSearch HNSW index-build candidate list size.
+	HNSWEFConstruction int `yaml:"hnsw_ef_construction" json:"hnsw_ef_construction,omitempty"`
+	// HNSWEFSearch sets OpenSearch HNSW search candidate list size (faiss; lucene reads at query time).
+	HNSWEFSearch int `yaml:"hnsw_ef_search" json:"hnsw_ef_search,omitempty"`
+	// KNNEngine selects the OpenSearch k-NN backend ("lucene" | "faiss").
+	KNNEngine string `yaml:"knn_engine" json:"knn_engine,omitempty"`
 }
 
 // Value implements the driver.Valuer interface.
@@ -470,15 +485,18 @@ func ValidateIndexConfig(ic IndexConfig) error {
 	// Validate string fields (index/collection names)
 	if ic.IndexName != "" && !validIndexNamePattern.MatchString(ic.IndexName) {
 		return errors.NewValidationError(
-			"index_name must start with a letter and contain only alphanumeric, underscore, or hyphen characters (max 128)")
+			"index_name must start with a letter and contain only " +
+				"alphanumeric, underscore, or hyphen characters (max 128)")
 	}
 	if ic.CollectionPrefix != "" && !validIndexNamePattern.MatchString(ic.CollectionPrefix) {
 		return errors.NewValidationError(
-			"collection_prefix must start with a letter and contain only alphanumeric, underscore, or hyphen characters (max 128)")
+			"collection_prefix must start with a letter and contain only " +
+				"alphanumeric, underscore, or hyphen characters (max 128)")
 	}
 	if ic.CollectionName != "" && !validIndexNamePattern.MatchString(ic.CollectionName) {
 		return errors.NewValidationError(
-			"collection_name must start with a letter and contain only alphanumeric, underscore, or hyphen characters (max 128)")
+			"collection_name must start with a letter and contain only " +
+				"alphanumeric, underscore, or hyphen characters (max 128)")
 	}
 
 	// Validate numeric fields (shards/replicas) — must be within safe bounds
@@ -694,9 +712,15 @@ func GetVectorStoreTypes() []VectorStoreTypeInfo {
 				{Name: "use_tls", Type: "boolean", Required: false, Description: "Use TLS", Default: false},
 			},
 			IndexFields: []VectorStoreFieldInfo{
-				{Name: "collection_prefix", Type: "string", Required: false, Description: "Collection Prefix", Default: "genyee_embeddings"},
+				{
+					Name: "collection_prefix", Type: "string", Required: false,
+					Description: "Collection Prefix", Default: "genyee_embeddings",
+				},
 				{Name: "shard_number", Type: "number", Required: false, Description: "Shard Number", Default: 1},
-				{Name: "replication_factor", Type: "number", Required: false, Description: "Replication Factor", Default: 1},
+				{
+					Name: "replication_factor", Type: "number", Required: false,
+					Description: "Replication Factor", Default: 1,
+				},
 			},
 		},
 		{
@@ -709,24 +733,42 @@ func GetVectorStoreTypes() []VectorStoreTypeInfo {
 				{Name: "password", Type: "string", Required: false, Sensitive: true, Description: "Password"},
 			},
 			IndexFields: []VectorStoreFieldInfo{
-				{Name: "collection_name", Type: "string", Required: false, Description: "Collection Name", Default: "genyee_embeddings"},
-				{Name: "shards_num", Type: "number", Required: false, Description: "Shards (write parallelism)", Default: 1},
-				{Name: "replica_number", Type: "number", Required: false, Description: "In-memory Replicas (read HA)", Default: 1},
+				{
+					Name: "collection_name", Type: "string", Required: false,
+					Description: "Collection Name", Default: "genyee_embeddings",
+				},
+				{
+					Name: "shards_num", Type: "number", Required: false,
+					Description: "Shards (write parallelism)", Default: 1,
+				},
+				{
+					Name: "replica_number", Type: "number", Required: false,
+					Description: "In-memory Replicas (read HA)", Default: 1,
+				},
 			},
 		},
 		{
 			Type:        "tencent_vectordb",
 			DisplayName: "Tencent VectorDB",
 			ConnectionFields: []VectorStoreFieldInfo{
-				{Name: "addr", Type: "string", Required: true, Description: "Address", Default: "http://localhost:8080"},
+				{
+					Name: "addr", Type: "string", Required: true,
+					Description: "Address", Default: "http://localhost:8080",
+				},
 				{Name: "username", Type: "string", Required: true, Description: "Username"},
 				{Name: "api_key", Type: "string", Required: true, Sensitive: true, Description: "API Key"},
 				{Name: "database", Type: "string", Required: false, Description: "Database", Default: "genyee"},
 			},
 			IndexFields: []VectorStoreFieldInfo{
-				{Name: "collection_name", Type: "string", Required: false, Description: "Collection Name", Default: "genyee_embeddings"},
+				{
+					Name: "collection_name", Type: "string", Required: false,
+					Description: "Collection Name", Default: "genyee_embeddings",
+				},
 				{Name: "shards_num", Type: "number", Required: false, Description: "Shards", Default: 1},
-				{Name: "replica_number", Type: "number", Required: false, Description: "Replicas", Default: tencentVectorDBReplicaNumber},
+				{
+					Name: "replica_number", Type: "number", Required: false,
+					Description: "Replicas", Default: tencentVectorDBReplicaNumber,
+				},
 			},
 		},
 		{
@@ -734,28 +776,46 @@ func GetVectorStoreTypes() []VectorStoreTypeInfo {
 			DisplayName: "Weaviate",
 			ConnectionFields: []VectorStoreFieldInfo{
 				{Name: "host", Type: "string", Required: true, Description: "Host", Default: "weaviate:8080"},
-				{Name: "grpc_address", Type: "string", Required: false, Description: "gRPC Address", Default: "weaviate:50051"},
+				{
+					Name: "grpc_address", Type: "string", Required: false,
+					Description: "gRPC Address", Default: "weaviate:50051",
+				},
 				{Name: "scheme", Type: "string", Required: false, Description: "Scheme", Default: "http"},
 				{Name: "api_key", Type: "string", Required: false, Sensitive: true, Description: "API Key"},
 			},
 			IndexFields: []VectorStoreFieldInfo{
-				{Name: "collection_prefix", Type: "string", Required: false, Description: "Collection Prefix", Default: "Genyee_embeddings"},
+				{
+					Name: "collection_prefix", Type: "string", Required: false,
+					Description: "Collection Prefix", Default: "Genyee_embeddings",
+				},
 				{Name: "desired_shard_count", Type: "number", Required: false, Description: "Shard Count", Default: 1},
-				{Name: "replication_factor", Type: "number", Required: false, Description: "Replication Factor", Default: 1},
+				{
+					Name: "replication_factor", Type: "number", Required: false,
+					Description: "Replication Factor", Default: 1,
+				},
 			},
 		},
 		{
 			Type:        "doris",
 			DisplayName: "Apache Doris",
 			ConnectionFields: []VectorStoreFieldInfo{
-				{Name: "addr", Type: "string", Required: true, Description: "FE MySQL Address (host:port)", Default: "doris-fe:9030"},
-				{Name: "http_port", Type: "number", Required: false, Description: "FE HTTP Port (Stream Load)", Default: 8030},
+				{
+					Name: "addr", Type: "string", Required: true,
+					Description: "FE MySQL Address (host:port)", Default: "doris-fe:9030",
+				},
+				{
+					Name: "http_port", Type: "number", Required: false,
+					Description: "FE HTTP Port (Stream Load)", Default: 8030,
+				},
 				{Name: "database", Type: "string", Required: true, Description: "Database", Default: "genyee"},
 				{Name: "username", Type: "string", Required: false, Description: "Username", Default: "root"},
 				{Name: "password", Type: "string", Required: false, Sensitive: true, Description: "Password"},
 			},
 			IndexFields: []VectorStoreFieldInfo{
-				{Name: "collection_prefix", Type: "string", Required: false, Description: "Table Prefix", Default: "genyee_embeddings"},
+				{
+					Name: "collection_prefix", Type: "string", Required: false,
+					Description: "Table Prefix", Default: "genyee_embeddings",
+				},
 				{Name: "buckets_num", Type: "number", Required: false, Description: "Buckets per table", Default: 10},
 				{Name: "replication_num", Type: "number", Required: false, Description: "Replication Num", Default: 1},
 			},
@@ -767,17 +827,43 @@ func GetVectorStoreTypes() []VectorStoreTypeInfo {
 				{Name: "addr", Type: "string", Required: true, Description: "URL", Default: "https://localhost:9200"},
 				{Name: "username", Type: "string", Required: false, Description: "Username", Default: "admin"},
 				{Name: "password", Type: "string", Required: false, Sensitive: true, Description: "Password"},
-				{Name: "insecure_skip_verify", Type: "boolean", Required: false, Default: false,
-					Description: "Skip TLS certificate verification. For self-signed dev clusters only — never enable in production."},
+				{
+					Name: "insecure_skip_verify", Type: "boolean", Required: false, Default: false,
+					Description: "Skip TLS certificate verification. " +
+						"For self-signed dev clusters only — never enable in production.",
+				},
 			},
 			IndexFields: []VectorStoreFieldInfo{
 				{Name: "index_name", Type: "string", Required: false, Description: "Index Name", Default: "genyee"},
-				{Name: "number_of_shards", Type: "number", Required: false, Description: "Shards", Default: 4, Min: floatPtr(1), Max: floatPtr(64)},
-				{Name: "number_of_replicas", Type: "number", Required: false, Description: "Replicas", Default: 1, Min: floatPtr(0), Max: floatPtr(10)},
-				{Name: "hnsw_m", Type: "number", Required: false, Description: "HNSW graph degree (M). Immutable after index creation.", Default: 16, Min: floatPtr(2), Max: floatPtr(100), Immutable: true},
-				{Name: "hnsw_ef_construction", Type: "number", Required: false, Description: "HNSW build candidate list. Higher (e.g. 200-512) improves recall at the cost of build time. Immutable after creation.", Default: 100, Min: floatPtr(2), Max: floatPtr(4096), Immutable: true},
-				{Name: "hnsw_ef_search", Type: "number", Required: false, Description: "HNSW search candidate list. Effective on the faiss engine; the lucene engine reads it at query time. Immutable (no settings-update path).", Default: 100, Min: floatPtr(1), Max: floatPtr(10000), Immutable: true},
-				{Name: "knn_engine", Type: "string", Required: false, Description: "k-NN backend.", Default: "lucene", Enum: []string{"lucene", "faiss"}, Immutable: true},
+				{
+					Name: "number_of_shards", Type: "number", Required: false, Description: "Shards",
+					Default: 4, Min: floatPtr(1), Max: floatPtr(64),
+				},
+				{
+					Name: "number_of_replicas", Type: "number", Required: false, Description: "Replicas",
+					Default: 1, Min: floatPtr(0), Max: floatPtr(10),
+				},
+				{
+					Name: "hnsw_m", Type: "number", Required: false,
+					Description: "HNSW graph degree (M). Immutable after index creation.",
+					Default:     16, Min: floatPtr(2), Max: floatPtr(100), Immutable: true,
+				},
+				{
+					Name: "hnsw_ef_construction", Type: "number", Required: false,
+					Description: "HNSW build candidate list. Higher (e.g. 200-512) improves recall " +
+						"at the cost of build time. Immutable after creation.",
+					Default: 100, Min: floatPtr(2), Max: floatPtr(4096), Immutable: true,
+				},
+				{
+					Name: "hnsw_ef_search", Type: "number", Required: false,
+					Description: "HNSW search candidate list. Effective on the faiss engine; " +
+						"the lucene engine reads it at query time. Immutable (no settings-update path).",
+					Default: 100, Min: floatPtr(1), Max: floatPtr(10000), Immutable: true,
+				},
+				{
+					Name: "knn_engine", Type: "string", Required: false, Description: "k-NN backend.",
+					Default: "lucene", Enum: []string{"lucene", "faiss"}, Immutable: true,
+				},
 			},
 		},
 	}

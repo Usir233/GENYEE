@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/utils"
@@ -17,9 +18,9 @@ import (
 // One row per (tenant_id, service_id). The client_secret is encrypted at rest
 // (AES-256-GCM) when SYSTEM_AES_KEY is configured.
 type MCPOAuthClient struct {
-	ID           string    `json:"id"            gorm:"type:varchar(36);primaryKey"`
-	TenantID     uint64    `json:"tenant_id"     gorm:"not null;uniqueIndex:idx_mcp_oauth_clients_tenant_svc"`
-	ServiceID    string    `json:"service_id"    gorm:"type:varchar(36);not null;uniqueIndex:idx_mcp_oauth_clients_tenant_svc;index"`
+	ID           string    `json:"id" gorm:"type:varchar(36);primaryKey"`
+	TenantID     uint64    `json:"tenant_id" gorm:"not null;uniqueIndex:idx_mcp_oauth_clients_tenant_svc"`
+	ServiceID    string    `json:"service_id" gorm:"type:varchar(36);not null;uniqueIndex:idx_mcp_oauth_clients_tenant_svc;index"` //nolint:lll // one-line struct tag
 	ClientID     string    `json:"client_id"     gorm:"type:varchar(512);not null"`
 	ClientSecret string    `json:"-"             gorm:"type:text"`
 	RedirectURI  string    `json:"redirect_uri"  gorm:"type:varchar(1024)"`
@@ -27,28 +28,29 @@ type MCPOAuthClient struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
-// TableName pins the table name. GORM's default naming would otherwise turn
-// "MCPOAuthClient" into "mcpo_auth_clients" (treating "MCPO" as one token),
-// which does not match the migration table "mcp_oauth_clients".
+// TableName pins the table name to match the migration's "mcp_oauth_clients".
 func (MCPOAuthClient) TableName() string { return "mcp_oauth_clients" }
 
 // BeforeCreate sets the primary key and encrypts the client secret.
-func (m *MCPOAuthClient) BeforeCreate(tx *gorm.DB) error {
+func (m *MCPOAuthClient) BeforeCreate(_ *gorm.DB) error {
 	if m.ID == "" {
 		m.ID = uuid.New().String()
 	}
-	m.encryptSecret()
-	return nil
+	return m.encryptSecret()
 }
 
-// BeforeSave re-encrypts the secret on update paths.
-func (m *MCPOAuthClient) BeforeSave(tx *gorm.DB) error {
-	m.encryptSecret()
-	return nil
+// BeforeSave re-encrypts the secret on create/update paths.
+func (m *MCPOAuthClient) BeforeSave(_ *gorm.DB) error {
+	return m.encryptSecret()
+}
+
+// AfterSave restores plaintext in memory so callers holding m never read ciphertext.
+func (m *MCPOAuthClient) AfterSave(tx *gorm.DB) error {
+	return m.AfterFind(tx)
 }
 
 // AfterFind decrypts the client secret after loading.
-func (m *MCPOAuthClient) AfterFind(tx *gorm.DB) error {
+func (m *MCPOAuthClient) AfterFind(_ *gorm.DB) error {
 	if plain, ok := utils.DecryptStoredSecretLenient(m.ClientSecret); ok {
 		m.ClientSecret = plain
 	} else {
@@ -57,15 +59,18 @@ func (m *MCPOAuthClient) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
-func (m *MCPOAuthClient) encryptSecret() {
+func (m *MCPOAuthClient) encryptSecret() error {
 	if m.ClientSecret == "" {
-		return
+		return nil
 	}
 	if key := utils.GetAESKey(); key != nil {
-		if enc, err := utils.EncryptAESGCM(m.ClientSecret, key); err == nil {
-			m.ClientSecret = enc
+		enc, err := utils.EncryptAESGCM(m.ClientSecret, key)
+		if err != nil {
+			return fmt.Errorf("encrypt mcp_oauth_clients.client_secret: %w", err)
 		}
+		m.ClientSecret = enc
 	}
+	return nil
 }
 
 // MCPOAuthToken stores a per-principal OAuth token for an MCP service. The
@@ -78,9 +83,9 @@ type MCPOAuthToken struct {
 	ID            string    `json:"id"            gorm:"type:varchar(36);primaryKey"`
 	TenantID      uint64    `json:"tenant_id"     gorm:"not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc"`
 	UserID        string    `json:"user_id"       gorm:"type:varchar(512);not null;index"`
-	PrincipalType string    `json:"principal_type" gorm:"type:varchar(32);not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc;index"`
-	PrincipalID   string    `json:"principal_id"   gorm:"type:varchar(512);not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc;index"`
-	ServiceID     string    `json:"service_id"    gorm:"type:varchar(36);not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc;index"`
+	PrincipalType string    `json:"principal_type" gorm:"type:varchar(32);not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc;index"` //nolint:lll // one-line struct tag
+	PrincipalID   string    `json:"principal_id" gorm:"type:varchar(512);not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc;index"`  //nolint:lll // one-line struct tag
+	ServiceID     string    `json:"service_id" gorm:"type:varchar(36);not null;uniqueIndex:idx_mcp_oauth_tokens_tenant_principal_svc;index"`     //nolint:lll // one-line struct tag
 	AccessToken   string    `json:"-"             gorm:"type:text"`
 	RefreshToken  string    `json:"-"             gorm:"type:text"`
 	TokenType     string    `json:"token_type"    gorm:"type:varchar(32)"`
@@ -94,27 +99,29 @@ type MCPOAuthToken struct {
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
-// TableName pins the table name (see MCPOAuthClient.TableName); the default
-// would be "mcpo_auth_tokens" instead of the migration's "mcp_oauth_tokens".
+// TableName pins the table name to match the migration's "mcp_oauth_tokens".
 func (MCPOAuthToken) TableName() string { return "mcp_oauth_tokens" }
 
 // BeforeCreate sets the primary key and encrypts secrets.
-func (m *MCPOAuthToken) BeforeCreate(tx *gorm.DB) error {
+func (m *MCPOAuthToken) BeforeCreate(_ *gorm.DB) error {
 	if m.ID == "" {
 		m.ID = uuid.New().String()
 	}
-	m.encryptSecrets()
-	return nil
+	return m.encryptSecrets()
 }
 
-// BeforeSave re-encrypts secrets on update paths.
-func (m *MCPOAuthToken) BeforeSave(tx *gorm.DB) error {
-	m.encryptSecrets()
-	return nil
+// BeforeSave re-encrypts secrets on create/update paths.
+func (m *MCPOAuthToken) BeforeSave(_ *gorm.DB) error {
+	return m.encryptSecrets()
+}
+
+// AfterSave restores plaintext in memory so callers holding m never read ciphertext.
+func (m *MCPOAuthToken) AfterSave(tx *gorm.DB) error {
+	return m.AfterFind(tx)
 }
 
 // AfterFind decrypts secrets after loading.
-func (m *MCPOAuthToken) AfterFind(tx *gorm.DB) error {
+func (m *MCPOAuthToken) AfterFind(_ *gorm.DB) error {
 	if plain, ok := utils.DecryptStoredSecretLenient(m.AccessToken); ok {
 		m.AccessToken = plain
 	} else {
@@ -128,19 +135,24 @@ func (m *MCPOAuthToken) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
-func (m *MCPOAuthToken) encryptSecrets() {
+func (m *MCPOAuthToken) encryptSecrets() error {
 	key := utils.GetAESKey()
 	if key == nil {
-		return
+		return nil
 	}
 	if m.AccessToken != "" {
-		if enc, err := utils.EncryptAESGCM(m.AccessToken, key); err == nil {
-			m.AccessToken = enc
+		enc, err := utils.EncryptAESGCM(m.AccessToken, key)
+		if err != nil {
+			return fmt.Errorf("encrypt mcp_oauth_tokens.access_token: %w", err)
 		}
+		m.AccessToken = enc
 	}
 	if m.RefreshToken != "" {
-		if enc, err := utils.EncryptAESGCM(m.RefreshToken, key); err == nil {
-			m.RefreshToken = enc
+		enc, err := utils.EncryptAESGCM(m.RefreshToken, key)
+		if err != nil {
+			return fmt.Errorf("encrypt mcp_oauth_tokens.refresh_token: %w", err)
 		}
+		m.RefreshToken = enc
 	}
+	return nil
 }

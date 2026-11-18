@@ -36,7 +36,9 @@ type FileService interface {
 // OwnedBytesFileService distinguishes a new upload from a deduplicated object.
 // A reused object belongs to another save and must never be rolled back by this one.
 type OwnedBytesFileService interface {
-	SaveBytesWithOwnership(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (reference string, created bool, err error)
+	SaveBytesWithOwnership(
+		ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool,
+	) (reference string, created bool, err error)
 }
 
 type independentFileWritesKey struct{}
@@ -51,6 +53,7 @@ func WithIndependentFileWrites(ctx context.Context) context.Context {
 	return context.WithValue(ctx, independentFileWritesKey{}, true)
 }
 
+// IndependentFileWrites reports whether ctx opted out of content-hash blob reuse.
 func IndependentFileWrites(ctx context.Context) bool {
 	if ctx == nil {
 		return false
@@ -59,7 +62,10 @@ func IndependentFileWrites(ctx context.Context) bool {
 	return independent
 }
 
-func SaveBytesWithOwnership(ctx context.Context, svc FileService, data []byte, tenantID uint64, fileName string, temp bool) (string, bool, error) {
+// SaveBytesWithOwnership stores data and reports whether a brand-new blob was created.
+func SaveBytesWithOwnership(
+	ctx context.Context, svc FileService, data []byte, tenantID uint64, fileName string, temp bool,
+) (string, bool, error) {
 	if owned, ok := svc.(OwnedBytesFileService); ok {
 		return owned.SaveBytesWithOwnership(ctx, data, tenantID, fileName, temp)
 	}
@@ -73,6 +79,7 @@ type UnboundFileService interface {
 	DeleteUnboundFile(ctx context.Context, reference string) error
 }
 
+// DeleteUnboundFile deletes a newly uploaded file reference that failed to bind to a resource record.
 func DeleteUnboundFile(ctx context.Context, svc FileService, reference string) error {
 	if cleaner, ok := svc.(UnboundFileService); ok {
 		return cleaner.DeleteUnboundFile(ctx, reference)
