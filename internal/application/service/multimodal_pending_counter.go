@@ -129,10 +129,8 @@ func enqueueWithRetry(ctx context.Context, enq interfaces.TaskEnqueuer, task *as
 		if attempt == postProcessEnqueueAttempts {
 			break
 		}
-		select {
-		case <-time.After(time.Duration(attempt) * postProcessEnqueueBackoff):
-		case <-ctx.Done():
-			return fmt.Errorf("enqueue %s: %w (last error: %v)", task.Type(), ctx.Err(), lastErr)
+		if sleepErr := sleepWithContext(ctx, time.Duration(attempt)*postProcessEnqueueBackoff); sleepErr != nil {
+			return fmt.Errorf("enqueue %s: %w (last error: %v)", task.Type(), sleepErr, lastErr)
 		}
 	}
 	return fmt.Errorf("enqueue %s after %d attempts: %w", task.Type(), postProcessEnqueueAttempts, lastErr)

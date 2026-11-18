@@ -64,11 +64,11 @@ func (h *wikiSlugHandles) decodeContent(content string) string {
 		return content
 	}
 	out, _ := rewriteDeadWikiLinks(content, func(norm, _ string) (string, bool) {
-		real, ok := h.table.Resolve(norm)
+		resolved, ok := h.table.Resolve(norm)
 		if !ok {
 			return "", false
 		}
-		return real, true
+		return resolved, true
 	})
 	return out
 }

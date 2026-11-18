@@ -18,18 +18,30 @@ func TestWikiDeadLetterFailureKeepsPendingAndFinalizingSlot(t *testing.T) {
 	for _, failure := range []struct {
 		name, trigger string
 	}{
-		{"archive", "CREATE TRIGGER fail_settlement BEFORE INSERT ON task_dead_letters BEGIN SELECT RAISE(FAIL, 'archive unavailable'); END"},
-		{"delete", "CREATE TRIGGER fail_settlement BEFORE DELETE ON task_pending_ops BEGIN SELECT RAISE(FAIL, 'delete unavailable'); END"},
+		{
+			"archive",
+			"CREATE TRIGGER fail_settlement BEFORE INSERT ON task_dead_letters BEGIN SELECT RAISE(FAIL, " +
+				"'archive unavailable'); END",
+		},
+		{
+			"delete",
+			"CREATE TRIGGER fail_settlement BEFORE DELETE ON task_pending_ops BEGIN SELECT RAISE(FAIL, 'delete " +
+				"unavailable'); END",
+		},
 	} {
 		t.Run(failure.name, func(t *testing.T) {
 			svc, db := newWikiLookupRecoveryService(t, "kb-1", nil)
 			require.NoError(t, db.AutoMigrate(&types.TaskDeadLetter{}))
 			svc.deadLetterRepo = apprepo.NewTaskDeadLetterRepository(db)
 			task := seedWikiLookupTask(t, svc, db, "kb-1", "unreadable")
-			require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("dedup_key = ?", "unreadable").Update("fail_count", wikiMaxFailRetries).Error)
+			require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("dedup_key = ?",
+				"unreadable").Update("fail_count", wikiMaxFailRetries).Error)
 			// A different enrichment task still owns the second slot.
-			require.NoError(t, db.Exec("UPDATE knowledges SET pending_subtasks_count = 2 WHERE id = ?", "unreadable").Error)
-			svc.knowledgeSvc.(*wikiKnowledgeLookupStub).lookup = func(context.Context, string) (*types.Knowledge, error) {
+			require.NoError(t, db.Exec("UPDATE knowledges SET pending_subtasks_count = 2 WHERE id = ?",
+				"unreadable").Error)
+			svc.knowledgeSvc.(*wikiKnowledgeLookupStub).lookup = func(context.Context, string) (*types.Knowledge,
+				error,
+			) {
 				return nil, errors.New("persistent lookup failure")
 			}
 			require.NoError(t, db.Exec(failure.trigger).Error)

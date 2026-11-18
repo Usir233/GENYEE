@@ -1,4 +1,4 @@
-// Package service: span tracker.
+// Package service implements span tracking for knowledge processing pipelines.
 //
 // SpanTracker is the pipeline-facing facade for recording per-attempt
 // progress trees. It mirrors Langfuse's vocabulary (root / span /
@@ -319,7 +319,9 @@ func (t *spanTracker) LatestAttempt(ctx context.Context, knowledgeID string) int
 	return n
 }
 
-func (t *spanTracker) BeginStage(ctx context.Context, knowledgeID string, attempt int, stage string, input types.JSONMap) *Span {
+func (t *spanTracker) BeginStage(ctx context.Context, knowledgeID string, attempt int, stage string,
+	input types.JSONMap,
+) *Span {
 	if knowledgeID == "" || stage == "" {
 		return nil
 	}

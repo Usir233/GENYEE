@@ -155,12 +155,15 @@ func (s *knowledgeService) syncFAQChunkStatusBatch(
 	if len(recommendedUpdates) > 0 {
 		// Vector-store recommended flag sync is not yet available on all backends in
 		// this branch; DB flags were already updated above.
-		logger.Warnf(ctx, "FAQ clone sync: skipped vector recommended update for %d chunks (DB flags updated)", len(recommendedUpdates))
+		logger.Warnf(ctx, "FAQ clone sync: skipped vector recommended update for %d chunks (DB flags updated)",
+			len(recommendedUpdates))
 	}
 	return nil
 }
 
-func srcForDst(pairs []types.FAQChunkSyncPair, srcByID map[string]*types.FAQChunkStatus, dstID string) *types.FAQChunkStatus {
+func srcForDst(pairs []types.FAQChunkSyncPair, srcByID map[string]*types.FAQChunkStatus,
+	dstID string,
+) *types.FAQChunkStatus {
 	for _, p := range pairs {
 		if p.DstChunkID == dstID {
 			return srcByID[p.SrcChunkID]

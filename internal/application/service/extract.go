@@ -28,59 +28,72 @@ import (
 
 const (
 	// tableDescriptionPromptTemplate is the prompt template for generating table descriptions
-	tableDescriptionPromptTemplate = `You are a data analysis expert. Based on the following table structure information and data samples, generate a concise table metadata description (200-300 words).
-
-Table name: %s
-
-%s
-
-%s
-
-Please describe the table from the following dimensions:
-1. **Data Subject**: What type of data does this table record? (e.g., user information, sales records, log data, etc.)
-2. **Core Fields**: List 3-5 most important fields and their meanings
-3. **Data Scale**: Total number of rows and columns
-4. **Business Scenarios**: What business analysis or application scenarios might this table be used for?
-5. **Key Characteristics**: What notable features does the data have? (e.g., contains geographic locations, has category labels, has hierarchical relationships, etc.)
-
-**Important Notes**:
-- Do not output specific data values or sample content
-- Use general descriptions so users can quickly determine if this table contains the information they need
-- Use concise and professional language for easy retrieval and understanding
-- Write the description in the same language as the data content`
+	tableDescriptionPromptTemplate = "You are a data analysis expert. " +
+		"Based on the following table structure information and data samples, " +
+		"generate a concise table metadata description (200-300 words).\n" +
+		"\n" +
+		"Table name: %s\n" +
+		"\n" +
+		"%s\n" +
+		"\n" +
+		"%s\n" +
+		"\n" +
+		"Please describe the table from the following dimensions:\n" +
+		"1. **Data Subject**: What type of data does this table record? (e.g., user information, sales " +
+		"records, log data, etc.)\n" +
+		"2. **Core Fields**: List 3-5 most important fields and their meanings\n" +
+		"3. **Data Scale**: Total number of rows and columns\n" +
+		"4. **Business Scenarios**: What business analysis or application scenarios might this table " +
+		"be used for?\n" +
+		"5. **Key Characteristics**: What notable features does the data have? (e.g., contains " +
+		"geographic locations, has category labels, has hierarchical relationships, etc.)\n" +
+		"\n" +
+		"**Important Notes**:\n" +
+		"- Do not output specific data values or sample content\n" +
+		"- Use general descriptions so users can quickly determine if this table contains the " +
+		"information they need\n" +
+		"- Use concise and professional language for easy retrieval and understanding\n" +
+		"- Write the description in the same language as the data content"
 
 	// columnDescriptionsPromptTemplate is the prompt template for generating column descriptions
-	columnDescriptionsPromptTemplate = `You are a data analysis expert. Based on the following table structure information and data samples, generate structured description information for each column.
-
-Table name: %s
-
-%s
-
-%s
-
-Please generate a detailed description for each column, including the following information:
-1. **Field Meaning**: What information does this column store? (e.g., user ID, order amount, creation time, etc.)
-2. **Data Type**: The type and format of the data (e.g., integer, string, datetime, boolean, etc.)
-3. **Business Purpose**: The role of this field in business (e.g., for user identification, amount calculation, time sorting, etc.)
-4. **Data Characteristics**: Notable features of the data (e.g., unique identifier, nullable, has enum values, has units, etc.)
-
-Please output in the following format (one paragraph per column):
-
-**Column1** (data type)
-- Field Meaning: xxx
-- Business Purpose: xxx
-- Data Characteristics: xxx
-
-**Column2** (data type)
-- Field Meaning: xxx
-- Business Purpose: xxx
-- Data Characteristics: xxx
-
-**Important Notes**:
-- Do not output specific data values, only describe the field metadata
-- Use clear business terms for easy user understanding and search
-- If enum value ranges can be inferred from sample data, provide a summary (e.g., status field contains pending/in-progress/completed states)
-- Write descriptions in the same language as the data content`
+	columnDescriptionsPromptTemplate = "You are a data analysis expert. " +
+		"Based on the following table structure information and data samples, " +
+		"generate structured description information for each column.\n" +
+		"\n" +
+		"Table name: %s\n" +
+		"\n" +
+		"%s\n" +
+		"\n" +
+		"%s\n" +
+		"\n" +
+		"Please generate a detailed description for each column, including the following information:\n" +
+		"1. **Field Meaning**: What information does this column store? (e.g., user ID, order amount, " +
+		"creation time, etc.)\n" +
+		"2. **Data Type**: The type and format of the data (e.g., integer, string, datetime, boolean, " +
+		"etc.)\n" +
+		"3. **Business Purpose**: The role of this field in business (e.g., for user identification, " +
+		"amount calculation, time sorting, etc.)\n" +
+		"4. **Data Characteristics**: Notable features of the data (e.g., unique identifier, nullable, " +
+		"has enum values, has units, etc.)\n" +
+		"\n" +
+		"Please output in the following format (one paragraph per column):\n" +
+		"\n" +
+		"**Column1** (data type)\n" +
+		"- Field Meaning: xxx\n" +
+		"- Business Purpose: xxx\n" +
+		"- Data Characteristics: xxx\n" +
+		"\n" +
+		"**Column2** (data type)\n" +
+		"- Field Meaning: xxx\n" +
+		"- Business Purpose: xxx\n" +
+		"- Data Characteristics: xxx\n" +
+		"\n" +
+		"**Important Notes**:\n" +
+		"- Do not output specific data values, only describe the field metadata\n" +
+		"- Use clear business terms for easy user understanding and search\n" +
+		"- If enum value ranges can be inferred from sample data, provide a summary (e.g., status " +
+		"field contains pending/in-progress/completed states)\n" +
+		"- Write descriptions in the same language as the data content"
 )
 
 // NewChunkExtractTask creates a new chunk extract task. It returns
@@ -127,7 +140,7 @@ func NewChunkExtractTask(
 	return true, nil
 }
 
-// NewTableExtractTask creates a new table extract task
+// NewDataTableSummaryTask creates a new table summary task.
 func NewDataTableSummaryTask(
 	ctx context.Context,
 	client interfaces.TaskEnqueuer,
@@ -175,7 +188,8 @@ func enqueueDataTableSummaryIfNeeded(
 	if !isDataTableFileType(ft) {
 		return
 	}
-	if err := NewDataTableSummaryTask(ctx, client, tenantID, knowledgeID, summaryModelID, embeddingModelID); err != nil {
+	if err := NewDataTableSummaryTask(ctx, client, tenantID, knowledgeID, summaryModelID,
+		embeddingModelID); err != nil {
 		logger.Warnf(ctx, "Failed to enqueue data table summary task for knowledge %s: %v", knowledgeID, err)
 	}
 }
@@ -417,7 +431,7 @@ func (s *ChunkExtractService) Handle(ctx context.Context, t *asynq.Task) error {
 	return nil
 }
 
-// DataTableExtractPayload represents the table extract task payload
+// DataTableSummaryPayload represents the table summary task payload.
 type DataTableSummaryPayload struct {
 	types.TracingContext
 	TenantID       uint64 `json:"tenant_id"`
@@ -605,7 +619,9 @@ func (s *DataTableSummaryService) prepareResources(
 
 // resolveFileServiceForKnowledge resolves a provider-specific file service for the current knowledge file.
 // It falls back to the global service when tenant storage config is unavailable.
-func (s *DataTableSummaryService) resolveFileServiceForKnowledge(ctx context.Context, resources *extractionResources) interfaces.FileService {
+func (s *DataTableSummaryService) resolveFileServiceForKnowledge(ctx context.Context,
+	resources *extractionResources,
+) interfaces.FileService {
 	if resources == nil || resources.knowledge == nil {
 		return s.fileService
 	}
@@ -631,22 +647,28 @@ func (s *DataTableSummaryService) resolveFileServiceForKnowledge(ctx context.Con
 		return s.fileService
 	}
 
-	resolvedSvc, resolvedProvider, err := s.storageResolver.ResolveFileService(ctx, resources.tenant, backendID, provider, baseDir)
+	resolvedSvc, resolvedProvider, err := s.storageResolver.ResolveFileService(ctx, resources.tenant, backendID,
+		provider, baseDir)
 	if err != nil {
-		logger.Warnf(ctx, "[TableSummary] Failed to resolve file service for provider=%s, fallback to default: %v", provider, err)
+		logger.Warnf(ctx, "[TableSummary] Failed to resolve file service for provider=%s, fallback to default: %v",
+			provider, err)
 		return s.fileService
 	}
-	logger.Infof(ctx, "[TableSummary] Resolved file service for knowledge=%s provider=%s", resources.knowledge.ID, resolvedProvider)
+	logger.Infof(ctx, "[TableSummary] Resolved file service for knowledge=%s provider=%s", resources.knowledge.ID,
+		resolvedProvider)
 	return resolvedSvc
 }
 
 // processTableData 处理表格数据：加载 -> 分析 -> 生成摘要 -> 创建chunks
 // 思路：将数据处理的核心流程集中在一起，保持逻辑连贯性
-func (s *DataTableSummaryService) processTableData(ctx context.Context, resources *extractionResources) ([]*types.Chunk, error) {
+func (s *DataTableSummaryService) processTableData(ctx context.Context, resources *extractionResources) ([]*types.Chunk,
+	error,
+) {
 	// 创建DuckDB会话并加载数据
 	sessionID := fmt.Sprintf("table_summary_%s", resources.knowledge.ID)
 	fileSvc := s.resolveFileServiceForKnowledge(ctx, resources)
-	duckdbTool := tools.NewDataAnalysisTool(s.knowledgeBaseService, s.knowledgeService, s.tenantService, fileSvc, s.sqlDB, sessionID, s.storageResolver)
+	duckdbTool := tools.NewDataAnalysisTool(s.knowledgeBaseService, s.knowledgeService, s.tenantService, fileSvc,
+		s.sqlDB, sessionID, s.storageResolver)
 	defer duckdbTool.Cleanup(ctx)
 
 	// 使用knowledge.ID作为表名，根据文件类型自动加载数据
@@ -656,7 +678,8 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 		return nil, err
 	}
 
-	logger.Infof(ctx, "Loaded table %s with %d columns and %d rows", tableSchema.TableName, len(tableSchema.Columns), tableSchema.RowCount)
+	logger.Infof(ctx, "Loaded table %s with %d columns and %d rows", tableSchema.TableName, len(tableSchema.Columns),
+		tableSchema.RowCount)
 
 	// 获取样本数据用于生成摘要
 	input := tools.DataAnalysisInput{
@@ -685,7 +708,8 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 		if resources.knowledge != nil {
 			processOverrides, _ = resources.knowledge.ProcessOverrides()
 		}
-		customInstructions = ResolveProcessConfig(resources.knowledgeBase, processOverrides).ChunkingConfig.TableMetadataInstructions
+		customInstructions = ResolveProcessConfig(resources.knowledgeBase,
+			processOverrides).ChunkingConfig.TableMetadataInstructions
 	}
 	// The stored summary is later shown to the model by data_schema, so it
 	// must name the model-facing table, never the physical knowledge-ID table.
@@ -712,7 +736,9 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 
 // buildChunks 构建chunk对象
 // tableDescription和columnDescriptions分别生成一个chunk
-func (s *DataTableSummaryService) buildChunks(resources *extractionResources, tableDescription string, columnDescription string) []*types.Chunk {
+func (s *DataTableSummaryService) buildChunks(resources *extractionResources, tableDescription string,
+	columnDescription string,
+) []*types.Chunk {
 	chunks := make([]*types.Chunk, 0, 2)
 
 	// 表格摘要chunk
@@ -799,7 +825,9 @@ func (s *DataTableSummaryService) indexToVectorDB(
 
 // cleanupOnFailure 索引失败时的清理工作
 // 思路：删除已创建的chunk和对应的向量索引，避免脏数据残留
-func (s *DataTableSummaryService) cleanupOnFailure(ctx context.Context, resources *extractionResources, chunks []*types.Chunk, indexErr error) {
+func (s *DataTableSummaryService) cleanupOnFailure(ctx context.Context, resources *extractionResources,
+	chunks []*types.Chunk, indexErr error,
+) {
 	logger.Warnf(ctx, "Starting cleanup due to failure: %v", indexErr)
 	if resources == nil || resources.knowledge == nil {
 		return
@@ -832,7 +860,8 @@ func (s *DataTableSummaryService) cleanupOnFailure(ctx context.Context, resource
 	// 删除已创建的chunks
 	if len(chunkIDs) > 0 && resources != nil && resources.knowledge != nil &&
 		s.chunkService != nil && s.chunkService.GetRepository() != nil {
-		if err := s.chunkService.GetRepository().DeleteChunks(cleanCtx, resources.knowledge.TenantID, chunkIDs); err != nil {
+		if err := s.chunkService.GetRepository().DeleteChunks(cleanCtx, resources.knowledge.TenantID,
+			chunkIDs); err != nil {
 			logger.Errorf(ctx, "Failed to delete chunks: %v", err)
 		} else {
 			logger.Infof(ctx, "Deleted %d chunks", len(chunkIDs))
@@ -908,9 +937,11 @@ func (s *DataTableSummaryService) generateColumnDescriptions(ctx context.Context
 }
 
 // buildSampleDataDescription builds a formatted sample data description
-func (s *DataTableSummaryService) buildSampleDataDescription(ctx context.Context, sampleData *types.ToolResult, maxRows int) string {
+func (s *DataTableSummaryService) buildSampleDataDescription(ctx context.Context, sampleData *types.ToolResult,
+	maxRows int,
+) string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("Sample data (first %d rows):\n", maxRows))
+	fmt.Fprintf(&builder, "Sample data (first %d rows):\n", maxRows)
 
 	if sampleData == nil || sampleData.Data == nil {
 		return builder.String()

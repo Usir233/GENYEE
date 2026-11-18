@@ -28,8 +28,9 @@ var temporaryDocumentExtensions = map[string]struct{}{
 	".docx": {}, ".doc": {}, ".pdf": {}, ".ppt": {}, ".pptx": {}, ".epub": {}, ".mhtml": {},
 	".xmind": {},
 	".xlsx":  {}, ".xls": {},
-	".md": {}, ".markdown": {}, ".txt": {}, ".csv": {}, ".json": {}, ".xml": {}, ".yaml": {}, ".yml": {}, ".log": {}, ".html": {},
-	".jpg": {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".bmp": {}, ".tiff": {}, ".webp": {},
+	".md": {}, ".markdown": {}, ".txt": {}, ".csv": {}, ".json": {}, ".xml": {}, ".yaml": {}, ".yml": {}, ".log": {},
+	".html": {},
+	".jpg":  {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".bmp": {}, ".tiff": {}, ".webp": {},
 	".mp3": {}, ".wav": {}, ".m4a": {}, ".flac": {}, ".ogg": {}, ".aac": {},
 }
 
@@ -57,6 +58,7 @@ type temporaryDocumentService struct {
 	sessionAttachments sessionAttachmentLookup
 }
 
+// NewTemporaryDocumentService constructs the application service for session-scoped temporary documents.
 func NewTemporaryDocumentService(
 	repo interfaces.TemporaryDocumentRepository,
 	fileService interfaces.FileService,
@@ -143,13 +145,24 @@ func (s *temporaryDocumentService) Create(
 		ProcessingOptions: types.JSON(optionsJSON),
 	}
 	if err := s.repo.Create(ctx, document); err != nil {
-		_ = s.releaseResource(ctx, document.ID, resourceRef)
+		if relErr := s.releaseResource(ctx, document.ID, resourceRef); relErr != nil {
+			logger.Warnf(ctx, "Failed to release temporary document resource %s after create error: %v",
+				resourceRef, relErr)
+		}
 		return nil, fmt.Errorf("create attachment record: %w", err)
 	}
 	if s.resourceCatalog != nil {
-		if err := s.resourceCatalog.Bind(ctx, resourceRef, types.ResourceOwnerTemporaryDocument, document.ID, types.ResourceRelationSourceFile); err != nil {
-			_ = s.repo.DeleteScoped(ctx, tenantID, sessionID, document.ID)
-			_ = s.releaseResource(ctx, document.ID, resourceRef)
+		if err := s.resourceCatalog.Bind(
+			ctx, resourceRef, types.ResourceOwnerTemporaryDocument, document.ID, types.ResourceRelationSourceFile,
+		); err != nil {
+			if delErr := s.repo.DeleteScoped(ctx, tenantID, sessionID, document.ID); delErr != nil {
+				logger.Warnf(ctx, "Failed to delete temporary document %s after bind error: %v",
+					document.ID, delErr)
+			}
+			if relErr := s.releaseResource(ctx, document.ID, resourceRef); relErr != nil {
+				logger.Warnf(ctx, "Failed to release temporary document resource %s after bind error: %v",
+					resourceRef, relErr)
+			}
 			return nil, fmt.Errorf("bind attachment resource: %w", err)
 		}
 	}
@@ -159,7 +172,12 @@ func (s *temporaryDocumentService) Create(
 		asynq.NewTask(types.TypeTemporaryDocumentProcess, payload),
 		asynq.Queue(queue), asynq.MaxRetry(2), asynq.Timeout(10*time.Minute),
 	); err != nil {
-		_ = s.repo.MarkFailed(ctx, tenantID, document.ID, "failed to schedule document parsing")
+		if markErr := s.repo.MarkFailed(
+			ctx, tenantID, document.ID, "failed to schedule document parsing",
+		); markErr != nil {
+			logger.Warnf(ctx, "Failed to mark temporary document %s failed after enqueue error: %v",
+				document.ID, markErr)
+		}
 		document.Status = types.TemporaryDocumentStatusFailed
 		document.ErrorMessage = "failed to schedule document parsing"
 		return document, fmt.Errorf("schedule attachment parsing: %w", err)
@@ -199,11 +217,15 @@ func (s *temporaryDocumentService) supportsExtension(ctx context.Context, tenant
 	return false
 }
 
-func (s *temporaryDocumentService) Get(ctx context.Context, tenantID uint64, sessionID, documentID string) (*types.TemporaryDocument, error) {
+func (s *temporaryDocumentService) Get(ctx context.Context, tenantID uint64, sessionID,
+	documentID string,
+) (*types.TemporaryDocument, error) {
 	return s.resolveInSession(ctx, tenantID, sessionID, documentID)
 }
 
-func (s *temporaryDocumentService) OpenFile(ctx context.Context, tenantID uint64, sessionID, documentID string) (io.ReadCloser, string, error) {
+func (s *temporaryDocumentService) OpenFile(ctx context.Context, tenantID uint64, sessionID,
+	documentID string,
+) (io.ReadCloser, string, error) {
 	document, err := s.resolveInSession(ctx, tenantID, sessionID, documentID)
 	if err != nil {
 		return nil, "", err
@@ -264,7 +286,9 @@ func (s *temporaryDocumentService) sessionReferencesAttachment(
 	return false, nil
 }
 
-func (s *temporaryDocumentService) List(ctx context.Context, tenantID uint64, sessionID string) ([]*types.TemporaryDocument, error) {
+func (s *temporaryDocumentService) List(ctx context.Context, tenantID uint64,
+	sessionID string,
+) ([]*types.TemporaryDocument, error) {
 	return s.repo.ListScoped(ctx, tenantID, sessionID)
 }
 

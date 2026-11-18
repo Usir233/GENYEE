@@ -1,4 +1,4 @@
-// Package service: knowledge housekeeping.
+// Package service implements knowledge housekeeping and application services.
 //
 // HousekeepingService periodically scans for knowledge rows that have been
 // stuck in "processing" longer than any reasonable execution window and
@@ -472,7 +472,8 @@ func (h *HousekeepingService) filterByLastSpanActivity(
 		// On query failure, fail safe — assume nothing has a
 		// heartbeat (so all candidates are "stuck"). This matches
 		// the previous-version behaviour and never under-recovers.
-		logger.Warnf(ctx, "[Housekeeping] span heartbeat query failed: %v (will fail safe and recover all candidates)", err)
+		logger.Warnf(ctx, "[Housekeeping] span heartbeat query failed: %v (will fail safe and recover all candidates)",
+			err)
 		return candidates, nil
 	}
 	heartbeat := make(map[string]time.Time, len(beats))

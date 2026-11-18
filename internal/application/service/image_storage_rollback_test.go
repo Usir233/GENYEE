@@ -32,7 +32,9 @@ type rollbackFailImageStorage struct {
 	cancel context.CancelFunc
 }
 
-func (f *rollbackFailImageStorage) SaveBytes(ctx context.Context, data []byte, tenantID uint64, name string, temp bool) (string, error) {
+func (f *rollbackFailImageStorage) SaveBytes(ctx context.Context, data []byte, tenantID uint64, name string,
+	temp bool,
+) (string, error) {
 	f.calls++
 	if f.fail || (f.failAt > 0 && f.calls == f.failAt) {
 		if f.cancel != nil {
@@ -54,7 +56,8 @@ func TestSharedImageSurvivesResolverRollback(t *testing.T) {
 	data := buf.Bytes()
 	ref, err := svc.SaveBytes(ctx, data, 7, "existing-document-image.png", false)
 	require.NoError(t, err)
-	require.NoError(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "existing-document", types.ResourceRelationExtractedImage))
+	require.NoError(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "existing-document",
+		types.ResourceRelationExtractedImage))
 	physical, res, err := catalog.ResolvePath(ctx, ref)
 	require.NoError(t, err)
 	r, err := svc.GetFile(ctx, ref)
@@ -71,7 +74,8 @@ func TestSharedImageSurvivesResolverRollback(t *testing.T) {
 	secondURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(otherBuf.Bytes())
 	content := fmt.Sprintf("![old](%s)\n![new](%s)", uri, secondURI)
 	raw.fail = true
-	_, images, err := docparser.NewImageResolver().ResolveAndStore(ctx, &types.ReadResult{MarkdownContent: content}, svc, 7)
+	_, images, err := docparser.NewImageResolver().ResolveAndStore(ctx, &types.ReadResult{MarkdownContent: content},
+		svc, 7)
 	require.ErrorContains(t, err, "injected upload failure")
 	require.Len(t, images, 1)
 	require.Equal(t, ref, images[0].ServingURL, "first save reused the existing bound image")
@@ -81,7 +85,8 @@ func TestSharedImageSurvivesResolverRollback(t *testing.T) {
 	physicalFile := filepath.Join(baseDir, physical[len("local://"):])
 	_, statErr := os.Stat(physicalFile)
 	_, resolveErr := catalog.Resolve(ctx, ref)
-	t.Logf("After second-document rollback: old binding count=%d, physical file error=%v, catalog resolve error=%v", bindings, statErr, resolveErr)
+	t.Logf("After second-document rollback: old binding count=%d, physical file error=%v, catalog resolve error=%v",
+		bindings, statErr, resolveErr)
 	require.NoError(t, statErr, "a failed second document must not erase the first document's image")
 }
 
@@ -92,7 +97,8 @@ func TestInlineGuardCleanupPreservesBoundImage(t *testing.T) {
 	ctx := context.Background()
 	ref, err := svc.SaveBytes(ctx, []byte("guard-image"), 7, "guard.png", false)
 	require.NoError(t, err)
-	require.NoError(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "existing", types.ResourceRelationExtractedImage))
+	require.NoError(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "existing",
+		types.ResourceRelationExtractedImage))
 	cleanupUnboundInlineImages(ctx, svc, []docparser.StoredImage{{ServingURL: ref, Inline: true, NewlyStored: true}})
 	reader, err := svc.GetFile(ctx, ref)
 	require.NoError(t, err)
@@ -153,11 +159,13 @@ func TestUnboundImageCleanupBlocksReuseAndBindDuringPhysicalDelete(t *testing.T)
 	done := make(chan error, 1)
 	go func() { done <- interfaces.DeleteUnboundFile(ctx, svc, ref) }()
 	<-deleting
-	require.Error(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "racing", types.ResourceRelationExtractedImage))
+	require.Error(t, catalog.Bind(ctx, ref, types.ResourceOwnerKnowledge, "racing",
+		types.ResourceRelationExtractedImage))
 	reused, err := svc.SaveBytes(ctx, data, 7, "other.png", false)
 	require.NoError(t, err)
 	require.NotEqual(t, ref, reused, "a save during physical deletion must return a new live resource")
-	require.NoError(t, catalog.Bind(ctx, reused, types.ResourceOwnerKnowledge, "racing", types.ResourceRelationExtractedImage))
+	require.NoError(t, catalog.Bind(ctx, reused, types.ResourceOwnerKnowledge, "racing",
+		types.ResourceRelationExtractedImage))
 	close(resume)
 	require.NoError(t, <-done)
 	var bindings int64
@@ -171,8 +179,10 @@ func TestUnboundImageCleanupBlocksReuseAndBindDuringPhysicalDelete(t *testing.T)
 func TestImageDeduplicationDoesNotCrossStorageBackends(t *testing.T) {
 	catalog, _ := newResourceCatalogForTest(t)
 	ctx := context.Background()
-	first := files.NewResourceCatalogFileService(files.NewBackendScopedFileService("first", files.NewLocalFileService(t.TempDir(), "")), catalog)
-	second := files.NewResourceCatalogFileService(files.NewBackendScopedFileService("second", files.NewLocalFileService(t.TempDir(), "")), catalog)
+	first := files.NewResourceCatalogFileService(files.NewBackendScopedFileService("first",
+		files.NewLocalFileService(t.TempDir(), "")), catalog)
+	second := files.NewResourceCatalogFileService(files.NewBackendScopedFileService("second",
+		files.NewLocalFileService(t.TempDir(), "")), catalog)
 	data := []byte("image contents")
 	ref, err := first.SaveBytes(ctx, data, 7, "image.png", false)
 	require.NoError(t, err)
@@ -190,7 +200,10 @@ func TestResolverRollbackCleansNewUploadsAfterCancellation(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			base := t.TempDir()
-			raw := &rollbackFailImageStorage{FileService: files.NewLocalFileService(base, ""), failAt: 2, cancel: cancel}
+			raw := &rollbackFailImageStorage{
+				FileService: files.NewLocalFileService(base, ""), failAt: 2,
+				cancel: cancel,
+			}
 			var svc interfaces.FileService = raw
 			if managed {
 				catalog, _ := newResourceCatalogForTest(t)
@@ -201,8 +214,10 @@ func TestResolverRollbackCleansNewUploadsAfterCancellation(t *testing.T) {
 			pixels := image.NewRGBA(image.Rect(0, 0, 200, 150))
 			pixels.Set(50, 50, color.RGBA{R: 255, A: 255})
 			require.NoError(t, png.Encode(&second, pixels))
-			content := fmt.Sprintf("![first](data:image/png;base64,%s)\n![second](data:image/png;base64,%s)", base64.StdEncoding.EncodeToString(first), base64.StdEncoding.EncodeToString(second.Bytes()))
-			_, images, err := docparser.NewImageResolver().ResolveAndStore(ctx, &types.ReadResult{MarkdownContent: content}, svc, 7)
+			content := fmt.Sprintf("![first](data:image/png;base64,%s)\n![second](data:image/png;base64,%s)",
+				base64.StdEncoding.EncodeToString(first), base64.StdEncoding.EncodeToString(second.Bytes()))
+			_, images, err := docparser.NewImageResolver().ResolveAndStore(ctx,
+				&types.ReadResult{MarkdownContent: content}, svc, 7)
 			require.ErrorContains(t, err, "injected upload failure")
 			require.Len(t, images, 1)
 			require.True(t, images[0].NewlyStored)
@@ -230,7 +245,8 @@ func TestStaleResourceBindingCannotReviveDeletedResource(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, catalog.MarkDeleted(ctx, ref))
 	err = repository.NewResourceRepository(db).CreateBinding(ctx, &types.ResourceBinding{
-		ResourceID: stale.ID, TenantID: 7, OwnerType: types.ResourceOwnerKnowledge, OwnerID: "racing", Relation: types.ResourceRelationExtractedImage,
+		ResourceID: stale.ID, TenantID: 7, OwnerType: types.ResourceOwnerKnowledge, OwnerID: "racing",
+		Relation: types.ResourceRelationExtractedImage,
 	})
 	require.Error(t, err, "a Bind that resolved before deletion must recheck state under the cleanup lock")
 	var count int64
@@ -240,8 +256,14 @@ func TestStaleResourceBindingCannotReviveDeletedResource(t *testing.T) {
 
 func TestManualImageBindingFailureStopsChunkPersistence(t *testing.T) {
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 1})
-	knowledge := &types.Knowledge{ID: "manual-bind-fails", TenantID: 1, KnowledgeBaseID: "kb", ParseStatus: types.ParseStatusProcessing}
-	catalog := &fakeBindCatalog{resources: map[string]*types.StoredResource{}, bindErr: map[string]error{"local://test/image-001.png": errors.New("resource was removed before bind")}}
+	knowledge := &types.Knowledge{
+		ID: "manual-bind-fails", TenantID: 1, KnowledgeBaseID: "kb",
+		ParseStatus: types.ParseStatusProcessing,
+	}
+	catalog := &fakeBindCatalog{
+		resources: map[string]*types.StoredResource{},
+		bindErr:   map[string]error{"local://test/image-001.png": errors.New("resource was removed before bind")},
+	}
 	storage := &inlineImageStorageState{catalog: catalog}
 	chunks := &inlineImageChunkRepo{}
 	svc := &knowledgeService{
@@ -251,7 +273,8 @@ func TestManualImageBindingFailureStopsChunkPersistence(t *testing.T) {
 		graphEngine:  parentChildGraphRepo{}, tenantRepo: parentChildTenantRepo{}, task: &slotReleaseEnqueuer{},
 	}
 	useLiteCounter(t, knowledge.ID)
-	content := fmt.Sprintf("![image](data:image/png;base64,%s)", base64.StdEncoding.EncodeToString(inlineImageTestPNG(t)))
+	content := fmt.Sprintf("![image](data:image/png;base64,%s)",
+		base64.StdEncoding.EncodeToString(inlineImageTestPNG(t)))
 	err := svc.triggerManualProcessing(ctx, &types.KnowledgeBase{ID: "kb", TenantID: 1}, knowledge, content, true)
 	require.ErrorContains(t, err, "resource was removed before bind")
 	require.False(t, chunks.created, "a successful document must never contain an image whose binding failed")
@@ -293,29 +316,41 @@ func TestPartialImageBindingFailureCleansOnlyNewUploads(t *testing.T) {
 				var buffer bytes.Buffer
 				require.NoError(t, png.Encode(&buffer, img))
 				payloads[i] = buffer.Bytes()
-				content += fmt.Sprintf("![image](data:image/png;base64,%s)\n", base64.StdEncoding.EncodeToString(payloads[i]))
+				content += fmt.Sprintf("![image](data:image/png;base64,%s)\n",
+					base64.StdEncoding.EncodeToString(payloads[i]))
 			}
 			oldRef, err := storage.SaveBytes(ctx, payloads[0], 7, "old.png", false)
 			require.NoError(t, err)
 			require.NoError(t, catalog.Bind(ctx, oldRef, ownerType, "document", types.ResourceRelationExtractedImage))
-			faults := &partialImageBindingCatalog{ResourceCatalog: catalog, seen: make(map[string]*types.StoredResource)}
+			faults := &partialImageBindingCatalog{
+				ResourceCatalog: catalog,
+				seen:            make(map[string]*types.StoredResource),
+			}
 			if ownerType == types.ResourceOwnerKnowledge {
-				knowledge := &types.Knowledge{ID: "document", TenantID: 7, KnowledgeBaseID: "kb", ParseStatus: types.ParseStatusProcessing}
+				knowledge := &types.Knowledge{
+					ID: "document", TenantID: 7, KnowledgeBaseID: "kb",
+					ParseStatus: types.ParseStatusProcessing,
+				}
 				svc := &knowledgeService{
 					repo: &embedFailureKnowledgeRepo{knowledge: knowledge}, fileSvc: storage,
 					imageResolver: docparser.NewImageResolver(), resourceCatalog: faults,
 					chunkRepo: &inlineImageChunkRepo{}, task: &slotReleaseEnqueuer{},
 				}
 				useLiteCounter(t, knowledge.ID)
-				err = svc.triggerManualProcessing(ctx, &types.KnowledgeBase{ID: "kb", TenantID: 7}, knowledge, content, true)
+				err = svc.triggerManualProcessing(ctx, &types.KnowledgeBase{ID: "kb", TenantID: 7}, knowledge, content,
+					true)
 			} else {
 				source, saveErr := storage.SaveBytes(ctx, []byte(content), 7, "document.md", false)
 				require.NoError(t, saveErr)
 				options, marshalErr := json.Marshal(types.TemporaryDocumentCreateOptions{ParserEngine: "simple"})
 				require.NoError(t, marshalErr)
-				svc := &temporaryDocumentService{fileService: storage, resourceCatalog: faults, imageResolver: docparser.NewImageResolver()}
+				svc := &temporaryDocumentService{
+					fileService: storage, resourceCatalog: faults,
+					imageResolver: docparser.NewImageResolver(),
+				}
 				_, images, _, parseErr := svc.parse(ctx, &types.TemporaryDocument{
-					ID: "document", TenantID: 7, ResourceRef: source, FileName: "document.md", FileType: ".md", ProcessingOptions: options,
+					ID: "document", TenantID: 7, ResourceRef: source, FileName: "document.md", FileType: ".md",
+					ProcessingOptions: options,
 				})
 				require.Empty(t, images, "failed attempt has no persisted image list to clean up later")
 				err = parseErr
@@ -324,7 +359,8 @@ func TestPartialImageBindingFailureCleansOnlyNewUploads(t *testing.T) {
 			require.Len(t, faults.seen, 3)
 			for ref, resource := range faults.seen {
 				var bindings int64
-				require.NoError(t, db.Model(&types.ResourceBinding{}).Where("resource_id = ?", resource.ID).Count(&bindings).Error)
+				require.NoError(t, db.Model(&types.ResourceBinding{}).Where("resource_id = ?",
+					resource.ID).Count(&bindings).Error)
 				reader, readErr := raw.GetFile(ctx, resource.PhysicalPath)
 				if ref == oldRef {
 					require.Positive(t, bindings, "preexisting owner claims must remain")
@@ -371,7 +407,8 @@ func TestParentResourceCleanupRetainsFailedChildForRetry(t *testing.T) {
 	require.NoError(t, err)
 	child, err := svc.SaveBytes(ctx, []byte("child"), 7, "image.png", false)
 	require.NoError(t, err)
-	require.NoError(t, catalog.Bind(ctx, child, types.ResourceOwnerResource, parent, types.ResourceRelationExtractedImage))
+	require.NoError(t, catalog.Bind(ctx, child, types.ResourceOwnerResource, parent,
+		types.ResourceRelationExtractedImage))
 	raw.failPath, _, err = catalog.ResolvePath(ctx, child)
 	require.NoError(t, err)
 	raw.failure = errors.New("child provider unavailable")
@@ -398,9 +435,11 @@ func TestKnowledgeSourceDeletionRespectsOtherOwners(t *testing.T) {
 			svc := files.NewResourceCatalogFileService(raw, catalog)
 			ref, err := svc.SaveBytes(f.ctx, []byte("source file bytes"), 7, "source.txt", false)
 			require.NoError(t, err)
-			require.NoError(t, catalog.Bind(f.ctx, ref, types.ResourceOwnerKnowledge, "doc", types.ResourceRelationSourceFile))
+			require.NoError(t, catalog.Bind(f.ctx, ref, types.ResourceOwnerKnowledge, "doc",
+				types.ResourceRelationSourceFile))
 			if shared {
-				require.NoError(t, catalog.Bind(f.ctx, ref, types.ResourceOwnerMessage, "other-message", types.ResourceRelationAttachment))
+				require.NoError(t, catalog.Bind(f.ctx, ref, types.ResourceOwnerMessage, "other-message",
+					types.ResourceRelationAttachment))
 			}
 			row, err := f.repo.GetKnowledgeByID(f.ctx, 7, "doc")
 			require.NoError(t, err)
@@ -417,7 +456,8 @@ func TestKnowledgeSourceDeletionRespectsOtherOwners(t *testing.T) {
 				require.Error(t, err, "the final source owner must not leak its file")
 			}
 			var ownerBindings int64
-			require.NoError(t, db.Model(&types.ResourceBinding{}).Where("owner_type = ? AND owner_id = ?", types.ResourceOwnerKnowledge, "doc").Count(&ownerBindings).Error)
+			require.NoError(t, db.Model(&types.ResourceBinding{}).Where("owner_type = ? AND owner_id = ?",
+				types.ResourceOwnerKnowledge, "doc").Count(&ownerBindings).Error)
 			require.Zero(t, ownerBindings, "source_file bindings must be released with the document")
 		})
 	}
@@ -428,14 +468,19 @@ type artifactSaveInterleaving struct {
 	afterSave func(string)
 }
 
-func (s *artifactSaveInterleaving) SaveBytesWithOwnership(ctx context.Context, data []byte, tenant uint64, name string, temp bool) (string, bool, error) {
+func (s *artifactSaveInterleaving) SaveBytesWithOwnership(ctx context.Context, data []byte, tenant uint64, name string,
+	temp bool,
+) (string, bool, error) {
 	ref, created, err := interfaces.SaveBytesWithOwnership(ctx, s.FileService, data, tenant, name, temp)
 	if err == nil && s.afterSave != nil {
 		s.afterSave(ref)
 	}
 	return ref, created, err
 }
-func (s *artifactSaveInterleaving) SaveBytes(ctx context.Context, data []byte, tenant uint64, name string, temp bool) (string, error) {
+
+func (s *artifactSaveInterleaving) SaveBytes(ctx context.Context, data []byte, tenant uint64, name string,
+	temp bool,
+) (string, error) {
 	ref, _, err := s.SaveBytesWithOwnership(ctx, data, tenant, name, temp)
 	return ref, err
 }
@@ -452,6 +497,7 @@ func TestNewArtifactCannotPublishAResourceRemovedBeforeBinding(t *testing.T) {
 		require.NoError(t, interfaces.DeleteUnboundFile(ctx, svc, original))
 	}}
 	collector := &ArtifactCollector{fileService: racing, catalog: catalog}
-	_, ok := collector.persistBytes(ctx, "session", "message", 7, sandbox.RemoteDirEntry{Name: "artifact.png"}, data, "hash")
+	_, ok := collector.persistBytes(ctx, "session", "message", 7, sandbox.RemoteDirEntry{Name: "artifact.png"}, data,
+		"hash")
 	require.False(t, ok, "a new artifact must not be returned after its reused resource was cleaned before binding")
 }

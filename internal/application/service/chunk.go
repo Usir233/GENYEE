@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// ErrChunkRevisionConflict indicates that a concurrent update altered the chunk revision.
 var ErrChunkRevisionConflict = repository.ErrChunkRevisionConflict
 
 // chunkService implements the ChunkService interface
@@ -543,10 +544,14 @@ func (s *chunkService) UpdateDocumentChunk(
 				}
 			}
 			chunk.IndexStatus = "processing"
-			_ = saveIndexStatus()
+			if err := saveIndexStatus(); err != nil {
+				logger.Warnf(ctx, "Failed to save processing index status for chunk %s: %v", chunk.ID, err)
+			}
 			if err := s.syncEditedChunkIndex(ctx, chunk); err != nil {
 				chunk.IndexStatus = "failed"
-				_ = saveIndexStatus()
+				if saveErr := saveIndexStatus(); saveErr != nil {
+					logger.Warnf(ctx, "Failed to save failed index status for chunk %s: %v", chunk.ID, saveErr)
+				}
 				return chunk, nil
 			}
 			chunk.IndexStatus = "ready"
@@ -615,7 +620,9 @@ func (s *chunkService) UpdateDocumentChunk(
 		if err := s.rebuildParentContent(ctx, chunk); err != nil {
 			logger.Warnf(ctx, "Failed to rebuild parent chunk after edit: %v", err)
 			chunk.IndexStatus = "failed"
-			_ = saveIndexStatus()
+			if saveErr := saveIndexStatus(); saveErr != nil {
+				logger.Warnf(ctx, "Failed to save failed index status for chunk %s: %v", chunk.ID, saveErr)
+			}
 			return chunk, nil
 		}
 	}
@@ -623,7 +630,9 @@ func (s *chunkService) UpdateDocumentChunk(
 		if err := s.syncEditedChunkImages(ctx, chunk); err != nil {
 			logger.Warnf(ctx, "Failed to synchronize image children after chunk edit: %v", err)
 			chunk.IndexStatus = "failed"
-			_ = saveIndexStatus()
+			if saveErr := saveIndexStatus(); saveErr != nil {
+				logger.Warnf(ctx, "Failed to save failed index status for chunk %s: %v", chunk.ID, saveErr)
+			}
 			return chunk, nil
 		}
 	}
@@ -639,7 +648,9 @@ func (s *chunkService) UpdateDocumentChunk(
 	}
 	if err := s.syncEditedChunkIndex(ctx, chunk); err != nil {
 		chunk.IndexStatus = "failed"
-		_ = saveIndexStatus()
+		if saveErr := saveIndexStatus(); saveErr != nil {
+			logger.Warnf(ctx, "Failed to save failed index status for chunk %s: %v", chunk.ID, saveErr)
+		}
 		logger.Errorf(ctx, "Chunk %s saved but reindex failed: %v", chunk.ID, err)
 		return chunk, nil
 	}
@@ -695,8 +706,10 @@ func (s *chunkService) syncEditedChunkImages(ctx context.Context, chunk *types.C
 		}
 		if err := s.syncEditedChunkIndex(ctx, child); err != nil {
 			child.IndexStatus = "failed"
-			_ = s.chunkRepository.UpdateChunkFieldsByIDs(ctx, child.TenantID, []string{child.ID},
-				map[string]interface{}{"index_status": child.IndexStatus})
+			if saveErr := s.chunkRepository.UpdateChunkFieldsByIDs(ctx, child.TenantID, []string{child.ID},
+				map[string]interface{}{"index_status": child.IndexStatus}); saveErr != nil {
+				logger.Warnf(ctx, "Failed to save failed index status for image child %s: %v", child.ID, saveErr)
+			}
 			return err
 		}
 		child.IndexStatus = "ready"
@@ -785,7 +798,8 @@ func (s *chunkService) rebuildParentContent(ctx context.Context, edited *types.C
 	replacements = selected
 	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
 	for _, repl := range replacements {
-		baseRunes = append(append(append([]rune{}, baseRunes[:repl.start]...), []rune(repl.content)...), baseRunes[repl.end:]...)
+		baseRunes = append(append(append([]rune{}, baseRunes[:repl.start]...), []rune(repl.content)...),
+			baseRunes[repl.end:]...)
 	}
 	parent.SourceLocators = nil // Child edits invalidate the original parent evidence.
 	parent.Content = string(baseRunes)
@@ -840,7 +854,8 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 	if err != nil {
 		return err
 	}
-	engine, err := retriever.CreateRetrieveEngineForKB(execCtx, s.retrieveEngine, s.ownership, chunk.TenantID, kb.VectorStoreID)
+	engine, err := retriever.CreateRetrieveEngineForKB(execCtx, s.retrieveEngine, s.ownership, chunk.TenantID,
+		kb.VectorStoreID)
 	if err != nil {
 		return err
 	}
@@ -875,7 +890,8 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 				continue
 			}
 			items = append(items, &types.IndexInfo{
-				Content: buildKnowledgeIndexContent(knowledge, question.Question), SourceID: types.GeneratedQuestionSourceID(chunk.ID, question.ID),
+				Content:    buildKnowledgeIndexContent(knowledge, question.Question),
+				SourceID:   types.GeneratedQuestionSourceID(chunk.ID, question.ID),
 				SourceType: types.ChunkSourceType, ChunkID: chunk.ID,
 				KnowledgeID: chunk.KnowledgeID, KnowledgeBaseID: chunk.KnowledgeBaseID,
 				KnowledgeType: kb.Type, IsEnabled: true,
@@ -1016,7 +1032,8 @@ func (s *chunkService) DeleteGeneratedQuestion(ctx context.Context, chunkID stri
 		}
 
 		// Delete the vector index by source ID
-		if err := retrieveEngine.DeleteBySourceIDList(execCtx, []string{sourceID}, embeddingModel.GetDimensions(), kb.Type); err != nil {
+		if err := retrieveEngine.DeleteBySourceIDList(execCtx, []string{sourceID}, embeddingModel.GetDimensions(),
+			kb.Type); err != nil {
 			logger.Warnf(ctx, "Failed to delete vector index for question (may not exist): %v", err)
 			// Continue even if vector deletion fails - the question might not have been indexed
 		}

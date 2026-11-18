@@ -132,7 +132,10 @@ func (kbDeleteTaskEnqueuer) Enqueue(_ *asynq.Task, _ ...asynq.Option) (*asynq.Ta
 func TestDeleteDataSourcesForKnowledgeBase(t *testing.T) {
 	const kbID = "kb-1"
 	dsRepo := newKBDeleteDSRepo(kbID,
-		&types.DataSource{ID: "ds-1", KnowledgeBaseID: kbID, Status: types.DataSourceStatusActive, SyncSchedule: "0 0 * * * *"},
+		&types.DataSource{
+			ID: "ds-1", KnowledgeBaseID: kbID, Status: types.DataSourceStatusActive,
+			SyncSchedule: "0 0 * * * *",
+		},
 		&types.DataSource{ID: "ds-2", KnowledgeBaseID: kbID, Status: types.DataSourceStatusActive},
 	)
 	syncLogRepo := &kbDeleteSyncLogRepo{}
@@ -158,7 +161,10 @@ func TestDeleteDataSourcesForKnowledgeBase(t *testing.T) {
 func TestDeleteKnowledgeBaseCleansUpDataSources(t *testing.T) {
 	const kbID = "kb-1"
 	dsRepo := newKBDeleteDSRepo(kbID,
-		&types.DataSource{ID: "ds-1", KnowledgeBaseID: kbID, Status: types.DataSourceStatusActive, SyncSchedule: "0 0 * * * *"},
+		&types.DataSource{
+			ID: "ds-1", KnowledgeBaseID: kbID, Status: types.DataSourceStatusActive,
+			SyncSchedule: "0 0 * * * *",
+		},
 	)
 	syncLogRepo := &kbDeleteSyncLogRepo{}
 	kbRepo := &kbDeleteKBRepo{fakeKBRepo: *newFakeKBRepo()}

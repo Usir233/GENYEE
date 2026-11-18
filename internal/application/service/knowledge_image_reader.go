@@ -104,16 +104,19 @@ func (r knowledgeImageReader) readStored(
 		return nil, fmt.Errorf("file service get %s: %w", imageURL, err)
 	}
 	defer func() { _ = reader.Close() }()
-	var src io.Reader = reader
-	if maxBytes > 0 {
-		src = io.LimitReader(reader, maxBytes+1)
+	limit := maxBytes
+	if limit <= 0 {
+		limit = maxKnowledgeUploadBytes()
+		if limit < maxRerankImageBytes {
+			limit = maxRerankImageBytes
+		}
 	}
-	data, err := io.ReadAll(src)
+	data, err := io.ReadAll(io.LimitReader(reader, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", imageURL, err)
 	}
-	if maxBytes > 0 && int64(len(data)) > maxBytes {
-		return nil, fmt.Errorf("image %s is larger than %d bytes", imageURL, maxBytes)
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("image %s is larger than %d bytes", imageURL, limit)
 	}
 	return data, nil
 }

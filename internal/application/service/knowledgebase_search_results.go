@@ -185,7 +185,7 @@ func (s *knowledgeBaseService) buildChunkIndex(chunks []*types.IndexWithScore) *
 // collectEnrichmentChunkIDs gathers IDs for parent, related, and nearby chunks
 // that should be fetched to enrich the search results.
 func (s *knowledgeBaseService) collectEnrichmentChunkIDs(
-	ctx context.Context,
+	_ context.Context,
 	allChunks []*types.Chunk,
 	idx *chunkIndex,
 ) []string {
@@ -327,15 +327,15 @@ func (s *knowledgeBaseService) assembleSearchResults(
 			}
 
 			if knowledge, ok := knowledgeMap[chunk.KnowledgeID]; ok {
-				matchType := types.MatchTypeParentChunk
-				if specificType, exists := idx.matchTypes[chunkID]; exists {
-					matchType = specificType
-				} else {
-					logger.Warnf(ctx, "Unkonwn match type for chunk: %s", chunkID)
+				matchType, exists := idx.matchTypes[chunkID]
+				if !exists {
+					logger.Warnf(ctx, "Unknown match type for chunk: %s", chunkID)
 					continue
 				}
 				matchedContent := idx.matchedContents[chunkID]
-				searchResults = append(searchResults, s.buildSearchResult(chunk, knowledge, score, matchType, matchedContent))
+				searchResults = append(
+					searchResults, s.buildSearchResult(chunk, knowledge, score, matchType, matchedContent),
+				)
 			}
 		}
 	}

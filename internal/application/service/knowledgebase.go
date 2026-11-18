@@ -376,7 +376,9 @@ func (s *knowledgeBaseService) GetKnowledgeBaseByIDOnly(ctx context.Context, id 
 }
 
 // GetKnowledgeBasesByIDsOnly retrieves knowledge bases by IDs without tenant filter (batch).
-func (s *knowledgeBaseService) GetKnowledgeBasesByIDsOnly(ctx context.Context, ids []string) ([]*types.KnowledgeBase, error) {
+func (s *knowledgeBaseService) GetKnowledgeBasesByIDsOnly(ctx context.Context, ids []string) ([]*types.KnowledgeBase,
+	error,
+) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -459,7 +461,9 @@ func (s *knowledgeBaseService) ListKnowledgeBases(ctx context.Context) ([]*types
 }
 
 // ListKnowledgeBasesByTenantID returns all knowledge bases for the given tenant (e.g. for shared agent context).
-func (s *knowledgeBaseService) ListKnowledgeBasesByTenantID(ctx context.Context, tenantID uint64) ([]*types.KnowledgeBase, error) {
+func (s *knowledgeBaseService) ListKnowledgeBasesByTenantID(ctx context.Context,
+	tenantID uint64,
+) ([]*types.KnowledgeBase, error) {
 	rawKBs, err := s.repo.ListKnowledgeBasesByTenantID(ctx, tenantID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
@@ -480,7 +484,10 @@ func (s *knowledgeBaseService) ListKnowledgeBasesByTenantID(ctx context.Context,
 				kb.ChunkCount = cnt
 			}
 		}
-		if processingCount, err := s.kgRepo.CountKnowledgeByStatus(ctx, tenantID, kb.ID, []string{"pending", "processing"}); err == nil {
+		if processingCount, err := s.kgRepo.CountKnowledgeByStatus(ctx, tenantID, kb.ID, []string{
+			"pending",
+			"processing",
+		}); err == nil {
 			kb.IsProcessing = processingCount > 0
 			kb.ProcessingCount = processingCount
 		}
@@ -497,7 +504,8 @@ func (s *knowledgeBaseService) ListKnowledgeBasesByTenantID(ctx context.Context,
 	return kbs, nil
 }
 
-// FillKnowledgeBaseCounts fills KnowledgeCount, ChunkCount, IsProcessing, ProcessingCount for the given KB using kb.TenantID.
+// FillKnowledgeBaseCounts fills KnowledgeCount, ChunkCount, IsProcessing, ProcessingCount for the given KB using
+// kb.TenantID.
 func (s *knowledgeBaseService) FillKnowledgeBaseCounts(ctx context.Context, kb *types.KnowledgeBase) error {
 	if kb == nil {
 		return nil
@@ -514,7 +522,10 @@ func (s *knowledgeBaseService) FillKnowledgeBaseCounts(ctx context.Context, kb *
 			kb.ChunkCount = cnt
 		}
 	}
-	if processingCount, err := s.kgRepo.CountKnowledgeByStatus(ctx, tenantID, kb.ID, []string{"pending", "processing"}); err == nil {
+	if processingCount, err := s.kgRepo.CountKnowledgeByStatus(ctx, tenantID, kb.ID, []string{
+		"pending",
+		"processing",
+	}); err == nil {
 		kb.IsProcessing = processingCount > 0
 		kb.ProcessingCount = processingCount
 	}
@@ -1010,7 +1021,8 @@ func (s *knowledgeBaseService) DeleteKnowledgeBase(ctx context.Context, id strin
 	if kb.TenantID != 0 && kb.TenantID != tenantID {
 		return repository.ErrKnowledgeBaseNotFound
 	}
-	if caller := types.CallerFromContext(ctx); caller.TenantID != 0 && kb.TenantID != 0 && caller.TenantID != kb.TenantID {
+	if caller := types.CallerFromContext(ctx); caller.TenantID != 0 && kb.TenantID != 0 &&
+		caller.TenantID != kb.TenantID {
 		return apperrors.NewForbiddenError("Only the owner workspace can delete this knowledge base")
 	}
 	var vectorStoreIDSnapshot *string
@@ -1199,40 +1211,43 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 		)
 		if errors.Is(err, retriever.ErrVectorStoreForbidden) ||
 			errors.Is(err, retriever.ErrVectorStoreNotFound) {
-			logger.Errorf(ctx, "KB delete task aborted: %v (tenant=%d, kb=%s)", err, payload.TenantID, payload.KnowledgeBaseID)
+			logger.Errorf(ctx, "KB delete task aborted: %v (tenant=%d, kb=%s)", err, payload.TenantID,
+				payload.KnowledgeBaseID)
 			return asynq.SkipRetry
 		}
 		if err != nil {
 			// Transient failures — store temporarily unavailable, request
 			// cancellation during resolution, or other retryable errors —
 			// must not fall through and report success while embeddings remain.
-			logger.Errorf(ctx, "KB delete task deferred: %v (tenant=%d, kb=%s)", err, payload.TenantID, payload.KnowledgeBaseID)
+			logger.Errorf(ctx, "KB delete task deferred: %v (tenant=%d, kb=%s)", err, payload.TenantID,
+				payload.KnowledgeBaseID)
 			return err
-		} else {
-			// Group knowledge by embedding model and type
-			type groupKey struct {
-				EmbeddingModelID string
-				Type             string
+		}
+		// Group knowledge by embedding model and type
+		type groupKey struct {
+			EmbeddingModelID string
+			Type             string
+		}
+		embeddingGroups := make(map[groupKey][]string)
+		for _, knowledge := range knowledgeList {
+			if strings.TrimSpace(knowledge.EmbeddingModelID) == "" {
+				continue
 			}
-			embeddingGroups := make(map[groupKey][]string)
-			for _, knowledge := range knowledgeList {
-				if strings.TrimSpace(knowledge.EmbeddingModelID) == "" {
+			key := groupKey{EmbeddingModelID: knowledge.EmbeddingModelID, Type: knowledge.Type}
+			embeddingGroups[key] = append(embeddingGroups[key], knowledge.ID)
+		}
+
+		if s.modelService != nil && retrieveEngine != nil {
+			for key, knowledgeGroup := range embeddingGroups {
+				embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, key.EmbeddingModelID)
+				if err != nil {
+					logger.Warnf(ctx, "Failed to get embedding model %s: %v", key.EmbeddingModelID, err)
 					continue
 				}
-				key := groupKey{EmbeddingModelID: knowledge.EmbeddingModelID, Type: knowledge.Type}
-				embeddingGroups[key] = append(embeddingGroups[key], knowledge.ID)
-			}
-
-			if s.modelService != nil && retrieveEngine != nil {
-				for key, knowledgeGroup := range embeddingGroups {
-					embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, key.EmbeddingModelID)
-					if err != nil {
-						logger.Warnf(ctx, "Failed to get embedding model %s: %v", key.EmbeddingModelID, err)
-						continue
-					}
-					if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, knowledgeGroup, embeddingModel.GetDimensions(), key.Type); err != nil {
-						logger.Warnf(ctx, "Failed to delete embeddings for model %s: %v", key.EmbeddingModelID, err)
-					}
+				if err := retrieveEngine.DeleteByKnowledgeIDList(
+					ctx, knowledgeGroup, embeddingModel.GetDimensions(), key.Type,
+				); err != nil {
+					logger.Warnf(ctx, "Failed to delete embeddings for model %s: %v", key.EmbeddingModelID, err)
 				}
 			}
 		}
@@ -1263,7 +1278,8 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 		for _, knowledge := range knowledgeList {
 			if knowledge.FilePath != "" {
 				resolvedFileSvc := s.w3aResolveDeleteFileService(ctx, tenantID, knowledge.FilePath)
-				if err := deleteKnowledgeSource(ctx, resolvedFileSvc, s.resourceCatalog, knowledge.ID, knowledge.FilePath); err != nil {
+				if err := deleteKnowledgeSource(ctx, resolvedFileSvc, s.resourceCatalog, knowledge.ID,
+					knowledge.FilePath); err != nil {
 					logger.Warnf(ctx, "Failed to delete file %s: %v", knowledge.FilePath, err)
 				}
 			}
@@ -1317,7 +1333,8 @@ func (s *knowledgeBaseService) w3aResolveDeleteFileService(
 	baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
 	if _, ok := types.ParseResourcePath(filePath); ok && s.resourceCatalog != nil && s.tenantRepo != nil {
 		if resource, err := s.resourceCatalog.Resolve(ctx, filePath); err == nil && resource != nil {
-			if ownerTenant, tErr := s.tenantRepo.GetTenantByID(ctx, resource.TenantID); tErr == nil && ownerTenant != nil {
+			if ownerTenant, tErr := s.tenantRepo.GetTenantByID(ctx, resource.TenantID); tErr == nil &&
+				ownerTenant != nil {
 				if resolved, _, rErr := s.storageResolver.ResolveFileService(
 					ctx, ownerTenant, resource.StorageBackendID, resource.Provider, baseDir,
 				); rErr == nil && resolved != nil {
@@ -1486,7 +1503,8 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 	if kb == nil {
 		return repository.ErrKnowledgeBaseNotFound
 	}
-	if tenantID, ok := types.TenantIDFromContext(ctx); ok && tenantID != 0 && kb.TenantID != 0 && kb.TenantID != tenantID {
+	if tenantID, ok := types.TenantIDFromContext(ctx); ok && tenantID != 0 && kb.TenantID != 0 &&
+		kb.TenantID != tenantID {
 		if !access.HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleEditor) {
 			return repository.ErrKnowledgeBaseNotFound
 		}
@@ -1763,12 +1781,15 @@ func cloneKnowledgeBaseConfiguration(sourceKB *types.KnowledgeBase) (*types.Know
 // encryptKBSecretsClone returns a shallow copy of kb with StorageConfig and
 // VLMConfig credentials AES-256-GCM encrypted (enc:v1:) when SYSTEM_AES_KEY is set,
 // keeping the caller's in-memory struct decrypted.
+//
+//nolint:staticcheck // SA1019: encrypts historical cos_config secrets when present
 func encryptKBSecretsClone(kb *types.KnowledgeBase) (*types.KnowledgeBase, error) {
 	if kb == nil {
 		return nil, nil
 	}
 	key := secutils.GetAESKey()
-	if key == nil || (kb.StorageConfig.SecretID == "" && kb.StorageConfig.SecretKey == "" && kb.VLMConfig.APIKey == "") {
+	if key == nil || (kb.StorageConfig.SecretID == "" && kb.StorageConfig.SecretKey == "" &&
+		kb.VLMConfig.APIKey == "") {
 		return kb, nil
 	}
 	clone := *kb
@@ -1796,6 +1817,8 @@ func encryptKBSecretsClone(kb *types.KnowledgeBase) (*types.KnowledgeBase, error
 
 // decryptKBSecretsClone returns a shallow copy of kb with any enc:v1: stored
 // credentials decrypted, seamlessly preserving historical plaintext values.
+//
+//nolint:staticcheck // SA1019: decrypts historical cos_config secrets when present
 func decryptKBSecretsClone(ctx context.Context, kb *types.KnowledgeBase) *types.KnowledgeBase {
 	if kb == nil {
 		return nil

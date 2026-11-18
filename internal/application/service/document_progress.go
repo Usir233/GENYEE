@@ -97,7 +97,7 @@ const documentAttemptSQL = `(SELECT COALESCE(MAX(a.attempt),0)
 
 func (s *DocumentProgressService) jsonText(column, key string) string {
 	if s.db.Name() == "sqlite" {
-		return "json_extract(" + column + ",'$." + key + "')"
+		return "CASE WHEN json_valid(" + column + ") THEN json_extract(" + column + ",'$." + key + "') END"
 	}
 	return column + "->>'" + key + "'"
 }

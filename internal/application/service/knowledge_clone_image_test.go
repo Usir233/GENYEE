@@ -24,15 +24,19 @@ type countingFileService struct {
 	deleteCalls int
 }
 
-func (c *countingFileService) CheckConnectivity(ctx context.Context) error { return nil }
+func (c *countingFileService) CheckConnectivity(_ context.Context) error { return nil }
 
-func (c *countingFileService) SaveFile(ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string) (string, error) {
+func (c *countingFileService) SaveFile(
+	_ context.Context, _ *multipart.FileHeader, _ uint64, _ string,
+) (string, error) {
 	return "", nil
 }
 
 // SaveBytes records each copy and returns a deterministic exports-namespace path
 // derived from the streamed source bytes (which GetFile set to the source path).
-func (c *countingFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+func (c *countingFileService) SaveBytes(
+	_ context.Context, data []byte, tenantID uint64, _ string, _ bool,
+) (string, error) {
 	src := string(data)
 	c.copyCalls++
 	c.copiedFrom = append(c.copiedFrom, src)
@@ -41,23 +45,23 @@ func (c *countingFileService) SaveBytes(ctx context.Context, data []byte, tenant
 
 // GetFile streams the requested path back as the file content so SaveBytes can
 // build a deterministic destination. failOnURL simulates an unreadable source.
-func (c *countingFileService) GetFile(ctx context.Context, filePath string) (io.ReadCloser, error) {
+func (c *countingFileService) GetFile(_ context.Context, filePath string) (io.ReadCloser, error) {
 	if c.failOnURL != "" && filePath == c.failOnURL {
 		return nil, fmt.Errorf("simulated read failure for %s", filePath)
 	}
 	return io.NopCloser(strings.NewReader(filePath)), nil
 }
 
-func (c *countingFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+func (c *countingFileService) GetFileURL(_ context.Context, filePath string) (string, error) {
 	return filePath, nil
 }
 
-func (c *countingFileService) DeleteFile(ctx context.Context, filePath string) error {
+func (c *countingFileService) DeleteFile(_ context.Context, _ string) error {
 	c.deleteCalls++
 	return nil
 }
 
-func (c *countingFileService) CopyFile(ctx context.Context, srcPath string, tenantID uint64, knowledgeID string) (string, error) {
+func (c *countingFileService) CopyFile(_ context.Context, _ string, _ uint64, _ string) (string, error) {
 	return "", fmt.Errorf("CopyFile must not be used for embedded image copies")
 }
 

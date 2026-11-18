@@ -416,7 +416,10 @@ func TestValidateProcessOverrides_NonMediaFileTypes(t *testing.T) {
 	t.Parallel()
 
 	kb := &types.KnowledgeBase{}
-	err := ValidateProcessOverrides(context.Background(), kb, &types.KnowledgeProcessOverrides{}, []string{"pdf", "txt"})
+	err := ValidateProcessOverrides(context.Background(), kb, &types.KnowledgeProcessOverrides{}, []string{
+		"pdf",
+		"txt",
+	})
 	require.NoError(t, err)
 }
 

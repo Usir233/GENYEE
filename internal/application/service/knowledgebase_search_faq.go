@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/application/service/retriever"
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
-	"slices"
 )
 
 // applyFAQPostProcessing handles FAQ-specific post-processing: iterative retrieval

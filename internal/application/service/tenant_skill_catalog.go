@@ -624,6 +624,7 @@ func catalogProjectionFromSkill(row *types.TenantSkillEntity) *types.TenantSkill
 	}
 }
 
+// ListCatalogFiles lists files contained within a catalog skill archive.
 func (s *TenantSkillService) ListCatalogFiles(
 	ctx context.Context, tenantID uint64, catalogID string,
 ) ([]SkillFileEntry, error) {
@@ -634,6 +635,7 @@ func (s *TenantSkillService) ListCatalogFiles(
 	return listSkillZipFiles(archive)
 }
 
+// ReadCatalogFile reads a single file from a catalog skill archive.
 func (s *TenantSkillService) ReadCatalogFile(
 	ctx context.Context, tenantID uint64, catalogID, relativePath string,
 ) (*SkillFileContent, error) {

@@ -149,7 +149,7 @@ func rescaleUnboundedScores(results []*types.IndexWithScore) {
 		case math.IsInf(r.Score, 1):
 			r.Score = 1
 		default:
-			r.Score = r.Score / maxScore
+			r.Score /= maxScore
 		}
 	}
 }

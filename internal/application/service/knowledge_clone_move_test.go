@@ -86,7 +86,8 @@ func TestCloneChunkSynchronizesRetrieverIndexContentWithRewrittenResourceHandle(
 	}).Error)
 
 	srcBody := "Topology overview: ![arch](" + oldRef + ")"
-	srcMeta := `{"generated_questions_revision":0,"generated_questions":[{"id":"q1","question":"How is topology wired?"}]}`
+	srcMeta := "{\"generated_questions_revision\":0,\"generated_questions\":[{\"id\":\"q1\",\"question\":\"How " +
+		"is topology wired?\"}]}"
 	require.NoError(t, f.db.Model(&types.Chunk{}).Where("id = ?", "chunk").Updates(map[string]any{
 		"content":        srcBody,
 		"source_content": srcBody,

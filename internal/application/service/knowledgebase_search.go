@@ -24,7 +24,9 @@ const maxRetrievalPoolSize = 500
 // associated with the given knowledge base. Callers can pre-compute and reuse
 // the result across multiple KBs that share the same embedding model and
 // configured vector dimension to avoid redundant embedding API calls.
-func (s *knowledgeBaseService) GetQueryEmbedding(ctx context.Context, kbID string, queryText string) ([]float32, error) {
+func (s *knowledgeBaseService) GetQueryEmbedding(ctx context.Context, kbID string, queryText string) ([]float32,
+	error,
+) {
 	kb, err := s.repo.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
 		return nil, err
@@ -125,7 +127,8 @@ func validateQueryEmbeddingDimension(model embedding.Embedder, actual int) error
 		"model":              model.GetModelName(),
 		"expected_dimension": expected,
 		"actual_dimension":   actual,
-		"hint":               fmt.Sprintf("check the embedding model configuration and rebuild the affected index (%d dimensions)", expected),
+		"hint": fmt.Sprintf(
+			"check the embedding model configuration and rebuild the affected index (%d dimensions)", expected),
 	})
 }
 
@@ -134,7 +137,9 @@ func validateQueryEmbeddingDimension(model embedding.Embedder, actual int) error
 // same underlying model and vector space across different tenants will share
 // the same key, enabling optimal grouping without reusing a query embedding
 // across incompatible index dimensions.
-func (s *knowledgeBaseService) ResolveEmbeddingModelKeys(ctx context.Context, kbs []*types.KnowledgeBase) map[string]string {
+func (s *knowledgeBaseService) ResolveEmbeddingModelKeys(ctx context.Context,
+	kbs []*types.KnowledgeBase,
+) map[string]string {
 	type modelRef struct {
 		ModelID  string
 		TenantID uint64
@@ -157,7 +162,8 @@ func (s *knowledgeBaseService) ResolveEmbeddingModelKeys(ctx context.Context, kb
 		tenantCtx := types.WithExecutionTenant(ctx, ref.TenantID)
 		model, err := s.modelService.GetModelByID(tenantCtx, ref.ModelID)
 		if err != nil || model == nil {
-			logger.Warnf(ctx, "ResolveEmbeddingModelKeys: cannot resolve model %s for tenant %d: %v", ref.ModelID, ref.TenantID, err)
+			logger.Warnf(ctx, "ResolveEmbeddingModelKeys: cannot resolve model %s for tenant %d: %v", ref.ModelID,
+				ref.TenantID, err)
 			resolvedKeys[ref] = ref.ModelID
 			continue
 		}
@@ -620,7 +626,9 @@ func (s *knowledgeBaseService) resolveQueryEmbedding(
 	var embeddingModel embedding.Embedder
 	var err error
 	if kb.TenantID != currentTenantID {
-		logger.Infof(ctx, "Cross-tenant knowledge base detected, using source tenant's embedding model. KB tenant: %d, current tenant: %d", kb.TenantID, currentTenantID)
+		logger.Infof(ctx,
+			"Cross-tenant knowledge base detected, using source tenant's embedding model. KB tenant: %d, "+
+				"current tenant: %d", kb.TenantID, currentTenantID)
 		embeddingModel, err = s.modelService.GetEmbeddingModelForTenant(ctx, kb.EmbeddingModelID, kb.TenantID)
 	} else {
 		embeddingModel, err = s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)

@@ -23,7 +23,8 @@ type vectorStoreService struct {
 	storeRegistry interfaces.StoreRegistry           // for dynamic registry updates on CRUD
 	factory       interfaces.EngineFactory           // creates engine services from VectorStore config
 	db            *gorm.DB                           // shared handle for cross-table transactions (delete guard)
-	envStores     []types.VectorStore                // env stores derived once at construction for ResolveStoreView fast path
+	// envStores holds env stores derived once at construction for ResolveStoreView fast path.
+	envStores []types.VectorStore
 }
 
 // NewVectorStoreService creates a new vector store service.
@@ -189,7 +190,18 @@ func (s *vectorStoreService) DeleteStore(ctx context.Context, tenantID uint64, i
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// tx inherits ctx from WithContext above; no need to re-attach.
 
-		// 1. Lock the store row (PG row-level X-lock; skipped on SQLite).
+		// 1. Lock the store row (PG row-level X-lock; SQLite writer lock).
+		if tx.Name() == "sqlite" {
+			res := tx.Model(&types.VectorStore{}).
+				Where("id = ? AND tenant_id = ?", id, tenantID).
+				UpdateColumn("id", id)
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				return errors.NewNotFoundError("vector store not found")
+			}
+		}
 		var store types.VectorStore
 		q := tx.Where("id = ? AND tenant_id = ?", id, tenantID)
 		if s.isPostgres(tx) {
@@ -251,7 +263,7 @@ func (s *vectorStoreService) unregisterSafely(ctx context.Context, storeID strin
 // Used to gate dialect-specific clauses (e.g., SELECT FOR UPDATE) that
 // SQLite would either ignore (recent versions) or fail to compile on.
 func (s *vectorStoreService) isPostgres(db *gorm.DB) bool {
-	return db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres"
+	return db != nil && db.Dialector != nil && db.Name() == "postgres"
 }
 
 // SaveDetectedVersion updates the connection_config.version for a stored vector store.
@@ -599,7 +611,8 @@ func validateOpenSearchIndexConfig(ic types.IndexConfig) error {
 	if ic.HNSWEFConstruction != 0 &&
 		(ic.HNSWEFConstruction < osHNSWEFConstructionMin || ic.HNSWEFConstruction > osHNSWEFConstructionMax) {
 		return errors.NewValidationError(
-			fmt.Sprintf("hnsw_ef_construction must be between %d and %d", osHNSWEFConstructionMin, osHNSWEFConstructionMax))
+			fmt.Sprintf("hnsw_ef_construction must be between %d and %d", osHNSWEFConstructionMin,
+				osHNSWEFConstructionMax))
 	}
 	if ic.HNSWEFSearch != 0 &&
 		(ic.HNSWEFSearch < osHNSWEFSearchMin || ic.HNSWEFSearch > osHNSWEFSearchMax) {

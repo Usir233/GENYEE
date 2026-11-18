@@ -80,7 +80,7 @@ func TestEnqueueWikiWorkSkipsDeletedKnowledgeBase(t *testing.T) {
 		{
 			name: "ingest",
 			run: func(ctx context.Context, task interfaces.TaskEnqueuer, repo interfaces.TaskPendingOpsRepository) {
-				EnqueueWikiIngest(ctx, task, repo, 7, "kb-deleted", "knowledge-1")
+				_, _ = EnqueueWikiIngest(ctx, task, repo, 7, "kb-deleted", "knowledge-1")
 			},
 		},
 		{

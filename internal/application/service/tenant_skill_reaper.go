@@ -64,11 +64,11 @@ type sandboxConfigEnumerator interface {
 }
 
 var (
-	_ skillReaperStore        = (repository.TenantSkillRepository)(nil)
-	_ skillSnapshotLedger     = (repository.TenantSkillRepository)(nil)
-	_ skillReaperConfigReader = (repository.TenantSandboxConfigRepository)(nil)
-	_ sandboxConfigEnumerator = (repository.TenantSandboxConfigRepository)(nil)
-	_ skillSnapshotLister     = (sandbox.RemoteSnapshotManager)(nil)
+	_ skillReaperStore        = repository.TenantSkillRepository(nil)
+	_ skillSnapshotLedger     = repository.TenantSkillRepository(nil)
+	_ skillReaperConfigReader = repository.TenantSandboxConfigRepository(nil)
+	_ sandboxConfigEnumerator = repository.TenantSandboxConfigRepository(nil)
+	_ skillSnapshotLister     = sandbox.RemoteSnapshotManager(nil)
 	_ skillSnapshotDeleter    = (*sandbox.SessionBoundManager)(nil)
 )
 

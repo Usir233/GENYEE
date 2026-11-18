@@ -79,9 +79,11 @@ func TestSanitizeOCRText(t *testing.T) {
 			want:  "段落一\n\n段落二",
 		},
 		{
-			name:  "HTML with substantial text content is converted",
-			input: "<div><h2>报告摘要</h2><p>本季度营收同比增长 15%，净利润达到 2.3 亿元。</p><table><tr><th>指标</th><th>数值</th></tr><tr><td>营收</td><td>10亿</td></tr></table></div>",
-			want:  "", // placeholder; will be checked for non-empty
+			name: "HTML with substantial text content is converted",
+			input: "<div><h2>报告摘要</h2><p>本季度营收同比增长 15%，净利润达到 2.3 " +
+				"亿元。</p><table><tr><th>指标</th><th>数值</th></tr><tr><td>营收</td><td>10亿</" +
+				"td></tr></table></div>",
+			want: "", // placeholder; will be checked for non-empty
 		},
 	}
 

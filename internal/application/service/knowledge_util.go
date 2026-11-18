@@ -89,15 +89,47 @@ func isValidURL(url string) bool {
 	return false
 }
 
-// readMultipartFileContent reads the full upload payload. Each Open() returns a
-// fresh reader, so callers that hash or SaveFile later open again themselves.
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func maxKnowledgeUploadBytes() int64 {
+	mb := secutils.GetMaxFileSizeMB()
+	if mb <= 0 {
+		mb = 50
+	}
+	return mb * 1024 * 1024
+}
+
+// readMultipartFileContent reads the full upload payload up to maxKnowledgeUploadBytes.
+// Each Open() returns a fresh reader, so callers that hash or SaveFile later open again themselves.
 func readMultipartFileContent(file *multipart.FileHeader) ([]byte, error) {
 	f, err := file.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
-	return io.ReadAll(f)
+	maxBytes := maxKnowledgeUploadBytes()
+	data, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, werrors.NewBadRequestError(
+			fmt.Sprintf("file exceeds maximum allowed size of %dMB", secutils.GetMaxFileSizeMB()),
+		)
+	}
+	return data, nil
 }
 
 // ValidateJSONUploadContent rejects malformed .json uploads before they are
@@ -133,7 +165,7 @@ func calculateFileHash(file *multipart.FileHeader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := md5.New()
 	if _, err := io.Copy(h, f); err != nil {
@@ -155,43 +187,6 @@ func calculateStr(strList ...string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (s *knowledgeService) getVLMConfig(ctx context.Context, kb *types.KnowledgeBase) (*types.DocParserVLMConfig, error) {
-	if kb == nil {
-		return nil, nil
-	}
-	// 兼容老版本：直接使用 ModelName 和 BaseURL
-	if kb.VLMConfig.ModelName != "" && kb.VLMConfig.BaseURL != "" {
-		return &types.DocParserVLMConfig{
-			ModelName:     kb.VLMConfig.ModelName,
-			BaseURL:       kb.VLMConfig.BaseURL,
-			APIKey:        kb.VLMConfig.APIKey,
-			InterfaceType: kb.VLMConfig.InterfaceType,
-		}, nil
-	}
-
-	// 新版本：未启用或无模型ID时返回nil
-	if !kb.VLMConfig.Enabled || kb.VLMConfig.ModelID == "" {
-		return nil, nil
-	}
-
-	model, err := s.modelService.GetModelByID(ctx, kb.VLMConfig.ModelID)
-	if err != nil {
-		return nil, err
-	}
-
-	interfaceType := model.Parameters.InterfaceType
-	if interfaceType == "" {
-		interfaceType = "openai"
-	}
-
-	return &types.DocParserVLMConfig{
-		ModelName:     model.Name,
-		BaseURL:       model.Parameters.BaseURL,
-		APIKey:        model.Parameters.APIKey,
-		InterfaceType: interfaceType,
-	}, nil
-}
-
 func (s *knowledgeService) w3aTenantInfoForKB(ctx context.Context, kb *types.KnowledgeBase) *types.Tenant {
 	ctxTenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
 	if kb == nil || kb.TenantID == 0 {
@@ -208,7 +203,9 @@ func (s *knowledgeService) w3aTenantInfoForKB(ctx context.Context, kb *types.Kno
 	return ctxTenant
 }
 
-func (s *knowledgeService) buildStorageConfig(ctx context.Context, kb *types.KnowledgeBase) *types.DocParserStorageConfig {
+func (s *knowledgeService) buildStorageConfig(ctx context.Context,
+	kb *types.KnowledgeBase,
+) *types.DocParserStorageConfig {
 	provider := kb.GetStorageProvider()
 	tenant := s.w3aTenantInfoForKB(ctx, kb)
 	backendID := ""
@@ -216,7 +213,8 @@ func (s *knowledgeService) buildStorageConfig(ctx context.Context, kb *types.Kno
 		backendID = *kb.StorageBackendID
 	}
 	if s.storageResolver != nil && tenant != nil {
-		if backend, err := s.storageResolver.ResolveBackend(ctx, tenant, backendID, provider); err == nil && backend != nil {
+		if backend, err := s.storageResolver.ResolveBackend(ctx, tenant, backendID, provider); err == nil &&
+			backend != nil {
 			provider = backend.Provider
 			tenantCopy := *tenant
 			tenantCopy.StorageEngineConfig = backend.ToStorageEngineConfig()
@@ -232,7 +230,7 @@ func (s *knowledgeService) buildStorageConfig(ctx context.Context, kb *types.Kno
 	// resolve via the tenant-merge path below. Listing them here keeps the fall-through
 	// intentional (instead of an unrecognised provider silently sliding past the switch).
 	// See issue #1117: provider enum was missing tos/s3/oss in this switch.
-	sc := &kb.StorageConfig
+	sc := &kb.StorageConfig //nolint:staticcheck // SA1019: historical cos_config fallback
 	hasKBFull := false
 	switch provider {
 	case "cos":
@@ -244,7 +242,8 @@ func (s *knowledgeService) buildStorageConfig(ctx context.Context, kb *types.Kno
 	}
 
 	if hasKBFull {
-		logger.Infof(ctx, "[storage] buildStorageConfig use legacy kb config: kb=%s provider=%s bucket=%s path_prefix=%s",
+		logger.Infof(ctx,
+			"[storage] buildStorageConfig use legacy kb config: kb=%s provider=%s bucket=%s path_prefix=%s",
 			kb.ID, provider, sc.BucketName, sc.PathPrefix)
 		return &types.DocParserStorageConfig{
 			Provider:        strings.ToUpper(provider),
@@ -347,7 +346,9 @@ func (s *knowledgeService) buildStorageConfig(ctx context.Context, kb *types.Kno
 		}
 	}
 
-	logger.Infof(ctx, "[storage] buildStorageConfig use merged tenant/global config: kb=%s provider=%s bucket=%s path_prefix=%s endpoint=%s",
+	logger.Infof(ctx,
+		"[storage] buildStorageConfig use merged tenant/global config: kb=%s provider=%s bucket=%s "+
+			"path_prefix=%s endpoint=%s",
 		kb.ID, strings.ToLower(out.Provider), out.BucketName, out.PathPrefix, out.Endpoint)
 	return &out
 }
@@ -372,7 +373,8 @@ func (s *knowledgeService) resolveFileService(ctx context.Context, kb *types.Kno
 		baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
 		svc, resolvedProvider, err := s.storageResolver.ResolveFileService(ctx, tenant, backendID, provider, baseDir)
 		if err == nil && svc != nil {
-			logger.Infof(ctx, "[storage] resolveFileService selected instance: kb=%s backend=%s provider=%s", kb.ID, backendID, resolvedProvider)
+			logger.Infof(ctx, "[storage] resolveFileService selected instance: kb=%s backend=%s provider=%s", kb.ID,
+				backendID, resolvedProvider)
 			return svc
 		}
 		if err != nil {
@@ -393,7 +395,8 @@ func (s *knowledgeService) resolveFileService(ctx context.Context, kb *types.Kno
 	baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
 	svc, resolvedProvider, err := filesvc.NewFileServiceFromStorageConfig(provider, sec, baseDir)
 	if err != nil {
-		logger.Errorf(ctx, "Failed to create %s file service from tenant config: %v, falling back to default", provider, err)
+		logger.Errorf(ctx, "Failed to create %s file service from tenant config: %v, falling back to default", provider,
+			err)
 		return s.fileSvc
 	}
 	logger.Infof(ctx, "[storage] resolveFileService selected: kb=%s provider=%s", kb.ID, resolvedProvider)
@@ -404,20 +407,26 @@ func (s *knowledgeService) resolveFileService(ctx context.Context, kb *types.Kno
 // if the resolved provider doesn't match what the filePath implies, fall back to
 // the provider inferred from the file path. This protects historical data when
 // tenant/KB config changes but files were stored under the old provider.
-func (s *knowledgeService) resolveFileServiceForPath(ctx context.Context, kb *types.KnowledgeBase, filePath string) interfaces.FileService {
+func (s *knowledgeService) resolveFileServiceForPath(ctx context.Context, kb *types.KnowledgeBase,
+	filePath string,
+) interfaces.FileService {
 	// A resource:// reference belongs to the tenant that registered it. Shared
 	// KB requests use the viewer's effective tenant in ctx, which can otherwise
 	// select the wrong storage backend and pass the resource URL to local disk.
-	if _, ok := types.ParseResourcePath(filePath); ok && s.resourceCatalog != nil && s.storageResolver != nil && s.tenantRepo != nil {
+	if _, ok := types.ParseResourcePath(filePath); ok && s.resourceCatalog != nil && s.storageResolver != nil &&
+		s.tenantRepo != nil {
 		resource, err := s.resourceCatalog.Resolve(ctx, filePath)
 		if err == nil && resource != nil {
 			ownerTenant, tenantErr := s.tenantRepo.GetTenantByID(ctx, resource.TenantID)
 			if tenantErr == nil && ownerTenant != nil {
 				baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
-				if resolved, _, resolveErr := s.storageResolver.ResolveFileService(ctx, ownerTenant, resource.StorageBackendID, resource.Provider, baseDir); resolveErr == nil && resolved != nil {
+				if resolved, _, resolveErr := s.storageResolver.ResolveFileService(ctx, ownerTenant,
+					resource.StorageBackendID, resource.Provider, baseDir); resolveErr == nil && resolved != nil {
 					return resolved
 				} else if resolveErr != nil {
-					logger.Warnf(ctx, "[storage] failed to resolve resource owner backend: resource=%s tenant=%d err=%v", resource.Handle, resource.TenantID, resolveErr)
+					logger.Warnf(ctx,
+						"[storage] failed to resolve resource owner backend: resource=%s tenant=%d err=%v",
+						resource.Handle, resource.TenantID, resolveErr)
 				}
 			}
 		}
@@ -428,11 +437,11 @@ func (s *knowledgeService) resolveFileServiceForPath(ctx context.Context, kb *ty
 		if tenant != nil {
 			provider := types.ParseProviderScheme(inner)
 			baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
-			if resolved, _, err := s.storageResolver.ResolveFileService(ctx, tenant, backendID, provider, baseDir); err == nil {
+			resolved, _, err := s.storageResolver.ResolveFileService(ctx, tenant, backendID, provider, baseDir)
+			if err == nil {
 				return resolved
-			} else {
-				logger.Warnf(ctx, "[storage] failed to resolve backend from file path: backend=%s err=%v", backendID, err)
 			}
+			logger.Warnf(ctx, "[storage] failed to resolve backend from file path: backend=%s err=%v", backendID, err)
 		}
 	}
 	svc := s.resolveFileService(ctx, kb)
@@ -457,13 +466,15 @@ func (s *knowledgeService) resolveFileServiceForPath(ctx context.Context, kb *ty
 	}
 
 	if configured != "" && configured != inferred {
-		logger.Warnf(ctx, "[storage] FilePath format mismatch: configured=%s inferred=%s filePath=%s, using global fallback",
+		logger.Warnf(ctx,
+			"[storage] FilePath format mismatch: configured=%s inferred=%s filePath=%s, using global fallback",
 			configured, inferred, filePath)
 		return s.fileSvc
 	}
 	return svc
 }
 
+// IsImageType reports whether fileType is a supported raster/vector image format.
 func IsImageType(fileType string) bool {
 	switch fileType {
 	case "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "tiff":
@@ -497,7 +508,9 @@ func IsVideoType(fileType string) bool {
 // payloadFileName and payloadFileType are in/out pointers: if they point to an empty string,
 // the function resolves the value from Content-Disposition / URL path and writes it back.
 // It does NOT perform SSRF validation — callers are responsible for that.
-func downloadFileFromURL(ctx context.Context, fileURL string, payloadFileName, payloadFileType *string) ([]byte, error) {
+func downloadFileFromURL(ctx context.Context, fileURL string, payloadFileName, payloadFileType *string) ([]byte,
+	error,
+) {
 	httpClient := secutils.NewSSRFSafeHTTPClient(secutils.SSRFSafeHTTPClientConfig{
 		Timeout:      60 * time.Second,
 		MaxRedirects: 10,
@@ -510,7 +523,10 @@ func downloadFileFromURL(ctx context.Context, fileURL string, payloadFileName, p
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file from URL: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("remote server returned status %d", resp.StatusCode)
@@ -540,11 +556,13 @@ func downloadFileFromURL(ctx context.Context, fileURL string, payloadFileName, p
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	limiter := &io.LimitedReader{R: resp.Body, N: maxFileURLSize + 1}
 	written, err := io.Copy(tmpFile, limiter)
-	tmpFile.Close()
+	if closeErr := tmpFile.Close(); err == nil && closeErr != nil {
+		err = closeErr
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to write temp file: %w", err)
 	}

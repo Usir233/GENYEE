@@ -2811,7 +2811,9 @@ func (r *installSkillRepo) CreateCatalog(_ context.Context, e *types.TenantSkill
 	return nil
 }
 
-func (r *installSkillRepo) GetCatalog(_ context.Context, _ uint64, catalogID string) (*types.TenantSkillCatalogEntity, error) {
+func (r *installSkillRepo) GetCatalog(_ context.Context, _ uint64, catalogID string) (*types.TenantSkillCatalogEntity,
+	error,
+) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	stored := r.catalogs[catalogID]
@@ -2822,7 +2824,9 @@ func (r *installSkillRepo) GetCatalog(_ context.Context, _ uint64, catalogID str
 	return &cp, nil
 }
 
-func (r *installSkillRepo) GetCatalogByName(_ context.Context, tenantID uint64, name string) (*types.TenantSkillCatalogEntity, error) {
+func (r *installSkillRepo) GetCatalogByName(_ context.Context, tenantID uint64,
+	name string,
+) (*types.TenantSkillCatalogEntity, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, row := range r.catalogs {
@@ -2834,7 +2838,9 @@ func (r *installSkillRepo) GetCatalogByName(_ context.Context, tenantID uint64, 
 	return nil, nil
 }
 
-func (r *installSkillRepo) ListCatalogsByTenant(_ context.Context, tenantID uint64) ([]*types.TenantSkillCatalogEntity, error) {
+func (r *installSkillRepo) ListCatalogsByTenant(_ context.Context, tenantID uint64) ([]*types.TenantSkillCatalogEntity,
+	error,
+) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []*types.TenantSkillCatalogEntity
@@ -2868,7 +2874,9 @@ func (r *installSkillRepo) DeleteCatalog(_ context.Context, _ uint64, catalogID 
 	return nil
 }
 
-func (r *installSkillRepo) ListSkillsByCatalog(_ context.Context, tenantID uint64, catalogID string) ([]*types.TenantSkillEntity, error) {
+func (r *installSkillRepo) ListSkillsByCatalog(_ context.Context, tenantID uint64,
+	catalogID string,
+) ([]*types.TenantSkillEntity, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []*types.TenantSkillEntity

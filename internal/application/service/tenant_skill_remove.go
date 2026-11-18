@@ -456,21 +456,20 @@ func (s *TenantSkillService) restoreSkillAfterFailedRemoval(
 	}
 	status := types.SkillStatusFailed
 	abandoned := ""
-	_ = s.updateSkillFields(ctx, tenantID, configID, skillID,
-		func(e *types.TenantSkillEntity) {
-			// A skill that reached an image is still in it, so it goes back to
-			// ready and the operator can retry. One that never did has nothing
-			// to be ready for, and calling it ready would point the agent at
-			// files no image carries. A row whose upgrade never landed goes
-			// back to the version the image actually has.
-			abandoned = restoreServedVersion(e)
-			if e.InstalledSnapshotID != "" {
-				status = types.SkillStatusReady
-			}
-			e.Status = status
-			e.Error = cause.Error()
-			e.InstallingSince = nil
-		})
+	if err := s.retrySkillBookkeeping(ctx, func() error {
+		return s.updateSkillFields(ctx, tenantID, configID, skillID,
+			func(e *types.TenantSkillEntity) {
+				abandoned = restoreServedVersion(e)
+				if e.InstalledSnapshotID != "" {
+					status = types.SkillStatusReady
+				}
+				e.Status = status
+				e.Error = cause.Error()
+				e.InstallingSince = nil
+			})
+	}); err != nil {
+		logger.Warnf(ctx, "[skill] restore skill %s after failed removal failed: %v", skillID, err)
+	}
 	s.releaseInstallBundle(ctx, tenantID, abandoned)
 	s.publishProgress(ctx, tenantID, configID, skillID, SkillProgress{
 		Percent: 100, Stage: "failed", Status: status, Log: cause.Error(),

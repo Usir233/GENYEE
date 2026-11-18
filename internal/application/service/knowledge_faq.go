@@ -21,7 +21,8 @@ import (
 
 // ListFAQEntries lists FAQ entries under a FAQ knowledge base.
 func (s *knowledgeService) ListFAQEntries(ctx context.Context,
-	kbID string, page *types.Pagination, tagUUIDs []string, legacyTagSeqID int64, keyword string, searchField string, sortOrder string,
+	kbID string, page *types.Pagination, tagUUIDs []string, legacyTagSeqID int64, keyword string, searchField string,
+	sortOrder string,
 	isEnabled *bool,
 ) (*types.PageResult, error) {
 	if page == nil {
@@ -56,7 +57,8 @@ func (s *knowledgeService) ListFAQEntries(ctx context.Context,
 
 	chunkType := []types.ChunkType{types.ChunkTypeFAQ}
 	chunks, total, err := s.chunkRepo.ListPagedChunksByKnowledgeID(
-		ctx, effectiveTenantID, faqKnowledge.ID, page, chunkType, tagUUIDs, keyword, searchField, sortOrder, types.KnowledgeTypeFAQ,
+		ctx, effectiveTenantID, faqKnowledge.ID, page, chunkType, tagUUIDs, keyword, searchField, sortOrder,
+		types.KnowledgeTypeFAQ,
 		isEnabled,
 	)
 	if err != nil {
@@ -1610,7 +1612,9 @@ func faqChunkQuestion(chunk *types.Chunk) string {
 	return strings.TrimSpace(chunk.Content)
 }
 
-func (s *knowledgeService) chunkToFAQEntry(chunk *types.Chunk, kb *types.KnowledgeBase, tagSeqIDMap map[string]int64) (*types.FAQEntry, error) {
+func (s *knowledgeService) chunkToFAQEntry(chunk *types.Chunk, kb *types.KnowledgeBase,
+	tagSeqIDMap map[string]int64,
+) (*types.FAQEntry, error) {
 	meta, err := chunk.FAQMetadata()
 	if err != nil {
 		return nil, err
@@ -1653,11 +1657,11 @@ func (s *knowledgeService) chunkToFAQEntry(chunk *types.Chunk, kb *types.Knowled
 
 func buildFAQChunkContent(meta *types.FAQChunkMetadata, mode types.FAQIndexMode) string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("Q: %s\n", meta.StandardQuestion))
+	fmt.Fprintf(&builder, "Q: %s\n", meta.StandardQuestion)
 	if len(meta.SimilarQuestions) > 0 {
 		builder.WriteString("Similar Questions:\n")
 		for _, q := range meta.SimilarQuestions {
-			builder.WriteString(fmt.Sprintf("- %s\n", q))
+			fmt.Fprintf(&builder, "- %s\n", q)
 		}
 	}
 	// 负例不应该包含在 Content 中，因为它们不应该被索引
@@ -1665,7 +1669,7 @@ func buildFAQChunkContent(meta *types.FAQChunkMetadata, mode types.FAQIndexMode)
 	if mode == types.FAQIndexModeQuestionAnswer && len(meta.Answers) > 0 {
 		builder.WriteString("Answers:\n")
 		for _, ans := range meta.Answers {
-			builder.WriteString(fmt.Sprintf("- %s\n", ans))
+			fmt.Fprintf(&builder, "- %s\n", ans)
 		}
 	}
 	return builder.String()
@@ -1846,7 +1850,9 @@ func hashQuestion(question string) string {
 // resolveTagID resolves tag ID (UUID) from payload, prioritizing tag_id (seq_id) over tag_name
 // If no tag is specified, creates or finds the "未分类" tag
 // Returns the internal UUID of the tag
-func (s *knowledgeService) resolveTagID(ctx context.Context, kbID string, payload *types.FAQEntryPayload) (string, error) {
+func (s *knowledgeService) resolveTagID(ctx context.Context, kbID string, payload *types.FAQEntryPayload) (string,
+	error,
+) {
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
 	// 如果提供了 tag_id (seq_id)，优先使用 tag_id
@@ -1926,7 +1932,7 @@ func buildFAQIndexContent(meta *types.FAQChunkMetadata, mode types.FAQIndexMode)
 
 // buildFAQIndexInfoList 构建FAQ索引信息列表，支持分别索引模式
 func (s *knowledgeService) buildFAQIndexInfoList(
-	ctx context.Context,
+	_ context.Context,
 	kb *types.KnowledgeBase,
 	chunk *types.Chunk,
 ) ([]*types.IndexInfo, error) {

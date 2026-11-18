@@ -77,8 +77,8 @@ type knowledgeService struct {
 	memFAQRunningImport      sync.Map // kbID -> *runningFAQImportInfo
 	memKBCloneProgress       sync.Map // taskID -> *types.KBCloneProgress
 	memKnowledgeMoveProgress sync.Map // taskID -> *types.KnowledgeMoveProgress
-	wikiRepo            interfaces.WikiPageRepository
-	wikiService         interfaces.WikiPageService
+	wikiRepo                 interfaces.WikiPageRepository
+	wikiService              interfaces.WikiPageService
 
 	// spanTracker records the per-attempt span tree for the parsing
 	// pipeline. Best-effort: a nil tracker (test harness) is safely
@@ -300,10 +300,8 @@ func releaseSubtaskSlot(
 		if attempt == subtaskSlotReleaseAttempts {
 			break
 		}
-		select {
-		case <-time.After(time.Duration(attempt) * subtaskSlotReleaseBackoff):
-		case <-dctx.Done():
-			return fmt.Errorf("%w (last error: %v)", dctx.Err(), lastErr)
+		if sleepErr := sleepWithContext(dctx, time.Duration(attempt)*subtaskSlotReleaseBackoff); sleepErr != nil {
+			return fmt.Errorf("%w (last error: %v)", sleepErr, lastErr)
 		}
 	}
 	return lastErr
@@ -441,7 +439,8 @@ func (s *knowledgeService) failPostprocessSubspan(
 	s.tracker().FailSpan(ctx, span, code, msg, err)
 }
 
-// getParserEngineOverridesFromContext returns parser engine overrides from tenant in context (e.g. MinerU endpoint, API key).
+// getParserEngineOverridesFromContext returns parser engine overrides from tenant in context (e.g. MinerU endpoint,
+// API key).
 // Used when building document ReadRequest so UI-configured values take precedence over env.
 func (s *knowledgeService) getParserEngineOverridesFromContext(ctx context.Context) map[string]string {
 	if v := ctx.Value(types.TenantInfoContextKey); v != nil {
@@ -460,21 +459,6 @@ func (s *knowledgeService) getParserEngineOverridesFromContext(ctx context.Conte
 //   - interfaces.KnowledgeRepository: Knowledge repository
 func (s *knowledgeService) GetRepository() interfaces.KnowledgeRepository {
 	return s.repo
-}
-
-// isKnowledgeDeleting checks if a knowledge entry is being deleted.
-// This is used to prevent async tasks from conflicting with deletion operations.
-func (s *knowledgeService) isKnowledgeDeleting(ctx context.Context, tenantID uint64, knowledgeID string) bool {
-	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
-	if err != nil {
-		// If we can't find the knowledge, assume it's deleted
-		logger.Warnf(ctx, "Failed to check knowledge deletion status (assuming deleted): %v", err)
-		return true
-	}
-	if knowledge == nil {
-		return true
-	}
-	return knowledge.ParseStatus == types.ParseStatusDeleting
 }
 
 // Pseudo-statuses isKnowledgeAborted reports when it could not learn the
@@ -1060,7 +1044,9 @@ func (s *knowledgeService) setAndAttachKnowledgeTags(
 }
 
 // GetKnowledgeTags returns tags for multiple knowledge IDs.
-func (s *knowledgeService) GetKnowledgeTags(ctx context.Context, knowledgeIDs []string) (map[string][]*types.KnowledgeTag, error) {
+func (s *knowledgeService) GetKnowledgeTags(ctx context.Context,
+	knowledgeIDs []string,
+) (map[string][]*types.KnowledgeTag, error) {
 	return s.repo.GetKnowledgeTags(ctx, knowledgeIDs)
 }
 
@@ -1173,7 +1159,9 @@ func (s *knowledgeService) UpdateKnowledgeTagBatch(
 
 // SearchKnowledge searches knowledge items by keyword across the tenant and shared knowledge bases.
 // fileTypes: optional list of file extensions to filter by (e.g., ["csv", "xlsx"])
-func (s *knowledgeService) SearchKnowledge(ctx context.Context, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error) {
+func (s *knowledgeService) SearchKnowledge(ctx context.Context, keyword string, offset, limit int,
+	fileTypes []string,
+) ([]*types.Knowledge, bool, int64, error) {
 	caller := types.CallerFromContext(ctx)
 	tenantID := caller.TenantID
 	if tenantID == 0 {
@@ -1202,7 +1190,8 @@ func (s *knowledgeService) SearchKnowledge(ctx context.Context, keyword string, 
 			sharedList, err := s.kbShareService.ListSharedKnowledgeBases(ctx, tenantID, callerTenantRole)
 			if err == nil {
 				for _, info := range sharedList {
-					if info != nil && info.KnowledgeBase != nil && info.KnowledgeBase.Type == types.KnowledgeBaseTypeDocument {
+					if info != nil && info.KnowledgeBase != nil &&
+						info.KnowledgeBase.Type == types.KnowledgeBaseTypeDocument {
 						scopes = append(scopes, types.KnowledgeSearchScope{
 							TenantID: info.SourceTenantID,
 							KBID:     info.KnowledgeBase.ID,
@@ -1220,7 +1209,9 @@ func (s *knowledgeService) SearchKnowledge(ctx context.Context, keyword string, 
 }
 
 // SearchKnowledgeForScopes searches knowledge within the given scopes (e.g. for shared agent context).
-func (s *knowledgeService) SearchKnowledgeForScopes(ctx context.Context, scopes []types.KnowledgeSearchScope, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error) {
+func (s *knowledgeService) SearchKnowledgeForScopes(ctx context.Context, scopes []types.KnowledgeSearchScope,
+	keyword string, offset, limit int, fileTypes []string,
+) ([]*types.Knowledge, bool, int64, error) {
 	if len(scopes) == 0 {
 		return nil, false, 0, nil
 	}

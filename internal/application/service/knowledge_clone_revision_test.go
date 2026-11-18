@@ -25,7 +25,8 @@ func cloneRevisionChunks(t *testing.T, f *documentWriteFixture) (*types.Knowledg
 func TestClonePreservesEditedBodiesForReconstruction(t *testing.T) {
 	f := transferFixture(t, access.KBTransferClone)
 	first := "The first rewritten section contains current operating instructions and remains independently meaningful."
-	second := "The second edited section contains independent evidence that must not disappear behind old parser offsets."
+	second := "The second edited section contains independent evidence that must not disappear behind old " +
+		"parser offsets."
 	require.NoError(t, f.db.Model(&types.Chunk{}).Where("id = ?", "chunk").Updates(map[string]any{
 		"content": first, "source_content": "original parser first body", "content_revision": 3,
 		"start_at": 0, "end_at": 100, "chunk_index": 0, "is_enabled": true,
@@ -155,16 +156,30 @@ func TestCloneImageURLRewritePreservesChildEditCoordinates(t *testing.T) {
 			const base = prefix + "FIRSTSECOND"
 			const parentStart = 100
 			childStart := parentStart + len([]rune(prefix))
-			require.NoError(t, f.db.Create(&types.Chunk{ID: "parent", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
-				ChunkType: types.ChunkTypeParentText, Content: prefix + tc.first + "SECOND", SourceContent: base, StartAt: parentStart, EndAt: parentStart + len([]rune(base)), IsEnabled: true}).Error)
-			require.NoError(t, f.db.Model(&types.Chunk{}).Where("id = ?", "chunk").Updates(map[string]any{
-				"content": tc.first, "source_content": "FIRST", "content_revision": tc.revision, "start_at": childStart, "end_at": childStart + 5, "parent_chunk_id": "parent", "chunk_index": 1,
+			require.NoError(t, f.db.Create(&types.Chunk{
+				ID: "parent", TenantID: 7, KnowledgeID: "doc",
+				KnowledgeBaseID: "kb",
+				ChunkType:       types.ChunkTypeParentText, Content: prefix + tc.first + "SECOND", SourceContent: base,
+				StartAt: parentStart, EndAt: parentStart + len([]rune(base)), IsEnabled: true,
 			}).Error)
-			require.NoError(t, f.db.Create(&types.Chunk{ID: "second", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
-				ChunkType: types.ChunkTypeText, ParentChunkID: "parent", Content: "SECOND", SourceContent: "SECOND", StartAt: childStart + 5, EndAt: childStart + 11, ChunkIndex: 2, IsEnabled: true}).Error)
-			require.NoError(t, f.db.Create(&types.Chunk{ID: "image", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
-				ChunkType: types.ChunkTypeImageCaption, ParentChunkID: "parent", Content: "diagram", IsEnabled: true,
-				ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: "original.png"}})}).Error)
+			require.NoError(t, f.db.Model(&types.Chunk{}).Where("id = ?", "chunk").Updates(map[string]any{
+				"content": tc.first, "source_content": "FIRST", "content_revision": tc.revision, "start_at": childStart,
+				"end_at": childStart + 5, "parent_chunk_id": "parent", "chunk_index": 1,
+			}).Error)
+			require.NoError(t, f.db.Create(&types.Chunk{
+				ID: "second", TenantID: 7, KnowledgeID: "doc",
+				KnowledgeBaseID: "kb",
+				ChunkType:       types.ChunkTypeText,
+				ParentChunkID:   "parent", Content: "SECOND", SourceContent: "SECOND",
+				StartAt: childStart + 5, EndAt: childStart + 11, ChunkIndex: 2, IsEnabled: true,
+			}).Error)
+			require.NoError(t, f.db.Create(&types.Chunk{
+				ID: "image", TenantID: 7, KnowledgeID: "doc",
+				KnowledgeBaseID: "kb",
+				ChunkType:       types.ChunkTypeImageCaption,
+				ParentChunkID:   "parent", Content: "diagram", IsEnabled: true,
+				ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: "original.png"}}),
+			}).Error)
 			_, cloned := cloneRevisionChunks(t, f)
 			var edited *types.Chunk
 			for _, c := range cloned {
@@ -206,25 +221,37 @@ func TestCloneImageURLRewriteKeepsGlobalOverlappingCoordinates(t *testing.T) {
 	}
 	for _, p := range parents {
 		body := string(runes[p.start:p.end])
-		require.NoError(t, f.db.Create(&types.Chunk{ID: p.id, TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
-			ChunkType: types.ChunkTypeParentText, Content: body, StartAt: origin + p.start, EndAt: origin + p.end, IsEnabled: true}).Error)
+		require.NoError(t, f.db.Create(&types.Chunk{
+			ID: p.id, TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
+			ChunkType: types.ChunkTypeParentText, Content: body, StartAt: origin + p.start, EndAt: origin + p.end,
+			IsEnabled: true,
+		}).Error)
 	}
 	children := []struct {
 		id, parent string
 		start, end int
 	}{
-		{"chunk", "parent-one", 0, firstEnd - 4}, {"one-tail", "parent-one", firstEnd - 8, firstEnd},
-		{"two-head", "parent-two", secondStart, len(runes) - 40}, {"two-tail", "parent-two", len(runes) - 44, len(runes)},
+		{"chunk", "parent-one", 0, firstEnd - 4},
+		{"one-tail", "parent-one", firstEnd - 8, firstEnd},
+		{"two-head", "parent-two", secondStart, len(runes) - 40},
+		{
+			"two-tail", "parent-two", len(runes) - 44,
+			len(runes),
+		},
 	}
 	require.NoError(t, f.db.Unscoped().Where("id = ?", "chunk").Delete(&types.Chunk{}).Error)
 	for i, c := range children {
-		require.NoError(t, f.db.Create(&types.Chunk{ID: c.id, TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
+		require.NoError(t, f.db.Create(&types.Chunk{
+			ID: c.id, TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
 			ChunkType: types.ChunkTypeText, ParentChunkID: c.parent, Content: string(runes[c.start:c.end]),
-			StartAt: origin + c.start, EndAt: origin + c.end, ChunkIndex: i, IsEnabled: true}).Error)
+			StartAt: origin + c.start, EndAt: origin + c.end, ChunkIndex: i, IsEnabled: true,
+		}).Error)
 	}
-	require.NoError(t, f.db.Create(&types.Chunk{ID: "image", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
+	require.NoError(t, f.db.Create(&types.Chunk{
+		ID: "image", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
 		ChunkType: types.ChunkTypeImageCaption, ParentChunkID: "parent-one", Content: "diagram", IsEnabled: true,
-		ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: "original.png"}})}).Error)
+		ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: "original.png"}}),
+	}).Error)
 	destination, cloned := cloneRevisionChunks(t, f)
 	require.Equal(t, 1, files.copyCalls)
 	var textChunks []*types.Chunk
@@ -248,7 +275,8 @@ func TestCloneImageURLRewriteKeepsGlobalOverlappingCoordinates(t *testing.T) {
 			original := children[c.ChunkIndex]
 			require.Zero(t, c.ContentRevision)
 			require.Equal(t, utf8.RuneCountInString(c.Content), c.EndAt-c.StartAt)
-			require.Equal(t, origin+utf8.RuneCountInString(strings.ReplaceAll(string(runes[:original.start]), image, copied)), c.StartAt)
+			require.Equal(t, origin+utf8.RuneCountInString(strings.ReplaceAll(string(runes[:original.start]), image,
+				copied)), c.StartAt)
 			parent, err := f.chunkRepo.GetChunkByID(f.ctx, 7, c.ParentChunkID)
 			require.NoError(t, err)
 			require.Equal(t, c.Content, string([]rune(parent.Content)[c.StartAt-parent.StartAt:c.EndAt-parent.StartAt]))
@@ -267,11 +295,18 @@ func TestCloneImageCoordinatesAcrossURLBoundaries(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			const base = "前![图](图.png)后"
 			// A source hard token budget splits the URL after its second rune.
-			parent := &types.Chunk{ChunkType: types.ChunkTypeParentText, Content: base, SourceContent: base, StartAt: 100, EndAt: 113}
+			parent := &types.Chunk{
+				ChunkType: types.ChunkTypeParentText, Content: base, SourceContent: base,
+				StartAt: 100, EndAt: 113,
+			}
 			first := &types.Chunk{ChunkType: types.ChunkTypeText, Content: "前![图](图.", StartAt: 100, EndAt: 108}
-			second := &types.Chunk{ChunkType: types.ChunkTypeText, Content: "png)后", SourceContent: "png)后", StartAt: 108, EndAt: 113}
+			second := &types.Chunk{
+				ChunkType: types.ChunkTypeText, Content: "png)后", SourceContent: "png)后",
+				StartAt: 108, EndAt: 113,
+			}
 			caption := &types.Chunk{ChunkType: types.ChunkTypeImageCaption, Content: "图.png", StartAt: 100, EndAt: 105}
-			require.NoError(t, rewriteClonedChunkImages([]*types.Chunk{parent, first, second, caption}, map[string]string{"图.png": tc.replacement}))
+			require.NoError(t, rewriteClonedChunkImages([]*types.Chunk{parent, first, second, caption},
+				map[string]string{"图.png": tc.replacement}))
 			require.Equal(t, tc.first, first.Content)
 			require.Equal(t, tc.second, second.Content)
 			require.Equal(t, first.Content+second.Content, parent.Content)
@@ -300,11 +335,14 @@ func TestCloneImageCoordinateFailureCleansCopiesBeforePersistence(t *testing.T) 
 	files := &countingFileService{}
 	f.svc.fileSvc = files
 	require.NoError(t, f.db.Model(&types.Chunk{}).Where("id = ?", "chunk").Updates(map[string]any{
-		"content": "a.png", "start_at": 100, "end_at": 105, "image_info": mustImageInfoJSON(t, []types.ImageInfo{{URL: "a.png"}}),
+		"content": "a.png", "start_at": 100, "end_at": 105, "image_info": mustImageInfoJSON(t,
+			[]types.ImageInfo{{URL: "a.png"}}),
 	}).Error)
-	require.NoError(t, f.db.Create(&types.Chunk{ID: "conflict", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
+	require.NoError(t, f.db.Create(&types.Chunk{
+		ID: "conflict", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
 		ChunkType: types.ChunkTypeText, Content: "b.png", StartAt: 100, EndAt: 105, IsEnabled: true,
-		ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: "b.png"}})}).Error)
+		ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: "b.png"}}),
+	}).Error)
 	source, err := f.repo.GetKnowledgeByID(f.ctx, 7, "doc")
 	require.NoError(t, err)
 	err = f.svc.cloneKnowledge(f.ctx, source, f.kbs.values["other"])
@@ -335,9 +373,12 @@ func TestCloneRejectsPartiallyOverlappingImageRewrites(t *testing.T) {
 		"content": firstURL, "source_content": firstURL, "start_at": 0, "end_at": len(firstURL),
 		"image_info": mustImageInfoJSON(t, []types.ImageInfo{{URL: firstURL}}),
 	}).Error)
-	require.NoError(t, f.db.Create(&types.Chunk{ID: "overlap", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
-		ChunkType: types.ChunkTypeText, Content: secondURL, SourceContent: secondURL, StartAt: secondStart, EndAt: secondStart + len(secondURL), IsEnabled: true,
-		ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: secondURL}})}).Error)
+	require.NoError(t, f.db.Create(&types.Chunk{
+		ID: "overlap", TenantID: 7, KnowledgeID: "doc", KnowledgeBaseID: "kb",
+		ChunkType: types.ChunkTypeText, Content: secondURL, SourceContent: secondURL, StartAt: secondStart,
+		EndAt: secondStart + len(secondURL), IsEnabled: true,
+		ImageInfo: mustImageInfoJSON(t, []types.ImageInfo{{URL: secondURL}}),
+	}).Error)
 	source, err := f.repo.GetKnowledgeByID(f.ctx, 7, "doc")
 	require.NoError(t, err)
 	err = f.svc.cloneKnowledge(f.ctx, source, f.kbs.values["other"])

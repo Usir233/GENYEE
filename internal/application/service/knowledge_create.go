@@ -135,7 +135,8 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 
 	// Check storage quota
 	tenantInfo := s.w3aTenantInfoForKB(ctx, kb)
-	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
+	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo,
+		replacement) >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
 	}
@@ -219,7 +220,8 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 	if err := s.persistKnowledgeForCreation(ctx, knowledge, replacement); err != nil {
 		logger.Errorf(ctx, "Failed to create knowledge record, ID: %s, error: %v", knowledge.ID, err)
 		if replacement == nil || !replacement.keepFile {
-			if deleteErr := deleteKnowledgeSource(context.WithoutCancel(ctx), fileSvc, s.resourceCatalog, knowledge.ID, filePath); deleteErr != nil {
+			if deleteErr := deleteKnowledgeSource(context.WithoutCancel(ctx), fileSvc, s.resourceCatalog, knowledge.ID,
+				filePath); deleteErr != nil {
 				logger.Errorf(ctx, "Failed to delete saved file after knowledge creation failed, path: %s, error: %v",
 					filePath, deleteErr)
 			}
@@ -300,7 +302,8 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 		knowledge.ID,
 	)
 
-	enqueueDataTableSummaryIfNeeded(ctx, s.task, tenantID, knowledge.ID, safeFilename, getFileType(safeFilename), kb.SummaryModelID, kb.EmbeddingModelID)
+	enqueueDataTableSummaryIfNeeded(ctx, s.task, tenantID, knowledge.ID, safeFilename, getFileType(safeFilename),
+		kb.SummaryModelID, kb.EmbeddingModelID)
 
 	logger.Infof(ctx, "Knowledge from file created successfully, ID: %s", knowledge.ID)
 	return knowledge, nil
@@ -403,7 +406,8 @@ func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
 
 	// Check storage quota
 	tenantInfo := s.w3aTenantInfoForKB(ctx, kb)
-	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
+	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo,
+		replacement) >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
 	}
@@ -527,26 +531,13 @@ func extractFileNameFromContentDisposition(header string) string {
 	for _, part := range strings.Split(header, ";") {
 		part = strings.TrimSpace(part)
 		if strings.HasPrefix(strings.ToLower(part), "filename=") {
-			name := strings.TrimPrefix(part, "filename=")
-			name = strings.TrimPrefix(part[len("filename="):], "")
-			name = strings.Trim(name, `"'`)
+			name := strings.Trim(part[len("filename="):], `"'`)
 			if name != "" {
 				return name
 			}
 		}
 	}
 	return ""
-}
-
-// createKnowledgeFromFileURL is the internal implementation for file URL knowledge creation.
-// The replacement-aware variant shares the pipeline for datasource updates.
-func (s *knowledgeService) createKnowledgeFromFileURL(
-	ctx context.Context, kbID, fileURL, fileName, fileType string,
-	enableMultimodel *bool, title string, tagIDs []string, channel string,
-	processOverrides *types.KnowledgeProcessOverrides,
-) (*types.Knowledge, error) {
-	return s.createKnowledgeFromFileURLWithReplacement(ctx, kbID, fileURL, fileName, fileType,
-		enableMultimodel, title, tagIDs, channel, processOverrides, nil)
 }
 
 func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
@@ -642,7 +633,8 @@ func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 
 	// Check storage quota
 	tenantInfo := s.w3aTenantInfoForKB(ctx, kb)
-	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
+	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo,
+		replacement) >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
 	}
@@ -746,9 +738,11 @@ func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 			"title": knowledge.Title, "source_type": "file_url", "file_type": knowledge.FileType,
 			"processing_status": "pending", "task_id": info.ID, "trigger": kbActivityTrigger(ctx),
 		})
-	logger.Infof(ctx, "Enqueued file URL process task: id=%s queue=%s knowledge_id=%s", info.ID, info.Queue, knowledge.ID)
+	logger.Infof(ctx, "Enqueued file URL process task: id=%s queue=%s knowledge_id=%s", info.ID, info.Queue,
+		knowledge.ID)
 
-	enqueueDataTableSummaryIfNeeded(ctx, s.task, tenantID, knowledge.ID, fileName, fileType, kb.SummaryModelID, kb.EmbeddingModelID)
+	enqueueDataTableSummaryIfNeeded(ctx, s.task, tenantID, knowledge.ID, fileName, fileType, kb.SummaryModelID,
+		kb.EmbeddingModelID)
 
 	logger.Infof(ctx, "Knowledge from file URL created successfully, ID: %s", knowledge.ID)
 	return knowledge, nil
@@ -874,7 +868,7 @@ func (s *knowledgeService) CreateKnowledgeFromManual(ctx context.Context,
 			// Non-fatal: mark as failed so user can retry
 			knowledge.ParseStatus = "failed"
 			knowledge.ErrorMessage = "Failed to enqueue processing task"
-			s.repo.UpdateKnowledge(ctx, knowledge)
+			s.updateKnowledgeBestEffort(ctx, knowledge)
 			recordKBActivity(ctx, s.audit, tenantID, kbID, types.AuditActionKnowledgeCreated,
 				"knowledge", knowledge.ID, types.AuditOutcomeFailed, map[string]any{
 					"title": knowledge.Title, "source_type": "manual", "status": status,
@@ -1031,7 +1025,8 @@ func (s *knowledgeService) createKnowledgeFromPassageInternal(ctx context.Contex
 				"title": knowledge.Title, "source_type": "passage", "processing_status": "pending",
 				"task_id": info.ID, "trigger": kbActivityTrigger(ctx),
 			})
-		logger.Infof(ctx, "Enqueued passage process task: id=%s queue=%s knowledge_id=%s", info.ID, info.Queue, knowledge.ID)
+		logger.Infof(ctx, "Enqueued passage process task: id=%s queue=%s knowledge_id=%s", info.ID, info.Queue,
+			knowledge.ID)
 		logger.Infof(ctx, "Knowledge from passage created successfully, ID: %s", knowledge.ID)
 	}
 	return knowledge, nil
@@ -1146,7 +1141,7 @@ func (s *knowledgeService) UpdateManualKnowledge(ctx context.Context,
 		// Non-fatal: mark as failed so user can retry
 		existing.ParseStatus = "failed"
 		existing.ErrorMessage = "Failed to enqueue processing task"
-		s.repo.UpdateKnowledge(ctx, existing)
+		s.updateKnowledgeBestEffort(ctx, existing)
 		recordKBActivity(ctx, s.audit, tenantID, existing.KnowledgeBaseID, types.AuditActionKnowledgeUpdated,
 			"knowledge", existing.ID, types.AuditOutcomeFailed, map[string]any{
 				"title": existing.Title, "status": status,
@@ -1344,7 +1339,9 @@ func (s *knowledgeService) bindChunkResources(
 	s.bindContentResources(ctx, tenantID, knowledgeID, b.String())
 }
 
-func (s *knowledgeService) manualImageFailure(ctx context.Context, knowledge *types.Knowledge, operation string, cause error) error {
+func (s *knowledgeService) manualImageFailure(ctx context.Context, knowledge *types.Knowledge, operation string,
+	cause error,
+) error {
 	retryCount, _ := asynq.GetRetryCount(ctx)
 	maxRetry, _ := asynq.GetMaxRetry(ctx)
 	if retried, limit, ok := types.TaskRetryMetadataFromContext(ctx); ok {
@@ -1417,7 +1414,8 @@ func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
 	}
 
 	if s.imageResolver != nil {
-		updatedContent, storedImages, resolveErr := s.imageResolver.ResolveRemoteImages(ctx, clean, fileSvc, knowledge.TenantID)
+		updatedContent, storedImages, resolveErr := s.imageResolver.ResolveRemoteImages(ctx, clean, fileSvc,
+			knowledge.TenantID)
 		if resolveErr != nil {
 			logger.Warnf(ctx, "Remote image resolution partially failed: %v", resolveErr)
 		}
@@ -1436,7 +1434,8 @@ func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
 	// freshly resolved images may still carry provider:// URLs, so claim them
 	// from the resolver's own list as well.
 	if err := s.bindStoredImages(ctx, knowledge, resolvedImages); err != nil {
-		cleanupFailedImageBindings(ctx, fileSvc, s.resourceCatalog, types.ResourceOwnerKnowledge, knowledge.ID, resolvedImages)
+		cleanupFailedImageBindings(ctx, fileSvc, s.resourceCatalog, types.ResourceOwnerKnowledge, knowledge.ID,
+			resolvedImages)
 		return s.manualImageFailure(ctx, knowledge, "bind manual images", err)
 	}
 

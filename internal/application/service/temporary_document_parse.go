@@ -245,7 +245,8 @@ func (s *temporaryDocumentService) parse(
 					if _, managed := types.ParseResourcePath(image.ServingURL); managed {
 						if err := s.resourceCatalog.Bind(ctx, image.ServingURL, types.ResourceOwnerTemporaryDocument,
 							document.ID, types.ResourceRelationExtractedImage); err != nil {
-							cleanupFailedImageBindings(ctx, s.fileService, s.resourceCatalog, types.ResourceOwnerTemporaryDocument, document.ID, stored)
+							cleanupFailedImageBindings(ctx, s.fileService, s.resourceCatalog,
+								types.ResourceOwnerTemporaryDocument, document.ID, stored)
 							return "", nil, nil, fmt.Errorf("bind temporary document image: %w", err)
 						}
 					}

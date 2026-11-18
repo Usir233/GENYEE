@@ -208,7 +208,10 @@ func (s *wikiIngestService) selectRelevantFolders(
 		return capFolders(pool, wikiTaxonomyPromptMaxPaths)
 	}
 
-	selected := append(l1Paths, selectFoldersByVectors(deeper, folderVecs, itemVecs, wikiTaxonomyRelevantTopK)...)
+	matched := selectFoldersByVectors(deeper, folderVecs, itemVecs, wikiTaxonomyRelevantTopK)
+	selected := make([][]string, 0, len(l1Paths)+len(matched))
+	selected = append(selected, l1Paths...)
+	selected = append(selected, matched...)
 	return capFolders(selected, wikiTaxonomyPromptMaxPaths)
 }
 
@@ -260,10 +263,10 @@ func cosineSimilarity(a, b []float32) float64 {
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }
 
-// capFolders truncates a folder list to at most max entries (max <= 0 = no cap).
-func capFolders(paths [][]string, max int) [][]string {
-	if max > 0 && len(paths) > max {
-		return paths[:max]
+// capFolders truncates a folder list to at most limit entries (limit <= 0 = no cap).
+func capFolders(paths [][]string, limit int) [][]string {
+	if limit > 0 && len(paths) > limit {
+		return paths[:limit]
 	}
 	return paths
 }

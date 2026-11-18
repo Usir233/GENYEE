@@ -200,7 +200,8 @@ func (s *knowledgeService) ReplaceKnowledgeFile(ctx context.Context,
 
 	if existing.FilePath != newPath {
 		oldFileSvc := s.resolveFileServiceForPath(cleanupCtx, kb, existing.FilePath)
-		if err := deleteKnowledgeSource(cleanupCtx, oldFileSvc, s.resourceCatalog, existing.ID, existing.FilePath); err != nil {
+		if err := deleteKnowledgeSource(cleanupCtx, oldFileSvc, s.resourceCatalog, existing.ID,
+			existing.FilePath); err != nil {
 			logger.Warnf(ctx, "Failed to delete replaced file %s of knowledge %s: %v",
 				existing.FilePath, existing.ID, err)
 		}

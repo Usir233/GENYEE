@@ -1,4 +1,4 @@
-// Package service: sandbox backend config management.
+// Package service manages tenant sandbox backend configurations and lifecycle rules.
 //
 // The load-bearing rule: some fields decide whether a config can still OPERATE
 // the sandboxes it already created. Overwriting them in place while sandboxes
@@ -297,6 +297,7 @@ type SandboxTemplateQueryInput struct {
 	ReplaceDesktop  bool
 }
 
+// SandboxTemplateCatalog summarizes provisioned templates available on the sandbox backend.
 type SandboxTemplateCatalog struct {
 	Templates          []sandbox.RemoteTemplate `json:"templates"`
 	StandardTemplateID string                   `json:"standard_template_id,omitempty"`
@@ -1556,11 +1557,9 @@ func (s *TenantSandboxConfigService) closeCreates(
 			barrier.Release()
 			return nil, ErrSandboxConfigCreatesInFlight
 		}
-		select {
-		case <-ctx.Done():
+		if sleepErr := sleepWithContext(ctx, 250*time.Millisecond); sleepErr != nil {
 			barrier.Release()
-			return nil, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+			return nil, sleepErr
 		}
 	}
 }

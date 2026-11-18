@@ -37,7 +37,9 @@ func normalizeParserFileType(fileType string) string {
 }
 
 // ResolveProcessConfig merges KB defaults with per-upload overrides for the parse pipeline.
-func ResolveProcessConfig(kb *types.KnowledgeBase, overrides *types.KnowledgeProcessOverrides) types.EffectiveProcessConfig {
+func ResolveProcessConfig(kb *types.KnowledgeBase,
+	overrides *types.KnowledgeProcessOverrides,
+) types.EffectiveProcessConfig {
 	imageCfg := kb.ImageProcessingConfig
 	eff := types.EffectiveProcessConfig{
 		SummaryEnabled:           true,
@@ -201,7 +203,7 @@ func resolveFileImportProcessConfig(
 
 // ValidateProcessOverrides validates batch overrides against file types in the upload.
 func ValidateProcessOverrides(
-	ctx context.Context,
+	_ context.Context,
 	kb *types.KnowledgeBase,
 	overrides *types.KnowledgeProcessOverrides,
 	fileTypes []string,
@@ -251,7 +253,7 @@ func validateEffectiveProcessOverrides(eff types.EffectiveProcessConfig, fileTyp
 // ApplyKnowledgeProcessOverrides validates optional overrides, persists them on the
 // knowledge record, and returns the effective config for task enqueue.
 func ApplyKnowledgeProcessOverrides(
-	ctx context.Context,
+	_ context.Context,
 	kb *types.KnowledgeBase,
 	knowledge *types.Knowledge,
 	processOverrides *types.KnowledgeProcessOverrides,
@@ -381,7 +383,9 @@ func mergeExtractConfig(base types.ExtractConfig, override *types.ExtractConfig)
 }
 
 // MergeParserEngineOverrides merges upload overrides on top of tenant overrides safely.
-func MergeParserEngineOverrides(tenantOverrides map[string]string, uploadOverrides map[string]string) map[string]string {
+func MergeParserEngineOverrides(tenantOverrides map[string]string,
+	uploadOverrides map[string]string,
+) map[string]string {
 	merged := make(map[string]string)
 	for k, v := range tenantOverrides {
 		merged[k] = v

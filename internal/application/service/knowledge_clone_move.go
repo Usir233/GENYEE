@@ -52,10 +52,17 @@ func copyOwnedObject(
 	if err != nil {
 		return "", fmt.Errorf("read source image %q: %w", srcPath, err)
 	}
-	defer rc.Close()
-	data, err := io.ReadAll(rc)
+	defer func() { _ = rc.Close() }()
+	maxBytes := maxKnowledgeUploadBytes()
+	if maxBytes < maxRerankImageBytes {
+		maxBytes = maxRerankImageBytes
+	}
+	data, err := io.ReadAll(io.LimitReader(rc, maxBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("buffer source image %q: %w", srcPath, err)
+	}
+	if int64(len(data)) > maxBytes {
+		return "", fmt.Errorf("source image %q exceeds maximum size of %d bytes", srcPath, maxBytes)
 	}
 
 	fileName := uuid.New().String() + imageExtForCopy(srcPath, data)
@@ -303,7 +310,8 @@ func rewriteClonedChunkImages(chunks []*types.Chunk, urls map[string]string) err
 		}
 		// Edited content and synthetic parser prefixes cannot establish exact
 		// source positions. Other exact windows can still supply their shifts.
-		if chunk.ChunkType != "" && chunk.ChunkType != types.ChunkTypeText && chunk.ChunkType != types.ChunkTypeParentText ||
+		if chunk.ChunkType != "" && chunk.ChunkType != types.ChunkTypeText &&
+			chunk.ChunkType != types.ChunkTypeParentText ||
 			chunk.EndAt <= chunk.StartAt || utf8.RuneCountInString(base) != chunk.EndAt-chunk.StartAt {
 			continue
 		}
@@ -357,7 +365,8 @@ func rewriteClonedChunkImages(chunks []*types.Chunk, urls map[string]string) err
 			base = chunk.Content
 		}
 		newBase := rewriteContentImageURLs(base, urls)
-		if (chunk.ChunkType == "" || chunk.ChunkType == types.ChunkTypeText || chunk.ChunkType == types.ChunkTypeParentText) &&
+		if (chunk.ChunkType == "" || chunk.ChunkType == types.ChunkTypeText ||
+			chunk.ChunkType == types.ChunkTypeParentText) &&
 			chunk.EndAt > chunk.StartAt && utf8.RuneCountInString(base) == chunk.EndAt-chunk.StartAt {
 			runes := []rune(base)
 			var rebuilt strings.Builder
@@ -1064,7 +1073,8 @@ func (s *knowledgeService) cloneFAQKnowledgeBase(
 	// Delete FAQ chunks that don't exist in source
 	if len(chunksToDelete) > 0 {
 		// Delete from vector store
-		if err := retrieveEngine.DeleteByChunkIDList(ctx, chunksToDelete, embeddingModel.GetDimensions(), types.KnowledgeTypeFAQ); err != nil {
+		if err := retrieveEngine.DeleteByChunkIDList(ctx, chunksToDelete, embeddingModel.GetDimensions(),
+			types.KnowledgeTypeFAQ); err != nil {
 			logger.Errorf(ctx, "Failed to delete FAQ chunks from vector store: %v", err)
 			handleError(progress, err, "Failed to delete FAQ entries from vector store")
 			return err
@@ -1244,7 +1254,8 @@ func (s *knowledgeService) cloneFAQKnowledgeBase(
 			progress.Progress = processedCount * 100 / totalOperations
 		}
 		progress.Processed = processedCount
-		progress.Message = fmt.Sprintf("Updated %d/%d FAQ status fields", processedCount-len(chunksToDelete)-len(chunksToAdd), len(chunksToUpdate))
+		progress.Message = fmt.Sprintf("Updated %d/%d FAQ status fields",
+			processedCount-len(chunksToDelete)-len(chunksToAdd), len(chunksToUpdate))
 		progress.UpdatedAt = time.Now().Unix()
 		_ = s.saveKBCloneProgress(ctx, progress)
 	}
@@ -1264,7 +1275,9 @@ func (s *knowledgeService) cloneFAQKnowledgeBase(
 
 // getOrCreateFAQKnowledge gets or creates the FAQ knowledge entry for a knowledge base
 // If srcKnowledge is provided, it will copy relevant fields from source when creating new knowledge
-func (s *knowledgeService) getOrCreateFAQKnowledge(ctx context.Context, kb *types.KnowledgeBase, srcKnowledge *types.Knowledge) (*types.Knowledge, error) {
+func (s *knowledgeService) getOrCreateFAQKnowledge(ctx context.Context, kb *types.KnowledgeBase,
+	srcKnowledge *types.Knowledge,
+) (*types.Knowledge, error) {
 	// FAQ knowledge base should have exactly one Knowledge entry
 	knowledgeList, err := s.repo.ListKnowledgeByKnowledgeBaseID(ctx, kb.TenantID, kb.ID)
 	if err != nil {
@@ -1388,7 +1401,7 @@ func (s *knowledgeService) GetKBCloneProgress(ctx context.Context, taskID string
 		if !ok {
 			return nil, werrors.NewNotFoundError("KB clone task not found")
 		}
-		progress = *(val.(*types.KBCloneProgress))
+		progress = *val.(*types.KBCloneProgress)
 	} else {
 		key := getKBCloneProgressKey(taskID)
 		data, err := s.redisClient.Get(ctx, key).Bytes()
@@ -1452,14 +1465,16 @@ func (s *knowledgeService) SaveKnowledgeMoveProgress(ctx context.Context, progre
 }
 
 // GetKnowledgeMoveProgress retrieves the progress of a knowledge move task
-func (s *knowledgeService) GetKnowledgeMoveProgress(ctx context.Context, taskID string) (*types.KnowledgeMoveProgress, error) {
+func (s *knowledgeService) GetKnowledgeMoveProgress(ctx context.Context, taskID string) (*types.KnowledgeMoveProgress,
+	error,
+) {
 	var progress types.KnowledgeMoveProgress
 	if s.redisClient == nil {
 		val, ok := s.memKnowledgeMoveProgress.Load(taskID)
 		if !ok {
 			return nil, werrors.NewNotFoundError("Knowledge move task not found")
 		}
-		progress = *(val.(*types.KnowledgeMoveProgress))
+		progress = *val.(*types.KnowledgeMoveProgress)
 	} else {
 		key := getKnowledgeMoveProgressKey(taskID)
 		data, err := s.redisClient.Get(ctx, key).Bytes()

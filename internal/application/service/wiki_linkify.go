@@ -225,9 +225,7 @@ func computeForbiddenSpans(s string) ([]span, map[string]struct{}) {
 	// Pass 1: reference link definitions. These live on their own line and the
 	// main structural pass below would otherwise treat `[label]` as a dangling
 	// open bracket. Recording them up-front keeps both branches simple.
-	for _, sp := range scanReferenceDefinitions(s) {
-		spans = append(spans, sp)
-	}
+	spans = append(spans, scanReferenceDefinitions(s)...)
 
 	for i < n {
 		// Fenced code block: line starts with ``` or ~~~
@@ -257,9 +255,9 @@ func computeForbiddenSpans(s string) ([]span, map[string]struct{}) {
 		case '[':
 			// [[slug...]] wiki link — record the slug in `used`
 			if i+1 < n && s[i+1] == '[' {
-				if close := strings.Index(s[i+2:], "]]"); close >= 0 {
-					end := i + 2 + close + 2
-					inner := s[i+2 : i+2+close]
+				if closePos := strings.Index(s[i+2:], "]]"); closePos >= 0 {
+					end := i + 2 + closePos + 2
+					inner := s[i+2 : i+2+closePos]
 					if slug := extractWikiSlug(inner); slug != "" {
 						used[slug] = struct{}{}
 					}
@@ -566,11 +564,11 @@ func matchAutolink(s string, i int) (int, bool) {
 	if i >= len(s) || s[i] != '<' {
 		return 0, false
 	}
-	close := strings.IndexByte(s[i+1:], '>')
-	if close < 0 {
+	closePos := strings.IndexByte(s[i+1:], '>')
+	if closePos < 0 {
 		return 0, false
 	}
-	inner := s[i+1 : i+1+close]
+	inner := s[i+1 : i+1+closePos]
 	if len(inner) == 0 || strings.ContainsAny(inner, " \t\n") {
 		return 0, false
 	}
@@ -578,5 +576,5 @@ func matchAutolink(s string, i int) (int, bool) {
 	if !strings.Contains(inner, "://") && !strings.HasPrefix(inner, "mailto:") {
 		return 0, false
 	}
-	return i + 1 + close + 1, true
+	return i + 1 + closePos + 1, true
 }

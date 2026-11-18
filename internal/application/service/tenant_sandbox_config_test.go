@@ -392,8 +392,8 @@ func (s *stubProviderClient) EnsureStandardTemplate(context.Context) (*sandbox.R
 		time.Sleep(s.ensureDelay)
 	}
 	if s.ensured != nil {
-		copy := *s.ensured
-		return &copy, nil
+		cloned := *s.ensured
+		return &cloned, nil
 	}
 	return &sandbox.RemoteTemplate{ID: "tpl-genyee", Name: "genyee", Status: "building", Standard: true}, nil
 }
@@ -459,7 +459,7 @@ func (s *stubProviderClient) DeleteSupersededStandardTemplates(_ context.Context
 }
 
 func (s *stubProviderClient) List(
-	ctx context.Context, _ sandbox.RemoteListFilter,
+	_ context.Context, _ sandbox.RemoteListFilter,
 ) ([]sandbox.RemoteSandboxSummary, error) {
 	s.listCalls++
 	if len(s.inventories) == 0 {

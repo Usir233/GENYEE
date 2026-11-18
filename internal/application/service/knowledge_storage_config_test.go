@@ -195,6 +195,8 @@ func TestBuildStorageConfig_TenantMergeAllProviders(t *testing.T) {
 // resolve through the tenant-merge path, so a populated legacy struct on those
 // providers is intentionally ignored rather than silently aliased onto the
 // wrong fields.
+//
+//nolint:staticcheck // SA1019: verifies legacy cos_config fallback behavior
 func TestBuildStorageConfig_LegacyPathOnlyForCOSAndMinIO(t *testing.T) {
 	t.Parallel()
 
@@ -217,8 +219,14 @@ func TestBuildStorageConfig_LegacyPathOnlyForCOSAndMinIO(t *testing.T) {
 		wantAppID   string
 		wantTenants bool // true when the test should fall through to tenant merge (empty result)
 	}{
-		{name: "cos uses legacy", provider: "cos", wantBucket: "legacy-bucket", wantSecret: "legacy-sid", wantAppID: "1255000000"},
-		{name: "minio uses legacy", provider: "minio", wantBucket: "legacy-bucket", wantSecret: "legacy-sid", wantAppID: "1255000000"},
+		{
+			name: "cos uses legacy", provider: "cos", wantBucket: "legacy-bucket", wantSecret: "legacy-sid",
+			wantAppID: "1255000000",
+		},
+		{
+			name: "minio uses legacy", provider: "minio", wantBucket: "legacy-bucket", wantSecret: "legacy-sid",
+			wantAppID: "1255000000",
+		},
 		{name: "local skips legacy", provider: "local", wantTenants: true},
 		{name: "tos skips legacy", provider: "tos", wantTenants: true},
 		{name: "s3 skips legacy", provider: "s3", wantTenants: true},

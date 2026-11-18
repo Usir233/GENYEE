@@ -127,7 +127,10 @@ func TestStripImageMarkup(t *testing.T) {
 			"![MX5280_page_1.png](images/MX5280_page_1.png)\n\n![MX5280_page_2.png](images/MX5280_page_2.png)",
 			"\n\n",
 		},
-		{"mixed text and image keeps text", "Intro paragraph.\n![fig](a.png)\nConclusion.", "Intro paragraph.\n\nConclusion."},
+		{
+			"mixed text and image keeps text", "Intro paragraph.\n![fig](a.png)\nConclusion.",
+			"Intro paragraph.\n\nConclusion.",
+		},
 		{"html img tag stripped", `Before <img src="x.png" alt="y"/> after`, "Before  after"},
 		{
 			// Regression guard: an earlier version stripped the WHOLE
@@ -451,8 +454,8 @@ func TestAwaitWikiPromptWarmupBlocksFollowersUntilLeaderCompletes(t *testing.T) 
 		followerDone <- followErr
 	}()
 	select {
-	case <-followerDone:
-		t.Fatal("follower passed warmup gate before leader completed")
+	case followErr := <-followerDone:
+		t.Fatalf("follower passed warmup gate before leader completed: %v", followErr)
 	case <-time.After(20 * time.Millisecond):
 	}
 	release()
@@ -484,7 +487,9 @@ func (m *blockingTemplateChatModel) Chat(
 	return &types.ChatResponse{Content: "shared result"}, nil
 }
 
-func (m *blockingTemplateChatModel) ChatStream(context.Context, []chat.Message, *chat.ChatOptions) (<-chan types.StreamResponse, error) {
+func (m *blockingTemplateChatModel) ChatStream(context.Context, []chat.Message,
+	*chat.ChatOptions,
+) (<-chan types.StreamResponse, error) {
 	return nil, nil
 }
 

@@ -41,8 +41,10 @@ const (
 		"Output only the extracted text, without explanations, HTML tags, or code fences. If no text " +
 		"is recognizable, reply only: No text content."
 	vlmOCRScannedPDFPrompt = "<system_prompt>\n" +
-		"You are an OCR and document layout extraction assistant. The input image is a page from a scanned PDF document.\n" +
-		"Your task is to carefully extract all text and layout structure from the image, and output the result in pure Markdown format.\n" +
+		"You are an OCR and document layout extraction assistant. The input image is a page from a scanned PDF " +
+		"document.\n" +
+		"Your task is to carefully extract all text and layout structure from the image, and output the result " +
+		"in pure Markdown format.\n" +
 		"</system_prompt>\n\n" +
 		"<instructions>\n" +
 		"1. Ignore headers, footers, and page numbers.\n" +
@@ -114,6 +116,7 @@ type ImageMultimodalService struct {
 	docReader interfaces.DocumentReader
 }
 
+// NewImageMultimodalService constructs the Asynq task handler for image captioning and OCR.
 func NewImageMultimodalService(
 	chunkService interfaces.ChunkService,
 	modelService interfaces.ModelService,
@@ -714,7 +717,9 @@ func isFinalAsynqAttempt(ctx context.Context) bool {
 	return ok && retried >= maxRetry
 }
 
-func (s *ImageMultimodalService) w3aRollbackMultimodalChunks(ctx context.Context, tenantID uint64, chunks []*types.Chunk) {
+func (s *ImageMultimodalService) w3aRollbackMultimodalChunks(ctx context.Context, tenantID uint64,
+	chunks []*types.Chunk,
+) {
 	if s == nil || s.chunkService == nil || s.chunkService.GetRepository() == nil || len(chunks) == 0 {
 		return
 	}
@@ -746,7 +751,8 @@ func (s *ImageMultimodalService) indexChunks(
 		return err
 	}
 	if kb == nil {
-		logger.Warnf(ctx, "[ImageMultimodal] KB %s not found for indexing; skipping vector index", payload.KnowledgeBaseID)
+		logger.Warnf(ctx, "[ImageMultimodal] KB %s not found for indexing; skipping vector index",
+			payload.KnowledgeBaseID)
 		return nil
 	}
 
@@ -755,7 +761,8 @@ func (s *ImageMultimodalService) indexChunks(
 	// EmbeddingModelID is intentionally empty for such KBs. The multimodal chunks
 	// themselves are already persisted in the DB above, so skipping index here is safe.
 	if !kb.NeedsEmbeddingModel() {
-		logger.Infof(ctx, "[ImageMultimodal] Vector/keyword indexing disabled for KB %s, skipping index for %d multimodal chunks",
+		logger.Infof(ctx,
+			"[ImageMultimodal] Vector/keyword indexing disabled for KB %s, skipping index for %d multimodal chunks",
 			kb.ID, len(chunks))
 		// Still mark chunks as indexed so downstream finalization sees a consistent state.
 		for _, chunk := range chunks {
@@ -964,7 +971,9 @@ func (s *ImageMultimodalService) indexImageVector(
 // resolveVLM creates a vlm.VLM instance for the given knowledge base,
 // supporting both new-style (ModelID) and legacy (inline BaseURL) configs.
 // Per-upload process_overrides on the knowledge entry take precedence over KB defaults.
-func (s *ImageMultimodalService) resolveVLM(ctx context.Context, kbID, knowledgeID string) (vlm.VLM, types.VLMConfig, error) {
+func (s *ImageMultimodalService) resolveVLM(ctx context.Context, kbID, knowledgeID string) (vlm.VLM, types.VLMConfig,
+	error,
+) {
 	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(ctx, kbID)
 	if err != nil {
 		return nil, types.VLMConfig{}, fmt.Errorf("get knowledge base %s: %w", kbID, err)
@@ -1062,7 +1071,9 @@ func (s *ImageMultimodalService) imageReader() knowledgeImageReader {
 // imageURL is passed explicitly (instead of read from payload.ImageURL) because
 // a batched payload carries several images and only the first one is mirrored
 // onto the legacy single-image fields.
-func (s *ImageMultimodalService) readImageBytes(ctx context.Context, payload types.ImageMultimodalPayload) ([]byte, error) {
+func (s *ImageMultimodalService) readImageBytes(ctx context.Context, payload types.ImageMultimodalPayload) ([]byte,
+	error,
+) {
 	maxBytes := secutils.GetMaxFileSize()
 	if maxBytes <= 0 {
 		maxBytes = 50 << 20
@@ -1076,7 +1087,7 @@ func (s *ImageMultimodalService) readImageBytes(ctx context.Context, payload typ
 		if err != nil {
 			return nil, fmt.Errorf("file service get %s: %w", payload.ImageURL, err)
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 		data, err := io.ReadAll(io.LimitReader(reader, maxBytes+1))
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", payload.ImageURL, err)
@@ -1089,16 +1100,19 @@ func (s *ImageMultimodalService) readImageBytes(ctx context.Context, payload typ
 
 	if payload.ImageLocalPath != "" {
 		if st, err := os.Stat(payload.ImageLocalPath); err != nil {
-			logger.Warnf(ctx, "[ImageMultimodal] Local file %s not available (%v), falling back to URL", payload.ImageLocalPath, err)
+			logger.Warnf(ctx, "[ImageMultimodal] Local file %s not available (%v), falling back to URL",
+				payload.ImageLocalPath, err)
 		} else if st.Size() > maxBytes {
 			return nil, fmt.Errorf("local image %s exceeds maximum size (%d bytes)", payload.ImageLocalPath, maxBytes)
 		} else if data, err := os.ReadFile(payload.ImageLocalPath); err == nil {
 			if int64(len(data)) > maxBytes {
-				return nil, fmt.Errorf("local image %s exceeds maximum size (%d bytes)", payload.ImageLocalPath, maxBytes)
+				return nil, fmt.Errorf("local image %s exceeds maximum size (%d bytes)", payload.ImageLocalPath,
+					maxBytes)
 			}
 			return data, nil
 		} else {
-			logger.Warnf(ctx, "[ImageMultimodal] Local file %s not available (%v), falling back to URL", payload.ImageLocalPath, err)
+			logger.Warnf(ctx, "[ImageMultimodal] Local file %s not available (%v), falling back to URL",
+				payload.ImageLocalPath, err)
 		}
 	}
 

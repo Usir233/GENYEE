@@ -82,7 +82,9 @@ func (s *webSearchStateService) SaveWebSearchTempKBState(
 		SeenURLs:     seenURLs,
 	}
 	if b, err := json.Marshal(state); err == nil {
-		_ = s.redisClient.Set(ctx, stateKey, b, 0).Err()
+		if setErr := s.redisClient.Set(ctx, stateKey, b, 0).Err(); setErr != nil {
+			logger.Warnf(ctx, "Failed to save temporary web search KB state %s: %v", stateKey, setErr)
+		}
 	}
 }
 
@@ -107,13 +109,17 @@ func (s *webSearchStateService) DeleteWebSearchTempKBState(ctx context.Context, 
 	}
 	if err := json.Unmarshal(raw, &state); err != nil {
 		// Invalid state, just delete the key
-		_ = s.redisClient.Del(ctx, stateKey).Err()
+		if delErr := s.redisClient.Del(ctx, stateKey).Err(); delErr != nil {
+			logger.Warnf(ctx, "Failed to delete corrupt web search state key %s: %v", stateKey, delErr)
+		}
 		return nil
 	}
 
 	// If KBID is empty, just delete the Redis key
 	if strings.TrimSpace(state.KBID) == "" {
-		_ = s.redisClient.Del(ctx, stateKey).Err()
+		if delErr := s.redisClient.Del(ctx, stateKey).Err(); delErr != nil {
+			logger.Warnf(ctx, "Failed to delete empty web search state key %s: %v", stateKey, delErr)
+		}
 		return nil
 	}
 

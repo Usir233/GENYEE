@@ -81,18 +81,19 @@ func TestImageOCRRejectsInvalidContentBeforePersistence(t *testing.T) {
 					},
 					Attempt: 1,
 				}, model, types.VLMConfig{}, tracker, out)
-				if caption {
+				switch {
+				case caption:
 					// A valid caption exists: the OCR failure is recorded, not
 					// propagated — failing the image would retry it and
 					// duplicate the caption chunk (#4132).
 					require.NoError(t, err)
-				} else if tc.code != "" {
+				case tc.code != "":
 					// Caption off + OCR failed = every VLM call failed and
 					// nothing was produced: the image fails honestly instead
 					// of passing as a silent skip (there is no caption to
 					// protect, so the #4132 no-duplicate rationale is void).
 					require.Error(t, err, "bad OCR with no caption must fail the image")
-				} else {
+				default:
 					// OCR answered no_text: a genuine blank, not a failure.
 					require.NoError(t, err)
 				}

@@ -75,10 +75,8 @@ func TestCheckSufficientSummaryContent(t *testing.T) {
 				if !errors.Is(err, errInsufficientSummaryContent) {
 					t.Errorf("expected errInsufficientSummaryContent sentinel, got %v", err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("expected nil error, got %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("expected nil error, got %v", err)
 			}
 		})
 	}

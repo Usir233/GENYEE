@@ -50,18 +50,6 @@ type newSlugFromCitation struct {
 	SourceChunks []string `json:"source_chunks"`
 }
 
-// citationPipelineOutcome carries the raw numbers produced by the Pass
-// 0 + classification flow so callers (mapOneDocument) can log a single
-// unified stat line.
-type citationPipelineOutcome struct {
-	CandidateCount int
-	ChunkCount     int
-	BatchCount     int
-	CitedChunks    int
-	UncitedSlugs   int
-	NewSlugCount   int
-}
-
 // extractCandidateSlugs runs Pass 0 of the chunk-cited pipeline: it scans the
 // full (reconstructed) document text and returns a lightweight skeleton of
 // every significant entity/concept. Unlike the legacy single-shot extraction,
@@ -260,7 +248,7 @@ func (s *wikiIngestService) classifyChunkCitations(
 	candidatesXML string,
 	chunks []*types.Chunk,
 	lang string,
-	batchCtx *WikiBatchContext,
+	_ *WikiBatchContext,
 ) (map[string][]string, []newSlugFromCitation, int) {
 	batches := splitChunksIntoCitationBatches(chunks)
 	if len(batches) == 0 || strings.TrimSpace(candidatesXML) == "" {
@@ -314,7 +302,9 @@ func (s *wikiIngestService) classifyChunkCitations(
 				for _, handle := range handleList {
 					realID, known := batch.handles.Resolve(handle)
 					if !known {
-						logger.Warnf(ectx, "wiki ingest: citation batch %d referenced unknown chunk handle %q for slug %s", batchIdx, handle, slug)
+						logger.Warnf(ectx,
+							"wiki ingest: citation batch %d referenced unknown chunk handle %q for slug %s", batchIdx,
+							handle, slug)
 						continue
 					}
 					set[realID] = true
@@ -325,13 +315,13 @@ func (s *wikiIngestService) classifyChunkCitations(
 				if ns.Slug == "" || ns.Name == "" {
 					continue
 				}
-				real := make([]string, 0, len(ns.SourceChunks))
+				resolvedIDs := make([]string, 0, len(ns.SourceChunks))
 				for _, handle := range ns.SourceChunks {
 					if id, ok := batch.handles.Resolve(handle); ok {
-						real = append(real, id)
+						resolvedIDs = append(resolvedIDs, id)
 					}
 				}
-				ns.SourceChunks = real
+				ns.SourceChunks = resolvedIDs
 				newSlugsAll = append(newSlugsAll, ns)
 			}
 			return nil

@@ -116,7 +116,9 @@ type resourceReleaser struct {
 
 // deleteKnowledgeSource drops this document's claim before atomically checking
 // whether the source is still used by another document or conversation.
-func deleteKnowledgeSource(ctx context.Context, fileSvc interfaces.FileService, catalog interfaces.ResourceCatalog, knowledgeID, ref string) error {
+func deleteKnowledgeSource(ctx context.Context, fileSvc interfaces.FileService, catalog interfaces.ResourceCatalog,
+	knowledgeID, ref string,
+) error {
 	if catalog != nil {
 		remaining, err := catalog.Release(ctx, ref, types.ResourceOwnerKnowledge, knowledgeID)
 		if err != nil {
@@ -555,7 +557,8 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 			// and its EmbeddingModelID is intentionally empty. Skip the whole group
 			// to avoid the spurious "model ID cannot be empty" failure.
 			if strings.TrimSpace(group.EmbeddingModelID) == "" {
-				logger.Infof(ctx, "Skipping vector store cleanup for %d knowledge entries without embedding model", len(group.KnowledgeIDs))
+				logger.Infof(ctx, "Skipping vector store cleanup for %d knowledge entries without embedding model",
+					len(group.KnowledgeIDs))
 				continue
 			}
 
@@ -567,7 +570,8 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 			retrieveEngine, err := retriever.CreateRetrieveEngineForKB(
 				ctx, s.retrieveEngine, s.ownership, tenantID, vectorStoreID)
 			if err != nil {
-				logger.GetLogger(ctx).WithField("error", err).Errorf("DeleteKnowledge delete knowledge embedding failed")
+				logger.GetLogger(ctx).WithField("error",
+					err).Errorf("DeleteKnowledge delete knowledge embedding failed")
 				return err
 			}
 			embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, group.EmbeddingModelID)
@@ -575,7 +579,8 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 				logger.GetLogger(ctx).WithField("error", err).Errorf("DeleteKnowledge get embedding model failed")
 				return err
 			}
-			if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, group.KnowledgeIDs, embeddingModel.GetDimensions(), group.Type); err != nil {
+			if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, group.KnowledgeIDs, embeddingModel.GetDimensions(),
+				group.Type); err != nil {
 				logger.GetLogger(ctx).
 					WithField("error", err).
 					Errorf("DeleteKnowledge delete knowledge embedding failed")
@@ -642,7 +647,8 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 	for _, knowledge := range knowledgeList {
 		if knowledge.FilePath != "" {
 			fSvc := kbFileServices[knowledge.KnowledgeBaseID]
-			if err := deleteKnowledgeSource(ctx, fSvc, s.resourceCatalog, knowledge.ID, knowledge.FilePath); err != nil {
+			if err := deleteKnowledgeSource(ctx, fSvc, s.resourceCatalog, knowledge.ID,
+				knowledge.FilePath); err != nil {
 				logger.GetLogger(ctx).WithField("error", err).Errorf("DeleteKnowledge delete file failed")
 			}
 		}
@@ -733,7 +739,8 @@ func (s *knowledgeService) cleanupKnowledgeResources(ctx context.Context, knowle
 				logger.GetLogger(ctx).WithField("error", modelErr).Error("Failed to get embedding model during cleanup")
 				cleanupErr = errors.Join(cleanupErr, modelErr)
 			} else {
-				if err := retrieveEngine.DeleteByKnowledgeIDList(execCtx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
+				if err := retrieveEngine.DeleteByKnowledgeIDList(execCtx, []string{knowledge.ID},
+					embeddingModel.GetDimensions(), knowledge.Type); err != nil {
 					logger.GetLogger(ctx).WithField("error", err).Error("Failed to delete manual knowledge index")
 					cleanupErr = errors.Join(cleanupErr, err)
 				}
@@ -743,7 +750,8 @@ func (s *knowledgeService) cleanupKnowledgeResources(ctx context.Context, knowle
 
 	// Collect image URLs before chunks are deleted
 	fileSvc := s.resolveFileService(ctx, kb)
-	chunkImageInfos, imgErr := s.chunkService.GetRepository().ListImageInfoByKnowledgeIDs(ctx, ownerTenantID, []string{knowledge.ID})
+	chunkImageInfos, imgErr := s.chunkService.GetRepository().ListImageInfoByKnowledgeIDs(ctx, ownerTenantID,
+		[]string{knowledge.ID})
 	if imgErr != nil {
 		logger.GetLogger(ctx).WithField("error", imgErr).Error("Failed to collect image URLs for cleanup")
 		cleanupErr = errors.Join(cleanupErr, imgErr)
@@ -781,7 +789,8 @@ func (s *knowledgeService) cleanupKnowledgeResources(ctx context.Context, knowle
 	if knowledge.StorageSize > 0 {
 		if s.tenantRepo != nil && ownerTenantID != 0 {
 			if err := s.tenantRepo.AdjustStorageUsed(ctx, ownerTenantID, -knowledge.StorageSize); err != nil {
-				logger.GetLogger(ctx).WithField("error", err).Error("Failed to adjust storage usage during manual cleanup")
+				logger.GetLogger(ctx).WithField("error",
+					err).Error("Failed to adjust storage usage during manual cleanup")
 				cleanupErr = errors.Join(cleanupErr, err)
 			}
 		}

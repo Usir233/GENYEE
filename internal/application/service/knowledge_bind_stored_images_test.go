@@ -55,7 +55,7 @@ func TestBindStoredImagesClaimsExtractedImagesForTheDocument(t *testing.T) {
 	s := &knowledgeService{resourceCatalog: catalog}
 	knowledge := &types.Knowledge{ID: "doc-1", TenantID: 7}
 
-	s.bindStoredImages(context.Background(), knowledge, []docparser.StoredImage{
+	if err := s.bindStoredImages(context.Background(), knowledge, []docparser.StoredImage{
 		{ServingURL: "resource://ownImage"},
 		{ServingURL: "resource://secondOwnImage"},
 		{ServingURL: "  "},                         // blank ref is skipped
@@ -63,7 +63,9 @@ func TestBindStoredImagesClaimsExtractedImagesForTheDocument(t *testing.T) {
 		{ServingURL: "resource://foreignImage"},    // cross-workspace is skipped
 		{ServingURL: "resource://bindFailsImage"},  // bind error does not abort the loop
 		{ServingURL: "local://images/physicalRef"}, // provider:// refs resolve and bind too
-	})
+	}); err != nil {
+		t.Fatalf("bindStoredImages: %v", err)
+	}
 
 	want := []string{
 		"resource://ownImage|knowledge|doc-1|extracted_image",
@@ -85,14 +87,14 @@ func TestBindStoredImagesClaimsExtractedImagesForTheDocument(t *testing.T) {
 // not panic or log noise.
 func TestBindStoredImagesNilCatalogAndEmptyInputs(t *testing.T) {
 	s := &knowledgeService{}
-	s.bindStoredImages(context.Background(), &types.Knowledge{ID: "d", TenantID: 1}, []docparser.StoredImage{
+	_ = s.bindStoredImages(context.Background(), &types.Knowledge{ID: "d", TenantID: 1}, []docparser.StoredImage{
 		{ServingURL: "resource://x"},
 	})
 
 	catalog := &fakeBindCatalog{resources: map[string]*types.StoredResource{}}
 	s2 := &knowledgeService{resourceCatalog: catalog}
-	s2.bindStoredImages(context.Background(), &types.Knowledge{ID: "d", TenantID: 1}, nil)
-	s2.bindStoredImages(context.Background(), nil, []docparser.StoredImage{{ServingURL: "resource://x"}})
+	_ = s2.bindStoredImages(context.Background(), &types.Knowledge{ID: "d", TenantID: 1}, nil)
+	_ = s2.bindStoredImages(context.Background(), nil, []docparser.StoredImage{{ServingURL: "resource://x"}})
 	if len(catalog.binds) != 0 {
 		t.Fatalf("binds = %v, want none", catalog.binds)
 	}

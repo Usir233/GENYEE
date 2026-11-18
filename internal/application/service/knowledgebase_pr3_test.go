@@ -56,7 +56,9 @@ func (f *fakeRegistry) Register(_ interfaces.RetrieveEngineService) error { retu
 func (f *fakeRegistry) GetRetrieveEngineService(_ types.RetrieverEngineType) (interfaces.RetrieveEngineService, error) {
 	return nil, nil
 }
+
 func (f *fakeRegistry) GetAllRetrieveEngineServices() []interfaces.RetrieveEngineService { return nil }
+
 func (f *fakeRegistry) GetByStoreID(storeID string) (interfaces.RetrieveEngineService, error) {
 	if _, ok := f.registered[storeID]; ok {
 		return nil, nil
@@ -103,7 +105,9 @@ func (r *fakeKBRepo) GetKnowledgeBaseByID(_ context.Context, id string) (*types.
 	return r.rows[id], nil
 }
 
-func (r *fakeKBRepo) GetKnowledgeBaseByIDAndTenant(_ context.Context, id string, tenantID uint64) (*types.KnowledgeBase, error) {
+func (r *fakeKBRepo) GetKnowledgeBaseByIDAndTenant(_ context.Context, id string, tenantID uint64) (*types.KnowledgeBase,
+	error,
+) {
 	kb := r.rows[id]
 	if kb == nil || kb.TenantID != tenantID {
 		return nil, repository.ErrKnowledgeBaseNotFound
@@ -209,7 +213,8 @@ func TestCreateKnowledgeBase_DefaultStorageProviderRespectsAllowList(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, "minio", kb.GetStorageProvider())
 
-	kbDisallowedDefault, err := svc.CreateKnowledgeBase(ctxWithTenantStorage(1, "local"), &types.KnowledgeBase{Name: "kb2"})
+	kbDisallowedDefault, err := svc.CreateKnowledgeBase(ctxWithTenantStorage(1, "local"),
+		&types.KnowledgeBase{Name: "kb2"})
 	require.NoError(t, err)
 	assert.Equal(t, "minio", kbDisallowedDefault.GetStorageProvider())
 }
@@ -445,7 +450,8 @@ func TestCopyKnowledgeBase_Defenses(t *testing.T) {
 		_, _, err := svc.CopyKnowledgeBase(copyTaskTestContext(t, repo, "dst"), "src", "dst")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "different vector stores")
-		assert.NotContains(t, err.Error(), "Phase 4", "internal roadmap labels must not leak to end-user error messages")
+		assert.NotContains(t, err.Error(), "Phase 4",
+			"internal roadmap labels must not leak to end-user error messages")
 	})
 
 	t.Run("dstKB set + one nil + one set -> 400", func(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -93,7 +94,11 @@ func enqueueSummaryRefresh(
 	}
 	markFailed := func() {
 		if repo != nil {
-			_ = repo.UpdateKnowledgeColumn(ctx, knowledge.ID, "summary_status", types.SummaryStatusFailed)
+			if colErr := repo.UpdateKnowledgeColumn(
+				ctx, knowledge.ID, "summary_status", types.SummaryStatusFailed,
+			); colErr != nil {
+				logger.Warnf(ctx, "Failed to mark summary refresh failed for %s: %v", knowledge.ID, colErr)
+			}
 		}
 	}
 	if repo == nil || taskEnqueuer == nil || kbReader == nil {
@@ -125,7 +130,9 @@ func enqueueSummaryRefresh(
 	}
 	task := asynq.NewTask(types.TypeSummaryGeneration, payloadBytes,
 		asynq.Queue(types.QueueSummary), asynq.MaxRetry(3), asynq.Timeout(30*time.Minute))
-	_ = repo.UpdateKnowledgeColumn(ctx, knowledge.ID, "summary_status", types.SummaryStatusPending)
+	if err = repo.UpdateKnowledgeColumn(ctx, knowledge.ID, "summary_status", types.SummaryStatusPending); err != nil {
+		logger.Warnf(ctx, "Failed to mark summary refresh pending for %s: %v", knowledge.ID, err)
+	}
 	if _, err = taskEnqueuer.Enqueue(task); err != nil {
 		markFailed()
 		return err

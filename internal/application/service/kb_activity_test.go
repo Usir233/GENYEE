@@ -19,7 +19,9 @@ func (c *captureKBActivityAudit) Log(_ context.Context, entry *types.AuditLog) e
 	return nil
 }
 
-func (*captureKBActivityAudit) LogDenied(context.Context, *gin.Context, uint64, string, string, types.TenantRole) error {
+func (*captureKBActivityAudit) LogDenied(context.Context, *gin.Context, uint64, string, string,
+	types.TenantRole,
+) error {
 	return nil
 }
 

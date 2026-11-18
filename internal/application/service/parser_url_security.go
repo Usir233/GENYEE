@@ -20,7 +20,9 @@ var parserOutboundURLKeys = []string{
 // the generic parser_engine_overrides map directly.
 func validateParserEngineOverrideURLs(overrides map[string]string) error {
 	if strings.TrimSpace(overrides["odl_hybrid_url"]) != "" {
-		return fmt.Errorf("odl_hybrid_url cannot be overridden per tenant or upload; configure DOCREADER_ODL_HYBRID_URL on the server")
+		return fmt.Errorf(
+			"odl_hybrid_url cannot be overridden per tenant or upload; configure DOCREADER_ODL_HYBRID_URL on " +
+				"the server")
 	}
 	for _, key := range parserOutboundURLKeys {
 		rawURL := strings.TrimSpace(overrides[key])
