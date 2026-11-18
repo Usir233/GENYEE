@@ -2,56 +2,24 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	stderrors "errors"
 	"fmt"
-	"io"
-	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/Usir233/GENYEE/internal/application/repository"
-	chatpipeline "github.com/Usir233/GENYEE/internal/application/service/chat_pipeline"
-	"github.com/Usir233/GENYEE/internal/assets"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/handler/dto"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/middleware"
-	modelapi "github.com/Usir233/GENYEE/internal/models/api"
-	"github.com/Usir233/GENYEE/internal/models/asr"
-	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/models/embedding"
-	"github.com/Usir233/GENYEE/internal/models/providers"
-	"github.com/Usir233/GENYEE/internal/models/rerank"
 	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/ollama/ollama/api"
-)
-
-// DownloadTask 下载任务信息
-type DownloadTask struct {
-	ID        string     `json:"id"`
-	ModelName string     `json:"modelName"`
-	Status    string     `json:"status"` // pending, downloading, completed, failed
-	Progress  float64    `json:"progress"`
-	Message   string     `json:"message"`
-	StartTime time.Time  `json:"startTime"`
-	EndTime   *time.Time `json:"endTime,omitempty"`
-}
-
-// 全局下载任务管理器
-var (
-	downloadTasks = make(map[string]*DownloadTask)
-	tasksMutex    sync.RWMutex
 )
 
 // InitializationHandler 初始化处理器
@@ -60,7 +28,6 @@ type InitializationHandler struct {
 	tenantService    interfaces.TenantService
 	modelService     interfaces.ModelService
 	kbService        interfaces.KnowledgeBaseService
-	kbRepository     interfaces.KnowledgeBaseRepository
 	knowledgeService interfaces.KnowledgeService
 	ollamaService    *ollama.OllamaService
 	documentReader   interfaces.DocumentReader
@@ -74,7 +41,6 @@ func NewInitializationHandler(
 	tenantService interfaces.TenantService,
 	modelService interfaces.ModelService,
 	kbService interfaces.KnowledgeBaseService,
-	kbRepository interfaces.KnowledgeBaseRepository,
 	knowledgeService interfaces.KnowledgeService,
 	ollamaService *ollama.OllamaService,
 	documentReader interfaces.DocumentReader,
@@ -86,7 +52,6 @@ func NewInitializationHandler(
 		tenantService:    tenantService,
 		modelService:     modelService,
 		kbService:        kbService,
-		kbRepository:     kbRepository,
 		knowledgeService: knowledgeService,
 		ollamaService:    ollamaService,
 		documentReader:   documentReader,
@@ -97,8 +62,8 @@ func NewInitializationHandler(
 
 // KBModelConfigRequest 知识库模型配置请求（简化版，只传模型ID）
 type KBModelConfigRequest struct {
-	LLMModelID       string `json:"llmModelId"       binding:"required"`
-	EmbeddingModelID string `json:"embeddingModelId"` // optional when RAG indexing is disabled
+	LLMModelID       string `json:"llm_model_id"       binding:"required"`
+	EmbeddingModelID string `json:"embedding_model_id"` // optional when RAG indexing is disabled
 	VLMConfig        *struct {
 		Enabled             *bool   `json:"enabled"`
 		ModelID             *string `json:"model_id"`
@@ -117,32 +82,32 @@ type KBModelConfigRequest struct {
 
 	// 文档分块配置
 	DocumentSplitting struct {
-		ChunkSize         *int                      `json:"chunkSize"`
-		ChunkOverlap      *int                      `json:"chunkOverlap"`
+		ChunkSize         *int                      `json:"chunk_size"`
+		ChunkOverlap      *int                      `json:"chunk_overlap"`
 		Separators        *[]string                 `json:"separators"`
-		ParserEngineRules *[]types.ParserEngineRule `json:"parserEngineRules,omitempty"`
-		EnableParentChild *bool                     `json:"enableParentChild"`
-		ParentChunkSize   *int                      `json:"parentChunkSize,omitempty"`
-		ChildChunkSize    *int                      `json:"childChunkSize,omitempty"`
+		ParserEngineRules *[]types.ParserEngineRule `json:"parser_engine_rules,omitempty"`
+		EnableParentChild *bool                     `json:"enable_parent_child"`
+		ParentChunkSize   *int                      `json:"parent_chunk_size,omitempty"`
+		ChildChunkSize    *int                      `json:"child_chunk_size,omitempty"`
 		// Strategy / TokenLimit / Languages use pointer types so the
 		// handler can distinguish "field absent in payload" (no change)
 		// from "field present with empty/zero value" (clear / disable).
 		// Without that distinction, users could set strategy="auto" once
 		// but never reset it back to legacy / unset.
 		Strategy                  *string   `json:"strategy,omitempty"`
-		TokenLimit                *int      `json:"tokenLimit,omitempty"`
+		TokenLimit                *int      `json:"token_limit,omitempty"`
 		Languages                 *[]string `json:"languages,omitempty"`
-		TableMetadataInstructions *string   `json:"tableMetadataInstructions,omitempty"`
-	} `json:"documentSplitting"`
+		TableMetadataInstructions *string   `json:"table_metadata_instructions,omitempty"`
+	} `json:"document_splitting"`
 
-	// 多模态配置（仅模型相关；存储引擎在 storageProvider 中配置）
+	// 多模态配置（仅模型相关；存储引擎在 storage_provider 中配置）
 	Multimodal struct {
 		Enabled *bool `json:"enabled"`
 	} `json:"multimodal"`
 
 	// 存储引擎选择（"local" | "minio" | "cos"），影响文档上传与文档内图片存储，参数从全局设置读取
-	StorageProvider  string `json:"storageProvider"`
-	StorageBackendID string `json:"storageBackendId"`
+	StorageProvider  string `json:"storage_provider"`
+	StorageBackendID string `json:"storage_backend_id"`
 
 	// 知识图谱配置
 	NodeExtract struct {
@@ -151,70 +116,70 @@ type KBModelConfigRequest struct {
 		Tags               *[]string              `json:"tags"`
 		Nodes              *[]types.GraphNode     `json:"nodes"`
 		Relations          *[]types.GraphRelation `json:"relations"`
-		CustomInstructions *string                `json:"customInstructions"`
-	} `json:"nodeExtract"`
+		CustomInstructions *string                `json:"custom_instructions"`
+	} `json:"node_extract"`
 
 	// 问题生成配置
 	QuestionGeneration struct {
-		ModelID            *string `json:"modelId,omitempty"`
+		ModelID            *string `json:"model_id,omitempty"`
 		Enabled            *bool   `json:"enabled"`
-		QuestionCount      *int    `json:"questionCount"`
-		CustomInstructions *string `json:"customInstructions"`
-	} `json:"questionGeneration"`
+		QuestionCount      *int    `json:"question_count"`
+		CustomInstructions *string `json:"custom_instructions"`
+	} `json:"question_generation"`
 }
 
 // InitializationRequest 初始化请求结构
 type InitializationRequest struct {
 	LLM struct {
 		Source    string `json:"source" binding:"required"`
-		ModelName string `json:"modelName" binding:"required"`
-		BaseURL   string `json:"baseUrl"`
-		APIKey    string `json:"apiKey"`
+		ModelName string `json:"model_name" binding:"required"`
+		BaseURL   string `json:"base_url"`
+		APIKey    string `json:"api_key"`
 	} `json:"llm" binding:"required"`
 
 	Embedding struct {
 		Source    string `json:"source" binding:"required"`
-		ModelName string `json:"modelName" binding:"required"`
-		BaseURL   string `json:"baseUrl"`
-		APIKey    string `json:"apiKey"`
+		ModelName string `json:"model_name" binding:"required"`
+		BaseURL   string `json:"base_url"`
+		APIKey    string `json:"api_key"`
 		Dimension int    `json:"dimension"` // 添加embedding维度字段
 	} `json:"embedding" binding:"required"`
 
 	Rerank struct {
 		Enabled   bool   `json:"enabled"`
-		ModelName string `json:"modelName"`
-		BaseURL   string `json:"baseUrl"`
-		APIKey    string `json:"apiKey"`
+		ModelName string `json:"model_name"`
+		BaseURL   string `json:"base_url"`
+		APIKey    string `json:"api_key"`
 	} `json:"rerank"`
 
 	Multimodal struct {
 		Enabled bool `json:"enabled"`
 		VLM     *struct {
-			ModelName     string `json:"modelName"`
-			BaseURL       string `json:"baseUrl"`
-			APIKey        string `json:"apiKey"`
-			InterfaceType string `json:"interfaceType"` // "ollama" or "openai"
+			ModelName     string `json:"model_name"`
+			BaseURL       string `json:"base_url"`
+			APIKey        string `json:"api_key"`
+			InterfaceType string `json:"interface_type"` // "ollama" or "openai"
 		} `json:"vlm,omitempty"`
-		StorageType string `json:"storageType"`
+		StorageType string `json:"storage_type"`
 		COS         *struct {
-			SecretID   string `json:"secretId"`
-			SecretKey  string `json:"secretKey"`
+			SecretID   string `json:"secret_id"`
+			SecretKey  string `json:"secret_key"`
 			Region     string `json:"region"`
-			BucketName string `json:"bucketName"`
-			AppID      string `json:"appId"`
-			PathPrefix string `json:"pathPrefix"`
+			BucketName string `json:"bucket_name"`
+			AppID      string `json:"app_id"`
+			PathPrefix string `json:"path_prefix"`
 		} `json:"cos,omitempty"`
 		Minio *struct {
-			BucketName string `json:"bucketName"`
-			PathPrefix string `json:"pathPrefix"`
+			BucketName string `json:"bucket_name"`
+			PathPrefix string `json:"path_prefix"`
 		} `json:"minio,omitempty"`
 	} `json:"multimodal"`
 
 	DocumentSplitting struct {
-		ChunkSize    int      `json:"chunkSize" binding:"required,min=100,max=10000"`
-		ChunkOverlap int      `json:"chunkOverlap" binding:"min=0"`
+		ChunkSize    int      `json:"chunk_size" binding:"required,min=100,max=10000"`
+		ChunkOverlap int      `json:"chunk_overlap" binding:"min=0"`
 		Separators   []string `json:"separators" binding:"required,min=1"`
-	} `json:"documentSplitting" binding:"required"`
+	} `json:"document_splitting" binding:"required"`
 
 	NodeExtract struct {
 		Enabled bool     `json:"enabled"`
@@ -229,12 +194,12 @@ type InitializationRequest struct {
 			Node2 string `json:"node2"`
 			Type  string `json:"type"`
 		} `json:"relations"`
-	} `json:"nodeExtract"`
+	} `json:"node_extract"`
 
 	QuestionGeneration struct {
 		Enabled       bool `json:"enabled"`
-		QuestionCount int  `json:"questionCount"`
-	} `json:"questionGeneration"`
+		QuestionCount int  `json:"question_count"`
+	} `json:"question_generation"`
 }
 
 // UpdateKBConfig godoc
@@ -243,30 +208,30 @@ type InitializationRequest struct {
 // @Tags         初始化
 // @Accept       json
 // @Produce      json
-// @Param        kbId     path      string               true  "知识库ID"
+// @Param        kb_id    path      string               true  "知识库ID"
 // @Param        request  body      KBModelConfigRequest true  "配置请求"
 // @Success      200      {object}  handler.MessageResponse  "更新成功"
 // @Failure      400      {object}  errors.AppError         "请求参数错误"
 // @Failure      404      {object}  errors.AppError         "知识库不存在"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /initialization/config/{kbId} [put]
+// @Router       /initialization/config/{kb_id} [put]
 func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	ctx := c.Request.Context()
-	kbIdStr := utils.SanitizeForLog(c.Param("kbId"))
+	kbIDStr := utils.SanitizeForLog(c.Param("kb_id"))
 
 	var req KBModelConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse KB config request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
 	// 获取知识库信息
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIdStr)
+	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIDStr)
 	if err != nil || kb == nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
-		c.Error(errors.NewNotFoundError("知识库不存在"))
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kb_id": kbIDStr})
+		_ = c.Error(errors.NewNotFoundError("知识库不存在"))
 		return
 	}
 	ownWorkspace, err := kbSettingsAccess(c, kb)
@@ -287,13 +252,13 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	if kb.EmbeddingModelID != "" && req.EmbeddingModelID != "" && kb.EmbeddingModelID != req.EmbeddingModelID {
 		// 检查是否已有文件
 		knowledgeList, err := h.knowledgeService.ListPagedKnowledgeByKnowledgeBaseID(ctx,
-			kbIdStr, &types.Pagination{
+			kbIDStr, &types.Pagination{
 				Page:     1,
 				PageSize: 1,
 			}, types.KnowledgeListFilter{})
 		if err == nil && knowledgeList != nil && knowledgeList.Total > 0 {
 			logger.Error(ctx, "Cannot change embedding model when files exist")
-			c.Error(errors.NewBadRequestError("知识库中已有文件，无法修改Embedding模型"))
+			_ = c.Error(errors.NewBadRequestError("知识库中已有文件，无法修改Embedding模型"))
 			return
 		}
 	}
@@ -302,7 +267,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	llmModel, err := h.modelService.GetModelByID(ctx, req.LLMModelID)
 	if err != nil || llmModel == nil {
 		logger.Error(ctx, "LLM model not found")
-		c.Error(errors.NewBadRequestError("LLM模型不存在"))
+		_ = c.Error(errors.NewBadRequestError("LLM模型不存在"))
 		return
 	}
 
@@ -311,7 +276,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		embeddingModel, err := h.modelService.GetModelByID(ctx, req.EmbeddingModelID)
 		if err != nil || embeddingModel == nil {
 			logger.Error(ctx, "Embedding model not found")
-			c.Error(errors.NewBadRequestError("Embedding模型不存在"))
+			_ = c.Error(errors.NewBadRequestError("Embedding模型不存在"))
 			return
 		}
 	}
@@ -329,7 +294,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	if req.VLMConfig != nil {
 		if req.VLMConfig.BaseURL != nil && strings.TrimSpace(*req.VLMConfig.BaseURL) != "" &&
 			strings.TrimSpace(*req.VLMConfig.BaseURL) != strings.TrimSpace(kb.VLMConfig.BaseURL) {
-			c.Error(errors.NewBadRequestError("vlm_config.base_url 不支持直接写入，请通过 model_id 绑定受管视觉模型"))
+			_ = c.Error(errors.NewBadRequestError("vlm_config.base_url 不支持直接写入，请通过 model_id 绑定受管视觉模型"))
 			return
 		}
 		if req.VLMConfig.Enabled != nil {
@@ -349,11 +314,11 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 			model, err := h.modelService.GetModelByID(ctx, kb.VLMConfig.ModelID)
 			if err != nil || model == nil {
 				logger.Warn(ctx, "VLM model not found")
-				c.Error(errors.NewBadRequestError("vlm_config.model_id: 视觉模型不存在"))
+				_ = c.Error(errors.NewBadRequestError("vlm_config.model_id: 视觉模型不存在"))
 				return
 			}
 			if !model.SupportsType(types.ModelTypeVLLM) {
-				c.Error(errors.NewBadRequestError(
+				_ = c.Error(errors.NewBadRequestError(
 					fmt.Sprintf("vlm_config.model_id: 模型类型为 %s，需要 %s", model.Type, types.ModelTypeVLLM)))
 				return
 			}
@@ -375,7 +340,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	}
 	if kb.VLMConfig.Enabled && kb.VLMConfig.ModelID == "" &&
 		(kb.VLMConfig.ModelName == "" || kb.VLMConfig.BaseURL == "") {
-		c.Error(errors.NewBadRequestError("启用视觉多模态时必须指定有效的 vlm_config.model_id"))
+		_ = c.Error(errors.NewBadRequestError("启用视觉多模态时必须指定有效的 vlm_config.model_id"))
 		return
 	}
 	if req.ASRConfig != nil {
@@ -432,14 +397,16 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		kb.ChunkingConfig.Languages = *req.DocumentSplitting.Languages
 	}
 	if req.DocumentSplitting.TableMetadataInstructions != nil {
-		kb.ChunkingConfig.TableMetadataInstructions = strings.TrimSpace(*req.DocumentSplitting.TableMetadataInstructions)
+		kb.ChunkingConfig.TableMetadataInstructions = strings.TrimSpace(
+			*req.DocumentSplitting.TableMetadataInstructions,
+		)
 	}
 
 	// Storage backends resolve per workspace and belong to the owner's
 	// infrastructure: another workspace can neither see the owner's backends
 	// nor bind the KB to one of its own, so it may only leave them unchanged.
 	if ownWorkspace {
-		if err := h.applyKBStorageBinding(ctx, kb, kbIdStr, &req); err != nil {
+		if err := h.applyKBStorageBinding(ctx, kb, kbIDStr, &req); err != nil {
 			_ = c.Error(err)
 			return
 		}
@@ -518,14 +485,14 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	}
 	types.NormalizeKnowledgeBasePromptInstructions(kb)
 	if err := validateKnowledgeBasePromptInstructions(kb); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	// 保存更新后的知识库
-	if err := h.saveKnowledgeBaseEncrypted(ctx, kb); err != nil {
+	if err := h.kbService.SaveInitializedKnowledgeBaseConfig(ctx, kb); err != nil {
 		logger.Error(ctx, "Failed to update knowledge base", err)
-		c.Error(errors.NewInternalServerError("更新知识库失败"))
+		_ = c.Error(errors.NewInternalServerError("更新知识库失败"))
 		return
 	}
 
@@ -635,51 +602,51 @@ func (h *InitializationHandler) applyKBStorageBinding(
 // @Tags         初始化
 // @Accept       json
 // @Produce      json
-// @Param        kbId     path      string  true  "知识库ID"
+// @Param        kb_id    path      string                         true  "知识库ID"
 // @Param        request  body      handler.InitializationRequest  true  "初始化请求"
-// @Success      200      {object}  map[string]interface{}  "初始化成功"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Success      200      {object}  map[string]interface{}         "初始化成功"
+// @Failure      400      {object}  errors.AppError                "请求参数错误"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /initialization/initialize/{kbId} [post]
+// @Router       /initialization/initialize/{kb_id} [post]
 func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 	ctx := c.Request.Context()
-	kbIdStr := utils.SanitizeForLog(c.Param("kbId"))
+	kbIDStr := utils.SanitizeForLog(c.Param("kb_id"))
 
 	req, err := h.bindInitializationRequest(ctx, c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	logger.Infof(
 		ctx,
-		"Starting knowledge base configuration update, kbId: %s",
-		utils.SanitizeForLog(kbIdStr),
+		"Starting knowledge base configuration update, kb_id: %s",
+		kbIDStr,
 	)
 
-	kb, err := h.getKnowledgeBaseForInitialization(ctx, kbIdStr)
+	kb, err := h.getKnowledgeBaseForInitialization(ctx, kbIDStr)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	if err := h.validateInitializationConfigs(ctx, req); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
-	processedModels, err := h.processInitializationModels(ctx, kb, kbIdStr, req)
+	processedModels, err := h.processInitializationModels(ctx, kb, kbIDStr, req)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	h.applyKnowledgeBaseInitialization(kb, req, processedModels)
 
-	if err := h.saveKnowledgeBaseEncrypted(ctx, kb); err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
-		c.Error(errors.NewInternalServerError("更新知识库配置失败"))
+	if err := h.kbService.SaveInitializedKnowledgeBaseConfig(ctx, kb); err != nil {
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kb_id": kbIDStr})
+		_ = c.Error(errors.NewInternalServerError("更新知识库配置失败"))
 		return
 	}
 
@@ -698,7 +665,9 @@ func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 	})
 }
 
-func (h *InitializationHandler) bindInitializationRequest(ctx context.Context, c *gin.Context) (*InitializationRequest, error) {
+func (h *InitializationHandler) bindInitializationRequest(
+	ctx context.Context, c *gin.Context,
+) (*InitializationRequest, error) {
 	var req InitializationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse initialization request", err)
@@ -707,17 +676,15 @@ func (h *InitializationHandler) bindInitializationRequest(ctx context.Context, c
 	return &req, nil
 }
 
-func (h *InitializationHandler) getKnowledgeBaseForInitialization(ctx context.Context, kbIdStr string) (*types.KnowledgeBase, error) {
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIdStr)
+func (h *InitializationHandler) getKnowledgeBaseForInitialization(
+	ctx context.Context, kbIDStr string,
+) (*types.KnowledgeBase, error) {
+	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIDStr)
 	if err != nil {
-		// The repo's not-found sentinel must surface as 404, not 500.
-		// Without this, every probe of a stale kb id from the
-		// initialization flow burns ops attention with a fake server
-		// error. See knowledgebase.go:validateAndGetKnowledgeBase.
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
 			return nil, errors.NewNotFoundError("知识库不存在")
 		}
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kb_id": utils.SanitizeForLog(kbIDStr)})
 		return nil, errors.NewInternalServerError("获取知识库信息失败: " + err.Error())
 	}
 	if kb == nil {
@@ -911,7 +878,7 @@ func buildModelDescriptors(req *InitializationRequest) []modelDescriptor {
 func (h *InitializationHandler) processInitializationModels(
 	ctx context.Context,
 	kb *types.KnowledgeBase,
-	kbIdStr string,
+	kbIDStr string,
 	req *InitializationRequest,
 ) ([]*types.Model, error) {
 	descriptors := buildModelDescriptors(req)
@@ -920,9 +887,8 @@ func (h *InitializationHandler) processInitializationModels(
 	for _, descriptor := range descriptors {
 		model := descriptor.toModel()
 		// Stamp the KB's tenant before insert: toModel() carries no tenant and
-		// modelRepository.GetByID filters on (tenant_id = ? OR is_builtin), so
-		// an unstamped row lands at tenant_id = 0 where no tenant — not even
-		// the one that just configured the KB — can ever read it back
+		// stored-model lookups filter on (tenant_id = ? OR is_builtin), so an
+		// unstamped row lands at tenant_id = 0 where no tenant can read it back
 		// (issue #3333).
 		model.TenantID = kb.TenantID
 		existingModelID := h.findExistingModelID(kb, descriptor.modelType)
@@ -950,7 +916,7 @@ func (h *InitializationHandler) processInitializationModels(
 			if err := h.modelService.UpdateModel(ctx, existingModel); err != nil {
 				logger.ErrorWithFields(ctx, err, map[string]interface{}{
 					"model_id": model.ID,
-					"kb_id":    kbIdStr,
+					"kb_id":    kbIDStr,
 				})
 				return nil, errors.NewInternalServerError("更新模型失败: " + err.Error())
 			}
@@ -961,7 +927,7 @@ func (h *InitializationHandler) processInitializationModels(
 		if err := h.modelService.CreateModel(ctx, model); err != nil {
 			logger.ErrorWithFields(ctx, err, map[string]interface{}{
 				"model_id": model.ID,
-				"kb_id":    kbIdStr,
+				"kb_id":    kbIDStr,
 			})
 			return nil, errors.NewInternalServerError("创建模型失败: " + err.Error())
 		}
@@ -1050,6 +1016,7 @@ func (h *InitializationHandler) applyKnowledgeBaseInitialization(
 		Separators:   req.DocumentSplitting.Separators,
 	}
 
+	legacyStorage := &kb.StorageConfig //nolint:staticcheck // SA1019: historical cos_config column
 	if req.Multimodal.Enabled {
 		kb.VLMConfig = types.VLMConfig{
 			Enabled: req.Multimodal.Enabled,
@@ -1060,7 +1027,7 @@ func (h *InitializationHandler) applyKnowledgeBaseInitialization(
 			if req.Multimodal.COS != nil {
 				kb.SetStorageProvider("cos")
 				// Legacy: also write to cos_config for backward compat with old code paths
-				kb.StorageConfig = types.StorageConfig{
+				*legacyStorage = types.StorageConfig{ //nolint:staticcheck // SA1019: historical cos_config column
 					Provider:   req.Multimodal.StorageType,
 					BucketName: req.Multimodal.COS.BucketName,
 					AppID:      req.Multimodal.COS.AppID,
@@ -1075,7 +1042,7 @@ func (h *InitializationHandler) applyKnowledgeBaseInitialization(
 				kb.SetStorageProvider("minio")
 				// Store non-secret bucket/prefix metadata only; global MINIO_ACCESS_KEY_*
 				// environment credentials must never be persisted into the database.
-				kb.StorageConfig = types.StorageConfig{
+				*legacyStorage = types.StorageConfig{ //nolint:staticcheck // SA1019: historical cos_config column
 					Provider:   req.Multimodal.StorageType,
 					BucketName: req.Multimodal.Minio.BucketName,
 					PathPrefix: req.Multimodal.Minio.PathPrefix,
@@ -1085,7 +1052,7 @@ func (h *InitializationHandler) applyKnowledgeBaseInitialization(
 	} else {
 		kb.VLMConfig = types.VLMConfig{}
 		kb.SetStorageProvider("")
-		kb.StorageConfig = types.StorageConfig{}
+		*legacyStorage = types.StorageConfig{} //nolint:staticcheck // SA1019: historical cos_config column
 	}
 
 	if req.NodeExtract.Enabled {
@@ -1129,513 +1096,39 @@ func extractModelIDs(processedModels []*types.Model) (embeddingModelID, llmModel
 	return
 }
 
-// CheckOllamaStatus godoc
-// @Summary      检查Ollama服务状态
-// @Description  检查Ollama服务是否可用
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Success      200  {object}  map[string]interface{}  "Ollama状态"
-// @Router       /initialization/ollama/status [get]
-func (h *InitializationHandler) CheckOllamaStatus(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Checking Ollama service status")
-
-	// Determine Ollama base URL for display
-	baseURL := os.Getenv("OLLAMA_BASE_URL")
-	if baseURL == "" {
-		baseURL = "http://host.docker.internal:11434"
-	}
-
-	// 检查Ollama服务是否可用
-	err := h.ollamaService.StartService(ctx)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, nil)
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data": gin.H{
-				"available": false,
-				"error":     err.Error(),
-				"baseUrl":   baseURL,
-			},
-		})
-		return
-	}
-
-	version, err := h.ollamaService.GetVersion(ctx)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, nil)
-		version = "unknown"
-	}
-
-	logger.Info(ctx, "Ollama service is available")
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"available": h.ollamaService.IsAvailable(),
-			"version":   version,
-			"baseUrl":   baseURL,
-		},
-	})
-}
-
-// CheckOllamaModels godoc
-// @Summary      检查Ollama模型状态
-// @Description  检查指定的Ollama模型是否已安装
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{models=[]string}  true  "模型名称列表"
-// @Success      200      {object}  map[string]interface{}   "模型状态"
-// @Failure      400      {object}  errors.AppError          "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/ollama/models/check [post]
-func (h *InitializationHandler) CheckOllamaModels(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Checking Ollama models status")
-
-	var req struct {
-		Models []string `json:"models" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse models check request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
-		return
-	}
-
-	// 检查Ollama服务是否可用
-	if !h.ollamaService.IsAvailable() {
-		err := h.ollamaService.StartService(ctx)
-		if err != nil {
-			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError("Ollama服务不可用: " + err.Error()))
-			return
-		}
-	}
-
-	modelStatus := make(map[string]bool)
-
-	// 检查每个模型是否存在
-	for _, modelName := range req.Models {
-		available, err := h.ollamaService.IsModelAvailable(ctx, modelName)
-		if err != nil {
-			logger.ErrorWithFields(ctx, err, map[string]interface{}{
-				"model_name": modelName,
-			})
-			modelStatus[modelName] = false
-		} else {
-			modelStatus[modelName] = available
-		}
-
-		logger.Infof(ctx, "Model %s availability: %v", utils.SanitizeForLog(modelName), modelStatus[modelName])
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"models": modelStatus,
-		},
-	})
-}
-
-func (h *InitializationHandler) saveKnowledgeBaseEncrypted(ctx context.Context, kb *types.KnowledgeBase) error {
-	if kb == nil {
-		return nil
-	}
-	toStore := *kb
-	if key := utils.GetAESKey(); key != nil {
-		var err error
-		if toStore.StorageConfig.SecretID != "" {
-			toStore.StorageConfig.SecretID, err = utils.EncryptAESGCM(toStore.StorageConfig.SecretID, key)
-			if err != nil {
-				return fmt.Errorf("encrypt storage secret_id: %w", err)
-			}
-		}
-		if toStore.StorageConfig.SecretKey != "" {
-			toStore.StorageConfig.SecretKey, err = utils.EncryptAESGCM(toStore.StorageConfig.SecretKey, key)
-			if err != nil {
-				return fmt.Errorf("encrypt storage secret_key: %w", err)
-			}
-		}
-		if toStore.VLMConfig.APIKey != "" {
-			toStore.VLMConfig.APIKey, err = utils.EncryptAESGCM(toStore.VLMConfig.APIKey, key)
-			if err != nil {
-				return fmt.Errorf("encrypt vlm api_key: %w", err)
-			}
-		}
-	}
-	if err := h.kbRepository.UpdateKnowledgeBase(ctx, &toStore); err != nil {
-		return err
-	}
-	kb.UpdatedAt = toStore.UpdatedAt
-	return nil
-}
-
-func (h *InitializationHandler) requireSystemAdminForOllamaDownload(c *gin.Context) bool {
-	if (h.config == nil || h.config.Tenant.IsRBACEnforced()) && !types.IsSystemAdminFromContext(c.Request.Context()) {
-		c.Error(errors.NewForbiddenError("仅系统管理员可执行该操作"))
-		return false
-	}
-	return true
-}
-
-// DownloadOllamaModel godoc
-// @Summary      下载Ollama模型
-// @Description  异步下载指定的Ollama模型
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{modelName=string}  true  "模型名称"
-// @Success      200      {object}  map[string]interface{}    "下载任务信息"
-// @Failure      400      {object}  errors.AppError           "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/ollama/models/download [post]
-func (h *InitializationHandler) DownloadOllamaModel(c *gin.Context) {
-	if !h.requireSystemAdminForOllamaDownload(c) {
-		return
-	}
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Starting async Ollama model download")
-
-	var req struct {
-		ModelName string `json:"modelName" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse model download request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
-		return
-	}
-
-	// 检查Ollama服务是否可用
-	if !h.ollamaService.IsAvailable() {
-		err := h.ollamaService.StartService(ctx)
-		if err != nil {
-			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError("Ollama服务不可用: " + err.Error()))
-			return
-		}
-	}
-
-	// 检查模型是否已存在
-	available, err := h.ollamaService.IsModelAvailable(ctx, req.ModelName)
-	if err != nil {
-		c.Error(errors.NewInternalServerError("检查模型状态失败: " + err.Error()))
-		return
-	}
-
-	if available {
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "模型已存在",
-			"data": gin.H{
-				"modelName": req.ModelName,
-				"status":    "completed",
-				"progress":  100.0,
-			},
-		})
-		return
-	}
-
-	// 检查是否已有相同模型的下载任务
-	tasksMutex.RLock()
-	for _, task := range downloadTasks {
-		if task.ModelName == req.ModelName && (task.Status == "pending" || task.Status == "downloading") {
-			tasksMutex.RUnlock()
-			c.JSON(http.StatusOK, gin.H{
-				"success": true,
-				"message": "模型下载任务已存在",
-				"data": gin.H{
-					"taskId":    task.ID,
-					"modelName": task.ModelName,
-					"status":    task.Status,
-					"progress":  task.Progress,
-				},
-			})
-			return
-		}
-	}
-	tasksMutex.RUnlock()
-
-	// 创建下载任务
-	taskID := uuid.New().String()
-	task := &DownloadTask{
-		ID:        taskID,
-		ModelName: req.ModelName,
-		Status:    "pending",
-		Progress:  0.0,
-		Message:   "准备下载",
-		StartTime: time.Now(),
-	}
-
-	tasksMutex.Lock()
-	downloadTasks[taskID] = task
-	tasksMutex.Unlock()
-
-	// 启动异步下载
-	newCtx, cancel := context.WithTimeout(context.Background(), 12*time.Hour)
-	go func() {
-		defer cancel()
-		h.downloadModelAsync(newCtx, taskID, req.ModelName)
-	}()
-
-	logger.Infof(ctx, "Created download task for model, task ID: %s", taskID)
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "模型下载任务已创建",
-		"data": gin.H{
-			"taskId":    taskID,
-			"modelName": req.ModelName,
-			"status":    "pending",
-			"progress":  0.0,
-		},
-	})
-}
-
-// GetDownloadProgress godoc
-// @Summary      获取下载进度
-// @Description  获取Ollama模型下载任务的进度
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        taskId  path      string  true  "任务ID"
-// @Success      200     {object}  handler.DataResponse{data=handler.DownloadTask}  "下载进度"
-// @Failure      404     {object}  errors.AppError         "任务不存在"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/ollama/download/progress/{taskId} [get]
-func (h *InitializationHandler) GetDownloadProgress(c *gin.Context) {
-	if !h.requireSystemAdminForOllamaDownload(c) {
-		return
-	}
-	taskID := c.Param("taskId")
-
-	if taskID == "" {
-		c.Error(errors.NewBadRequestError("任务ID不能为空"))
-		return
-	}
-
-	tasksMutex.RLock()
-	task, exists := downloadTasks[taskID]
-	tasksMutex.RUnlock()
-
-	if !exists {
-		c.Error(errors.NewNotFoundError("下载任务不存在"))
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    task,
-	})
-}
-
-// ListDownloadTasks godoc
-// @Summary      列出下载任务
-// @Description  列出所有Ollama模型下载任务
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Success      200  {object}  handler.DataResponse{data=[]handler.DownloadTask}  "任务列表"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/ollama/download/tasks [get]
-func (h *InitializationHandler) ListDownloadTasks(c *gin.Context) {
-	if !h.requireSystemAdminForOllamaDownload(c) {
-		return
-	}
-	tasksMutex.RLock()
-	tasks := make([]*DownloadTask, 0, len(downloadTasks))
-	for _, task := range downloadTasks {
-		tasks = append(tasks, task)
-	}
-	tasksMutex.RUnlock()
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    tasks,
-	})
-}
-
-// ListOllamaModels godoc
-// @Summary      列出Ollama模型
-// @Description  列出已安装的Ollama模型
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Success      200  {object}  map[string]interface{}  "模型列表"
-// @Failure      500  {object}  errors.AppError         "服务器错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/ollama/models [get]
-func (h *InitializationHandler) ListOllamaModels(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Listing installed Ollama models")
-
-	// 确保服务可用
-	if !h.ollamaService.IsAvailable() {
-		if err := h.ollamaService.StartService(ctx); err != nil {
-			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError("Ollama服务不可用: " + err.Error()))
-			return
-		}
-	}
-
-	// 使用 ListModelsDetailed 获取包含大小等详细信息的模型列表
-	models, err := h.ollamaService.ListModelsDetailed(ctx)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError("获取模型列表失败: " + err.Error()))
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"models": models,
-		},
-	})
-}
-
-// downloadModelAsync 异步下载模型
-func (h *InitializationHandler) downloadModelAsync(ctx context.Context,
-	taskID, modelName string,
-) {
-	logger.Infof(ctx, "Starting async download for model, task: %s", taskID)
-
-	// 更新任务状态为下载中
-	h.updateTaskStatus(taskID, "downloading", 0.0, "开始下载模型")
-
-	// 执行下载，带进度回调
-	err := h.pullModelWithProgress(ctx, modelName, func(progress float64, message string) {
-		h.updateTaskStatus(taskID, "downloading", progress, message)
-	})
-	if err != nil {
-		logger.Error(ctx, "Failed to download model", err)
-		h.updateTaskStatus(taskID, "failed", 0.0, fmt.Sprintf("下载失败: %v", err))
-		return
-	}
-
-	// 下载成功
-	logger.Infof(ctx, "Model downloaded successfully, task: %s", taskID)
-	h.updateTaskStatus(taskID, "completed", 100.0, "下载完成")
-}
-
-// pullModelWithProgress 下载模型并提供进度回调
-func (h *InitializationHandler) pullModelWithProgress(ctx context.Context,
-	modelName string,
-	progressCallback func(float64, string),
-) error {
-	// 检查服务是否可用
-	if err := h.ollamaService.StartService(ctx); err != nil {
-		logger.ErrorWithFields(ctx, err, nil)
-		return err
-	}
-
-	// 检查模型是否已存在
-	available, err := h.ollamaService.IsModelAvailable(ctx, modelName)
-	if err != nil {
-		logger.Error(ctx, "Failed to check model availability", err)
-		return err
-	}
-	if available {
-		progressCallback(100.0, "模型已存在")
-		return nil
-	}
-
-	// 创建下载请求
-	pullReq := &api.PullRequest{
-		Name: modelName,
-	}
-
-	// 使用Ollama客户端的Pull方法，带进度回调
-	err = h.ollamaService.GetClient().Pull(ctx, pullReq, func(progress api.ProgressResponse) error {
-		progressPercent := 0.0
-		message := "下载中"
-
-		if progress.Total > 0 && progress.Completed > 0 {
-			progressPercent = float64(progress.Completed) / float64(progress.Total) * 100
-			message = fmt.Sprintf("下载中: %.1f%% (%s)", progressPercent, progress.Status)
-		} else if progress.Status != "" {
-			message = progress.Status
-		}
-
-		// 调用进度回调
-		progressCallback(progressPercent, message)
-
-		logger.Infof(ctx,
-			"Download progress: %.2f%% - %s", progressPercent, message,
-		)
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to pull model: %w", err)
-	}
-
-	return nil
-}
-
-// updateTaskStatus 更新任务状态
-func (h *InitializationHandler) updateTaskStatus(
-	taskID, status string, progress float64, message string,
-) {
-	tasksMutex.Lock()
-	defer tasksMutex.Unlock()
-
-	if task, exists := downloadTasks[taskID]; exists {
-		task.Status = status
-		task.Progress = progress
-		task.Message = message
-
-		if status == "completed" || status == "failed" {
-			now := time.Now()
-			task.EndTime = &now
-		}
-	}
-}
-
 // GetCurrentConfigByKB godoc
 // @Summary      获取知识库配置
 // @Description  根据知识库ID获取当前配置信息
 // @Tags         初始化
 // @Accept       json
 // @Produce      json
-// @Param        kbId  path      string  true  "知识库ID"
-// @Success      200   {object}  map[string]interface{}  "配置信息"
-// @Failure      404   {object}  errors.AppError         "知识库不存在"
+// @Param        kb_id  path      string  true  "知识库ID"
+// @Success      200    {object}  map[string]interface{}  "配置信息"
+// @Failure      404    {object}  errors.AppError         "知识库不存在"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /initialization/config/{kbId} [get]
+// @Router       /initialization/config/{kb_id} [get]
 func (h *InitializationHandler) GetCurrentConfigByKB(c *gin.Context) {
 	ctx := c.Request.Context()
-	kbIdStr := utils.SanitizeForLog(c.Param("kbId"))
+	kbIDStr := utils.SanitizeForLog(c.Param("kb_id"))
 
 	logger.Info(ctx, "Getting configuration for knowledge base")
 
 	// 获取指定知识库信息
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIdStr)
+	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIDStr)
 	if err != nil {
-		// Mirror getKnowledgeBaseForInitialization above: missing /
-		// cross-tenant kb ids are 404, not 500.
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("知识库不存在"))
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
+			_ = c.Error(errors.NewNotFoundError("知识库不存在"))
 			return
 		}
 		logger.Error(ctx, "Failed to get knowledge base", err)
-		c.Error(errors.NewInternalServerError("获取知识库信息失败: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("获取知识库信息失败: " + err.Error()))
 		return
 	}
 
 	if kb == nil {
 		logger.Error(ctx, "Knowledge base not found")
-		c.Error(errors.NewNotFoundError("知识库不存在"))
+		_ = c.Error(errors.NewNotFoundError("知识库不存在"))
 		return
 	}
 
@@ -1652,7 +1145,6 @@ func (h *InitializationHandler) GetCurrentConfigByKB(c *gin.Context) {
 			model, err := h.modelService.GetModelByID(ctx, modelID)
 			if err != nil {
 				logger.Warn(ctx, "Failed to get model", err)
-				// 如果模型不存在或获取失败，继续处理其他模型
 				continue
 			}
 			if model != nil {
@@ -1663,7 +1155,7 @@ func (h *InitializationHandler) GetCurrentConfigByKB(c *gin.Context) {
 
 	// 检查知识库是否有文件
 	knowledgeList, err := h.knowledgeService.ListPagedKnowledgeByKnowledgeBaseID(ctx,
-		kbIdStr, &types.Pagination{
+		kbIDStr, &types.Pagination{
 			Page:     1,
 			PageSize: 1,
 		}, types.KnowledgeListFilter{})
@@ -1684,7 +1176,7 @@ func (h *InitializationHandler) buildConfigResponse(ctx context.Context, models 
 	kb *types.KnowledgeBase, hasFiles bool,
 ) map[string]interface{} {
 	config := map[string]interface{}{
-		"hasFiles": hasFiles,
+		"has_files": hasFiles,
 	}
 	// Integration details describe the owning workspace's infrastructure. A
 	// share receiver — even an admin of its own workspace — only learns
@@ -1706,30 +1198,30 @@ func (h *InitializationHandler) buildConfigResponse(ctx context.Context, models 
 		switch model.Type {
 		case types.ModelTypeKnowledgeQA:
 			config["llm"] = map[string]interface{}{
-				"source":    string(model.Source),
-				"modelName": model.Name,
-				"baseUrl":   baseURL,
+				"source":     string(model.Source),
+				"model_name": model.Name,
+				"base_url":   baseURL,
 				"credentials": map[string]bool{
-					"apiKey": model.Parameters.APIKey != "" && !model.IsBuiltin,
+					"api_key": model.Parameters.APIKey != "" && !model.IsBuiltin,
 				},
 			}
 		case types.ModelTypeEmbedding:
 			config["embedding"] = map[string]interface{}{
-				"source":    string(model.Source),
-				"modelName": model.Name,
-				"baseUrl":   baseURL,
-				"dimension": model.Parameters.EmbeddingParameters.Dimension,
+				"source":     string(model.Source),
+				"model_name": model.Name,
+				"base_url":   baseURL,
+				"dimension":  model.Parameters.EmbeddingParameters.Dimension,
 				"credentials": map[string]bool{
-					"apiKey": model.Parameters.APIKey != "" && !model.IsBuiltin,
+					"api_key": model.Parameters.APIKey != "" && !model.IsBuiltin,
 				},
 			}
 		case types.ModelTypeRerank:
 			config["rerank"] = map[string]interface{}{
-				"enabled":   true,
-				"modelName": model.Name,
-				"baseUrl":   baseURL,
+				"enabled":    true,
+				"model_name": model.Name,
+				"base_url":   baseURL,
 				"credentials": map[string]bool{
-					"apiKey": model.Parameters.APIKey != "" && !model.IsBuiltin,
+					"api_key": model.Parameters.APIKey != "" && !model.IsBuiltin,
 				},
 			}
 		case types.ModelTypeVLLM:
@@ -1740,21 +1232,25 @@ func (h *InitializationHandler) buildConfigResponse(ctx context.Context, models 
 			}
 			multimodal := config["multimodal"].(map[string]interface{})
 			multimodal["vlm"] = map[string]interface{}{
-				"modelName":     model.Name,
-				"baseUrl":       baseURL,
-				"interfaceType": model.Parameters.InterfaceType,
-				"modelId":       model.ID,
+				"model_name":     model.Name,
+				"base_url":       baseURL,
+				"interface_type": model.Parameters.InterfaceType,
+				"model_id":       model.ID,
 				"credentials": map[string]bool{
-					"apiKey": model.Parameters.APIKey != "" && !model.IsBuiltin,
+					"api_key": model.Parameters.APIKey != "" && !model.IsBuiltin,
 				},
 			}
 		}
 	}
 
 	// 判断多模态是否启用：有VLM模型ID或有存储配置（兼容新旧字段）
+	var legacyStorage types.StorageConfig //nolint:staticcheck // SA1019: historical cos_config column
+	if kb != nil {
+		legacyStorage = kb.StorageConfig //nolint:staticcheck // SA1019: historical cos_config column
+	}
 	storageProvider := kb.GetStorageProvider()
 	hasMultimodal := (kb.VLMConfig.IsEnabled() ||
-		kb.StorageConfig.SecretID != "" || kb.StorageConfig.BucketName != "" ||
+		legacyStorage.SecretID != "" || legacyStorage.BucketName != "" ||
 		(storageProvider != "" && storageProvider != "local"))
 	if config["multimodal"] == nil {
 		config["multimodal"] = map[string]interface{}{
@@ -1771,21 +1267,21 @@ func (h *InitializationHandler) buildConfigResponse(ctx context.Context, models 
 		}
 		multimodal := config["multimodal"].(map[string]interface{})
 		if kb.VLMConfig.DescriptionLanguage != "" {
-			multimodal["descriptionLanguage"] = kb.VLMConfig.DescriptionLanguage
+			multimodal["description_language"] = kb.VLMConfig.DescriptionLanguage
 		}
 		if kb.VLMConfig.CustomInstructions != "" {
-			multimodal["customInstructions"] = kb.VLMConfig.CustomInstructions
+			multimodal["custom_instructions"] = kb.VLMConfig.CustomInstructions
 		}
 	}
 
 	// 如果没有Rerank模型，设置rerank为disabled
 	if config["rerank"] == nil {
 		config["rerank"] = map[string]interface{}{
-			"enabled":   false,
-			"modelName": "",
-			"baseUrl":   "",
+			"enabled":    false,
+			"model_name": "",
+			"base_url":   "",
 			"credentials": map[string]bool{
-				"apiKey": false,
+				"api_key": false,
 			},
 		}
 	}
@@ -1793,57 +1289,57 @@ func (h *InitializationHandler) buildConfigResponse(ctx context.Context, models 
 	// 添加知识库的文档分割配置
 	if kb != nil {
 		ds := map[string]interface{}{
-			"chunkSize":    kb.ChunkingConfig.ChunkSize,
-			"chunkOverlap": kb.ChunkingConfig.ChunkOverlap,
-			"separators":   kb.ChunkingConfig.Separators,
+			"chunk_size":    kb.ChunkingConfig.ChunkSize,
+			"chunk_overlap": kb.ChunkingConfig.ChunkOverlap,
+			"separators":    kb.ChunkingConfig.Separators,
 		}
 		if kb.ChunkingConfig.Strategy != "" {
 			ds["strategy"] = kb.ChunkingConfig.Strategy
 		}
 		if kb.ChunkingConfig.TokenLimit > 0 {
-			ds["tokenLimit"] = kb.ChunkingConfig.TokenLimit
+			ds["token_limit"] = kb.ChunkingConfig.TokenLimit
 		}
 		if len(kb.ChunkingConfig.Languages) > 0 {
 			ds["languages"] = kb.ChunkingConfig.Languages
 		}
 		if kb.ChunkingConfig.TableMetadataInstructions != "" {
-			ds["tableMetadataInstructions"] = kb.ChunkingConfig.TableMetadataInstructions
+			ds["table_metadata_instructions"] = kb.ChunkingConfig.TableMetadataInstructions
 		}
-		config["documentSplitting"] = ds
+		config["document_splitting"] = ds
 
 		// 添加多模态的存储配置信息（优先读新字段，兼容旧 cos_config）
 		effectiveProvider := kb.GetStorageProvider()
-		if kb.StorageConfig.SecretID != "" || (effectiveProvider != "" && effectiveProvider != "local") {
+		if legacyStorage.SecretID != "" || (effectiveProvider != "" && effectiveProvider != "local") {
 			if config["multimodal"] == nil {
 				config["multimodal"] = map[string]interface{}{
 					"enabled": true,
 				}
 			}
 			multimodal := config["multimodal"].(map[string]interface{})
-			multimodal["storageType"] = effectiveProvider
+			multimodal["storage_type"] = effectiveProvider
 			switch effectiveProvider {
 			case "cos":
 				multimodal["cos"] = map[string]interface{}{
-					"region":     kb.StorageConfig.Region,
-					"bucketName": kb.StorageConfig.BucketName,
-					"appId":      kb.StorageConfig.AppID,
-					"pathPrefix": kb.StorageConfig.PathPrefix,
+					"region":      legacyStorage.Region,
+					"bucket_name": legacyStorage.BucketName,
+					"app_id":      legacyStorage.AppID,
+					"path_prefix": legacyStorage.PathPrefix,
 					"credentials": map[string]bool{
-						"secretId":  kb.StorageConfig.SecretID != "",
-						"secretKey": kb.StorageConfig.SecretKey != "",
+						"secret_id":  legacyStorage.SecretID != "",
+						"secret_key": legacyStorage.SecretKey != "",
 					},
 				}
 			case "minio":
 				multimodal["minio"] = map[string]interface{}{
-					"bucketName": kb.StorageConfig.BucketName,
-					"pathPrefix": kb.StorageConfig.PathPrefix,
+					"bucket_name": legacyStorage.BucketName,
+					"path_prefix": legacyStorage.PathPrefix,
 				}
 			}
 			if !ownWorkspace {
 				// Bucket locations are the owner's infrastructure too.
 				for _, provider := range []string{"cos", "minio"} {
 					if detail, ok := multimodal[provider].(map[string]interface{}); ok {
-						for _, field := range []string{"region", "bucketName", "appId", "pathPrefix"} {
+						for _, field := range []string{"region", "bucket_name", "app_id", "path_prefix"} {
 							delete(detail, field)
 						}
 					}
@@ -1861,1042 +1357,27 @@ func (h *InitializationHandler) buildConfigResponse(ctx context.Context, models 
 			"relations": kb.ExtractConfig.Relations,
 		}
 		if kb.ExtractConfig.CustomInstructions != "" {
-			nodeExtract["customInstructions"] = kb.ExtractConfig.CustomInstructions
+			nodeExtract["custom_instructions"] = kb.ExtractConfig.CustomInstructions
 		}
-		config["nodeExtract"] = nodeExtract
+		config["node_extract"] = nodeExtract
 	} else {
-		config["nodeExtract"] = map[string]interface{}{
+		config["node_extract"] = map[string]interface{}{
 			"enabled": false,
 		}
 	}
 
 	if kb.QuestionGenerationConfig != nil {
-		config["questionGeneration"] = map[string]interface{}{
-			"enabled":            kb.QuestionGenerationConfig.Enabled,
-			"questionCount":      kb.QuestionGenerationConfig.QuestionCount,
-			"modelId":            kb.QuestionGenerationConfig.ModelID,
-			"customInstructions": kb.QuestionGenerationConfig.CustomInstructions,
+		config["question_generation"] = map[string]interface{}{
+			"enabled":             kb.QuestionGenerationConfig.Enabled,
+			"question_count":      kb.QuestionGenerationConfig.QuestionCount,
+			"model_id":            kb.QuestionGenerationConfig.ModelID,
+			"custom_instructions": kb.QuestionGenerationConfig.CustomInstructions,
 		}
 	} else {
-		config["questionGeneration"] = map[string]interface{}{
+		config["question_generation"] = map[string]interface{}{
 			"enabled": false,
 		}
 	}
 
 	return config
-}
-
-// ModelTestRequest 统一的"测试连接"请求体。
-//
-// 四种模型（chat/embedding/rerank/asr）的测试接口共享同一份结构，以便：
-//   - 前端只需维护一份表单 → 后端映射。
-//   - 后端可以直接把请求转成 *types.Model，再调用各包的 ConfigFromModel，
-//     与生产路径（service.modelService.GetXxxModel）走完全相同的装配流程，
-//     彻底消除过去每个测试端点手工拼 Config 的样板代码。
-//
-// 所有 provider/model 通用字段都在这里集中声明；若未来新增字段（比如现在的
-// custom_headers），只需改一处，生产路径和测试路径会同时生效。
-type ModelTestRequest struct {
-	Spec                      *types.ModelSpecOverride `json:"spec,omitempty"`
-	Source                    string                   `json:"source"` // 为空时按需默认为 "remote"
-	ModelName                 string                   `json:"modelName" binding:"required"`
-	BaseURL                   string                   `json:"baseUrl"`
-	APIKey                    string                   `json:"apiKey"`
-	Provider                  string                   `json:"provider"`
-	InterfaceType             string                   `json:"interfaceType,omitempty"`
-	Dimension                 int                      `json:"dimension,omitempty"`
-	SupportsDimensionOverride bool                     `json:"supportsDimensionOverride,omitempty"`
-	CustomHeaders             map[string]string        `json:"customHeaders,omitempty"`
-	ExtraConfig               map[string]string        `json:"extraConfig,omitempty"`
-	// AppSecret 用于 LKEAP / Volcengine Rerank 等需要第二段密钥的场景（对应模型 Parameters.AppSecret）。
-	AppSecret string `json:"appSecret,omitempty"`
-	// ModelID, when set, instructs the handler to substitute any missing
-	// secrets (APIKey, AppSecret via ExtraConfig) from the stored model
-	// record before assembling the test client. This lets the "Test
-	// connection" button work on existing models without making the
-	// frontend reload — and ship — the plaintext API key. Other fields
-	// (BaseURL, ModelName, etc.) on this request still override the
-	// stored values, so a user can validate a new endpoint against the
-	// existing credentials in one click.
-	ModelID string `json:"modelId,omitempty"`
-}
-
-// fillSecretsFromStoredModel mutates req in place: if req.ModelID is set
-// and a secret field on the request is empty, the corresponding value from
-// the stored (and decrypted) model is copied in. The stored ExtraConfig is
-// filled in as well when the request does not carry one — provider-specific
-// settings (thinking_control, api_version, remote_model_name, ...) must
-// apply to the connection test exactly as they apply to real traffic, and
-// the frontend only sends extraConfig when the user actively edits it.
-// Non-empty request values are always preferred — they represent the user
-// actively typing a new key they want to verify. Missing or inaccessible
-// model is treated as a no-op (the connection test will fail downstream
-// with a clearer "missing apiKey" error than we could produce here).
-func (h *InitializationHandler) fillSecretsFromStoredModel(ctx context.Context, req *ModelTestRequest) {
-	if req == nil || req.ModelID == "" {
-		return
-	}
-	// A request that already carries every secret needs no lookup — but a
-	// secret stored in extra_config (LKEAP / Volcengine secret_key) is
-	// redacted by GET, so "extraConfig is present" does not mean it is
-	// complete.
-	if req.APIKey != "" && req.AppSecret != "" && req.ExtraConfig != nil && req.Spec != nil &&
-		dto.HasAllSecretExtras(req.Provider, req.BaseURL, req.ExtraConfig) {
-		return
-	}
-	stored, err := h.modelService.GetModelByID(ctx, req.ModelID)
-	if err != nil || stored == nil {
-		logger.Warnf(ctx, "test-connection: stored model %s not found, leaving secrets empty: %v",
-			utils.SanitizeForLog(req.ModelID), err)
-		return
-	}
-	if req.Spec == nil && req.Provider == stored.Parameters.Provider {
-		req.Spec = stored.Parameters.Spec
-	}
-	if req.APIKey == "" {
-		req.APIKey = stored.Parameters.APIKey
-	}
-	if req.AppSecret == "" {
-		req.AppSecret = stored.Parameters.AppSecret
-	}
-	// Same contract as PUT /models/{id}: an absent or masked secret extra
-	// falls back to the stored value, a real one the user just typed wins —
-	// and a test against a different vendor gets no stored credential, which
-	// belongs to the integration the row is being moved away from.
-	req.ExtraConfig = dto.PreserveStoredSecretExtras(
-		stored.Parameters.ExtraConfig, req.ExtraConfig,
-		dto.VendorRef{Provider: stored.Parameters.Provider, BaseURL: stored.Parameters.BaseURL},
-		dto.VendorRef{Provider: req.Provider, BaseURL: req.BaseURL},
-	)
-}
-
-// RemoteModelCheckRequest 兼容旧 swagger 定义。
-//
-// Deprecated: 保留是为了不破坏已生成的 API 文档，新代码请直接使用 ModelTestRequest。
-type RemoteModelCheckRequest = ModelTestRequest
-
-// decryptModelAppSecret 解密模型 Parameters 中的 AppSecret（与 modelService 行为一致）。
-func decryptModelAppSecret(encrypted string) string {
-	if encrypted == "" {
-		return encrypted
-	}
-	if key := utils.GetAESKey(); key != nil {
-		if plain, err := utils.DecryptAESGCM(encrypted, key); err == nil {
-			return plain
-		}
-	}
-	return encrypted
-}
-
-// buildTestModel 把测试连接请求转成一个临时的 *types.Model（不落库），
-// 供 ConfigFromModel 使用。source 为空时按 defaultSource 兜底（chat/rerank/asr
-// 默认 remote，embedding 会根据前端传入的 source 决定）。
-func (h *InitializationHandler) buildTestModel(
-	req *ModelTestRequest, modelType types.ModelType, defaultSource types.ModelSource,
-) *types.Model {
-	source := types.ModelSource(strings.ToLower(req.Source))
-	if source == "" {
-		source = defaultSource
-	}
-	return &types.Model{
-		Name:   req.ModelName,
-		Type:   modelType,
-		Source: source,
-		Parameters: types.ModelParameters{
-			BaseURL:       req.BaseURL,
-			APIKey:        req.APIKey,
-			AppSecret:     req.AppSecret,
-			Provider:      req.Provider,
-			InterfaceType: req.InterfaceType,
-			ExtraConfig:   req.ExtraConfig,
-			Spec:          req.Spec,
-			CustomHeaders: req.CustomHeaders,
-			EmbeddingParameters: types.EmbeddingParameters{
-				Dimension:                 req.Dimension,
-				TruncatePromptTokens:      256,
-				SupportsDimensionOverride: req.SupportsDimensionOverride,
-			},
-		},
-	}
-}
-
-// CheckRemoteModel godoc
-// @Summary      检查远程模型
-// @Description  检查远程API模型连接是否正常
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      RemoteModelCheckRequest  true  "模型检查请求"
-// @Success      200      {object}  map[string]interface{}   "检查结果"
-// @Failure      400      {object}  errors.AppError          "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/remote/check [post]
-func (h *InitializationHandler) CheckRemoteModel(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Checking remote model connection")
-
-	var req ModelTestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse remote model check request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
-		return
-	}
-	h.fillSecretsFromStoredModel(ctx, &req)
-
-	if req.ModelName == "" || req.BaseURL == "" {
-		logger.Error(ctx, "Model name and base URL are required")
-		c.Error(errors.NewBadRequestError("模型名称和Base URL不能为空"))
-		return
-	}
-
-	if err := utils.ValidateURLForSSRF(req.BaseURL); err != nil {
-		logger.Warnf(ctx, "SSRF validation failed for remote model BaseURL: %v", err)
-		c.Error(errors.NewBadRequestError(utils.FormatSSRFError("Base URL", req.BaseURL, err)))
-		return
-	}
-	model := h.buildTestModel(&req, types.ModelTypeKnowledgeQA, types.ModelSourceRemote)
-	available, message := h.checkChatModelConnection(ctx, model)
-
-	logger.Infof(ctx, "Remote model check completed, available: %v, message: %s", available, message)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"available": available,
-			"message":   message,
-		},
-	})
-}
-
-// TestEmbeddingModel godoc
-// @Summary      测试Embedding模型
-// @Description  测试Embedding接口是否可用并返回向量维度
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      handler.ModelTestRequest  true  "Embedding测试请求"
-// @Success      200      {object}  map[string]interface{}  "测试结果"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/embedding/test [post]
-func (h *InitializationHandler) TestEmbeddingModel(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Testing embedding model connectivity and functionality")
-
-	var req ModelTestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse embedding test request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
-		return
-	}
-	h.fillSecretsFromStoredModel(ctx, &req)
-	if req.Source == "" {
-		req.Source = string(types.ModelSourceRemote)
-	}
-
-	if req.BaseURL != "" {
-		if err := utils.ValidateURLForSSRF(req.BaseURL); err != nil {
-			logger.Warnf(ctx, "SSRF validation failed for embedding BaseURL: %v", err)
-			c.Error(errors.NewBadRequestError(utils.FormatSSRFError("Base URL", req.BaseURL, err)))
-			return
-		}
-	}
-
-	// 阿里云多模态 Embedding 模型暂不支持
-	if strings.ToLower(req.Provider) == "aliyun" {
-		modelNameLower := strings.ToLower(req.ModelName)
-		if strings.Contains(modelNameLower, "vision") || strings.Contains(modelNameLower, "multimodal") {
-			logger.Infof(ctx, "Aliyun multimodal embedding model not supported: %s", req.ModelName)
-			c.JSON(http.StatusOK, gin.H{
-				"success": true,
-				"data": gin.H{
-					"available": false,
-					"message":   "阿里云多模态 Embedding 模型暂不支持，请使用纯文本 Embedding 模型（如 text-embedding-v4）",
-					"dimension": 0,
-				},
-			})
-			return
-		}
-	}
-
-	model := h.buildTestModel(&req, types.ModelTypeEmbedding, types.ModelSourceRemote)
-	emb, err := embedding.NewEmbedder(embedding.ConfigFromModel(model), h.pooler, h.ollamaService)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"model": utils.SanitizeForLog(req.ModelName)})
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data":    gin.H{`available`: false, `message`: fmt.Sprintf("创建Embedder失败: %v", err), `dimension`: 0},
-		})
-		return
-	}
-
-	vec, err := emb.Embed(ctx, "hello")
-	if err != nil {
-		logger.Error(ctx, "Failed to call embedder", err)
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data":    gin.H{`available`: false, `message`: fmt.Sprintf("调用Embedding失败: %v", err), `dimension`: 0},
-		})
-		return
-	}
-
-	logger.Infof(ctx, "Embedding test succeeded, dimension: %d", len(vec))
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    gin.H{`available`: true, `message`: fmt.Sprintf("测试成功，向量维度=%d", len(vec)), `dimension`: len(vec)},
-	})
-}
-
-// authFailureMarkers are lower-cased fragments that mark an upstream error
-// body as a credential problem, whatever status code carried it.
-var authFailureMarkers = []string{
-	"api_key_invalid", "api key not valid", "invalid api key", "invalid_api_key",
-	"unauthorized", "authentication",
-}
-
-// isAuthFailureBody reports whether an upstream error body describes a bad
-// or missing credential. Gemini's native API answers an invalid key with
-// 400 INVALID_ARGUMENT / API_KEY_INVALID, so a 400 alone does not prove the
-// key was accepted.
-func isAuthFailureBody(body string) bool {
-	b := strings.ToLower(body)
-	for _, m := range authFailureMarkers {
-		if strings.Contains(b, m) {
-			return true
-		}
-	}
-	return false
-}
-
-// classifyConnectionError maps an upstream error string to a short
-// human-readable hint in Chinese. Callers should always combine the hint
-// with the raw error message (e.g. fmt.Sprintf("%s：%v", hint, err)) so
-// the operator can still see what URL / response body the SDK actually
-// got — the hint is for "where to start looking", the raw error is for
-// "what actually happened".
-func classifyConnectionError(errMsg string) string {
-	switch {
-	case strings.Contains(errMsg, "401") || isAuthFailureBody(errMsg):
-		return "认证失败，请检查API Key"
-	case strings.Contains(errMsg, "403") || strings.Contains(errMsg, "forbidden"):
-		return "权限不足，请检查API Key权限"
-	case strings.Contains(errMsg, "404") || strings.Contains(errMsg, "not found"):
-		return "API端点不存在，请检查Base URL"
-	case strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "context deadline exceeded"):
-		return "连接超时，请检查网络连接"
-	case strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "no such host") || strings.Contains(errMsg, "dial tcp"):
-		return "无法连接到服务器，请检查Base URL"
-	default:
-		return "连接失败"
-	}
-}
-
-// checkChatModelConnection 使用 chat 模块做一次最小化调用来测试连通性与鉴权。
-// 与生产路径走完全相同的 ConfigFromModel → NewChat 流程，因此 CustomHeaders、
-// ExtraConfig、Provider 等字段都会被正确透传。
-func (h *InitializationHandler) checkChatModelConnection(
-	ctx context.Context, model *types.Model,
-) (bool, string) {
-	chatInstance, err := chat.NewChat(chat.ConfigFromModel(model), h.ollamaService)
-	if err != nil {
-		return false, fmt.Sprintf("创建聊天实例失败: %v", err)
-	}
-
-	testMessages := []chat.Message{{Role: "user", Content: "test"}}
-	testOptions := &chat.ChatOptions{
-		MaxTokens: 1,
-		Thinking:  &[]bool{false}[0], // for dashscope.aliyuncs qwen3-32b
-	}
-
-	_, err = chatInstance.Chat(ctx, testMessages, testOptions)
-	if err != nil {
-		// 400 = endpoint reachable + auth ok, just a parameter mismatch
-		// (e.g. max_tokens vs max_completion_tokens, or a reasoning model
-		// that cannot finish within the 1-token probe). Treat as success.
-		// Match the status code, not the message: the wording belongs to
-		// whichever HTTP client built the error and has changed before.
-		// Exception: some vendors (Gemini native) report an invalid key as
-		// 400, which must still fail the check.
-		var httpErr *modelapi.HTTPError
-		if stderrors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest &&
-			!isAuthFailureBody(httpErr.Body) {
-			return true, "连接正常，模型可用"
-		}
-		errMsg := err.Error()
-		// For every other failure mode we surface a human-readable hint
-		// AND the upstream error verbatim. Swallowing the underlying
-		// message used to hide things like the actual URL the SDK
-		// tried, response body, etc. — making remote debugging nearly
-		// impossible. Format: "<hint>：<raw err>".
-		return false, fmt.Sprintf("%s：%v", classifyConnectionError(errMsg), err)
-	}
-
-	// 连接成功，模型可用
-	return true, "连接正常，模型可用"
-}
-
-// checkRerankModelConnection 使用 rerank 模块做一次最小化调用来测试连通性与鉴权。
-// 与生产路径共用 ConfigFromModel，所有字段（CustomHeaders 等）都透传。
-func (h *InitializationHandler) checkRerankModelConnection(
-	ctx context.Context, model *types.Model, appSecret string,
-) (bool, string) {
-	reranker, err := rerank.NewReranker(rerank.ConfigFromModel(model, appSecret))
-	if err != nil {
-		return false, fmt.Sprintf("创建Reranker失败: %v", err)
-	}
-
-	results, err := reranker.Rerank(ctx, "ping", []string{"pong"})
-	if err != nil {
-		return false, fmt.Sprintf("重排测试失败: %v", err)
-	}
-	if len(results) > 0 {
-		return true, fmt.Sprintf("重排功能正常，返回%d个结果", len(results))
-	}
-	return false, "重排接口连接成功，但未返回重排结果"
-}
-
-// CheckRerankModel godoc
-// @Summary      检查Rerank模型
-// @Description  检查Rerank模型连接和功能是否正常
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      handler.ModelTestRequest  true  "Rerank检查请求"
-// @Success      200      {object}  map[string]interface{}  "检查结果"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/rerank/check [post]
-func (h *InitializationHandler) CheckRerankModel(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Checking rerank model connection and functionality")
-
-	var req ModelTestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse rerank model check request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
-		return
-	}
-	h.fillSecretsFromStoredModel(ctx, &req)
-
-	if req.ModelName == "" || req.BaseURL == "" {
-		logger.Error(ctx, "Model name and base URL are required")
-		c.Error(errors.NewBadRequestError("模型名称和Base URL不能为空"))
-		return
-	}
-
-	if err := utils.ValidateURLForSSRF(req.BaseURL); err != nil {
-		logger.Warnf(ctx, "SSRF validation failed for rerank BaseURL: %v", err)
-		c.Error(errors.NewBadRequestError(utils.FormatSSRFError("Base URL", req.BaseURL, err)))
-		return
-	}
-
-	appSecret := decryptModelAppSecret(req.AppSecret)
-
-	model := h.buildTestModel(&req, types.ModelTypeRerank, types.ModelSourceRemote)
-	// LKEAP and Volcengine rerank sign with a key pair stored on the row
-	// itself.
-	if p := model.Parameters.Provider; p == providers.LkeapID || p == providers.VolcengineID {
-		appSecret = decryptModelAppSecret(model.Parameters.AppSecret)
-	}
-	available, message := h.checkRerankModelConnection(ctx, model, appSecret)
-
-	logger.Infof(ctx, "Rerank model check completed, available: %v, message: %s", available, message)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"available": available,
-			"message":   message,
-		},
-	})
-}
-
-// CheckASRModel godoc
-// @Summary      检查ASR模型
-// @Description  检查ASR（语音识别）模型连接是否正常，通过发送一段静默音频测试 /v1/audio/transcriptions 端点
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      handler.ModelTestRequest  true  "ASR检查请求"
-// @Success      200      {object}  map[string]interface{}  "检查结果"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/asr/check [post]
-func (h *InitializationHandler) CheckASRModel(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Checking ASR model connection")
-
-	var req ModelTestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "Failed to parse ASR model check request", err)
-		c.Error(errors.NewBadRequestError(err.Error()))
-		return
-	}
-	h.fillSecretsFromStoredModel(ctx, &req)
-
-	if req.ModelName == "" || req.BaseURL == "" {
-		logger.Error(ctx, "Model name and base URL are required for ASR check")
-		c.Error(errors.NewBadRequestError("模型名称和Base URL不能为空"))
-		return
-	}
-
-	if err := utils.ValidateURLForSSRF(req.BaseURL); err != nil {
-		logger.Warnf(ctx, "SSRF validation failed for ASR BaseURL: %v", err)
-		c.Error(errors.NewBadRequestError(utils.FormatSSRFError("Base URL", req.BaseURL, err)))
-		return
-	}
-
-	// 用统一构造器生成测试用 *types.Model（ASR 不涉及 模型附加凭证），
-	// 发送一段极短的静默 WAV 音频验证 /v1/audio/transcriptions 端点可达。
-	model := h.buildTestModel(&req, types.ModelTypeASR, types.ModelSourceRemote)
-	asrInstance, err := asr.NewASR(asr.ConfigFromModel(model))
-	if err != nil {
-		logger.Errorf(ctx, "Failed to create ASR instance for check: %v", err)
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data": gin.H{
-				"available": false,
-				"message":   fmt.Sprintf("创建ASR实例失败: %v", err),
-			},
-		})
-		return
-	}
-
-	res, err := asrInstance.Transcribe(ctx, assets.ASRTestWAV, "asr_test.wav")
-	var text string
-	if res != nil {
-		text = res.Text
-	}
-	available := true
-	message := "ASR连接成功"
-
-	if err != nil {
-		errMsg := err.Error()
-		// Always include the raw upstream error after the hint — see
-		// classifyConnectionError comment for rationale.
-		switch {
-		case strings.Contains(errMsg, "401") || strings.Contains(errMsg, "Unauthorized") || strings.Contains(errMsg, "authentication"):
-			available = false
-			message = fmt.Sprintf("认证失败，请检查API Key：%s", errMsg)
-		case strings.Contains(errMsg, "403") || strings.Contains(errMsg, "Forbidden"):
-			// Also what proxies and endpoint-security agents answer when they
-			// block the request, so the endpoint was never actually reached.
-			available = false
-			message = fmt.Sprintf("访问被拒绝，请检查API Key权限或网络代理/安全软件拦截：%s", errMsg)
-		case strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "context deadline exceeded"):
-			available = false
-			message = fmt.Sprintf("连接超时，请检查网络连接：%s", errMsg)
-		case strings.Contains(errMsg, "404") || strings.Contains(errMsg, "Not Found"):
-			available = false
-			message = fmt.Sprintf("API端点不存在，请检查Base URL：%s", errMsg)
-		case strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "no such host") || strings.Contains(errMsg, "dial tcp"):
-			available = false
-			message = fmt.Sprintf("无法连接到服务器，请检查Base URL：%s", errMsg)
-		case strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found"):
-			available = false
-			message = fmt.Sprintf("模型不存在，请检查模型名称：%s", errMsg)
-		default:
-			logger.Infof(ctx, "ASR check got non-fatal error (endpoint reachable): %v", err)
-			available = true
-			message = fmt.Sprintf("ASR端点可达（非致命错误: %s）", errMsg)
-		}
-	} else if text != "" {
-		message = fmt.Sprintf("ASR连接成功，转写结果: %s", text)
-	}
-
-	logger.Infof(ctx, "ASR model check completed, available: %v, message: %s", available, message)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"available": available,
-			"message":   message,
-		},
-	})
-}
-
-// 使用结构体解析表单数据
-type testMultimodalForm struct {
-	VLMModel         string `form:"vlm_model"`
-	VLMBaseURL       string `form:"vlm_base_url"`
-	VLMAPIKey        string `form:"vlm_api_key"`
-	VLMInterfaceType string `form:"vlm_interface_type"`
-
-	StorageType string `form:"storage_type"`
-
-	// COS 配置
-	COSSecretID   string `form:"cos_secret_id"`
-	COSSecretKey  string `form:"cos_secret_key"`
-	COSRegion     string `form:"cos_region"`
-	COSBucketName string `form:"cos_bucket_name"`
-	COSAppID      string `form:"cos_app_id"`
-	COSPathPrefix string `form:"cos_path_prefix"`
-
-	// MinIO 配置（当存储为 minio 时）
-	MinioBucketName string `form:"minio_bucket_name"`
-	MinioPathPrefix string `form:"minio_path_prefix"`
-
-	// 文档切分配置（字符串后续自行解析，以避免类型绑定失败）
-	ChunkSize     string `form:"chunk_size"`
-	ChunkOverlap  string `form:"chunk_overlap"`
-	SeparatorsRaw string `form:"separators"`
-}
-
-// TestMultimodalFunction godoc
-// @Summary      测试多模态功能
-// @Description  上传图片测试多模态处理功能
-// @Tags         初始化
-// @Accept       multipart/form-data
-// @Produce      json
-// @Param        image             formData  file    true   "测试图片"
-// @Param        vlm_model         formData  string  true   "VLM模型名称"
-// @Param        vlm_base_url      formData  string  true   "VLM Base URL"
-// @Param        vlm_api_key       formData  string  false  "VLM API Key"
-// @Param        vlm_interface_type formData string  false  "VLM接口类型"
-// @Param        storage_type      formData  string  true   "存储类型(cos/minio)"
-// @Success      200               {object}  map[string]interface{}  "测试结果"
-// @Failure      400               {object}  errors.AppError         "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/multimodal/test [post]
-func (h *InitializationHandler) TestMultimodalFunction(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	logger.Info(ctx, "Testing multimodal functionality")
-
-	// 验证文件大小 — MAX_FILE_SIZE_MB env (50MB 默认)。
-	// 见 utils/filesize.go 注释：故意保留为部署期 env，不做 runtime setting。
-	maxSizeMB := utils.GetMaxFileSizeMB()
-	maxSize := maxSizeMB * 1024 * 1024
-	// 上限必须在 multipart 解析（ShouldBind / FormFile）之前生效，否则 Gin 会先把整个
-	// 请求体缓冲到内存和临时文件，之后的限制无法阻止大文件放大。
-	limitUploadBody(c, maxSize)
-
-	var req testMultimodalForm
-	if err := c.ShouldBind(&req); err != nil {
-		if isRequestBodyTooLarge(err) {
-			logger.Error(ctx, "File size too large")
-			c.Error(newRequestEntityTooLargeError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
-			return
-		}
-		logger.Error(ctx, "Failed to parse form data", err)
-		c.Error(errors.NewBadRequestError("表单参数解析失败"))
-		return
-	}
-	// ollama 场景自动拼接 base url
-	if req.VLMInterfaceType == "ollama" {
-		req.VLMBaseURL = os.Getenv("OLLAMA_BASE_URL") + "/v1"
-	}
-
-	req.StorageType = strings.ToLower(req.StorageType)
-
-	if req.VLMModel == "" || req.VLMBaseURL == "" {
-		logger.Error(ctx, "VLM model name and base URL are required")
-		c.Error(errors.NewBadRequestError("VLM模型名称和Base URL不能为空"))
-		return
-	}
-
-	// SSRF validation for VLM BaseURL
-	if err := utils.ValidateURLForSSRF(req.VLMBaseURL); err != nil {
-		logger.Warnf(ctx, "SSRF validation failed for VLM BaseURL: %v", err)
-		c.Error(errors.NewBadRequestError(utils.FormatSSRFError("VLM Base URL", req.VLMBaseURL, err)))
-		return
-	}
-
-	switch req.StorageType {
-	case "cos":
-		// 必填：SecretID/SecretKey/Region/BucketName/AppID；PathPrefix 可选
-		if req.COSSecretID == "" || req.COSSecretKey == "" ||
-			req.COSRegion == "" || req.COSBucketName == "" ||
-			req.COSAppID == "" {
-			logger.Error(ctx, "COS configuration is required")
-			c.Error(errors.NewBadRequestError("COS配置信息不能为空"))
-			return
-		}
-	case "minio":
-		if req.MinioBucketName == "" {
-			logger.Error(ctx, "MinIO configuration is required")
-			c.Error(errors.NewBadRequestError("MinIO配置信息不能为空"))
-			return
-		}
-	default:
-		logger.Error(ctx, "Invalid storage type")
-		c.Error(errors.NewBadRequestError("无效的存储类型"))
-		return
-	}
-
-	// 获取上传的图片文件
-	file, header, err := c.Request.FormFile("image")
-	if err != nil {
-		if isRequestBodyTooLarge(err) {
-			logger.Error(ctx, "File size too large")
-			c.Error(newRequestEntityTooLargeError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
-			return
-		}
-		logger.Error(ctx, "Failed to get uploaded image", err)
-		c.Error(errors.NewBadRequestError("获取上传图片失败"))
-		return
-	}
-	defer file.Close()
-
-	// 验证文件类型
-	if !strings.HasPrefix(header.Header.Get("Content-Type"), "image/") {
-		logger.Error(ctx, "Invalid file type, only images are allowed")
-		c.Error(errors.NewBadRequestError("只允许上传图片文件"))
-		return
-	}
-
-	if header.Size > maxSize {
-		logger.Error(ctx, "File size too large")
-		c.Error(newRequestEntityTooLargeError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
-		return
-	}
-	logger.Infof(ctx, "Processing image: %s", utils.SanitizeForLog(header.Filename))
-
-	// 解析文档分割配置
-	chunkSizeInt32, err := strconv.ParseInt(req.ChunkSize, 10, 32)
-	if err != nil {
-		logger.Error(ctx, "Failed to parse chunk size", err)
-		c.Error(errors.NewBadRequestError("Failed to parse chunk size"))
-		return
-	}
-	chunkSize := int32(chunkSizeInt32)
-	if chunkSize < 100 || chunkSize > 10000 {
-		chunkSize = 1000
-	}
-
-	chunkOverlapInt32, err := strconv.ParseInt(req.ChunkOverlap, 10, 32)
-	if err != nil {
-		logger.Error(ctx, "Failed to parse chunk overlap", err)
-		c.Error(errors.NewBadRequestError("Failed to parse chunk overlap"))
-		return
-	}
-	chunkOverlap := int32(chunkOverlapInt32)
-	if chunkOverlap < 0 || chunkOverlap >= chunkSize {
-		chunkOverlap = 200
-	}
-
-	var separators []string
-	if req.SeparatorsRaw != "" {
-		if err := json.Unmarshal([]byte(req.SeparatorsRaw), &separators); err != nil {
-			separators = []string{"\n\n", "\n", "。", "！", "？", ";", "；"}
-		}
-	} else {
-		separators = []string{"\n\n", "\n", "。", "！", "？", ";", "；"}
-	}
-
-	// 读取图片文件内容
-	imageContent, err := io.ReadAll(file)
-	if err != nil {
-		logger.Error(ctx, "Failed to read image file", err)
-		c.Error(errors.NewBadRequestError("读取图片文件失败"))
-		return
-	}
-
-	// 调用多模态测试
-	startTime := time.Now()
-	result, err := h.testMultimodalWithDocReader(
-		ctx,
-		imageContent, header.Filename,
-		chunkSize, chunkOverlap, separators, &req,
-	)
-	processingTime := time.Since(startTime).Milliseconds()
-
-	if err != nil {
-		logger.Error(ctx, "Failed to test multimodal", err)
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data": gin.H{
-				"success":         false,
-				"message":         err.Error(),
-				"processing_time": processingTime,
-			},
-		})
-		return
-	}
-
-	logger.Infof(ctx, "Multimodal test completed successfully in %dms", processingTime)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"success":         true,
-			"caption":         result["caption"],
-			"ocr":             result["ocr"],
-			"processing_time": processingTime,
-		},
-	})
-}
-
-// testMultimodalWithDocReader uses DocumentReader.Read for document reading,
-// then returns basic information about the result.
-func (h *InitializationHandler) testMultimodalWithDocReader(
-	ctx context.Context,
-	imageContent []byte, filename string,
-	chunkSize, chunkOverlap int32, separators []string,
-	req *testMultimodalForm,
-) (map[string]string, error) {
-	fileExt := ""
-	if idx := strings.LastIndex(filename, "."); idx != -1 {
-		fileExt = strings.ToLower(filename[idx+1:])
-	}
-
-	if h.documentReader == nil {
-		return nil, fmt.Errorf("DocReader service not configured")
-	}
-
-	requestID, _ := types.RequestIDFromContext(ctx)
-
-	readResult, err := h.documentReader.Read(ctx, &types.ReadRequest{
-		FileContent: imageContent,
-		FileName:    filename,
-		FileType:    fileExt,
-		RequestID:   requestID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("调用DocReader服务失败: %v", err)
-	}
-	if readResult.Error != "" {
-		return nil, fmt.Errorf("DocReader服务返回错误: %s", readResult.Error)
-	}
-
-	result := map[string]string{
-		"markdown": readResult.MarkdownContent,
-		"caption":  "",
-		"ocr":      "",
-	}
-	return result, nil
-}
-
-// TextRelationExtractionRequest 文本关系提取请求结构
-type TextRelationExtractionRequest struct {
-	Text    string   `json:"text"     binding:"required"`
-	Tags    []string `json:"tags"     binding:"required"`
-	ModelID string   `json:"model_id" binding:"required"`
-}
-
-// TextRelationExtractionResponse 文本关系提取响应结构
-type TextRelationExtractionResponse struct {
-	Nodes     []*types.GraphNode     `json:"nodes"`
-	Relations []*types.GraphRelation `json:"relations"`
-}
-
-// ExtractTextRelations godoc
-// @Summary      提取文本关系
-// @Description  从文本中提取实体和关系
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      TextRelationExtractionRequest  true  "提取请求"
-// @Success      200      {object}  handler.DataResponse{data=handler.TextRelationExtractionResponse}         "提取结果"
-// @Failure      400      {object}  errors.AppError                "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/extract/text-relation [post]
-func (h *InitializationHandler) ExtractTextRelations(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	var req TextRelationExtractionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "文本关系提取请求参数错误")
-		c.Error(errors.NewBadRequestError("文本关系提取请求参数错误"))
-		return
-	}
-
-	// 验证文本内容
-	if len(req.Text) == 0 {
-		c.Error(errors.NewBadRequestError("文本内容不能为空"))
-		return
-	}
-
-	if len(req.Text) > 5000 {
-		c.Error(errors.NewBadRequestError("文本内容长度不能超过5000字符"))
-		return
-	}
-
-	// 验证标签
-	if len(req.Tags) == 0 {
-		c.Error(errors.NewBadRequestError("至少需要选择一个关系标签"))
-		return
-	}
-
-	// 根据模型ID获取chat模型
-	chatModel, err := h.modelService.GetChatModel(ctx, req.ModelID)
-	if err != nil {
-		logger.Error(ctx, "获取模型失败", err)
-		c.Error(errors.NewBadRequestError("获取模型失败: " + err.Error()))
-		return
-	}
-
-	// 调用模型服务进行文本关系提取
-	result, err := h.extractRelationsFromText(ctx, req.Text, req.Tags, chatModel)
-	if err != nil {
-		logger.Error(ctx, "文本关系提取失败", err)
-		c.Error(errors.NewInternalServerError("文本关系提取失败: " + err.Error()))
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    result,
-	})
-}
-
-// extractRelationsFromText 从文本中提取关系
-func (h *InitializationHandler) extractRelationsFromText(
-	ctx context.Context,
-	text string,
-	tags []string,
-	chatModel chat.Chat,
-) (*TextRelationExtractionResponse, error) {
-	template := &types.PromptTemplateStructured{
-		Description: h.config.ExtractManager.ExtractGraph.Description,
-		Tags:        tags,
-		Examples:    h.config.ExtractManager.ExtractGraph.Examples,
-	}
-
-	extractor := chatpipeline.NewExtractor(chatModel, template)
-	graph, err := extractor.Extract(ctx, text)
-	if err != nil {
-		logger.Error(ctx, "文本关系提取失败", err)
-		return nil, err
-	}
-	extractor.RemoveUnknownRelation(ctx, graph)
-
-	result := &TextRelationExtractionResponse{
-		Nodes:     graph.Node,
-		Relations: graph.Relation,
-	}
-
-	return result, nil
-}
-
-// FabriTextRequest is a request for generating example text
-type FabriTextRequest struct {
-	Tags    []string `json:"tags"`
-	ModelID string   `json:"model_id" binding:"required"`
-}
-
-// FabriTextResponse is a response for generating example text
-type FabriTextResponse struct {
-	Text string `json:"text"`
-}
-
-// FabriText godoc
-// @Summary      生成示例文本
-// @Description  根据标签生成示例文本
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Param        request  body      FabriTextRequest  true  "生成请求"
-// @Success      200      {object}  handler.DataResponse{data=handler.FabriTextResponse}  "生成的文本"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
-// @Security     Bearer
-// @Security     ApiKeyAuth
-// @Router       /initialization/extract/fabri-text [post]
-func (h *InitializationHandler) FabriText(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	var req FabriTextRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Error(ctx, "failed to parse fabri text request")
-		c.Error(errors.NewBadRequestError("invalid fabri text request parameters"))
-		return
-	}
-
-	chatModel, err := h.modelService.GetChatModel(ctx, req.ModelID)
-	if err != nil {
-		logger.Error(ctx, "获取模型失败", err)
-		c.Error(errors.NewBadRequestError("获取模型失败: " + err.Error()))
-		return
-	}
-
-	result, err := h.fabriText(ctx, req.Tags, chatModel)
-	if err != nil {
-		logger.Error(ctx, "failed to generate fabri text", err)
-		c.Error(errors.NewInternalServerError("failed to generate fabri text: " + err.Error()))
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    FabriTextResponse{Text: result},
-	})
-}
-
-// fabriText generates example text
-func (h *InitializationHandler) fabriText(ctx context.Context, tags []string, chatModel chat.Chat) (string, error) {
-	content := h.config.ExtractManager.FabriText.WithNoTag
-	if len(tags) > 0 {
-		tagStr, _ := json.Marshal(tags)
-		content = fmt.Sprintf(h.config.ExtractManager.FabriText.WithTag, string(tagStr))
-	}
-
-	think := false
-	result, err := chatModel.Chat(ctx, []chat.Message{
-		{Role: "user", Content: content},
-	}, &chat.ChatOptions{
-		Temperature: 0.3,
-		MaxTokens:   4096,
-		Thinking:    &think,
-	})
-	if err != nil {
-		logger.Error(ctx, "生成示例文本失败", err)
-		return "", err
-	}
-	return result.Content, nil
-}
-
-// FabriTagRequest is a request for generating tags
-type FabriTagRequest struct{}
-
-// FabriTagResponse is a response for generating tags
-type FabriTagResponse struct {
-	Tags []string `json:"tags"`
-}
-
-var tagOptions = []string{
-	"Content", "Culture", "Person", "Event", "Time", "Location",
-	"Work", "Author", "Relation", "Attribute",
-}
-
-// FabriTag godoc
-// @Summary      生成随机标签
-// @Description  随机生成一组标签
-// @Tags         初始化
-// @Accept       json
-// @Produce      json
-// @Success      200  {object}  handler.DataResponse{data=handler.FabriTagResponse}  "生成的标签"
-// @Router       /initialization/extract/fabri-tag [post]
-func (h *InitializationHandler) FabriTag(c *gin.Context) {
-	tagRandom := RandomSelect(tagOptions, rand.Intn(len(tagOptions)-1)+1)
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    FabriTagResponse{Tags: tagRandom},
-	})
-}
-
-// RandomSelect selects random strings
-func RandomSelect(strs []string, n int) []string {
-	if n <= 0 {
-		return []string{}
-	}
-	result := make([]string, len(strs))
-	copy(result, strs)
-	rand.Shuffle(len(result), func(i, j int) {
-		result[i], result[j] = result[j], result[i]
-	})
-
-	if n > len(strs) {
-		n = len(strs)
-	}
-	return result[:n]
 }

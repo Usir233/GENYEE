@@ -26,7 +26,7 @@ func TestBuildConfigResponse_ViewerOmitsModelBaseURL(t *testing.T) {
 	config := h.buildConfigResponse(ctx, models, kb, false)
 	llm, ok := config["llm"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Empty(t, llm["baseUrl"])
+	assert.Empty(t, llm["base_url"])
 
 	body, err := json.Marshal(config)
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestBuildConfigResponse_AdminKeepsModelBaseURL(t *testing.T) {
 	config := h.buildConfigResponse(ctx, models, kb, false)
 	llm, ok := config["llm"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, "https://tenant-private.example.com", llm["baseUrl"])
+	assert.Equal(t, "https://tenant-private.example.com", llm["base_url"])
 
 	body, err := json.Marshal(config)
 	require.NoError(t, err)
@@ -86,5 +86,5 @@ func TestBuildConfigResponse_ShareReceiverAdminSeesPresenceOnly(t *testing.T) {
 		assert.NotContains(t, string(body), detail)
 	}
 	cos := config["multimodal"].(map[string]interface{})["cos"].(map[string]interface{})
-	assert.Equal(t, map[string]bool{"secretId": true, "secretKey": true}, cos["credentials"])
+	assert.Equal(t, map[string]bool{"secret_id": true, "secret_key": true}, cos["credentials"])
 }

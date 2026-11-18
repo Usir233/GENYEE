@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
@@ -45,12 +46,13 @@ func (s *stubWikiKBService) GetKnowledgeBaseByID(_ context.Context, id string) (
 func newWikiListTestRouter(wikiSvc interfaces.WikiPageService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	r.Use(middleware.ErrorHandler())
 	r.Use(func(c *gin.Context) {
 		c.Set(types.TenantIDContextKey.String(), uint64(1))
 		c.Next()
 	})
 	h := &WikiPageHandler{wikiService: wikiSvc, kbService: &stubWikiKBService{}}
-	r.GET("/knowledgebase/:kb_id/wiki/pages", h.ListPages)
+	r.GET("/knowledge-bases/:id/wiki/pages", h.ListPages)
 	return r
 }
 
@@ -95,7 +97,7 @@ func TestWikiListPagesClampsPageSize(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(
-				http.MethodGet, "/knowledgebase/kb1/wiki/pages"+tc.query, nil,
+				http.MethodGet, "/knowledge-bases/kb1/wiki/pages"+tc.query, nil,
 			)
 			newWikiListTestRouter(wikiSvc).ServeHTTP(w, req)
 

@@ -324,7 +324,7 @@ type DocumentProcessPayload struct {
 	URL                      string   `json:"url,omitempty"`       // URL（URL导入时使用）
 	FileURL                  string   `json:"file_url,omitempty"`  // 文件资源链接（file_url导入时使用）
 	Passages                 []string `json:"passages,omitempty"`  // 文本段落（文本导入时使用）
-	EnableMultimodel         bool     `json:"enable_multimodel"`
+	EnableMultimodal         bool     `json:"enable_multimodal"`
 	EnableQuestionGeneration bool     `json:"enable_question_generation"` // 是否启用问题生成
 	QuestionCount            int      `json:"question_count,omitempty"`   // 每个chunk生成的问题数量
 	// Language is the request locale for {{language}} in prompt templates.

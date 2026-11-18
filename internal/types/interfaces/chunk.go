@@ -209,6 +209,8 @@ type ChunkService interface {
 	GetChunkByID(ctx context.Context, id string) (*types.Chunk, error)
 	// GetChunkByIDOnly gets a chunk by id without tenant filter (for permission resolution)
 	GetChunkByIDOnly(ctx context.Context, id string) (*types.Chunk, error)
+	// ListChunksBySeqID lists chunks by seq_ids scoped to a tenant.
+	ListChunksBySeqID(ctx context.Context, tenantID uint64, seqIDs []int64) ([]*types.Chunk, error)
 	// ListChunksByKnowledgeID lists chunks by knowledge id
 	ListChunksByKnowledgeID(ctx context.Context, knowledgeID string) ([]*types.Chunk, error)
 	// ListPagedChunksByKnowledgeID lists paged chunks by knowledge id

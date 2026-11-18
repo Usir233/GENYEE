@@ -322,9 +322,9 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 	ctx = withAttempt(ctx, attempt)
 
 	// 检查多模态配置（仅对文件导入）
-	if payload.FilePath != "" && !payload.EnableMultimodel && IsImageType(payload.FileType) {
+	if payload.FilePath != "" && !payload.EnableMultimodal && IsImageType(payload.FileType) {
 		logger.GetLogger(ctx).WithField("knowledge_id", knowledge.ID).
-			WithField("error", ErrImageNotParse).Errorf("processDocument image without enable multimodel")
+			WithField("error", ErrImageNotParse).Errorf("processDocument image without enable multimodal")
 		knowledge.ParseStatus = "failed"
 		knowledge.ErrorMessage = ErrImageNotParse.Error()
 		knowledge.UpdatedAt = time.Now()
@@ -652,7 +652,7 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 	processOpts := ProcessChunksOptions{
 		EnableQuestionGeneration: payload.EnableQuestionGeneration,
 		QuestionCount:            payload.QuestionCount,
-		EnableMultimodel:         payload.EnableMultimodel,
+		EnableMultimodal:         payload.EnableMultimodal,
 		StoredImages:             multimodalImages,
 	}
 

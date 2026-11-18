@@ -1877,6 +1877,9 @@ func (s *knowledgeBaseService) createKnowledgeBaseEncrypted(ctx context.Context,
 }
 
 func (s *knowledgeBaseService) updateKnowledgeBaseEncrypted(ctx context.Context, kb *types.KnowledgeBase) error {
+	if kb == nil {
+		return nil
+	}
 	toStore, err := encryptKBSecretsClone(kb)
 	if err != nil {
 		return err
@@ -1884,10 +1887,16 @@ func (s *knowledgeBaseService) updateKnowledgeBaseEncrypted(ctx context.Context,
 	if err := s.repo.UpdateKnowledgeBase(ctx, toStore); err != nil {
 		return err
 	}
-	if kb != nil && toStore != nil {
+	if toStore != nil {
 		kb.UpdatedAt = toStore.UpdatedAt
 	}
 	return nil
+}
+
+// SaveInitializedKnowledgeBaseConfig encrypts storage and VLM secrets at rest
+// with the configured AES-GCM key and persists the updated knowledge base row.
+func (s *knowledgeBaseService) SaveInitializedKnowledgeBaseConfig(ctx context.Context, kb *types.KnowledgeBase) error {
+	return s.updateKnowledgeBaseEncrypted(ctx, kb)
 }
 
 func (s *knowledgeBaseService) getKnowledgeBaseByIDDecrypted(

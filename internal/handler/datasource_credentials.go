@@ -25,6 +25,7 @@ type DataSourceCredentialsHandler struct {
 	kbService interfaces.KnowledgeBaseService
 }
 
+// NewDataSourceCredentialsHandler creates a handler for data source OAuth and credential flows.
 func NewDataSourceCredentialsHandler(
 	service interfaces.DataSourceService,
 	kbService interfaces.KnowledgeBaseService,
@@ -38,22 +39,22 @@ func (h *DataSourceCredentialsHandler) ownDataSource(c *gin.Context) (*types.Dat
 	ctx := c.Request.Context()
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if tenantID == 0 {
-		c.Error(errors.NewBadRequestError("Workspace ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Workspace ID cannot be empty"))
 		return nil, false
 	}
 	id := c.Param("id")
 	ds, err := h.service.GetDataSource(ctx, id)
 	if err != nil || ds == nil {
-		c.Error(errors.NewNotFoundError("data source not found"))
+		_ = c.Error(errors.NewNotFoundError("data source not found"))
 		return nil, false
 	}
 	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
 	if err != nil || kb == nil || kb.TenantID != tenantID {
-		c.Error(errors.NewNotFoundError("data source not found"))
+		_ = c.Error(errors.NewNotFoundError("data source not found"))
 		return nil, false
 	}
 	if err := requireTenantAPIKeyKnowledgeBase(ctx, ds.KnowledgeBaseID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return nil, false
 	}
 	return ds, true
@@ -76,7 +77,7 @@ type dataSourceCredentialsPutRequest struct {
 // @Failure      404      {object}  errors.AppError         "数据源不存在"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /datasource/{id}/credentials [put]
+// @Router       /data-sources/{id}/credentials [put]
 func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 	ds, ok := h.ownDataSource(c)
 	if !ok {
@@ -86,14 +87,14 @@ func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 	var req dataSourceCredentialsPutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		if isRequestBodyTooLarge(err) {
-			c.Error(newRequestEntityTooLargeError("request body is too large"))
+			_ = c.Error(newRequestEntityTooLargeError("request body is too large"))
 			return
 		}
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	if len(req.Credentials) == 0 {
-		c.Error(errors.NewBadRequestError(
+		_ = c.Error(errors.NewBadRequestError(
 			"credentials map must be non-empty; to remove credentials use DELETE /credentials/credentials"))
 		return
 	}
@@ -102,7 +103,7 @@ func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 		logger.ErrorWithFields(c.Request.Context(), err, map[string]interface{}{
 			"data_source_id": secutils.SanitizeForLog(ds.ID),
 		})
-		c.Error(errors.NewBadRequestError("failed to update credentials: " + err.Error()))
+		_ = c.Error(errors.NewBadRequestError("failed to update credentials: " + err.Error()))
 		return
 	}
 	configured := false
@@ -129,7 +130,7 @@ func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 // @Failure      404  {object}  errors.AppError  "数据源不存在"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /datasource/{id}/credentials/{field} [delete]
+// @Router       /data-sources/{id}/credentials/{field} [delete]
 func (h *DataSourceCredentialsHandler) DeleteField(c *gin.Context) {
 	ds, ok := h.ownDataSource(c)
 	if !ok {
@@ -137,14 +138,14 @@ func (h *DataSourceCredentialsHandler) DeleteField(c *gin.Context) {
 	}
 	field := c.Param("field")
 	if field != "credentials" {
-		c.Error(errors.NewBadRequestError("unknown credential field: " + secutils.SanitizeForLog(field)))
+		_ = c.Error(errors.NewBadRequestError("unknown credential field: " + secutils.SanitizeForLog(field)))
 		return
 	}
 	if err := h.service.ClearDataSourceCredentials(c.Request.Context(), ds.ID); err != nil {
 		logger.ErrorWithFields(c.Request.Context(), err, map[string]interface{}{
 			"data_source_id": secutils.SanitizeForLog(ds.ID),
 		})
-		c.Error(errors.NewInternalServerError("failed to clear credentials: " + err.Error()))
+		_ = c.Error(errors.NewInternalServerError("failed to clear credentials: " + err.Error()))
 		return
 	}
 	c.Status(http.StatusNoContent)

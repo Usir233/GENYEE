@@ -27,7 +27,7 @@ func checkASRAgainst(t *testing.T, status int, body string) (bool, string) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	reqBody, _ := json.Marshal(map[string]string{
-		"modelName": "qwen3-asr", "baseUrl": srv.URL + "/v1", "provider": "generic",
+		"model_name": "qwen3-asr", "base_url": srv.URL + "/v1", "provider": "generic",
 	})
 	c.Request = httptest.NewRequest(http.MethodPost, "/initialization/asr/check", bytes.NewReader(reqBody))
 	c.Request.Header.Set("Content-Type", "application/json")

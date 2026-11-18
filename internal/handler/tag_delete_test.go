@@ -28,7 +28,7 @@ func (s *tagDeleteServiceSpy) DeleteTag(_ context.Context, _ string, _, _ bool, 
 }
 
 type tagDeleteChunks struct {
-	interfaces.ChunkRepository
+	interfaces.ChunkService
 	chunks []*types.Chunk
 	err    error
 }
@@ -78,7 +78,7 @@ func TestTagDeletionNeverIgnoresInvalidExclusions(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &tagDeleteServiceSpy{}
-			h := &TagHandler{tagService: svc, chunkRepo: &tagDeleteChunks{chunks: tt.chunks, err: tt.err}}
+			h := &TagHandler{tagService: svc, chunkService: &tagDeleteChunks{chunks: tt.chunks, err: tt.err}}
 			router := gin.New()
 			router.Use(middleware.ErrorHandler(), func(c *gin.Context) {
 				c.Request = c.Request.WithContext(

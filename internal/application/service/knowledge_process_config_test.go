@@ -125,7 +125,7 @@ func TestResolveProcessConfig_NilOverridesUsesKBDefaults(t *testing.T) {
 
 	require.Equal(t, 512, eff.ChunkingConfig.ChunkSize)
 	require.Equal(t, 50, eff.ChunkingConfig.ChunkOverlap)
-	require.True(t, eff.EnableMultimodel)
+	require.True(t, eff.EnableMultimodal)
 	require.Equal(t, "vlm-1", eff.VLMConfig.ModelID)
 	require.Equal(t, "asr-1", eff.ASRConfig.ModelID)
 	require.True(t, eff.QuestionGenerationConfig.Enabled)
@@ -279,17 +279,17 @@ func TestResolveProcessConfig_ParserEngineRulesReplaced(t *testing.T) {
 	require.Equal(t, "custom", eff.ChunkingConfig.ParserEngineRules[0].Engine)
 }
 
-func TestResolveProcessConfig_EnableMultimodelOverride(t *testing.T) {
+func TestResolveProcessConfig_EnableMultimodalOverride(t *testing.T) {
 	t.Parallel()
 
 	kb := &types.KnowledgeBase{
 		VLMConfig: types.VLMConfig{Enabled: true, ModelID: "vlm-1"},
 	}
 	overrides := &types.KnowledgeProcessOverrides{
-		EnableMultimodel: processConfigBoolPtr(false),
+		EnableMultimodal: processConfigBoolPtr(false),
 	}
 	eff := ResolveProcessConfig(kb, overrides)
-	require.False(t, eff.EnableMultimodel)
+	require.False(t, eff.EnableMultimodal)
 }
 
 func TestResolveProcessConfig_ExtractConfigFieldMerge(t *testing.T) {

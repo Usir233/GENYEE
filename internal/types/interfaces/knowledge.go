@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"mime/multipart"
+	"time"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/hibiken/asynq"
@@ -23,7 +24,7 @@ type KnowledgeService interface {
 		kbID string,
 		file *multipart.FileHeader,
 		metadata map[string]string,
-		enableMultimodel *bool,
+		enableMultimodal *bool,
 		customFileName string,
 		tagIDs []string,
 		channel string,
@@ -39,7 +40,7 @@ type KnowledgeService interface {
 		url string,
 		fileName string,
 		fileType string,
-		enableMultimodel *bool,
+		enableMultimodal *bool,
 		title string,
 		tagIDs []string,
 		channel string,
@@ -259,6 +260,14 @@ type KnowledgeService interface {
 		offset, limit int,
 		fileTypes []string,
 	) ([]*types.Knowledge, bool, int64, error)
+	// GetLatestProcessingAttempt returns the highest recorded processing attempt number for a knowledge item.
+	GetLatestProcessingAttempt(ctx context.Context, knowledgeID string) (int, error)
+	// ListProcessingSpansByAttempt lists all processing spans recorded for (knowledgeID, attempt).
+	ListProcessingSpansByAttempt(
+		ctx context.Context, knowledgeID string, attempt int,
+	) ([]types.KnowledgeProcessingSpan, error)
+	// GetLastSpanActivity returns the most recent span timestamp per knowledge ID across attempts.
+	GetLastSpanActivity(ctx context.Context, knowledgeIDs []string) (map[string]time.Time, error)
 }
 
 // KnowledgeRepository defines the interface for knowledge repositories.

@@ -23,9 +23,8 @@ import (
 // carry the effective tenant ID, so handlers below just use
 // c.Request.Context() the way they always did.
 type TagHandler struct {
-	tagService interfaces.KnowledgeTagService
-	tagRepo    interfaces.KnowledgeTagRepository
-	chunkRepo  interfaces.ChunkRepository
+	tagService   interfaces.KnowledgeTagService
+	chunkService interfaces.ChunkService
 }
 
 // DeleteTagRequest represents the request body for deleting a tag
@@ -36,26 +35,25 @@ type DeleteTagRequest struct {
 // NewTagHandler creates a new TagHandler.
 func NewTagHandler(
 	tagService interfaces.KnowledgeTagService,
-	tagRepo interfaces.KnowledgeTagRepository,
-	chunkRepo interfaces.ChunkRepository,
+	chunkService interfaces.ChunkService,
 ) *TagHandler {
-	return &TagHandler{tagService: tagService, tagRepo: tagRepo, chunkRepo: chunkRepo}
+	return &TagHandler{tagService: tagService, chunkService: chunkService}
 }
 
 // resolveTagID resolves tag_id parameter which can be either UUID or seq_id (integer).
 // Uses tenant from c's context — which the route-level KB-access guard
 // has already rewritten to the effective tenant for shared KBs.
 func (h *TagHandler) resolveTagID(c *gin.Context) (string, error) {
-	return h.resolveTagIDWithCtx(c, c.Request.Context())
+	return h.resolveTagIDWithCtx(c.Request.Context(), c)
 }
 
 // resolveTagIDWithCtx resolves tag_id using the given context for tenant.
-func (h *TagHandler) resolveTagIDWithCtx(c *gin.Context, ctx context.Context) (string, error) {
+func (h *TagHandler) resolveTagIDWithCtx(ctx context.Context, c *gin.Context) (string, error) {
 	tagIDParam := secutils.SanitizeForLog(c.Param("tag_id"))
 
 	if seqID, err := strconv.ParseInt(tagIDParam, 10, 64); err == nil {
 		tenantID := types.MustTenantIDFromContext(ctx)
-		tag, err := h.tagRepo.GetBySeqID(ctx, tenantID, seqID)
+		tag, err := h.tagService.GetTagBySeqID(ctx, tenantID, seqID)
 		if err != nil {
 			return "", errors.NewNotFoundError("标签不存在")
 		}
@@ -66,7 +64,7 @@ func (h *TagHandler) resolveTagIDWithCtx(c *gin.Context, ctx context.Context) (s
 
 // getChunksBySeqIDs retrieves chunks by their seq_ids.
 func (h *TagHandler) getChunksBySeqIDs(ctx context.Context, tenantID uint64, seqIDs []int64) ([]*types.Chunk, error) {
-	return h.chunkRepo.ListChunksBySeqID(ctx, tenantID, seqIDs)
+	return h.chunkService.ListChunksBySeqID(ctx, tenantID, seqIDs)
 }
 
 // ListTags godoc
@@ -104,7 +102,7 @@ func (h *TagHandler) ListTags(c *gin.Context) {
 	tags, err := h.tagService.ListTags(ctx, kbID, &pagination, keyword)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -144,7 +142,7 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 	var req CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind create tag payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
 		return
 	}
 
@@ -154,7 +152,7 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"kb_id": kbID,
 		})
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -193,14 +191,14 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 
 	tagID, err := h.resolveTagID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	var req UpdateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind update tag payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
 		return
 	}
 
@@ -209,7 +207,7 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"tag_id": tagID,
 		})
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -242,7 +240,7 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 
 	tagID, err := h.resolveTagID(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -293,7 +291,7 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"tag_id": tagID,
 		})
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 

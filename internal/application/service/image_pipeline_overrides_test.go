@@ -51,7 +51,7 @@ func TestProcessOverrides_ValidateImagePipelineBeforePersistence(t *testing.T) {
 		for _, caption := range []bool{false, true} {
 			kb := &types.KnowledgeBase{}
 			overrides := &types.KnowledgeProcessOverrides{
-				EnableMultimodel: &enabled, ImagePipelineID: &id,
+				EnableMultimodal: &enabled, ImagePipelineID: &id,
 				ImagePipelineParams: map[string]any{manualCaptionKey: caption, manualOCRKey: false},
 			}
 			knowledge := &types.Knowledge{}

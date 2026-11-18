@@ -59,7 +59,7 @@ func (h *ChunkHandler) GetChunkByIDOnly(c *gin.Context) {
 	chunkID := secutils.SanitizeForLog(c.Param("id"))
 	if chunkID == "" {
 		logger.Error(ctx, "Chunk ID is empty")
-		c.Error(errors.NewBadRequestError("Chunk ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Chunk ID cannot be empty"))
 		return
 	}
 
@@ -68,13 +68,13 @@ func (h *ChunkHandler) GetChunkByIDOnly(c *gin.Context) {
 	// permission against the parent KB before we got here).
 	chunk, err := h.service.GetChunkByIDOnly(ctx, chunkID)
 	if err != nil {
-		if err == service.ErrChunkNotFound {
+		if stderrors.Is(err, types.ErrChunkNotFound) {
 			logger.Warnf(ctx, "Chunk not found, chunk ID: %s", chunkID)
-			c.Error(errors.NewNotFoundError("Chunk not found"))
+			_ = c.Error(errors.NewNotFoundError("Chunk not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -110,7 +110,7 @@ func (h *ChunkHandler) ListKnowledgeChunks(c *gin.Context) {
 	knowledgeID := secutils.SanitizeForLog(c.Param("knowledge_id"))
 	if knowledgeID == "" {
 		logger.Error(ctx, "Knowledge ID is empty")
-		c.Error(errors.NewBadRequestError("Knowledge ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Knowledge ID cannot be empty"))
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *ChunkHandler) ListKnowledgeChunks(c *gin.Context) {
 	var pagination types.Pagination
 	if err := c.ShouldBindQuery(&pagination); err != nil {
 		logger.Errorf(ctx, "Failed to parse pagination parameters: %s", secutils.SanitizeForLog(err.Error()))
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	if pagination.Page < 1 {
@@ -145,7 +145,7 @@ func (h *ChunkHandler) ListKnowledgeChunks(c *gin.Context) {
 	result, err := h.service.ListPagedChunksByKnowledgeID(ctx, knowledgeID, &pagination, chunkType)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -189,7 +189,7 @@ func (h *ChunkHandler) fetchChunkAndVerifyOwnership(c *gin.Context) (*types.Chun
 	}
 	chunk, err := h.service.GetChunkByID(ctx, id)
 	if err != nil {
-		if err == service.ErrChunkNotFound {
+		if stderrors.Is(err, types.ErrChunkNotFound) {
 			logger.Warnf(ctx, "Chunk not found, knowledge ID: %s, chunk ID: %s", knowledgeID, id)
 			return nil, knowledgeID, errors.NewNotFoundError("Chunk not found")
 		}
@@ -226,13 +226,13 @@ func (h *ChunkHandler) UpdateChunk(c *gin.Context) {
 
 	chunk, knowledgeID, err := h.fetchChunkAndVerifyOwnership(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	var req UpdateChunkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf(ctx, "Failed to parse request parameters: %s", secutils.SanitizeForLog(err.Error()))
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
@@ -240,7 +240,7 @@ func (h *ChunkHandler) UpdateChunk(c *gin.Context) {
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		if stderrors.Is(err, service.ErrChunkRevisionConflict) {
-			c.Error(errors.NewConflictError("Chunk was modified by another user; refresh and retry"))
+			_ = c.Error(errors.NewConflictError("Chunk was modified by another user; refresh and retry"))
 			return
 		}
 		var appErr *errors.AppError
@@ -282,17 +282,18 @@ func (h *ChunkHandler) UpdateChunk(c *gin.Context) {
 func (h *ChunkHandler) ListChunkRevisions(c *gin.Context) {
 	chunk, _, err := h.fetchChunkAndVerifyOwnership(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	items, err := h.service.ListChunkRevisions(c.Request.Context(), chunk.ID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": items})
 }
 
+// RevertChunkRequest carries the target revision and optimistic lock version for chunk rollback.
 type RevertChunkRequest struct {
 	// Historical revision number from chunk.list_revisions to restore.
 	Revision *int `json:"revision" binding:"required" minimum:"0" extensions:"x-agent"`
@@ -317,21 +318,21 @@ type RevertChunkRequest struct {
 func (h *ChunkHandler) RevertChunk(c *gin.Context) {
 	chunk, knowledgeID, err := h.fetchChunkAndVerifyOwnership(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	var req RevertChunkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	if req.Revision == nil || *req.Revision < 0 {
-		c.Error(errors.NewBadRequestError("revision must be a non-negative integer"))
+		_ = c.Error(errors.NewBadRequestError("revision must be a non-negative integer"))
 		return
 	}
 	updated, err := h.service.RevertDocumentChunk(c.Request.Context(), chunk.ID, *req.Revision, req.ExpectedRevision)
 	if stderrors.Is(err, service.ErrChunkRevisionConflict) {
-		c.Error(errors.NewConflictError("Chunk was modified by another user; refresh and retry"))
+		_ = c.Error(errors.NewConflictError("Chunk was modified by another user; refresh and retry"))
 		return
 	}
 	if err != nil {
@@ -345,7 +346,12 @@ func (h *ChunkHandler) RevertChunk(c *gin.Context) {
 	}
 	knowledge, getErr := h.kgService.GetKnowledgeByID(c.Request.Context(), knowledgeID)
 	if getErr != nil {
-		logger.Warnf(c.Request.Context(), "Chunk reverted but failed to reload summary status for %s: %v", knowledgeID, getErr)
+		logger.Warnf(
+			c.Request.Context(),
+			"Chunk reverted but failed to reload summary status for %s: %v",
+			knowledgeID,
+			getErr,
+		)
 	}
 	response := gin.H{"success": true, "data": updated}
 	if knowledge != nil {
@@ -355,39 +361,65 @@ func (h *ChunkHandler) RevertChunk(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// UpsertGeneratedQuestionRequest defines the payload for creating or updating a chunk question.
 type UpsertGeneratedQuestionRequest struct {
 	QuestionID string `json:"question_id"`
 	Question   string `json:"question" binding:"required"`
 }
 
+// UpsertGeneratedQuestion godoc
+// @Summary      新增或更新分块生成的问题
+// @Description  为指定分块创建或更新生成的问题并同步向量索引
+// @Tags         分块管理
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                          true  "分块ID"
+// @Param        request  body      UpsertGeneratedQuestionRequest  true  "问题内容"
+// @Success      200      {object}  handler.DataResponse{data=types.GeneratedQuestion}  "生成的问题"
+// @Failure      400      {object}  errors.AppError                 "请求参数错误"
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /chunks/by-id/{id}/questions [put]
 func (h *ChunkHandler) UpsertGeneratedQuestion(c *gin.Context) {
 	chunkID := secutils.SanitizeForLog(c.Param("id"))
 	if chunkID == "" {
-		c.Error(errors.NewBadRequestError("Chunk ID is required"))
+		_ = c.Error(errors.NewBadRequestError("Chunk ID is required"))
 		return
 	}
 	var req UpsertGeneratedQuestionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	item, err := h.service.UpsertGeneratedQuestion(c.Request.Context(), chunkID, req.QuestionID, req.Question)
 	if err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": item})
 }
 
+// RegenerateGeneratedQuestions godoc
+// @Summary      重新生成分块辅助问题
+// @Description  为当前分块版本重新生成辅助检索问题
+// @Tags         分块管理
+// @Accept       json
+// @Produce      json
+// @Param        id   path      string  true  "分块ID"
+// @Success      200  {object}  handler.DataResponse{data=[]types.GeneratedQuestion}  "生成的问题列表"
+// @Failure      400  {object}  errors.AppError  "请求参数错误"
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /chunks/by-id/{id}/questions/regenerate [post]
 func (h *ChunkHandler) RegenerateGeneratedQuestions(c *gin.Context) {
 	chunkID := secutils.SanitizeForLog(c.Param("id"))
 	if chunkID == "" {
-		c.Error(errors.NewBadRequestError("Chunk ID is required"))
+		_ = c.Error(errors.NewBadRequestError("Chunk ID is required"))
 		return
 	}
 	items, err := h.kgService.RegenerateChunkQuestions(c.Request.Context(), chunkID)
 	if err != nil {
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": items})
@@ -413,13 +445,13 @@ func (h *ChunkHandler) DeleteChunk(c *gin.Context) {
 
 	chunk, _, err := h.fetchChunkAndVerifyOwnership(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	if err := h.service.DeleteChunk(ctx, chunk.ID); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -448,13 +480,13 @@ func (h *ChunkHandler) DeleteChunksByKnowledgeID(c *gin.Context) {
 	knowledgeID := secutils.SanitizeForLog(c.Param("knowledge_id"))
 	if knowledgeID == "" {
 		logger.Error(ctx, "Knowledge ID is empty")
-		c.Error(errors.NewBadRequestError("Knowledge ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Knowledge ID cannot be empty"))
 		return
 	}
 
 	if err := h.service.DeleteChunksByKnowledgeID(ctx, knowledgeID); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -485,7 +517,7 @@ func (h *ChunkHandler) DeleteGeneratedQuestion(c *gin.Context) {
 	chunkID := secutils.SanitizeForLog(c.Param("id"))
 	if chunkID == "" {
 		logger.Error(ctx, "Chunk ID is empty")
-		c.Error(errors.NewBadRequestError("Chunk ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Chunk ID cannot be empty"))
 		return
 	}
 
@@ -494,13 +526,13 @@ func (h *ChunkHandler) DeleteGeneratedQuestion(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf(ctx, "Failed to parse request parameters: %s", secutils.SanitizeForLog(err.Error()))
-		c.Error(errors.NewBadRequestError("Question ID is required"))
+		_ = c.Error(errors.NewBadRequestError("Question ID is required"))
 		return
 	}
 
 	if err := h.service.DeleteGeneratedQuestion(ctx, chunkID, req.QuestionID); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 

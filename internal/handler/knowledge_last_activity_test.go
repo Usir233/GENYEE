@@ -7,33 +7,35 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type lastActivitySpanRepo struct {
-	repository.KnowledgeSpanRepository
+type lastActivityKnowledgeService struct {
+	interfaces.KnowledgeService
 	activity map[string]time.Time
 	err      error
 	asked    []string
 }
 
-func (r *lastActivitySpanRepo) LastActivity(_ context.Context, ids []string) (map[string]time.Time, error) {
-	r.asked = ids
-	return r.activity, r.err
+func (s *lastActivityKnowledgeService) GetLastSpanActivity(
+	_ context.Context, ids []string,
+) (map[string]time.Time, error) {
+	s.asked = ids
+	return s.activity, s.err
 }
 
 // Only in-flight rows get last_activity_at, and a span write newer than the
 // row's updated_at wins.
 func TestAttachLastActivity(t *testing.T) {
 	base := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
-	spans := &lastActivitySpanRepo{activity: map[string]time.Time{
+	kgSvc := &lastActivityKnowledgeService{activity: map[string]time.Time{
 		"processing": base.Add(10 * time.Minute),
 		"finalizing": base.Add(-time.Hour),
 	}}
-	h := &KnowledgeHandler{spanRepo: spans}
+	h := &KnowledgeHandler{kgService: kgSvc}
 	rows := []*types.Knowledge{
 		{ID: "processing", ParseStatus: types.ParseStatusProcessing, UpdatedAt: base},
 		{ID: "finalizing", ParseStatus: types.ParseStatusFinalizing, UpdatedAt: base},
@@ -44,7 +46,7 @@ func TestAttachLastActivity(t *testing.T) {
 
 	h.attachLastActivity(context.Background(), rows)
 
-	assert.Equal(t, []string{"processing", "finalizing", "pending"}, spans.asked)
+	assert.Equal(t, []string{"processing", "finalizing", "pending"}, kgSvc.asked)
 	require.NotNil(t, rows[0].LastActivityAt)
 	assert.Equal(t, base.Add(10*time.Minute), *rows[0].LastActivityAt)
 	require.NotNil(t, rows[1].LastActivityAt)
@@ -57,7 +59,7 @@ func TestAttachLastActivity(t *testing.T) {
 // A failed span lookup still reports the row's own updated_at.
 func TestAttachLastActivityFallsBackToUpdatedAt(t *testing.T) {
 	base := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
-	h := &KnowledgeHandler{spanRepo: &lastActivitySpanRepo{err: errors.New("db down")}}
+	h := &KnowledgeHandler{kgService: &lastActivityKnowledgeService{err: errors.New("db down")}}
 	rows := []*types.Knowledge{{ID: "k", ParseStatus: types.ParseStatusProcessing, UpdatedAt: base}}
 
 	h.attachLastActivity(context.Background(), rows)
@@ -99,7 +101,7 @@ func (f *fakeBacklog) QueuedWork(_ context.Context, ids []string) (map[string]bo
 func TestAttachLastActivityGivesEveryQuietRowAVerdict(t *testing.T) {
 	now := time.Now()
 	backlog := &fakeBacklog{queued: map[string]bool{"quiet-0": true}}
-	h := &KnowledgeHandler{spanRepo: &lastActivitySpanRepo{}, backlog: backlog}
+	h := &KnowledgeHandler{kgService: &lastActivityKnowledgeService{}, backlog: backlog}
 	rows := []*types.Knowledge{{ID: "recent", ParseStatus: types.ParseStatusProcessing, UpdatedAt: now}}
 	for i := 0; i < 40; i++ {
 		rows = append(rows, &types.Knowledge{
@@ -120,8 +122,8 @@ func TestAttachLastActivityGivesEveryQuietRowAVerdict(t *testing.T) {
 // A failed probe leaves the verdict unknown instead of calling rows stuck.
 func TestAttachLastActivityLeavesVerdictUnknownWhenProbeFails(t *testing.T) {
 	h := &KnowledgeHandler{
-		spanRepo: &lastActivitySpanRepo{},
-		backlog:  &fakeBacklog{err: errors.New("redis down")},
+		kgService: &lastActivityKnowledgeService{},
+		backlog:   &fakeBacklog{err: errors.New("redis down")},
 	}
 	rows := []*types.Knowledge{
 		{ID: "quiet", ParseStatus: types.ParseStatusProcessing, UpdatedAt: time.Now().Add(-time.Hour)},

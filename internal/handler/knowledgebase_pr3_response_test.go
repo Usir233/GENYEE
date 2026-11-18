@@ -38,7 +38,9 @@ type stubKBCreateService struct {
 	createErr error
 }
 
-func (s *stubKBCreateService) CreateKnowledgeBase(_ context.Context, kb *types.KnowledgeBase) (*types.KnowledgeBase, error) {
+func (s *stubKBCreateService) CreateKnowledgeBase(
+	_ context.Context, kb *types.KnowledgeBase,
+) (*types.KnowledgeBase, error) {
 	if s.createErr != nil {
 		return nil, s.createErr
 	}

@@ -177,7 +177,7 @@ func (s *knowledgeService) reparseKnowledge(
 	if existing.FilePath != "" {
 		tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
-		enableMultimodel := reparseEff.EnableMultimodel
+		enableMultimodal := reparseEff.EnableMultimodal
 		enableQuestionGeneration := reparseEff.QuestionGenerationConfig.Enabled
 		questionCount := reparseEff.QuestionGenerationConfig.QuestionCount
 		if questionCount <= 0 {
@@ -192,7 +192,7 @@ func (s *knowledgeService) reparseKnowledge(
 			FilePath:                 existing.FilePath,
 			FileName:                 existing.FileName,
 			FileType:                 getFileType(existing.FileName),
-			EnableMultimodel:         enableMultimodel,
+			EnableMultimodal:         enableMultimodal,
 			EnableQuestionGeneration: enableQuestionGeneration,
 			QuestionCount:            questionCount,
 			Language:                 lang,
@@ -232,7 +232,7 @@ func (s *knowledgeService) reparseKnowledge(
 	if existing.Type == "file_url" && existing.Source != "" {
 		tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
-		enableMultimodel := reparseEff.EnableMultimodel
+		enableMultimodal := reparseEff.EnableMultimodal
 		enableQuestionGeneration := reparseEff.QuestionGenerationConfig.Enabled
 		questionCount := reparseEff.QuestionGenerationConfig.QuestionCount
 		if questionCount <= 0 {
@@ -247,7 +247,7 @@ func (s *knowledgeService) reparseKnowledge(
 			FileURL:                  existing.Source,
 			FileName:                 existing.FileName,
 			FileType:                 existing.FileType,
-			EnableMultimodel:         enableMultimodel,
+			EnableMultimodal:         enableMultimodal,
 			EnableQuestionGeneration: enableQuestionGeneration,
 			QuestionCount:            questionCount,
 			Language:                 lang,
@@ -287,7 +287,7 @@ func (s *knowledgeService) reparseKnowledge(
 	if existing.Type == "url" && existing.Source != "" {
 		tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
-		enableMultimodel := reparseEff.EnableMultimodel
+		enableMultimodal := reparseEff.EnableMultimodal
 		enableQuestionGeneration := reparseEff.QuestionGenerationConfig.Enabled
 		questionCount := reparseEff.QuestionGenerationConfig.QuestionCount
 		if questionCount <= 0 {
@@ -300,7 +300,7 @@ func (s *knowledgeService) reparseKnowledge(
 			KnowledgeID:              existing.ID,
 			KnowledgeBaseID:          existing.KnowledgeBaseID,
 			URL:                      existing.Source,
-			EnableMultimodel:         enableMultimodel,
+			EnableMultimodal:         enableMultimodal,
 			EnableQuestionGeneration: enableQuestionGeneration,
 			QuestionCount:            questionCount,
 			Language:                 lang,

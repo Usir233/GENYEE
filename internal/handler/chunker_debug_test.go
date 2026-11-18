@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/infrastructure/chunker"
+	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -66,6 +67,7 @@ func TestComputeChunkSizeStats_NoVarianceUnderflow(t *testing.T) {
 
 func newPreviewRouter() *gin.Engine {
 	r := gin.New()
+	r.Use(middleware.ErrorHandler())
 	r.POST("/chunker/preview", PreviewChunking)
 	return r
 }
@@ -130,8 +132,9 @@ func TestPreviewChunking_RejectsEmptyText(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status: got %d want 400", w.Code)
 	}
-	if errStr, _ := parsed["error"].(string); !strings.Contains(errStr, "empty") {
-		t.Errorf("error should mention 'empty', got %q", errStr)
+	errObj, _ := parsed["error"].(map[string]any)
+	if errStr, _ := errObj["message"].(string); !strings.Contains(errStr, "empty") {
+		t.Errorf("error should mention 'empty', got %q (payload=%v)", errStr, parsed)
 	}
 }
 
@@ -141,8 +144,10 @@ func TestPreviewChunking_RejectsOversizedText(t *testing.T) {
 	if w.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status: got %d want 413", w.Code)
 	}
-	if parsed["limit"] == nil {
-		t.Errorf("response should include limit hint, got %v", parsed)
+	errObj, _ := parsed["error"].(map[string]any)
+	details, _ := errObj["details"].(map[string]any)
+	if details["limit"] == nil {
+		t.Errorf("response should include limit hint in error.details, got %v", parsed)
 	}
 }
 
@@ -234,7 +239,10 @@ func TestPreviewChunking_ParentChildMatchesIngestion(t *testing.T) {
 			t.Errorf("chunk %d content differs", i)
 		}
 		if int(previewChunk["start"].(float64)) != child.Start || int(previewChunk["end"].(float64)) != child.End {
-			t.Errorf("chunk %d span: got %v-%v want %d-%d", i, previewChunk["start"], previewChunk["end"], child.Start, child.End)
+			t.Errorf(
+				"chunk %d span: got %v-%v want %d-%d",
+				i, previewChunk["start"], previewChunk["end"], child.Start, child.End,
+			)
 		}
 		gotHeader, _ := previewChunk["context_header"].(string)
 		if gotHeader != child.ContextHeader {
@@ -261,7 +269,8 @@ func TestPreviewChunking_SingleLevelUnchanged(t *testing.T) {
 		ChunkOverlap: payload.ChunkOverlap,
 		Separators:   payload.Separators,
 		Strategy:     payload.Strategy,
-	}))
+	}),
+	)
 	data := parsed["data"].(map[string]any)
 	got := data["chunks"].([]any)
 	if len(got) != len(want) {
@@ -308,12 +317,15 @@ func TestPreviewChunking_LineEndingsMatchUpload(t *testing.T) {
 		Separators:   []string{"\n\n", "\n", "。", "！", "？", ";", "；"},
 		Strategy:     chunker.StrategyHeading,
 	}
-	actual := chunker.Split(chunker.NormalizeLineEndings(uploaded), chunker.NormalizeSplitterConfig(chunker.SplitterConfig{
-		ChunkSize:    payload.ChunkSize,
-		ChunkOverlap: payload.ChunkOverlap,
-		Separators:   payload.Separators,
-		Strategy:     payload.Strategy,
-	}))
+	actual := chunker.Split(
+		chunker.NormalizeLineEndings(uploaded),
+		chunker.NormalizeSplitterConfig(chunker.SplitterConfig{
+			ChunkSize:    payload.ChunkSize,
+			ChunkOverlap: payload.ChunkOverlap,
+			Separators:   payload.Separators,
+			Strategy:     payload.Strategy,
+		}),
+	)
 	for name, text := range map[string]string{
 		"uploaded CRLF": uploaded,
 		"pasted LF":     pasted,
@@ -333,8 +345,13 @@ func TestPreviewChunking_LineEndingsMatchUpload(t *testing.T) {
 				if previewChunk["content"] != chunk.Content {
 					t.Errorf("chunk %d content differs", i)
 				}
-				if int(previewChunk["start"].(float64)) != chunk.Start || int(previewChunk["end"].(float64)) != chunk.End {
-					t.Errorf("chunk %d span: got %v-%v want %d-%d", i, previewChunk["start"], previewChunk["end"], chunk.Start, chunk.End)
+				gotStart := int(previewChunk["start"].(float64))
+				gotEnd := int(previewChunk["end"].(float64))
+				if gotStart != chunk.Start || gotEnd != chunk.End {
+					t.Errorf(
+						"chunk %d span: got %v-%v want %d-%d",
+						i, previewChunk["start"], previewChunk["end"], chunk.Start, chunk.End,
+					)
 				}
 			}
 		})

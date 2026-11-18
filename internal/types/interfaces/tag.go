@@ -21,6 +21,8 @@ type KnowledgeTagService interface {
 	DeleteTag(ctx context.Context, id string, force bool, contentOnly bool, excludeIDs []string) error
 	// FindOrCreateTagByName finds a tag by name or creates it if not exists.
 	FindOrCreateTagByName(ctx context.Context, kbID string, name string) (*types.KnowledgeTag, error)
+	// GetTagBySeqID retrieves a tag by its seq_id scoped to a tenant.
+	GetTagBySeqID(ctx context.Context, tenantID uint64, seqID int64) (*types.KnowledgeTag, error)
 	// ProcessIndexDelete handles async index deletion task
 	ProcessIndexDelete(ctx context.Context, t *asynq.Task) error
 }

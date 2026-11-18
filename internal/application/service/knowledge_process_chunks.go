@@ -207,7 +207,7 @@ func (s *knowledgeService) processDocumentFromPassage(ctx context.Context,
 type ProcessChunksOptions struct {
 	EnableQuestionGeneration bool
 	QuestionCount            int
-	EnableMultimodel         bool
+	EnableMultimodal         bool
 	StoredImages             []docparser.StoredImage
 	// ParentChunks holds parent chunk data when parent-child chunking is enabled.
 	// When set, the chunks passed to processChunks are child chunks, and each
@@ -900,8 +900,8 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	// Check if this document has extracted images that will be processed asynchronously
 	isImage := IsImageType(knowledge.FileType)
 	isVideo := IsVideoType(knowledge.FileType)
-	pendingMultimodal := isImage && options.EnableMultimodel && len(options.StoredImages) > 0
-	pendingPDFMultimodal := !isImage && !isVideo && options.EnableMultimodel && len(options.StoredImages) > 0
+	pendingMultimodal := isImage && options.EnableMultimodal && len(options.StoredImages) > 0
+	pendingPDFMultimodal := !isImage && !isVideo && options.EnableMultimodal && len(options.StoredImages) > 0
 
 	if s.currentAttemptSuperseded(ctx, knowledge.ID) {
 		logger.Infof(ctx, "Parse attempt superseded, skipping completion: %s", knowledge.ID)
@@ -936,7 +936,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	}
 
 	// Enqueue multimodal tasks for images (async, non-blocking)
-	if options.EnableMultimodel && len(options.StoredImages) > 0 {
+	if options.EnableMultimodal && len(options.StoredImages) > 0 {
 		// Counts only, no policy claims: whether a given image is OCR'd is
 		// decided per image once its attributes are observed, so a boolean here
 		// would assert something the pipeline has not decided yet — and would

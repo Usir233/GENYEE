@@ -143,15 +143,11 @@ func (s *stubInitKBService) GetKnowledgeBaseByID(context.Context, string) (*type
 	return s.kb, nil
 }
 
-type stubInitKBRepository struct {
-	interfaces.KnowledgeBaseRepository
-}
-
-func (s *stubInitKBRepository) UpdateKnowledgeBase(context.Context, *types.KnowledgeBase) error {
+func (s *stubInitKBService) SaveInitializedKnowledgeBaseConfig(context.Context, *types.KnowledgeBase) error {
 	return nil
 }
 
-// POST /initialization/initialize/{kbId} used to marshal the raw model rows,
+// POST /initialization/initialize/{kb_id} used to marshal the raw model rows,
 // and types.Model carries api_key in plaintext. Now that the reuse path keeps
 // the stored credential rather than overwriting it with the payload's, that
 // body would hand back a key the caller never submitted.
@@ -169,7 +165,6 @@ func TestInitializeByKB_ResponseDoesNotEchoStoredAPIKey(t *testing.T) {
 	h := &InitializationHandler{
 		modelService: svc,
 		kbService:    &stubInitKBService{kb: kb},
-		kbRepository: &stubInitKBRepository{},
 	}
 
 	req := newTenantStampRequest()
@@ -194,7 +189,7 @@ func TestInitializeByKB_ResponseDoesNotEchoStoredAPIKey(t *testing.T) {
 	c.Request = c.Request.WithContext(types.WithCaller(c.Request.Context(), types.Caller{
 		TenantID: 10042, UserID: "u-1", Role: types.TenantRoleAdmin,
 	}))
-	c.Params = gin.Params{{Key: "kbId", Value: "kb-1"}}
+	c.Params = gin.Params{{Key: "kb_id", Value: "kb-1"}}
 
 	h.InitializeByKB(c)
 	require.Empty(t, c.Errors.Errors())

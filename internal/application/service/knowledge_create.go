@@ -25,16 +25,16 @@ import (
 
 // CreateKnowledgeFromFile creates a knowledge entry from an uploaded file
 func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
-	kbID string, file *multipart.FileHeader, metadata map[string]string, enableMultimodel *bool,
+	kbID string, file *multipart.FileHeader, metadata map[string]string, enableMultimodal *bool,
 	customFileName string, tagIDs []string, channel string,
 	processOverrides *types.KnowledgeProcessOverrides,
 ) (*types.Knowledge, error) {
-	return s.createKnowledgeFromFile(ctx, kbID, file, metadata, enableMultimodel, customFileName,
+	return s.createKnowledgeFromFile(ctx, kbID, file, metadata, enableMultimodal, customFileName,
 		tagIDs, channel, processOverrides, nil)
 }
 
 func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
-	kbID string, file *multipart.FileHeader, metadata map[string]string, enableMultimodel *bool,
+	kbID string, file *multipart.FileHeader, metadata map[string]string, enableMultimodal *bool,
 	customFileName string, tagIDs []string, channel string,
 	processOverrides *types.KnowledgeProcessOverrides,
 	replacement *knowledgeReplacement,
@@ -171,7 +171,7 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 		folderPath = types.NormalizeKnowledgeFolderPath(safeFolderPath)
 	}
 
-	eff, err := resolveFileImportProcessConfig(ctx, kb, getFileType(safeFilename), processOverrides, enableMultimodel)
+	eff, err := resolveFileImportProcessConfig(ctx, kb, getFileType(safeFilename), processOverrides, enableMultimodal)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 
 	// Enqueue document processing task to Asynq
 	logger.Info(ctx, "Enqueuing document processing task to Asynq")
-	enableMultimodelValue := eff.EnableMultimodel
+	enableMultimodalValue := eff.EnableMultimodal
 
 	enableQuestionGeneration := eff.QuestionGenerationConfig.Enabled
 	questionCount := eff.QuestionGenerationConfig.QuestionCount
@@ -252,7 +252,7 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 		FilePath:                 filePath,
 		FileName:                 safeFilename,
 		FileType:                 getFileType(safeFilename),
-		EnableMultimodel:         enableMultimodelValue,
+		EnableMultimodal:         enableMultimodalValue,
 		EnableQuestionGeneration: enableQuestionGeneration,
 		QuestionCount:            questionCount,
 		Language:                 lang,
@@ -326,16 +326,16 @@ func isFileURL(rawURL, fileName, fileType string) bool {
 }
 
 func (s *knowledgeService) CreateKnowledgeFromURL(ctx context.Context,
-	kbID string, rawURL string, fileName string, fileType string, enableMultimodel *bool,
+	kbID string, rawURL string, fileName string, fileType string, enableMultimodal *bool,
 	title string, tagIDs []string, channel string,
 	processOverrides *types.KnowledgeProcessOverrides,
 ) (*types.Knowledge, error) {
-	return s.createKnowledgeFromURL(ctx, kbID, rawURL, fileName, fileType, enableMultimodel,
+	return s.createKnowledgeFromURL(ctx, kbID, rawURL, fileName, fileType, enableMultimodal,
 		title, tagIDs, channel, processOverrides, nil)
 }
 
 func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
-	kbID string, rawURL string, fileName string, fileType string, enableMultimodel *bool,
+	kbID string, rawURL string, fileName string, fileType string, enableMultimodal *bool,
 	title string, tagIDs []string, channel string,
 	processOverrides *types.KnowledgeProcessOverrides,
 	replacement *knowledgeReplacement,
@@ -346,7 +346,7 @@ func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
 	// Route to file_url logic when the URL points to a downloadable file
 	if isFileURL(rawURL, fileName, fileType) {
 		return s.createKnowledgeFromFileURLWithReplacement(
-			ctx, kbID, rawURL, fileName, fileType, enableMultimodel,
+			ctx, kbID, rawURL, fileName, fileType, enableMultimodal,
 			title, tagIDs, channel, processOverrides, replacement,
 		)
 	}
@@ -433,7 +433,7 @@ func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
 
 	// Save knowledge record
 	logger.Infof(ctx, "Saving knowledge record to database, ID: %s", knowledge.ID)
-	eff, err := ApplyKnowledgeProcessOverrides(ctx, kb, knowledge, processOverrides, []string{"html"}, enableMultimodel)
+	eff, err := ApplyKnowledgeProcessOverrides(ctx, kb, knowledge, processOverrides, []string{"html"}, enableMultimodal)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +450,7 @@ func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
 
 	// Enqueue URL processing task to Asynq
 	logger.Info(ctx, "Enqueuing URL processing task to Asynq")
-	enableMultimodelValue := eff.EnableMultimodel
+	enableMultimodalValue := eff.EnableMultimodal
 	enableQuestionGeneration := eff.QuestionGenerationConfig.Enabled
 	questionCount := eff.QuestionGenerationConfig.QuestionCount
 	if questionCount <= 0 {
@@ -463,7 +463,7 @@ func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
 		KnowledgeID:              knowledge.ID,
 		KnowledgeBaseID:          kbID,
 		URL:                      url,
-		EnableMultimodel:         enableMultimodelValue,
+		EnableMultimodal:         enableMultimodalValue,
 		EnableQuestionGeneration: enableQuestionGeneration,
 		QuestionCount:            questionCount,
 		Language:                 lang,
@@ -542,7 +542,7 @@ func extractFileNameFromContentDisposition(header string) string {
 
 func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 	ctx context.Context, kbID, fileURL, fileName, fileType string,
-	enableMultimodel *bool, title string, tagIDs []string, channel string,
+	enableMultimodal *bool, title string, tagIDs []string, channel string,
 	processOverrides *types.KnowledgeProcessOverrides, replacement *knowledgeReplacement,
 ) (*types.Knowledge, error) {
 	logger.Info(ctx, "Start creating knowledge from file URL")
@@ -661,7 +661,7 @@ func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 		knowledge.Title = displayName
 	}
 
-	eff, err := resolveFileImportProcessConfig(ctx, kb, fileType, processOverrides, enableMultimodel)
+	eff, err := resolveFileImportProcessConfig(ctx, kb, fileType, processOverrides, enableMultimodal)
 	if err != nil {
 		return nil, err
 	}
@@ -683,7 +683,7 @@ func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 	}
 
 	// Build async task payload
-	enableMultimodelValue := eff.EnableMultimodel
+	enableMultimodalValue := eff.EnableMultimodal
 	enableQuestionGeneration := eff.QuestionGenerationConfig.Enabled
 	questionCount := eff.QuestionGenerationConfig.QuestionCount
 	if questionCount <= 0 {
@@ -698,7 +698,7 @@ func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 		FileURL:                  fileURL,
 		FileName:                 fileName,
 		FileType:                 fileType,
-		EnableMultimodel:         enableMultimodelValue,
+		EnableMultimodal:         enableMultimodalValue,
 		EnableQuestionGeneration: enableQuestionGeneration,
 		QuestionCount:            questionCount,
 		Language:                 lang,
@@ -984,7 +984,7 @@ func (s *knowledgeService) createKnowledgeFromPassageInternal(ctx context.Contex
 			KnowledgeID:              knowledge.ID,
 			KnowledgeBaseID:          kbID,
 			Passages:                 safePassages,
-			EnableMultimodel:         false, // 文本段落不支持多模态
+			EnableMultimodal:         false, // 文本段落不支持多模态
 			EnableQuestionGeneration: enableQuestionGeneration,
 			QuestionCount:            questionCount,
 			Language:                 lang,
@@ -1457,7 +1457,7 @@ func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
 	var parsed []types.ParsedChunk
 	multimodalImages := imagesForMultimodal(resolvedImages)
 	opts := ProcessChunksOptions{
-		EnableMultimodel: eff.EnableMultimodel && len(multimodalImages) > 0,
+		EnableMultimodal: eff.EnableMultimodal && len(multimodalImages) > 0,
 		StoredImages:     multimodalImages,
 	}
 	if eff.QuestionGenerationConfig.Enabled {

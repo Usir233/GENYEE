@@ -46,19 +46,19 @@ func TestDataSourceScheduleAPIRejectsInvalidCron(t *testing.T) {
 			entries := scheduler.EntryCount()
 			h := NewDataSourceHandler(svc, kbSvc)
 			router := newDataSourceTestRouter(h)
-			router.POST("/datasource", h.CreateDataSource)
-			router.PUT("/datasource/:id", h.UpdateDataSource)
-			router.POST("/datasource/:id/resume", h.ResumeDataSource)
+			router.POST("/data-sources", h.CreateDataSource)
+			router.PUT("/data-sources/:id", h.UpdateDataSource)
+			router.POST("/data-sources/:id/resume", h.ResumeDataSource)
 			body := *ds
 			body.SyncSchedule = "invalid"
 			payload, err := json.Marshal(body)
 			require.NoError(t, err)
-			method, url := http.MethodPost, "/datasource"
+			method, url := http.MethodPost, "/data-sources"
 			switch operation {
 			case "update":
-				method, url = http.MethodPut, "/datasource/"+ds.ID
+				method, url = http.MethodPut, "/data-sources/"+ds.ID
 			case "resume":
-				url = "/datasource/" + ds.ID + "/resume"
+				url = "/data-sources/" + ds.ID + "/resume"
 			}
 			req := withDSCtx(httptest.NewRequest(method, url, bytes.NewReader(payload)), 1)
 			req.Header.Set("Content-Type", "application/json")

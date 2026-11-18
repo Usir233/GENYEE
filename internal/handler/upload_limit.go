@@ -12,11 +12,7 @@ import (
 )
 
 func newRequestEntityTooLargeError(message string) *apperrors.AppError {
-	return &apperrors.AppError{
-		Code:     apperrors.ErrBadRequest,
-		Message:  message,
-		HTTPCode: http.StatusRequestEntityTooLarge,
-	}
+	return apperrors.NewRequestEntityTooLargeError(message)
 }
 
 // uploadEnvelopeSlack is the multipart framing allowed on top of the file

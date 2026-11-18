@@ -10,6 +10,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
@@ -57,7 +58,8 @@ func newRebuildLinksHandler(t *testing.T) (*gin.Engine, *gorm.DB, interfaces.Wik
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	engine.POST("/knowledgebase/:kb_id/wiki/rebuild-links", func(c *gin.Context) {
+	engine.Use(middleware.ErrorHandler())
+	engine.POST("/knowledge-bases/:id/wiki/rebuild-links", func(c *gin.Context) {
 		c.Set(types.TenantIDContextKey.String(), uint64(1))
 		handler.RebuildLinks(c)
 	})
@@ -65,7 +67,7 @@ func newRebuildLinksHandler(t *testing.T) (*gin.Engine, *gorm.DB, interfaces.Wik
 }
 
 func postRebuildLinks(engine *gin.Engine) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodPost, "/knowledgebase/kb-rebuild-links/wiki/rebuild-links", nil)
+	req := httptest.NewRequest(http.MethodPost, "/knowledge-bases/kb-rebuild-links/wiki/rebuild-links", nil)
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, req)
 	return recorder

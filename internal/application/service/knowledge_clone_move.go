@@ -1918,7 +1918,7 @@ func (s *knowledgeService) enqueueMovedKnowledge(
 	}
 
 	if knowledge.FilePath != "" {
-		enableMultimodel := targetKB.IsMultimodalEnabled()
+		enableMultimodal := targetKB.IsMultimodalEnabled()
 		enableQuestionGeneration := false
 		questionCount := 3
 		if targetKB.QuestionGenerationConfig != nil && targetKB.QuestionGenerationConfig.Enabled {
@@ -1936,7 +1936,7 @@ func (s *knowledgeService) enqueueMovedKnowledge(
 			FilePath:                 knowledge.FilePath,
 			FileName:                 knowledge.FileName,
 			FileType:                 getFileType(knowledge.FileName),
-			EnableMultimodel:         enableMultimodel,
+			EnableMultimodal:         enableMultimodal,
 			EnableQuestionGeneration: enableQuestionGeneration,
 			QuestionCount:            questionCount,
 			Language:                 lang,

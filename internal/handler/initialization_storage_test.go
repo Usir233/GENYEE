@@ -47,11 +47,11 @@ func TestUpdateKBConfigPreservesOmittedStorage(t *testing.T) {
 		{name: "concrete backend", provider: &types.StorageProviderConfig{Provider: "oss"}, backendID: "backend-oss"},
 		{
 			name: "explicit empty fields", provider: &types.StorageProviderConfig{Provider: "oss"},
-			fields: `,"storageProvider":"","storageBackendId":""`,
+			fields: `,"storage_provider":"","storage_backend_id":""`,
 		},
 		{
 			name: "whitespace fields", provider: &types.StorageProviderConfig{Provider: "oss"},
-			fields: `,"storageProvider":"  ","storageBackendId":"  "`,
+			fields: `,"storage_provider":"  ","storage_backend_id":"  "`,
 		},
 		{name: "tenant default remains unpinned"},
 		{name: "legacy cos config", legacy: types.StorageConfig{Provider: "cos", BucketName: "existing-bucket"}},
@@ -68,20 +68,20 @@ func TestUpdateKBConfigPreservesOmittedStorage(t *testing.T) {
 			before, err := json.Marshal(kb.StorageProviderConfig)
 			require.NoError(t, err)
 			provider := kb.GetStorageProvider()
-			repo := &stubInitializationKBRepo{}
+			kbSvc := &stubInitializationKBService{kb: kb}
 			knowledge := &stubStorageBindingKnowledgeService{total: 3}
 			models := &stubTenantStampModelService{getModelByID: func(context.Context, string) (*types.Model, error) {
 				return &types.Model{ID: "m-new", TenantID: 7}, nil
 			}}
 			h := &InitializationHandler{
-				kbService: &stubInitializationKBService{kb: kb}, kbRepository: repo,
+				kbService:    kbSvc,
 				modelService: models, knowledgeService: knowledge,
 			}
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
-			c.Params = gin.Params{{Key: "kbId", Value: kb.ID}}
+			c.Params = gin.Params{{Key: "kb_id", Value: kb.ID}}
 			req := httptest.NewRequest(http.MethodPut, "/api/v1/initialization/config/kb-1",
-				strings.NewReader(`{"llmModelId":"m-new"`+tc.fields+`}`))
+				strings.NewReader(`{"llm_model_id":"m-new"`+tc.fields+`}`))
 			req.Header.Set("Content-Type", "application/json")
 			c.Request = req.WithContext(types.WithCaller(req.Context(), types.Caller{
 				TenantID: 7, UserID: "owner", Role: types.TenantRoleOwner,
@@ -91,17 +91,17 @@ func TestUpdateKBConfigPreservesOmittedStorage(t *testing.T) {
 
 			require.Empty(t, c.Errors)
 			require.Equal(t, http.StatusOK, recorder.Code)
-			require.NotNil(t, repo.updated)
-			require.Equal(t, "m-new", repo.updated.SummaryModelID)
-			after, err := json.Marshal(repo.updated.StorageProviderConfig)
+			require.NotNil(t, kbSvc.updated)
+			require.Equal(t, "m-new", kbSvc.updated.SummaryModelID)
+			after, err := json.Marshal(kbSvc.updated.StorageProviderConfig)
 			require.NoError(t, err)
 			require.Equal(t, string(before), string(after), "model-only updates must preserve the stored projection")
-			require.Equal(t, provider, repo.updated.GetStorageProvider())
-			require.Equal(t, tc.legacy, repo.updated.StorageConfig)
+			require.Equal(t, provider, kbSvc.updated.GetStorageProvider())
+			require.Equal(t, tc.legacy, kbSvc.updated.StorageConfig)
 			if tc.backendID == "" {
-				require.Nil(t, repo.updated.StorageBackendID)
+				require.Nil(t, kbSvc.updated.StorageBackendID)
 			} else {
-				require.Equal(t, tc.backendID, *repo.updated.StorageBackendID)
+				require.Equal(t, tc.backendID, *kbSvc.updated.StorageBackendID)
 			}
 			require.Zero(t, knowledge.calls, "omitted storage must not enter the migration check")
 		})

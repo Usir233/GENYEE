@@ -41,8 +41,8 @@ var (
 	ErrDuplicateFile = errors.New("file already exists")
 	// ErrDuplicateURL is returned when trying to add a URL that already exists
 	ErrDuplicateURL = errors.New("URL already exists")
-	// ErrImageNotParse is returned when trying to update image information without enabling multimodel
-	ErrImageNotParse = errors.New("image not parse without enable multimodel")
+	// ErrImageNotParse is returned when trying to update image information without enabling multimodal
+	ErrImageNotParse = errors.New("image not parse without enable multimodal")
 )
 
 // knowledgeService implements the knowledge service interface
@@ -85,6 +85,7 @@ type knowledgeService struct {
 	// handled because the public surface is the SpanTracker interface,
 	// which has a no-op fallback. See knowledge_span_tracker.go.
 	spanTracker SpanTracker
+	spanRepo    interfaces.KnowledgeSpanRepository
 	audit       interfaces.AuditLogService
 }
 
@@ -122,6 +123,7 @@ func NewKnowledgeService(
 	wikiService interfaces.WikiPageService,
 	taskPendingRepo interfaces.TaskPendingOpsRepository,
 	spanTracker SpanTracker,
+	spanRepo repository.KnowledgeSpanRepository,
 	audit interfaces.AuditLogService,
 ) (interfaces.KnowledgeService, error) {
 	return &knowledgeService{
@@ -151,6 +153,7 @@ func NewKnowledgeService(
 		wikiService:     wikiService,
 		taskPendingRepo: taskPendingRepo,
 		spanTracker:     spanTracker,
+		spanRepo:        spanRepo,
 		audit:           audit,
 	}, nil
 }
@@ -1216,4 +1219,32 @@ func (s *knowledgeService) SearchKnowledgeForScopes(ctx context.Context, scopes 
 		return nil, false, 0, nil
 	}
 	return s.repo.SearchKnowledgeInScopes(ctx, scopes, keyword, offset, limit, fileTypes)
+}
+
+// GetLatestProcessingAttempt returns the highest recorded processing attempt number for a knowledge item.
+func (s *knowledgeService) GetLatestProcessingAttempt(ctx context.Context, knowledgeID string) (int, error) {
+	if s.spanRepo == nil {
+		return 0, nil
+	}
+	return s.spanRepo.LatestAttempt(ctx, knowledgeID)
+}
+
+// ListProcessingSpansByAttempt lists all processing spans recorded for (knowledgeID, attempt).
+func (s *knowledgeService) ListProcessingSpansByAttempt(
+	ctx context.Context, knowledgeID string, attempt int,
+) ([]types.KnowledgeProcessingSpan, error) {
+	if s.spanRepo == nil {
+		return nil, nil
+	}
+	return s.spanRepo.ListByAttempt(ctx, knowledgeID, attempt)
+}
+
+// GetLastSpanActivity returns the most recent span timestamp per knowledge ID across attempts.
+func (s *knowledgeService) GetLastSpanActivity(
+	ctx context.Context, knowledgeIDs []string,
+) (map[string]time.Time, error) {
+	if s.spanRepo == nil || len(knowledgeIDs) == 0 {
+		return nil, nil
+	}
+	return s.spanRepo.LastActivity(ctx, knowledgeIDs)
 }

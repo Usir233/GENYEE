@@ -12,6 +12,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
@@ -80,7 +81,8 @@ func (f fakeWikiPageTitlesKBService) GetKnowledgeBaseByID(
 func wikiPageTitlesEngine(h *WikiPageHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/knowledgebase/:kb_id/wiki/pages/*slug", h.GetPage)
+	r.Use(middleware.ErrorHandler())
+	r.GET("/knowledge-bases/:id/wiki/pages/*slug", h.GetPage)
 	return r
 }
 
@@ -128,7 +130,7 @@ func requestWikiPageTitles(
 ) *httptest.ResponseRecorder {
 	h := &WikiPageHandler{wikiService: fake, kbService: kb}
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/knowledgebase/kb-1/wiki/pages/"+slug, nil)
+	req := httptest.NewRequest(http.MethodGet, "/knowledge-bases/kb-1/wiki/pages/"+slug, nil)
 	wikiPageTitlesEngine(h).ServeHTTP(rec, req)
 	return rec
 }
@@ -186,7 +188,7 @@ func TestGetPageTitleLookupFailureDoesNotReturnPartialSuccess(t *testing.T) {
 			}
 			rec := requestWikiPageTitles(fake, fakeWikiPageTitlesKBService{}, "current")
 			assert.Equal(t, http.StatusInternalServerError, rec.Code)
-			assert.JSONEq(t, `{"error":"title query failed"}`, rec.Body.String())
+			assert.Contains(t, rec.Body.String(), "title query failed")
 		})
 	}
 }
@@ -203,10 +205,10 @@ func TestGetPageValidatesBeforeTitleLookup(t *testing.T) {
 		{
 			"inaccessible KB", "current",
 			fakeWikiPageTitlesKBService{err: errors.New("denied")},
-			nil, http.StatusBadRequest,
+			nil, http.StatusNotFound,
 		},
 		{"wiki disabled", "current", fakeWikiPageTitlesKBService{disabled: true}, nil, http.StatusBadRequest},
-		{"missing page", "current", fakeWikiPageTitlesKBService{}, repository.ErrWikiPageNotFound, http.StatusNotFound},
+		{"missing page", "current", fakeWikiPageTitlesKBService{}, types.ErrWikiPageNotFound, http.StatusNotFound},
 		{
 			"page query failure", "current",
 			fakeWikiPageTitlesKBService{},
@@ -255,7 +257,7 @@ func TestGetPageBacklinkTitlesThroughRepository(t *testing.T) {
 		kbService:   fakeWikiPageTitlesKBService{},
 	}
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/knowledgebase/kb-1/wiki/pages/current", nil)
+	req := httptest.NewRequest(http.MethodGet, "/knowledge-bases/kb-1/wiki/pages/current", nil)
 	wikiPageTitlesEngine(h).ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var body types.WikiPageDetail

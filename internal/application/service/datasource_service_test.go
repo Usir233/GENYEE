@@ -149,6 +149,10 @@ func (s *processSyncKBService) ProcessKBDelete(context.Context, *asynq.Task) err
 	return nil
 }
 
+func (s *processSyncKBService) SaveInitializedKnowledgeBaseConfig(context.Context, *types.KnowledgeBase) error {
+	return nil
+}
+
 var _ interfaces.KnowledgeBaseService = (*processSyncKBService)(nil)
 
 type processSyncSyncLogRepo struct {

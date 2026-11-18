@@ -12,11 +12,9 @@ import (
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/application/access"
-	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/application/service"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/errors"
-	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/Usir233/GENYEE/internal/storageurl"
@@ -24,7 +22,6 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/Usir233/GENYEE/internal/utils"
-	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -88,9 +85,9 @@ func (h *KnowledgeBaseHandler) resolveResourceRewriter(c *gin.Context) (*storage
 	mode, err := storageurl.ResolveMode(ctx, c.Query(storageurl.QueryParam))
 	if err != nil {
 		if stderrors.Is(err, storageurl.ErrPublicModeForbidden) {
-			return nil, apperrors.NewForbiddenError(err.Error())
+			return nil, errors.NewForbiddenError(err.Error())
 		}
-		return nil, apperrors.NewBadRequestError(err.Error())
+		return nil, errors.NewBadRequestError(err.Error())
 	}
 	return storageurl.NewRequestRewriter(ctx, mode, h.fileService, h.storageResolver), nil
 }
@@ -298,7 +295,7 @@ func (h *KnowledgeBaseHandler) resolveKBStoreView(
 	view, err := h.vectorStoreService.ResolveStoreView(ctx, kb.TenantID, *kb.VectorStoreID)
 	if err != nil {
 		logger.WarnWithFields(ctx, logger.Fields{
-			"kb_id":     secutils.SanitizeForLog(kb.ID),
+			"kb_id":     utils.SanitizeForLog(kb.ID),
 			"tenant_id": kb.TenantID,
 		}, "[kb.view] vector store resolve failed; returning unavailable")
 		return types.UnavailableStoreDisplay()
@@ -378,7 +375,7 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 	// Validate and check permission for knowledge base access
 	_, id, effectiveTenantID, _, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -387,30 +384,30 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 	var req types.SearchParams
 	if err := c.ShouldBindJSON(&req); err != nil {
 		if isRequestBodyTooLarge(err) {
-			_ = c.Error(apperrors.NewBadRequestError("request body is too large"))
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
 			return
 		}
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	precomputedVectorOnly := len(req.QueryEmbedding) > 0 && req.DisableKeywordsMatch && !req.DisableVectorMatch
 	if strings.TrimSpace(req.QueryText) == "" && !precomputedVectorOnly {
-		_ = c.Error(apperrors.NewBadRequestError("query_text is required"))
+		_ = c.Error(errors.NewBadRequestError("query_text is required"))
 		return
 	}
 	if err := req.Rerank.Validate(); err != nil {
-		_ = c.Error(apperrors.NewBadRequestError(err.Error()))
+		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 	if req.Rerank.IsEnabled() && strings.TrimSpace(req.QueryText) == "" {
 		// The rerank model scores passages against the query text.
-		_ = c.Error(apperrors.NewBadRequestError("query_text is required when rerank is enabled"))
+		_ = c.Error(errors.NewBadRequestError("query_text is required when rerank is enabled"))
 		return
 	}
 
 	logger.Infof(ctx, "Executing hybrid search, knowledge base ID: %s, query: %s, effectiveTenantID: %d",
-		secutils.SanitizeForLog(id), secutils.SanitizeForLog(req.QueryText), effectiveTenantID)
+		utils.SanitizeForLog(id), utils.SanitizeForLog(req.QueryText), effectiveTenantID)
 
 	// Resolve before retrieving so a typo or a rejected scope costs nothing.
 	rewriter, err := h.resolveResourceRewriter(c)
@@ -437,17 +434,17 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 		// must reach the client with their original code rather than be
 		// downgraded to InternalServerError. Mirrors the pattern used in
 		// CreateKnowledgeBase.
-		if appErr, ok := apperrors.IsAppError(err); ok {
-			c.Error(appErr)
+		if appErr, ok := errors.IsAppError(err); ok {
+			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	logger.Infof(ctx, "Hybrid search completed, knowledge base ID: %s, result count: %d",
-		secutils.SanitizeForLog(id), len(retrieval.Results))
+		utils.SanitizeForLog(id), len(retrieval.Results))
 	response := gin.H{
 		"success": true,
 		"data":    rewriter.CopyReferences(ctx, retrieval.Results),
@@ -483,21 +480,21 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		if isRequestBodyTooLarge(err) {
-			_ = c.Error(apperrors.NewBadRequestError("request body is too large"))
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
 			return
 		}
-		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	var req types.KnowledgeBase
 	if err := json.Unmarshal(body, &req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
-		_ = c.Error(apperrors.NewBadRequestError("name cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("name cannot be empty"))
 		return
 	}
 	// A partial indexing_strategy must not turn the omitted pipelines off.
@@ -505,21 +502,21 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 	fillOmittedIndexingFlags(body, &req)
 	if err := validateExtractConfig(req.ExtractConfig); err != nil {
 		logger.Error(ctx, "Invalid extract configuration", err)
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	types.NormalizeKnowledgeBasePromptInstructions(&req)
 	if err := validateKnowledgeBasePromptInstructions(&req); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(req.GetStorageProvider()))
 	if provider != "" && !isStorageProviderAllowed(provider) {
-		c.Error(apperrors.NewBadRequestError("Storage provider is not allowed by STORAGE_ALLOW_LIST"))
+		_ = c.Error(errors.NewBadRequestError("Storage provider is not allowed by STORAGE_ALLOW_LIST"))
 		return
 	}
 
-	logger.Infof(ctx, "Creating knowledge base, name: %s", secutils.SanitizeForLog(req.Name))
+	logger.Infof(ctx, "Creating knowledge base, name: %s", utils.SanitizeForLog(req.Name))
 	// Create knowledge base using the service
 	kb, err := h.service.CreateKnowledgeBase(ctx, &req)
 	if err != nil {
@@ -529,17 +526,17 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 		// into a generic 500. The middleware renders the original code and
 		// HTTP status verbatim. Falls through to 500 only for raw infra
 		// errors that the service did not classify.
-		if appErr, ok := apperrors.IsAppError(err); ok {
-			c.Error(appErr)
+		if appErr, ok := errors.IsAppError(err); ok {
+			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	logger.Infof(ctx, "Knowledge base created successfully, ID: %s, name: %s",
-		secutils.SanitizeForLog(kb.ID), secutils.SanitizeForLog(kb.Name))
+		utils.SanitizeForLog(kb.ID), utils.SanitizeForLog(kb.Name))
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
@@ -549,13 +546,13 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 
 // validateAndGetKnowledgeBase validates request parameters and retrieves the knowledge base.
 // Enforces per-API-key KB scope before tenant/share/agent resolution.
-// Returns the knowledge base, knowledge base ID, effective tenant ID for embedding, permission level, and any errors encountered
+// Returns the knowledge base, ID, effective tenant ID, permission level, and any error.
 // For owned KBs, effectiveTenantID is the caller's tenant ID
 // For shared KBs, effectiveTenantID is the source tenant ID (owner's tenant)
 func (h *KnowledgeBaseHandler) validateAndGetKnowledgeBase(
 	c *gin.Context,
 ) (*types.KnowledgeBase, string, uint64, types.OrgMemberRole, error) {
-	id := secutils.SanitizeForLog(c.Param("id"))
+	id := utils.SanitizeForLog(c.Param("id"))
 	grant, err := resolveHandlerKBAccess(c, id, h.service, h.kbShareService, h.agentShareService)
 	if err != nil {
 		return nil, id, 0, "", err
@@ -584,7 +581,7 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBase(c *gin.Context) {
 	// Validate and get the knowledge base
 	kb, _, _, permission, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	// Fill counts (knowledge_count, chunk_count, is_processing) so hover/detail shows correct numbers
@@ -636,7 +633,7 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 		kbs, err := h.service.ListKnowledgeBasesByTenantID(ctx, agent.TenantID)
 		if err != nil {
 			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(apperrors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 			return
 		}
 		kbs = filterKnowledgeBasesForSharedAgent(kbs, agent)
@@ -653,7 +650,7 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 	kbs, err := h.service.ListKnowledgeBases(ctx)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -797,18 +794,18 @@ func (h *KnowledgeBaseHandler) TogglePinKnowledgeBase(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
 	if id == "" {
-		c.Error(apperrors.NewBadRequestError("knowledge base ID is required"))
+		_ = c.Error(errors.NewBadRequestError("knowledge base ID is required"))
 		return
 	}
 
 	kb, err := h.service.TogglePinKnowledgeBase(ctx, id)
 	if err != nil {
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(apperrors.NewNotFoundError("knowledge base not found"))
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
+			_ = c.Error(errors.NewNotFoundError("knowledge base not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -871,13 +868,13 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 	// Validate and get the knowledge base
 	currentKB, id, _, permission, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	// Only admin/editor can update knowledge base
 	if permission != types.OrgRoleAdmin && permission != types.OrgRoleEditor {
-		c.Error(apperrors.NewForbiddenError("No permission to update knowledge base"))
+		_ = c.Error(errors.NewForbiddenError("No permission to update knowledge base"))
 		return
 	}
 
@@ -885,7 +882,7 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 	var req UpdateKnowledgeBaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	if !req.questionModelProvided && req.Config != nil && req.Config.QuestionGenerationConfig != nil &&
@@ -906,24 +903,24 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 			probe.ImageProcessingConfig = *req.Config.ImageProcessingConfig
 		}
 		if err := validateKnowledgeBasePromptInstructions(probe); err != nil {
-			c.Error(err)
+			_ = c.Error(err)
 			return
 		}
 	}
 
 	logger.Infof(ctx, "Updating knowledge base, ID: %s, name: %s",
-		secutils.SanitizeForLog(id), secutils.SanitizeForLog(req.Name))
+		utils.SanitizeForLog(id), utils.SanitizeForLog(req.Name))
 
 	// Update the knowledge base
 	kb, err := h.service.UpdateKnowledgeBase(ctx, id, req.Name, req.Description, req.Config, req.VLMConfig)
 	if err != nil {
 		// A rejected vlm_config is the caller's mistake, not a server failure.
-		if appErr, ok := apperrors.IsAppError(err); ok {
+		if appErr, ok := errors.IsAppError(err); ok {
 			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -952,7 +949,7 @@ func validateKnowledgeBaseSettingsUpdate(
 	}
 	if !ownWorkspace && cfg != nil && cfg.StorageBackendID != nil &&
 		kbStorageBindingChanged(kb, *cfg.StorageBackendID, "") {
-		return apperrors.NewForbiddenError("只有知识库所属空间可以修改存储配置")
+		return errors.NewForbiddenError("只有知识库所属空间可以修改存储配置")
 	}
 	return nil
 }
@@ -1032,7 +1029,7 @@ func applyKnowledgeBasePatch(
 	if patch.Name != nil {
 		out.Name = strings.TrimSpace(*patch.Name)
 		if out.Name == "" {
-			return out, apperrors.NewBadRequestError("name cannot be empty")
+			return out, errors.NewBadRequestError("name cannot be empty")
 		}
 	}
 	if patch.Description != nil {
@@ -1047,7 +1044,7 @@ func applyKnowledgeBasePatch(
 			return nil
 		}
 		if err := json.Unmarshal(raw, dest); err != nil {
-			return apperrors.NewBadRequestError("invalid " + key).WithDetails(err.Error())
+			return errors.NewBadRequestError("invalid " + key).WithDetails(err.Error())
 		}
 		used = true
 		return nil
@@ -1081,7 +1078,7 @@ func applyKnowledgeBasePatch(
 	}
 	if patch.ImageCaptionEnabled != nil || patch.ImageOCREnabled != nil {
 		if types.ResolveImagePipelineID(&image) != types.ImagePipelineDefault {
-			return out, apperrors.NewBadRequestError(
+			return out, errors.NewBadRequestError(
 				"image_caption_enabled and image_ocr_enabled require image_pipeline=default",
 			)
 		}
@@ -1269,28 +1266,28 @@ func (h *KnowledgeBaseHandler) PatchKnowledgeBase(c *gin.Context) {
 		return
 	}
 	if permission != types.OrgRoleAdmin && permission != types.OrgRoleEditor {
-		_ = c.Error(apperrors.NewForbiddenError("No permission to update knowledge base"))
+		_ = c.Error(errors.NewForbiddenError("No permission to update knowledge base"))
 		return
 	}
 	limitJSONBody(c, knowledgeBaseJSONMaxBytes)
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		if isRequestBodyTooLarge(err) {
-			_ = c.Error(apperrors.NewBadRequestError("request body is too large"))
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
 			return
 		}
-		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	var patch PatchKnowledgeBaseRequest
 	if err := json.Unmarshal(body, &patch); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	var sections map[string]json.RawMessage
 	if err := json.Unmarshal(body, &sections); err != nil {
-		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	update, err := applyKnowledgeBasePatch(currentKB, patch, sections)
@@ -1322,12 +1319,12 @@ func (h *KnowledgeBaseHandler) PatchKnowledgeBase(c *gin.Context) {
 	}
 	kb, err := h.service.UpdateKnowledgeBase(ctx, id, update.Name, update.Description, update.Config, update.VLM)
 	if err != nil {
-		if appErr, ok := apperrors.IsAppError(err); ok {
+		if appErr, ok := errors.IsAppError(err); ok {
 			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -1360,11 +1357,11 @@ func (h *KnowledgeBaseHandler) GenerateKnowledgeBaseProfile(c *gin.Context) {
 		return
 	}
 	if permission != types.OrgRoleAdmin && permission != types.OrgRoleEditor {
-		_ = c.Error(apperrors.NewForbiddenError("No permission to update knowledge base"))
+		_ = c.Error(errors.NewForbiddenError("No permission to update knowledge base"))
 		return
 	}
 	if h.profileService == nil {
-		_ = c.Error(apperrors.NewInternalServerError("knowledge base profile service unavailable"))
+		_ = c.Error(errors.NewInternalServerError("knowledge base profile service unavailable"))
 		return
 	}
 	genCtx, cancel := context.WithTimeout(ctx, knowledgeBaseProfileRequestTimeout)
@@ -1375,9 +1372,9 @@ func (h *KnowledgeBaseHandler) GenerateKnowledgeBaseProfile(c *gin.Context) {
 		switch {
 		case stderrors.Is(err, types.ErrKnowledgeBaseProfileUnsupported),
 			stderrors.Is(err, types.ErrKnowledgeBaseProfileModelNotConfigured):
-			_ = c.Error(apperrors.NewBadRequestError(err.Error()))
+			_ = c.Error(errors.NewBadRequestError(err.Error()))
 		default:
-			_ = c.Error(apperrors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 		}
 		return
 	}
@@ -1412,35 +1409,36 @@ func (h *KnowledgeBaseHandler) DeleteKnowledgeBase(c *gin.Context) {
 	// Validate and get the knowledge base
 	kb, id, _, permission, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	// Only owner (admin with matching tenant) can delete knowledge base
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if callerTenantID == 0 || kb.TenantID != callerTenantID || permission != types.OrgRoleAdmin {
-		c.Error(apperrors.NewForbiddenError("Only knowledge base owner can delete"))
+		_ = c.Error(errors.NewForbiddenError("Only knowledge base owner can delete"))
 		return
 	}
 
 	logger.Infof(ctx, "Deleting knowledge base, ID: %s, name: %s",
-		secutils.SanitizeForLog(id), secutils.SanitizeForLog(kb.Name))
+		utils.SanitizeForLog(id), utils.SanitizeForLog(kb.Name))
 
 	// Delete the knowledge base
 	if err := h.service.DeleteKnowledgeBase(ctx, id); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	logger.Infof(ctx, "Knowledge base deleted successfully, ID: %s",
-		secutils.SanitizeForLog(id))
+		utils.SanitizeForLog(id))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Knowledge base deleted successfully",
 	})
 }
 
+// CopyKnowledgeBaseRequest defines the request payload for copying a knowledge base.
 type CopyKnowledgeBaseRequest struct {
 	TaskID string `json:"task_id"`
 	// Source knowledge base ID; the assistant always copies to a new knowledge base.
@@ -1456,6 +1454,7 @@ type CopyKnowledgeBaseResponse struct {
 	Message  string `json:"message" extensions:"x-agent"`
 }
 
+// DuplicateKnowledgeBaseResponse defines the response payload for duplicating a knowledge base.
 type DuplicateKnowledgeBaseResponse struct {
 	SourceID      string      `json:"source_id"`
 	TargetID      string      `json:"target_id"`
@@ -1484,7 +1483,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	var req CopyKnowledgeBaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -1496,7 +1495,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	tenantID := caller.TenantID
 	sourceGrant, err := resolveHandlerKBAccessFor(c, req.SourceID, h.service, nil, nil, types.OrgRoleViewer)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	sourceKB := sourceGrant.KnowledgeBase
@@ -1525,7 +1524,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 		}
 		targetKB = targetGrant.KnowledgeBase
 		if targetKB.TenantID != caller.TenantID {
-			c.Error(errors.NewForbiddenError("No permission to copy to this knowledge base"))
+			_ = c.Error(errors.NewForbiddenError("No permission to copy to this knowledge base"))
 			return
 		}
 		if err := middleware.EvaluateOwnershipOrRole(c.Request.Context(),
@@ -1574,7 +1573,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to marshal KB clone payload: %v", err)
-		c.Error(apperrors.NewInternalServerError("Failed to create task"))
+		_ = c.Error(errors.NewInternalServerError("Failed to create task"))
 		return
 	}
 
@@ -1585,12 +1584,12 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	info, err := h.asynqClient.Enqueue(task)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to enqueue KB clone task: %v", err)
-		c.Error(apperrors.NewInternalServerError("Failed to enqueue task"))
+		_ = c.Error(errors.NewInternalServerError("Failed to enqueue task"))
 		return
 	}
 
 	logger.Infof(ctx, "KB clone task enqueued: %s, asynq task ID: %s, source: %s, target: %s",
-		taskID, info.ID, secutils.SanitizeForLog(req.SourceID), secutils.SanitizeForLog(req.TargetID))
+		taskID, info.ID, utils.SanitizeForLog(req.SourceID), utils.SanitizeForLog(req.TargetID))
 
 	// Save initial progress to Redis so frontend can query immediately
 	initialProgress := &types.KBCloneProgress{
@@ -1638,54 +1637,58 @@ func (h *KnowledgeBaseHandler) DuplicateKnowledgeBase(c *gin.Context) {
 	ctx := c.Request.Context()
 	sourceID := c.Param("id")
 	if sourceID == "" {
-		c.Error(apperrors.NewBadRequestError("Knowledge base ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Knowledge base ID cannot be empty"))
 		return
 	}
 
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if callerTenantID == 0 {
-		c.Error(apperrors.NewUnauthorizedError("Unauthorized"))
+		_ = c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
 	if err := requireTenantAPIKeyKnowledgeBase(ctx, sourceID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	sourceKB, err := h.service.GetKnowledgeBaseByID(ctx, sourceID)
 	if err != nil {
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("Source knowledge base not found"))
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
+			_ = c.Error(errors.NewNotFoundError("Source knowledge base not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	if sourceKB.TenantID != callerTenantID {
-		logger.Warnf(ctx,
-			"Knowledge base duplicate rejected: source belongs to another tenant, source_id: %s, caller_tenant: %d, kb_tenant: %d",
-			secutils.SanitizeForLog(sourceID), callerTenantID, sourceKB.TenantID)
-		c.Error(errors.NewForbiddenError("No permission to duplicate this knowledge base"))
+		logger.Warnf(
+			ctx,
+			"Knowledge base duplicate rejected: cross-tenant source_id=%s caller_tenant=%d kb_tenant=%d",
+			utils.SanitizeForLog(sourceID),
+			callerTenantID,
+			sourceKB.TenantID,
+		)
+		_ = c.Error(errors.NewForbiddenError("No permission to duplicate this knowledge base"))
 		return
 	}
 
 	targetKB, err := h.service.DuplicateKnowledgeBase(ctx, sourceID)
 	if err != nil {
-		if appErr, ok := apperrors.IsAppError(err); ok {
-			c.Error(appErr)
+		if appErr, ok := errors.IsAppError(err); ok {
+			_ = c.Error(appErr)
 			return
 		}
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("Source knowledge base not found"))
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
+			_ = c.Error(errors.NewNotFoundError("Source knowledge base not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	logger.Infof(ctx, "Knowledge base duplicate created, source: %s, target: %s",
-		secutils.SanitizeForLog(sourceID), secutils.SanitizeForLog(targetKB.ID))
+		utils.SanitizeForLog(sourceID), utils.SanitizeForLog(targetKB.ID))
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"data": DuplicateKnowledgeBaseResponse{
@@ -1718,18 +1721,18 @@ func (h *KnowledgeBaseHandler) GetKBCloneProgress(c *gin.Context) {
 	taskID := c.Param("task_id")
 	if taskID == "" {
 		logger.Error(ctx, "Task ID is empty")
-		c.Error(apperrors.NewBadRequestError("Task ID cannot be empty"))
+		_ = c.Error(errors.NewBadRequestError("Task ID cannot be empty"))
 		return
 	}
 	if err := requireTaskProgressTenant(ctx, taskID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	progress, err := h.knowledgeService.GetKBCloneProgress(ctx, taskID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -1750,55 +1753,55 @@ func validateExtractConfig(config *types.ExtractConfig) error {
 	}
 	// Validate text field
 	if config.Text == "" {
-		return apperrors.NewBadRequestError("text cannot be empty")
+		return errors.NewBadRequestError("text cannot be empty")
 	}
 
 	// Validate tags field
 	if len(config.Tags) == 0 {
-		return apperrors.NewBadRequestError("tags cannot be empty")
+		return errors.NewBadRequestError("tags cannot be empty")
 	}
 	for i, tag := range config.Tags {
 		if tag == "" {
-			return apperrors.NewBadRequestError("tag cannot be empty at index " + strconv.Itoa(i))
+			return errors.NewBadRequestError("tag cannot be empty at index " + strconv.Itoa(i))
 		}
 	}
 
 	// Validate nodes
 	if len(config.Nodes) == 0 {
-		return apperrors.NewBadRequestError("nodes cannot be empty")
+		return errors.NewBadRequestError("nodes cannot be empty")
 	}
 	nodeNames := make(map[string]bool)
 	for i, node := range config.Nodes {
 		if node.Name == "" {
-			return apperrors.NewBadRequestError("node name cannot be empty at index " + strconv.Itoa(i))
+			return errors.NewBadRequestError("node name cannot be empty at index " + strconv.Itoa(i))
 		}
 		// Check for duplicate node names
 		if nodeNames[node.Name] {
-			return apperrors.NewBadRequestError("duplicate node name: " + node.Name)
+			return errors.NewBadRequestError("duplicate node name: " + node.Name)
 		}
 		nodeNames[node.Name] = true
 	}
 
 	if len(config.Relations) == 0 {
-		return apperrors.NewBadRequestError("relations cannot be empty")
+		return errors.NewBadRequestError("relations cannot be empty")
 	}
 	// Validate relations
 	for i, relation := range config.Relations {
 		if relation.Node1 == "" {
-			return apperrors.NewBadRequestError("relation node1 cannot be empty at index " + strconv.Itoa(i))
+			return errors.NewBadRequestError("relation node1 cannot be empty at index " + strconv.Itoa(i))
 		}
 		if relation.Node2 == "" {
-			return apperrors.NewBadRequestError("relation node2 cannot be empty at index " + strconv.Itoa(i))
+			return errors.NewBadRequestError("relation node2 cannot be empty at index " + strconv.Itoa(i))
 		}
 		if relation.Type == "" {
-			return apperrors.NewBadRequestError("relation type cannot be empty at index " + strconv.Itoa(i))
+			return errors.NewBadRequestError("relation type cannot be empty at index " + strconv.Itoa(i))
 		}
 		// Check if referenced nodes exist
 		if !nodeNames[relation.Node1] {
-			return apperrors.NewBadRequestError("relation references non-existent node1: " + relation.Node1)
+			return errors.NewBadRequestError("relation references non-existent node1: " + relation.Node1)
 		}
 		if !nodeNames[relation.Node2] {
-			return apperrors.NewBadRequestError("relation references non-existent node2: " + relation.Node2)
+			return errors.NewBadRequestError("relation references non-existent node2: " + relation.Node2)
 		}
 	}
 
@@ -1807,7 +1810,7 @@ func validateExtractConfig(config *types.ExtractConfig) error {
 
 func validateKnowledgeBasePromptInstructions(kb *types.KnowledgeBase) error {
 	if err := types.ValidateKnowledgeBasePromptInstructions(kb); err != nil {
-		return apperrors.NewBadRequestError(err.Error())
+		return errors.NewBadRequestError(err.Error())
 	}
 	return nil
 }
@@ -1836,39 +1839,39 @@ func (h *KnowledgeBaseHandler) ListMoveTargets(c *gin.Context) {
 
 	sourceKBID := c.Param("id")
 	if sourceKBID == "" {
-		c.Error(apperrors.NewBadRequestError("Knowledge base ID is required"))
+		_ = c.Error(errors.NewBadRequestError("Knowledge base ID is required"))
 		return
 	}
 
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if callerTenantID == 0 {
-		c.Error(apperrors.NewUnauthorizedError("Unauthorized"))
+		_ = c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
 	if err := requireTenantAPIKeyKnowledgeBase(ctx, sourceKBID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	// Get source knowledge base
 	sourceKB, err := h.service.GetKnowledgeBaseByID(ctx, sourceKBID)
 	if err != nil {
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("Source knowledge base not found"))
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
+			_ = c.Error(errors.NewNotFoundError("Source knowledge base not found"))
 			return
 		}
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	if sourceKB.TenantID != callerTenantID {
-		c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
+		_ = c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
 		return
 	}
 
 	// Get all knowledge bases
 	allKBs, err := h.service.ListKnowledgeBases(ctx)
 	if err != nil {
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	allKBs = filterKnowledgeBasesForAPIKeyScope(ctx, allKBs)
@@ -1918,16 +1921,15 @@ func (h *KnowledgeBaseHandler) GetImageAttrsSchema(c *gin.Context) {
 	})
 }
 
-// GetImagePipelines returns every registered image pipeline in the shape the
-// settings panel renders: id, name, and the fields each one owns. The panel
-// reads this instead of carrying a list of its own, so adding a pipeline is a
-// backend-only change — its fields arrive here already described, and no UI code
-// mentions the pipeline by name.
-//
-// The fields of two pipelines are deliberately allowed to share a key. Each is
-// private to the pipeline that declared it, which is why the knowledge base
-// stores them under that pipeline's own group rather than in one flat map.
-// Read-only, and global rather than per-KB, so only the Viewer role is required.
+// GetImagePipelines godoc
+// @Summary      获取图片处理流水线列表
+// @Description  返回所有已注册的图片处理流水线及其配置字段元数据。全局只读，不绑定知识库。
+// @Tags         知识库
+// @Produce      json
+// @Success      200  {object}  handler.DataResponse
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /image-pipelines [get]
 func (h *KnowledgeBaseHandler) GetImagePipelines(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -1935,28 +1937,28 @@ func (h *KnowledgeBaseHandler) GetImagePipelines(c *gin.Context) {
 	})
 }
 
-// ValidateImagePipelines answers the settings panel's question — could what is
-// on screen be saved? — without saving anything. The panel asks as the user
-// types so the warnings arrive before the save rather than as a rejection after
-// it; the save path asks again on its own, so this endpoint is the polite half
-// of one check, not the whole of it.
-//
-// Nothing is judged here. The rules come from the pipeline being validated, the
-// same ones ListImagePipelines publishes, so a pipeline whose actions are not
-// the user's to switch off declares none and is never told that it is wrong.
-// Every broken rule is reported, each with the i18n key of its own wording and
-// the name of the field that is at fault: the panel translates and points, as
-// it does for the strings already on it.
+// ValidateImagePipelinesRequest is the payload accepted by POST /image-pipelines/validate.
+type ValidateImagePipelinesRequest struct {
+	PipelineID types.ImagePipelineID `json:"pipeline_id"`
+	Params     map[string]any        `json:"params"`
+}
+
+// ValidateImagePipelines godoc
+// @Summary      校验图片处理流水线参数
+// @Description  根据指定流水线的规则校验参数组合是否合法，不持久化任何配置。
+// @Tags         知识库
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.ValidateImagePipelinesRequest  true  "流水线与参数"
+// @Success      200      {object}  handler.DataResponse
+// @Failure      400      {object}  errors.AppError
+// @Security     Bearer
+// @Security     ApiKeyAuth
+// @Router       /image-pipelines/validate [post]
 func (h *KnowledgeBaseHandler) ValidateImagePipelines(c *gin.Context) {
-	var request struct {
-		PipelineID types.ImagePipelineID `json:"pipeline_id"`
-		Params     map[string]any        `json:"params"`
-	}
+	var request ValidateImagePipelinesRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "invalid request body",
-		})
+		_ = c.Error(errors.NewBadRequestError("invalid request body"))
 		return
 	}
 

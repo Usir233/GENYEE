@@ -27,8 +27,8 @@ func TestQuestionModelConfigPreservesOmittedAndClearsExplicit(t *testing.T) {
 	previous := &types.QuestionGenerationConfig{ModelID: "questions"}
 	h := &InitializationHandler{}
 	for _, tt := range []struct{ body, want string }{
-		{`{"questionGeneration":{"enabled":true,"questionCount":5}}`, "questions"},
-		{`{"questionGeneration":{"enabled":true,"modelId":""}}`, ""},
+		{`{"question_generation":{"enabled":true,"question_count":5}}`, "questions"},
+		{`{"question_generation":{"enabled":true,"model_id":""}}`, ""},
 	} {
 		var req KBModelConfigRequest
 		require.NoError(t, json.Unmarshal([]byte(tt.body), &req))
@@ -74,8 +74,8 @@ func TestQuestionModelConfigResponseRoundTrip(t *testing.T) {
 	}}
 	h := &InitializationHandler{}
 	response := h.buildConfigResponse(context.Background(), nil, kb, false)
-	question := response["questionGeneration"].(map[string]interface{})
-	require.Equal(t, "questions", question["modelId"])
+	question := response["question_generation"].(map[string]interface{})
+	require.Equal(t, "questions", question["model_id"])
 	require.Equal(t, "summary", kb.SummaryModelID)
 	raw, err := kb.QuestionGenerationConfig.Value()
 	require.NoError(t, err)

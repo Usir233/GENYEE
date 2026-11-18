@@ -6,7 +6,7 @@ type KnowledgeProcessOverrides struct {
 	SummaryEnabled           *bool                     `json:"summary_enabled,omitempty"`
 	ParserEngineRules        []ParserEngineRule        `json:"parser_engine_rules,omitempty"`
 	ChunkingConfig           *ChunkingConfig           `json:"chunking_config,omitempty"`
-	EnableMultimodel         *bool                     `json:"enable_multimodel,omitempty"`
+	EnableMultimodal         *bool                     `json:"enable_multimodal,omitempty"`
 	VLMConfig                *VLMConfig                `json:"vlm_config,omitempty"`
 	ASRConfig                *ASRConfig                `json:"asr_config,omitempty"`
 	QuestionGenerationConfig *QuestionGenerationConfig `json:"question_generation_config,omitempty"`
@@ -41,7 +41,7 @@ type KnowledgeProcessOverrides struct {
 type EffectiveProcessConfig struct {
 	SummaryEnabled           bool
 	ChunkingConfig           ChunkingConfig
-	EnableMultimodel         bool
+	EnableMultimodal         bool
 	VLMConfig                VLMConfig
 	ASRConfig                ASRConfig
 	QuestionGenerationConfig QuestionGenerationConfig

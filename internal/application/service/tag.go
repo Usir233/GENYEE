@@ -512,3 +512,10 @@ func (s *knowledgeTagService) FindOrCreateTagByName(ctx context.Context, kbID st
 	// 创建新标签
 	return s.CreateTag(ctx, kbID, name, "", 0)
 }
+
+// GetTagBySeqID retrieves a tag by its seq_id scoped to a tenant.
+func (s *knowledgeTagService) GetTagBySeqID(
+	ctx context.Context, tenantID uint64, seqID int64,
+) (*types.KnowledgeTag, error) {
+	return s.repo.GetBySeqID(ctx, tenantID, seqID)
+}

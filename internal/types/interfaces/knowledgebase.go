@@ -150,6 +150,10 @@ type KnowledgeBaseService interface {
 	// of its image_info) from the storage of its knowledge base. The result
 	// must come from a search the caller was authorized to run.
 	ReadChunkImage(ctx context.Context, result *types.SearchResult) ([]byte, error)
+
+	// SaveInitializedKnowledgeBaseConfig encrypts storage and VLM secrets at rest
+	// with the configured AES-GCM key and persists the updated knowledge base row.
+	SaveInitializedKnowledgeBaseConfig(ctx context.Context, kb *types.KnowledgeBase) error
 }
 
 // KnowledgeBaseRepository defines the knowledge base repository interface

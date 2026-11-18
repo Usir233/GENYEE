@@ -33,9 +33,9 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			require.True(t, kb.QuestionGenerationConfig.Enabled)
 			require.Equal(t, 7, kb.QuestionGenerationConfig.QuestionCount)
 		}},
-		{"nested partial", `,"documentSplitting":{"chunkSize":1024},"vlm_config":{"description_language":"fr"}` +
-			`,"asr_config":{"language":"fr"},"nodeExtract":{"customInstructions":" updated "}` +
-			`,"questionGeneration":{"customInstructions":" updated "}`, func(t *testing.T, kb *types.KnowledgeBase) {
+		{"nested partial", `,"document_splitting":{"chunk_size":1024},"vlm_config":{"description_language":"fr"}` +
+			`,"asr_config":{"language":"fr"},"node_extract":{"custom_instructions":" updated "}` +
+			`,"question_generation":{"custom_instructions":" updated "}`, func(t *testing.T, kb *types.KnowledgeBase) {
 			require.Equal(t, 1024, kb.ChunkingConfig.ChunkSize)
 			require.Equal(t, 80, kb.ChunkingConfig.ChunkOverlap)
 			require.True(t, kb.ChunkingConfig.EnableParentChild)
@@ -50,11 +50,11 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			require.Equal(t, 7, kb.QuestionGenerationConfig.QuestionCount)
 			require.Equal(t, "updated", kb.QuestionGenerationConfig.CustomInstructions)
 		}},
-		{"explicit clear", `,"documentSplitting":{"chunkOverlap":0,"parserEngineRules":[]` +
-			`,"enableParentChild":false,"strategy":"","tokenLimit":0,"languages":[]}` +
+		{"explicit clear", `,"document_splitting":{"chunk_overlap":0,"parser_engine_rules":[]` +
+			`,"enable_parent_child":false,"strategy":"","token_limit":0,"languages":[]}` +
 			`,"multimodal":{"enabled":false},"asr_config":{"enabled":false}` +
-			`,"nodeExtract":{"enabled":false},"questionGeneration":{"enabled":false` +
-			`,"questionCount":0,"customInstructions":""}`, func(t *testing.T, kb *types.KnowledgeBase) {
+			`,"node_extract":{"enabled":false},"question_generation":{"enabled":false` +
+			`,"question_count":0,"custom_instructions":""}`, func(t *testing.T, kb *types.KnowledgeBase) {
 			require.Zero(t, kb.ChunkingConfig.ChunkOverlap)
 			require.Empty(t, kb.ChunkingConfig.ParserEngineRules)
 			require.False(t, kb.ChunkingConfig.EnableParentChild)
@@ -70,17 +70,21 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			require.Empty(t, kb.QuestionGenerationConfig.CustomInstructions)
 		}},
 		{
-			"enable preserves count", `,"questionGeneration":{"enabled":true}`,
+			"enable preserves count", `,"question_generation":{"enabled":true}`,
 			func(t *testing.T, kb *types.KnowledgeBase) {
 				require.Equal(t, 7, kb.QuestionGenerationConfig.QuestionCount)
 			},
 		},
-		{"first enable default", `,"questionGeneration":{"enabled":true}`, func(t *testing.T, kb *types.KnowledgeBase) {
-			require.True(t, kb.QuestionGenerationConfig.Enabled)
-			require.Equal(t, 3, kb.QuestionGenerationConfig.QuestionCount)
-		}},
-		{"empty sections", `,"documentSplitting":{},"vlm_config":{},"asr_config":{},"nodeExtract":{}` +
-			`,"questionGeneration":{}`, func(t *testing.T, kb *types.KnowledgeBase) {
+		{
+			"first enable default",
+			`,"question_generation":{"enabled":true}`,
+			func(t *testing.T, kb *types.KnowledgeBase) {
+				require.True(t, kb.QuestionGenerationConfig.Enabled)
+				require.Equal(t, 3, kb.QuestionGenerationConfig.QuestionCount)
+			},
+		},
+		{"empty sections", `,"document_splitting":{},"vlm_config":{},"asr_config":{},"node_extract":{}` +
+			`,"question_generation":{}`, func(t *testing.T, kb *types.KnowledgeBase) {
 			require.True(t, kb.VLMConfig.IsEnabled())
 			require.True(t, kb.ASRConfig.IsASREnabled())
 			require.Equal(t, 80, kb.ChunkingConfig.ChunkOverlap)
@@ -89,7 +93,7 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			require.Equal(t, 7, kb.QuestionGenerationConfig.QuestionCount)
 		}},
 		{
-			"zero count stays zero", `,"questionGeneration":{"customInstructions":"updated"}`,
+			"zero count stays zero", `,"question_generation":{"custom_instructions":"updated"}`,
 			func(t *testing.T, kb *types.KnowledgeBase) {
 				require.Zero(t, kb.QuestionGenerationConfig.QuestionCount)
 			},
@@ -126,9 +130,9 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			if tc.name == "first enable default" {
 				kb.QuestionGenerationConfig = nil
 			}
-			repo := &stubInitializationKBRepo{}
+			kbSvc := &stubInitializationKBService{kb: kb}
 			h := &InitializationHandler{
-				kbService: &stubInitializationKBService{kb: kb}, kbRepository: repo,
+				kbService: kbSvc,
 				modelService: &stubTenantStampModelService{
 					getModelByID: func(context.Context, string) (*types.Model, error) {
 						return &types.Model{ID: "model"}, nil
@@ -137,8 +141,8 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			}
 			gin.SetMode(gin.TestMode)
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Params = gin.Params{{Key: "kbId", Value: "kb"}}
-			body := `{"llmModelId":"chat","embeddingModelId":"embedding"` + tc.fields + `}`
+			c.Params = gin.Params{{Key: "kb_id", Value: "kb"}}
+			body := `{"llm_model_id":"chat","embedding_model_id":"embedding"` + tc.fields + `}`
 			c.Request = httptest.NewRequest(http.MethodPut, "/", strings.NewReader(body))
 			c.Request.Header.Set("Content-Type", "application/json")
 			// A shared admin can update settings while leaving owner storage alone.
@@ -150,8 +154,8 @@ func TestUpdateKBConfigPartial(t *testing.T) {
 			})
 			h.UpdateKBConfig(c)
 			require.Empty(t, c.Errors)
-			require.NotNil(t, repo.updated)
-			tc.check(t, repo.updated)
+			require.NotNil(t, kbSvc.updated)
+			tc.check(t, kbSvc.updated)
 		})
 	}
 }

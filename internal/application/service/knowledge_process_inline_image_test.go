@@ -386,7 +386,7 @@ func TestProcessDocumentEnqueuesOnlyInlineImagesWithinEachSyntaxBudget(t *testin
 	payload := types.DocumentProcessPayload{
 		TenantID: 1, KnowledgeID: knowledge.ID, KnowledgeBaseID: "kb-1",
 		FilePath: "input.md", FileName: "input.md", FileType: "md", Attempt: 1,
-		EnableMultimodel: true,
+		EnableMultimodal: true,
 	}
 
 	err := svc.ProcessDocument(context.Background(), asynq.NewTask(
@@ -573,7 +573,7 @@ func TestProcessDocumentInlineImageTasksCompleteKnowledge(t *testing.T) {
 	payload := types.DocumentProcessPayload{
 		TenantID: 1, KnowledgeID: knowledgeID, KnowledgeBaseID: kb.ID,
 		FilePath: "input.md", FileName: "input.md", FileType: "md", Attempt: 1,
-		EnableMultimodel: true,
+		EnableMultimodal: true,
 	}
 
 	require.NoError(t, processService.ProcessDocument(context.Background(), asynq.NewTask(
@@ -954,7 +954,7 @@ func TestProcessDocumentIconOnlyContentCompletesEmptyBody(t *testing.T) {
 			}
 			payload := types.DocumentProcessPayload{
 				TenantID: 1, KnowledgeID: knowledge.ID, KnowledgeBaseID: kb.ID,
-				FilePath: "input.md", FileName: "input.md", FileType: "md", Attempt: 1, EnableMultimodel: true,
+				FilePath: "input.md", FileName: "input.md", FileType: "md", Attempt: 1, EnableMultimodal: true,
 			}
 			err := svc.ProcessDocument(context.Background(), asynq.NewTask(
 				types.TypeDocumentProcess, mustMarshalDocumentPayload(t, payload)))

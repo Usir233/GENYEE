@@ -142,7 +142,7 @@ func TestImagePipelineValidationMatchesExecution(t *testing.T) {
 			t.Run(string(id)+"/"+tc.name, func(t *testing.T) {
 				enabled := true
 				overrides := &types.KnowledgeProcessOverrides{
-					EnableMultimodel: &enabled, ImagePipelineID: &id,
+					EnableMultimodal: &enabled, ImagePipelineID: &id,
 					ImagePipelineParams: tc.params,
 				}
 				validationErr := ValidateProcessOverrides(

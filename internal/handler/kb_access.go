@@ -4,7 +4,6 @@ import (
 	stderrors "errors"
 
 	"github.com/Usir233/GENYEE/internal/application/access"
-	"github.com/Usir233/GENYEE/internal/application/repository"
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/middleware"
@@ -50,7 +49,7 @@ func resolveHandlerKBAccessFor(c *gin.Context, kbID string, kbService middleware
 	}
 	kb, err := kbService.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
-		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
+		if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
 			return nil, apperrors.NewNotFoundError("knowledge base not found")
 		}
 		logger.ErrorWithFields(ctx, err, nil)

@@ -145,6 +145,13 @@ func (s *chunkService) GetChunkByIDOnly(ctx context.Context, id string) (*types.
 	return chunk, nil
 }
 
+// ListChunksBySeqID lists chunks by seq_ids scoped to a tenant.
+func (s *chunkService) ListChunksBySeqID(
+	ctx context.Context, tenantID uint64, seqIDs []int64,
+) ([]*types.Chunk, error) {
+	return s.chunkRepository.ListChunksBySeqID(ctx, tenantID, seqIDs)
+}
+
 // ListChunksByKnowledgeID lists all chunks for a knowledge ID
 // This method retrieves all chunks belonging to a specific knowledge document
 // Parameters:

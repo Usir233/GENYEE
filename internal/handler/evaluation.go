@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -67,7 +66,7 @@ type EvaluationRequest struct {
 // @Failure      400      {object}  errors.AppError         "请求参数错误"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /evaluation/ [post]
+// @Router       /evaluation [post]
 func (e *EvaluationHandler) Evaluation(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -77,11 +76,11 @@ func (e *EvaluationHandler) Evaluation(c *gin.Context) {
 	var request EvaluationRequest
 	if err := c.ShouldBind(&request); err != nil {
 		if isRequestBodyTooLarge(err) {
-			c.Error(newRequestEntityTooLargeError("request body is too large"))
+			_ = c.Error(newRequestEntityTooLargeError("request body is too large"))
 			return
 		}
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -90,32 +89,32 @@ func (e *EvaluationHandler) Evaluation(c *gin.Context) {
 	ctx, tenantID, ok = resolveEvaluationTenant(c)
 	if !ok {
 		logger.Error(ctx, "Failed to get tenant ID")
-		c.Error(errors.NewUnauthorizedError("Unauthorized"))
+		_ = c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
 
 	kbID := strings.TrimSpace(secutils.SanitizeForLog(request.KnowledgeBaseID))
 	if err := requireTenantAPIKeyKnowledgeBase(ctx, kbID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	if kbID != "" && e.kbService != nil {
 		kb, err := e.kbService.GetKnowledgeBaseByID(ctx, kbID)
 		if err != nil {
-			if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-				c.Error(errors.NewNotFoundError("Knowledge base not found"))
+			if stderrors.Is(err, types.ErrKnowledgeBaseNotFound) {
+				_ = c.Error(errors.NewNotFoundError("Knowledge base not found"))
 				return
 			}
 			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError(err.Error()))
+			_ = c.Error(errors.NewInternalServerError(err.Error()))
 			return
 		}
 		if kb == nil {
-			c.Error(errors.NewNotFoundError("Knowledge base not found"))
+			_ = c.Error(errors.NewNotFoundError("Knowledge base not found"))
 			return
 		}
 		if kb.TenantID != tenantID {
-			c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
+			_ = c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
 			return
 		}
 	}
@@ -136,11 +135,11 @@ func (e *EvaluationHandler) Evaluation(c *gin.Context) {
 	)
 	if err != nil {
 		if appErr, ok := errors.IsAppError(err); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -167,7 +166,7 @@ type GetEvaluationRequest struct {
 // @Failure      400      {object}  errors.AppError         "请求参数错误"
 // @Security     Bearer
 // @Security     ApiKeyAuth
-// @Router       /evaluation/ [get]
+// @Router       /evaluation [get]
 func (e *EvaluationHandler) GetEvaluationResult(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -176,35 +175,35 @@ func (e *EvaluationHandler) GetEvaluationResult(c *gin.Context) {
 	var request GetEvaluationRequest
 	if err := c.ShouldBind(&request); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
 	var ok bool
 	ctx, _, ok = resolveEvaluationTenant(c)
 	if !ok {
-		c.Error(errors.NewUnauthorizedError("Unauthorized"))
+		_ = c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
 
 	taskID := strings.TrimSpace(secutils.SanitizeForLog(request.TaskID))
 	if err := requireTaskProgressTenant(ctx, taskID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	result, err := e.evaluationService.EvaluationResult(ctx, taskID)
 	if err != nil {
 		if appErr, ok := errors.IsAppError(err); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		if err.Error() == "task not found" || err.Error() == "tenant ID does not match" {
-			c.Error(errors.NewNotFoundError("task not found"))
+			_ = c.Error(errors.NewNotFoundError("task not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 

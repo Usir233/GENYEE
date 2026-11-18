@@ -44,7 +44,7 @@ func ResolveProcessConfig(kb *types.KnowledgeBase,
 	eff := types.EffectiveProcessConfig{
 		SummaryEnabled:           true,
 		ChunkingConfig:           kb.ChunkingConfig,
-		EnableMultimodel:         kb.IsMultimodalEnabled(),
+		EnableMultimodal:         kb.IsMultimodalEnabled(),
 		VLMConfig:                kb.VLMConfig,
 		ASRConfig:                kb.ASRConfig,
 		QuestionGenerationConfig: defaultQuestionGenerationConfig(kb),
@@ -69,8 +69,8 @@ func ResolveProcessConfig(kb *types.KnowledgeBase,
 	if len(overrides.ParserEngineRules) > 0 {
 		eff.ChunkingConfig.ParserEngineRules = overrides.ParserEngineRules
 	}
-	if overrides.EnableMultimodel != nil {
-		eff.EnableMultimodel = *overrides.EnableMultimodel
+	if overrides.EnableMultimodal != nil {
+		eff.EnableMultimodal = *overrides.EnableMultimodal
 	}
 	if overrides.VLMConfig != nil {
 		base := eff.VLMConfig
@@ -179,15 +179,15 @@ func resolveFileImportProcessConfig(
 	kb *types.KnowledgeBase,
 	fileType string,
 	processOverrides *types.KnowledgeProcessOverrides,
-	enableMultimodel *bool,
+	enableMultimodal *bool,
 ) (types.EffectiveProcessConfig, error) {
 	if err := validateImportFileType(fileType); err != nil {
 		return types.EffectiveProcessConfig{}, err
 	}
 
 	eff := ResolveProcessConfig(kb, processOverrides)
-	if enableMultimodel != nil && (processOverrides == nil || processOverrides.EnableMultimodel == nil) {
-		eff.EnableMultimodel = *enableMultimodel
+	if enableMultimodal != nil && (processOverrides == nil || processOverrides.EnableMultimodal == nil) {
+		eff.EnableMultimodal = *enableMultimodal
 	}
 
 	if processOverrides != nil {
@@ -214,7 +214,7 @@ func ValidateProcessOverrides(
 	return validateEffectiveProcessOverrides(ResolveProcessConfig(kb, overrides), fileTypes)
 }
 
-// Validate the final config, including the legacy enableMultimodel argument
+// Validate the final config, including the legacy enableMultimodal argument
 // applied by upload and reparse callers, before persisting or enqueueing it.
 func validateEffectiveProcessOverrides(eff types.EffectiveProcessConfig, fileTypes []string) error {
 	hasImage := false
@@ -241,7 +241,7 @@ func validateEffectiveProcessOverrides(eff types.EffectiveProcessConfig, fileTyp
 	if err := types.ValidateEffectiveProcessPromptInstructions(eff); err != nil {
 		return werrors.NewBadRequestError(err.Error())
 	}
-	if eff.EnableMultimodel {
+	if eff.EnableMultimodal {
 		if err := ValidateImagePipelineParams(eff.ImagePipelineID, eff.ImagePipelineParams); err != nil {
 			return werrors.NewBadRequestError(err.Error())
 		}
@@ -258,11 +258,11 @@ func ApplyKnowledgeProcessOverrides(
 	knowledge *types.Knowledge,
 	processOverrides *types.KnowledgeProcessOverrides,
 	fileTypes []string,
-	enableMultimodel *bool,
+	enableMultimodal *bool,
 ) (types.EffectiveProcessConfig, error) {
 	eff := ResolveProcessConfig(kb, processOverrides)
-	if enableMultimodel != nil && (processOverrides == nil || processOverrides.EnableMultimodel == nil) {
-		eff.EnableMultimodel = *enableMultimodel
+	if enableMultimodal != nil && (processOverrides == nil || processOverrides.EnableMultimodal == nil) {
+		eff.EnableMultimodal = *enableMultimodal
 	}
 	if processOverrides == nil {
 		return eff, nil
