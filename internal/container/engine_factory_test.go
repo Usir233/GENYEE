@@ -82,7 +82,10 @@ func TestBuildWeaviateClientConfig_AllowsGRPCForEnvStoreAndRejectsEmptyExternalH
 		ID:         "store-tenant-empty-host",
 		EngineType: types.WeaviateRetrieverEngineType,
 	}); err == nil {
-		t.Fatal("expected empty host on external tenant store to be rejected rather than defaulting to internal weaviate:8080")
+		t.Fatal(
+			"expected empty host on external tenant store to be rejected " +
+				"rather than defaulting to internal weaviate:8080",
+		)
 	}
 }
 

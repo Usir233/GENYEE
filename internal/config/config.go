@@ -28,7 +28,6 @@ type Config struct {
 	Models          []ModelConfig          `yaml:"models"           json:"models"`
 	VectorDatabase  *VectorDatabaseConfig  `yaml:"vector_database"  json:"vector_database"`
 	DocReader       *DocReaderConfig       `yaml:"docreader"        json:"docreader"`
-	StreamManager   *StreamManagerConfig   `yaml:"stream_manager"   json:"stream_manager"`
 	ExtractManager  *ExtractManagerConfig  `yaml:"extract"          json:"extract"`
 	WebSearch       *WebSearchConfig       `yaml:"web_search"       json:"web_search"`
 	PromptTemplates *PromptTemplatesConfig `yaml:"prompt_templates" json:"prompt_templates"`
@@ -123,12 +122,14 @@ type IMConfig struct {
 
 // DocReaderConfig configures the document parser client (gRPC or HTTP).
 type DocReaderConfig struct {
-	// Addr: for gRPC it is the server address (e.g. "localhost:50051"); for HTTP it is the base URL (e.g. "http://localhost:8080").
+	// Addr is the gRPC server address (e.g. "localhost:50051") or HTTP base URL
+	// (e.g. "http://localhost:8080").
 	Addr string `yaml:"addr" json:"addr"`
 	// Transport: "grpc" (default) or "http"
 	Transport string `yaml:"transport" json:"transport"`
 }
 
+// VectorDatabaseConfig configures the default vector database driver.
 type VectorDatabaseConfig struct {
 	Driver string `yaml:"driver" json:"driver"`
 }
@@ -145,17 +146,16 @@ type ConversationConfig struct {
 	FallbackResponse     string         `yaml:"fallback_response"                json:"fallback_response"`
 	EnableRewrite        bool           `yaml:"enable_rewrite"                   json:"enable_rewrite"`
 	EnableQueryExpansion bool           `yaml:"enable_query_expansion"           json:"enable_query_expansion"`
-	EnableRerank         bool           `yaml:"enable_rerank"                    json:"enable_rerank"`
 	Summary              *SummaryConfig `yaml:"summary"                          json:"summary"`
 
 	// Prompt template ID fields — resolved to text by backfillConversationDefaults
-	FallbackPromptID             string `yaml:"fallback_prompt_id"                json:"fallback_prompt_id"`
-	RewritePromptID              string `yaml:"rewrite_prompt_id"                 json:"rewrite_prompt_id"`
-	GenerateSessionTitlePromptID string `yaml:"generate_session_title_prompt_id"  json:"generate_session_title_prompt_id"`
-	GenerateSummaryPromptID      string `yaml:"generate_summary_prompt_id"        json:"generate_summary_prompt_id"`
-	ExtractEntitiesPromptID      string `yaml:"extract_entities_prompt_id"        json:"extract_entities_prompt_id"`
-	ExtractRelationshipsPromptID string `yaml:"extract_relationships_prompt_id"   json:"extract_relationships_prompt_id"`
-	GenerateQuestionsPromptID    string `yaml:"generate_questions_prompt_id"      json:"generate_questions_prompt_id"`
+	FallbackPromptID             string `yaml:"fallback_prompt_id"               json:"fallback_prompt_id"`
+	RewritePromptID              string `yaml:"rewrite_prompt_id"                json:"rewrite_prompt_id"`
+	GenerateSessionTitlePromptID string `yaml:"generate_session_title_prompt_id" json:"generate_session_title_prompt_id"` //nolint:lll // one-line struct tag
+	GenerateSummaryPromptID      string `yaml:"generate_summary_prompt_id"       json:"generate_summary_prompt_id"`
+	ExtractEntitiesPromptID      string `yaml:"extract_entities_prompt_id"       json:"extract_entities_prompt_id"`
+	ExtractRelationshipsPromptID string `yaml:"extract_relationships_prompt_id"  json:"extract_relationships_prompt_id"` //nolint:lll // one-line struct tag
+	GenerateQuestionsPromptID    string `yaml:"generate_questions_prompt_id"     json:"generate_questions_prompt_id"`
 
 	// GenerateKBDescriptionPromptID selects the knowledge-base description template.
 	GenerateKBDescriptionPromptID string `yaml:"generate_kb_description_prompt_id" json:"generate_kb_description_prompt_id"` //nolint:lll // one-line struct tag
@@ -180,7 +180,8 @@ type ConversationConfig struct {
 
 // SummaryConfig 摘要配置
 type SummaryConfig struct {
-	MaxInputChars       int     `yaml:"max_input_chars"       json:"max_input_chars"` // Max input characters for summary generation (default: 16384)
+	// MaxInputChars bounds input characters for summary generation (default: 16384).
+	MaxInputChars       int     `yaml:"max_input_chars"       json:"max_input_chars"`
 	MaxTokens           int     `yaml:"max_tokens"            json:"max_tokens"`
 	RepeatPenalty       float64 `yaml:"repeat_penalty"        json:"repeat_penalty"`
 	TopK                int     `yaml:"top_k"                 json:"top_k"`
@@ -206,18 +207,14 @@ type SummaryConfig struct {
 type ServerConfig struct {
 	Port            int           `yaml:"port"             json:"port"`
 	Host            string        `yaml:"host"             json:"host"`
-	LogPath         string        `yaml:"log_path"         json:"log_path"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" json:"shutdown_timeout" default:"30s"`
 }
 
 // KnowledgeBaseConfig 知识库配置
 type KnowledgeBaseConfig struct {
-	ChunkSize              int                    `yaml:"chunk_size"       json:"chunk_size"`
-	ChunkOverlap           int                    `yaml:"chunk_overlap"    json:"chunk_overlap"`
-	SplitMarkers           []string               `yaml:"split_markers"    json:"split_markers"`
-	KeepSeparator          bool                   `yaml:"keep_separator"   json:"keep_separator"`
-	ImageProcessing        *ImageProcessingConfig `yaml:"image_processing" json:"image_processing"`
-	DocumentProcessTimeout time.Duration          `yaml:"document_process_timeout"  json:"document_process_timeout"`
+	ChunkSize              int           `yaml:"chunk_size"               json:"chunk_size"`
+	ChunkOverlap           int           `yaml:"chunk_overlap"            json:"chunk_overlap"`
+	DocumentProcessTimeout time.Duration `yaml:"document_process_timeout" json:"document_process_timeout"`
 	// DocReaderCallTimeout caps a single DocReader RPC. Without this the
 	// gRPC call inherits the asynq task context (whole DocumentProcessTimeout,
 	// default 2h+), so a hung docreader would block a worker for hours and
@@ -239,16 +236,8 @@ func DocumentProcessTimeout(cfg *Config) time.Duration {
 	return DefaultDocumentProcessTimeout
 }
 
-// ImageProcessingConfig 图像处理配置
-type ImageProcessingConfig struct {
-	EnableMultimodal bool `yaml:"enable_multimodal" json:"enable_multimodal"`
-}
-
 // TenantConfig 空间配置
 type TenantConfig struct {
-	DefaultSessionName        string `yaml:"default_session_name"        json:"default_session_name"`
-	DefaultSessionTitle       string `yaml:"default_session_title"       json:"default_session_title"`
-	DefaultSessionDescription string `yaml:"default_session_description" json:"default_session_description"`
 	// EnableCrossTenantAccess enables cross-tenant access for users with permission
 	EnableCrossTenantAccess bool `yaml:"enable_cross_tenant_access" json:"enable_cross_tenant_access"`
 	// EnableRBAC turns on tenant-level role enforcement (issue #1303).
@@ -278,7 +267,7 @@ type TenantConfig struct {
 	// SelfServiceCreationEnabled controls whether ordinary authenticated
 	// users may create a workspace for themselves. Nil preserves the
 	// historical default (enabled); cross-tenant superusers are exempt.
-	SelfServiceCreationEnabled *bool `yaml:"self_service_creation_enabled" json:"self_service_creation_enabled" mapstructure:"self_service_creation_enabled"`
+	SelfServiceCreationEnabled *bool `yaml:"self_service_creation_enabled" json:"self_service_creation_enabled" mapstructure:"self_service_creation_enabled"` //nolint:lll // one-line struct tag
 }
 
 // IsRBACEnforced reports whether tenant-level role enforcement is
@@ -351,11 +340,13 @@ func (c *AuthConfig) IsInviteOnly() bool {
 	return c.RegistrationMode == AuthRegistrationModeInviteOnly
 }
 
+// OIDCUserInfoMapping maps OIDC userinfo/ID-token claims onto GENYEE user fields.
 type OIDCUserInfoMapping struct {
 	Username string `yaml:"username" json:"username"`
 	Email    string `yaml:"email"    json:"email"`
 }
 
+// OIDCAuthConfig configures OpenID Connect single sign-on.
 type OIDCAuthConfig struct {
 	Enable                bool                 `yaml:"enable"                 json:"enable"`
 	PKCEEnabled           bool                 `yaml:"pkce_enabled"           json:"pkce_enabled"`
@@ -494,23 +485,6 @@ type ModelConfig struct {
 	Parameters map[string]interface{} `yaml:"parameters" json:"parameters"`
 }
 
-// StreamManagerConfig 流管理器配置
-type StreamManagerConfig struct {
-	Type           string        `yaml:"type"            json:"type"`            // 类型: "memory" 或 "redis"
-	Redis          RedisConfig   `yaml:"redis"           json:"redis"`           // Redis配置
-	CleanupTimeout time.Duration `yaml:"cleanup_timeout" json:"cleanup_timeout"` // 清理超时，单位秒
-}
-
-// RedisConfig Redis配置
-type RedisConfig struct {
-	Address  string        `yaml:"address"  json:"address"`  // Redis地址
-	Username string        `yaml:"username" json:"username"` // Redis用户名
-	Password string        `yaml:"password" json:"password"` // Redis密码
-	DB       int           `yaml:"db"       json:"db"`       // Redis数据库
-	Prefix   string        `yaml:"prefix"   json:"prefix"`   // 键前缀
-	TTL      time.Duration `yaml:"ttl"      json:"ttl"`      // 过期时间(小时)
-}
-
 // ExtractManagerConfig 抽取管理器配置
 type ExtractManagerConfig struct {
 	ExtractGraph  *types.PromptTemplateStructured `yaml:"extract_graph"  json:"extract_graph"`
@@ -518,6 +492,7 @@ type ExtractManagerConfig struct {
 	FabriText     *FebriText                      `yaml:"fabri_text"     json:"fabri_text"`
 }
 
+// FebriText holds prompt templates for synthetic text generation.
 type FebriText struct {
 	WithTag   string `yaml:"with_tag"    json:"with_tag"`
 	WithNoTag string `yaml:"with_no_tag" json:"with_no_tag"`
@@ -531,6 +506,8 @@ var resolvedConfigDir string
 // startup code (e.g. builtin model loader) uses this to locate sibling config
 // files like builtin_models.yaml without re-implementing viper search rules.
 // Falls back to "./config" when LoadConfig has not been called yet.
+//
+//nolint:revive // ConfigDir is referenced by external internal/application/service callers
 func ConfigDir() string {
 	if resolvedConfigDir != "" {
 		return resolvedConfigDir
@@ -541,15 +518,42 @@ func ConfigDir() string {
 	return "./config"
 }
 
+var envPlaceholderPattern = regexp.MustCompile(`\$\{([^}]+)\}`)
+
+// expandEnvPlaceholders expands ${VAR}, ${VAR:-default}, and ${VAR:default}
+// references in YAML text. Plain ${VAR} without a default is preserved verbatim
+// when VAR is unset or empty.
+func expandEnvPlaceholders(content string) string {
+	return envPlaceholderPattern.ReplaceAllStringFunc(content, func(match string) string {
+		expr := match[2 : len(match)-1]
+		if name, def, ok := strings.Cut(expr, ":-"); ok {
+			if value := os.Getenv(name); value != "" {
+				return value
+			}
+			return def
+		}
+		if name, def, ok := strings.Cut(expr, ":"); ok {
+			if value := os.Getenv(name); value != "" {
+				return value
+			}
+			return def
+		}
+		if value := os.Getenv(expr); value != "" {
+			return value
+		}
+		return match
+	})
+}
+
 // LoadConfig 从配置文件加载配置
 func LoadConfig() (*Config, error) {
 	// 设置配置文件名和路径
-	viper.SetConfigName("config")         // 配置文件名称(不带扩展名)
-	viper.SetConfigType("yaml")           // 配置文件类型
-	viper.AddConfigPath(".")              // 当前目录
-	viper.AddConfigPath("./config")       // config子目录
-	viper.AddConfigPath("$HOME/.appname") // 用户目录
-	viper.AddConfigPath("/etc/appname/")  // etc目录
+	viper.SetConfigName("config")        // 配置文件名称(不带扩展名)
+	viper.SetConfigType("yaml")          // 配置文件类型
+	viper.AddConfigPath(".")             // 当前目录
+	viper.AddConfigPath("./config")      // config子目录
+	viper.AddConfigPath("$HOME/.genyee") // 用户目录
+	viper.AddConfigPath("/etc/genyee/")  // etc目录
 
 	// 启用环境变量替换
 	viper.AutomaticEnv()
@@ -566,17 +570,7 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("error reading config file content: %w", err)
 	}
 
-	// 替换${ENV_VAR}格式的环境变量引用
-	re := regexp.MustCompile(`\${([^}]+)}`)
-	result := re.ReplaceAllStringFunc(string(configFileContent), func(match string) string {
-		// 提取环境变量名称（去掉${}部分）
-		envVar := match[2 : len(match)-1]
-		// 获取环境变量值，如果不存在则保持原样
-		if value := os.Getenv(envVar); value != "" {
-			return value
-		}
-		return match
-	})
+	result := expandEnvPlaceholders(string(configFileContent))
 
 	// 使用处理后的配置内容
 	if err := viper.ReadConfig(strings.NewReader(result)); err != nil {
@@ -678,8 +672,11 @@ func ValidateConfig(cfg *Config) error {
 			errs = append(errs, "oidc_auth.client_secret is required when OIDC is enabled")
 		}
 		if strings.TrimSpace(cfg.OIDCAuth.DiscoveryURL) == "" &&
-			(strings.TrimSpace(cfg.OIDCAuth.AuthorizationEndpoint) == "" || strings.TrimSpace(cfg.OIDCAuth.TokenEndpoint) == "") {
-			errs = append(errs, "oidc_auth.discovery_url or both oidc_auth.authorization_endpoint and oidc_auth.token_endpoint are required when OIDC is enabled")
+			(strings.TrimSpace(cfg.OIDCAuth.AuthorizationEndpoint) == "" ||
+				strings.TrimSpace(cfg.OIDCAuth.TokenEndpoint) == "") {
+			errs = append(errs,
+				"oidc_auth.discovery_url or both oidc_auth.authorization_endpoint "+
+					"and oidc_auth.token_endpoint are required when OIDC is enabled")
 		}
 	}
 
@@ -693,7 +690,9 @@ func ValidateConfig(cfg *Config) error {
 		}
 
 		tenantMode := strings.TrimSpace(cfg.Auth.DefaultTenantMode)
-		if tenantMode != "" && tenantMode != AuthDefaultTenantModeCreatePersonal && tenantMode != AuthDefaultTenantModeTenantless {
+		if tenantMode != "" &&
+			tenantMode != AuthDefaultTenantModeCreatePersonal &&
+			tenantMode != AuthDefaultTenantModeTenantless {
 			errs = append(errs, fmt.Sprintf("auth.default_tenant_mode must be %q or %q, got %q",
 				AuthDefaultTenantModeCreatePersonal, AuthDefaultTenantModeTenantless, tenantMode))
 		}
@@ -795,7 +794,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_SCOPES")); value != "" {
 		cfg.OIDCAuth.Scopes = strings.Fields(strings.ReplaceAll(value, ",", " "))
 	}
-	if value := strings.TrimSpace(os.Getenv("OIDC_USER_INFO_MAPPING_USER_NAME")); value != "" {
+	if value := strings.TrimSpace(os.Getenv("OIDC_USER_INFO_MAPPING_USERNAME")); value != "" {
 		cfg.OIDCAuth.UserInfoMapping.Username = value
 	}
 	if value := strings.TrimSpace(os.Getenv("OIDC_USER_INFO_MAPPING_EMAIL")); value != "" {
@@ -878,8 +877,25 @@ func applyAgentEnvOverrides(cfg *Config) {
 		}
 	}
 	if value := strings.TrimSpace(os.Getenv("GENYEE_AGENT_PROMPT_SUSPEND")); value != "" {
-		enabled := strings.EqualFold(value, "true")
-		cfg.Agent.PromptSuspendEnabled = &enabled
+		if enabled, err := strconv.ParseBool(value); err == nil {
+			cfg.Agent.PromptSuspendEnabled = &enabled
+		} else {
+			fmt.Printf("[config] GENYEE_AGENT_PROMPT_SUSPEND=%q is not a boolean, ignoring\n", value)
+		}
+	}
+	if value := strings.TrimSpace(os.Getenv("GENYEE_AGENT_PROMPT_HOT_WAIT")); value != "" {
+		if d, err := time.ParseDuration(value); err == nil && d > 0 {
+			cfg.Agent.PromptHotWaitSeconds = int(d.Seconds())
+		} else if sec, err := strconv.Atoi(value); err == nil && sec > 0 {
+			cfg.Agent.PromptHotWaitSeconds = sec
+		}
+	}
+	if value := strings.TrimSpace(os.Getenv("GENYEE_AGENT_PROMPT_EXPIRE")); value != "" {
+		if sec, err := strconv.Atoi(value); err == nil {
+			cfg.Agent.PromptExpireSeconds = sec
+		} else if d, err := time.ParseDuration(value); err == nil {
+			cfg.Agent.PromptExpireSeconds = int(d.Seconds())
+		}
 	}
 }
 
@@ -898,6 +914,8 @@ func applyAgentEnvOverrides(cfg *Config) {
 //     authenticated users' ability to create workspaces).
 //
 // Env overrides (when set and non-empty):
+//   - FRONTEND_BASE_URL
+//   - GENYEE_AUTH_REGISTRATION_MODE ("self_serve"/"invite_register"/"invite_only")
 //   - GENYEE_AUTH_DEFAULT_TENANT_MODE ("create_personal"/"tenantless")
 //   - GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED (boolean)
 //   - GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED (boolean)
@@ -909,13 +927,6 @@ func applyAgentEnvOverrides(cfg *Config) {
 //     0 falls back to the handler default, >0 enforces that exact cap).
 //     Unparseable / empty values are ignored so a stale shell variable
 //     can't silently disable the quota for a future deployment.
-//
-// Note: auth.registration_mode has no dedicated env override. The
-// long-standing DISABLE_REGISTRATION=true env var is the single env-layer
-// knob and, when set, coerces registration_mode to invite_only here. That
-// way both the API gate (handler) and the /auth/config-driven UI gate
-// (frontend hides the register entry) stay consistent — without needing
-// two parallel env vars.
 func applyAuthAndTenantDefaults(cfg *Config) {
 	if cfg.Auth == nil {
 		cfg.Auth = &AuthConfig{}
@@ -924,23 +935,13 @@ func applyAuthAndTenantDefaults(cfg *Config) {
 		cfg.Tenant = &TenantConfig{}
 	}
 
-	if legacy := strings.TrimSpace(os.Getenv("DISABLE_REGISTRATION")); legacy != "" {
-		if disabled, err := strconv.ParseBool(legacy); err == nil {
-			if disabled {
-				prev := strings.TrimSpace(cfg.Auth.RegistrationMode)
-				cfg.Auth.RegistrationMode = AuthRegistrationModeInviteOnly
-				if prev != "" && prev != AuthRegistrationModeInviteOnly {
-					fmt.Printf(
-						"[config] DISABLE_REGISTRATION=%s overrides auth.registration_mode=%q -> %q\n",
-						legacy, prev, AuthRegistrationModeInviteOnly,
-					)
-				}
-			}
-		} else {
-			fmt.Printf("[config] DISABLE_REGISTRATION=%q is not a boolean, ignoring\n", legacy)
-		}
+	if value := strings.TrimSpace(os.Getenv("FRONTEND_BASE_URL")); value != "" {
+		cfg.FrontendBaseURL = value
 	}
 
+	if value := strings.TrimSpace(os.Getenv("GENYEE_AUTH_REGISTRATION_MODE")); value != "" {
+		cfg.Auth.RegistrationMode = value
+	}
 	if strings.TrimSpace(cfg.Auth.RegistrationMode) == "" {
 		cfg.Auth.RegistrationMode = AuthRegistrationModeSelfServe
 	}

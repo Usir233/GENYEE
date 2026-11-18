@@ -131,7 +131,7 @@ func TestRunHTTPServerLifecycle_CancelsBackgroundBeforeCleanupAndOnServeError(t 
 			sigCh,
 			2*time.Second,
 			func(ctx context.Context) { bgCtx = ctx },
-			func(ctx context.Context) []error {
+			func(_ context.Context) []error {
 				select {
 				case <-bgCtx.Done():
 					bgCancelledBeforeCleanup.Store(true)
@@ -163,7 +163,7 @@ func TestRunHTTPServerLifecycle_CancelsBackgroundBeforeCleanupAndOnServeError(t 
 		t.Fatal("runHTTPServerLifecycle returned before resource cleanup finished")
 	}
 
-	// 2. Non-ErrServerClosed Serve error must still cancel background context (no goroutine leak).
+	// 2. Non-ErrServerClosed Serve error must cancel background context AND run resource cleanup.
 	lnErr, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -171,20 +171,43 @@ func TestRunHTTPServerLifecycle_CancelsBackgroundBeforeCleanupAndOnServeError(t 
 	_ = lnErr.Close() // Force immediate Serve error
 
 	var errBgCtx context.Context
+	var errCleanupCount atomic.Int32
+	var errBgDoneBeforeCleanup atomic.Bool
 	err = runHTTPServerLifecycle(
 		newHTTPServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})),
 		lnErr,
 		make(chan os.Signal, 1),
 		time.Second,
 		func(ctx context.Context) { errBgCtx = ctx },
-		nil,
+		func(_ context.Context) []error {
+			select {
+			case <-errBgCtx.Done():
+				errBgDoneBeforeCleanup.Store(true)
+			default:
+			}
+			errCleanupCount.Add(1)
+			return nil
+		},
 	)
 	if err == nil {
 		t.Fatal("expected non-nil error when listener is already closed")
 	}
-	select {
-	case <-errBgCtx.Done():
-	default:
-		t.Fatal("background context leaked (not cancelled) after Serve failure")
+	if got := errCleanupCount.Load(); got != 1 {
+		t.Fatalf("cleanup call count on Serve error = %d, want 1", got)
+	}
+	if !errBgDoneBeforeCleanup.Load() {
+		t.Fatal("background context must be cancelled before cleanup runs on Serve failure")
+	}
+}
+
+func TestListenWithRetry_RejectsNonPositiveRetries(t *testing.T) {
+	for _, retries := range []int{0, -1} {
+		ln, err := listenWithRetry("127.0.0.1:0", retries, time.Millisecond)
+		if err == nil || ln != nil {
+			if ln != nil {
+				_ = ln.Close()
+			}
+			t.Fatalf("listenWithRetry(maxRetries=%d) = (%v, %v), want (nil, error)", retries, ln, err)
+		}
 	}
 }

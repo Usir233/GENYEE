@@ -2,41 +2,43 @@ package config
 
 import "testing"
 
-// TestApplyAuthAndTenantDefaults_DisableRegistrationDrivesRegistrationMode
-// pins down the env-vs-YAML contract for DISABLE_REGISTRATION. Without this,
-// DISABLE_REGISTRATION=true would block /auth/register at the handler layer
-// but leave /auth/config reporting self_serve, so the frontend would keep
-// showing the (broken) Register entry. Coercing registration_mode here keeps
-// both gates in sync and preserves the environment-over-YAML precedence
-// documented in website-docs/03-features/01-tenant-auth.md.
-func TestApplyAuthAndTenantDefaults_DisableRegistrationDrivesRegistrationMode(t *testing.T) {
+// TestApplyAuthAndTenantDefaults_RegistrationModeEnv pins down the canonical
+// GENYEE_AUTH_REGISTRATION_MODE env-over-YAML contract ("self_serve",
+// "invite_register", "invite_only") and ensures retired legacy
+// DISABLE_REGISTRATION has no silent side effect.
+func TestApplyAuthAndTenantDefaults_RegistrationModeEnv(t *testing.T) {
 	cases := []struct {
 		name     string
-		disable  string // value for DISABLE_REGISTRATION (empty == unset)
-		cfgMode  string // pre-set value on cfg.Auth.RegistrationMode
+		envMode  string
+		cfgMode  string
 		expected string
 	}{
-		{"true coerces empty YAML to invite_only", "true", "", AuthRegistrationModeInviteOnly},
-		{"case-insensitive TRUE also coerces", "TRUE", "", AuthRegistrationModeInviteOnly},
-		{"true overrides explicit self_serve YAML", "true", AuthRegistrationModeSelfServe, AuthRegistrationModeInviteOnly},
-		{"true is a no-op when YAML already invite_only", "true", AuthRegistrationModeInviteOnly, AuthRegistrationModeInviteOnly},
-		{"false leaves YAML untouched", "false", AuthRegistrationModeSelfServe, AuthRegistrationModeSelfServe},
+		{"env invite_only overrides empty YAML", AuthRegistrationModeInviteOnly, "", AuthRegistrationModeInviteOnly},
+		{
+			"env invite_register overrides explicit self_serve YAML",
+			AuthRegistrationModeInviteRegister,
+			AuthRegistrationModeSelfServe,
+			AuthRegistrationModeInviteRegister,
+		},
+		{
+			"env self_serve overrides explicit invite_only YAML",
+			AuthRegistrationModeSelfServe,
+			AuthRegistrationModeInviteOnly,
+			AuthRegistrationModeSelfServe,
+		},
 		{"unset falls back to default self_serve", "", "", AuthRegistrationModeSelfServe},
 		{"unset keeps explicit invite_only YAML", "", AuthRegistrationModeInviteOnly, AuthRegistrationModeInviteOnly},
 		{
-			"unset keeps invitation registration", "",
-			AuthRegistrationModeInviteRegister, AuthRegistrationModeInviteRegister,
-		},
-		{
-			"legacy disable overrides invitation registration", "true",
-			AuthRegistrationModeInviteRegister, AuthRegistrationModeInviteOnly,
+			"unset keeps invitation registration YAML",
+			"",
+			AuthRegistrationModeInviteRegister,
+			AuthRegistrationModeInviteRegister,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("DISABLE_REGISTRATION", tc.disable)
-			// Other tenant env vars must not leak between cases.
+			t.Setenv("GENYEE_AUTH_REGISTRATION_MODE", tc.envMode)
 			t.Setenv("GENYEE_TENANT_ENABLE_RBAC", "")
 			t.Setenv("GENYEE_TENANT_MAX_OWNED_PER_USER", "")
 			t.Setenv("GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED", "")
@@ -49,6 +51,25 @@ func TestApplyAuthAndTenantDefaults_DisableRegistrationDrivesRegistrationMode(t 
 			}
 		})
 	}
+
+	t.Run("invalid GENYEE_AUTH_REGISTRATION_MODE fails validation", func(t *testing.T) {
+		t.Setenv("GENYEE_AUTH_REGISTRATION_MODE", "open_for_all")
+		cfg := &Config{Auth: &AuthConfig{}}
+		applyAuthAndTenantDefaults(cfg)
+		if err := ValidateConfig(cfg); err == nil {
+			t.Fatal("ValidateConfig unexpectedly accepted an invalid registration mode")
+		}
+	})
+
+	t.Run("retired DISABLE_REGISTRATION is ignored", func(t *testing.T) {
+		t.Setenv("GENYEE_AUTH_REGISTRATION_MODE", "")
+		t.Setenv("DISABLE_REGISTRATION", "true")
+		cfg := &Config{Auth: &AuthConfig{RegistrationMode: AuthRegistrationModeSelfServe}}
+		applyAuthAndTenantDefaults(cfg)
+		if cfg.Auth.RegistrationMode != AuthRegistrationModeSelfServe {
+			t.Fatalf("retired DISABLE_REGISTRATION mutated registration_mode to %q", cfg.Auth.RegistrationMode)
+		}
+	})
 }
 
 func TestApplyAuthAndTenantDefaults_SelfServiceTenantCreation(t *testing.T) {
@@ -84,7 +105,11 @@ func TestApplyAuthAndTenantDefaults_DefaultTenantMode(t *testing.T) {
 		applyAuthAndTenantDefaults(cfg)
 
 		if cfg.Auth.DefaultTenantMode != AuthDefaultTenantModeCreatePersonal {
-			t.Fatalf("default_tenant_mode = %q, want %q", cfg.Auth.DefaultTenantMode, AuthDefaultTenantModeCreatePersonal)
+			t.Fatalf(
+				"default_tenant_mode = %q, want %q",
+				cfg.Auth.DefaultTenantMode,
+				AuthDefaultTenantModeCreatePersonal,
+			)
 		}
 	})
 
@@ -147,7 +172,9 @@ func TestApplyAuthAndTenantDefaults_CrossTenantAccess(t *testing.T) {
 		applyAuthAndTenantDefaults(cfg)
 
 		if !cfg.Tenant.EnableCrossTenantAccess {
-			t.Fatal("GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS=TRUE should enable cross-tenant access (case-insensitive)")
+			t.Fatal(
+				"GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS=TRUE should enable cross-tenant access",
+			)
 		}
 	})
 
@@ -214,7 +241,7 @@ func TestApplyAuthAndTenantDefaults_EnableRBACFailsClosedOnTruthyOrInvalidEnv(t 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("GENYEE_TENANT_ENABLE_RBAC", tc.envVal)
-			t.Setenv("DISABLE_REGISTRATION", "")
+			t.Setenv("GENYEE_AUTH_REGISTRATION_MODE", "")
 			cfg := &Config{Tenant: &TenantConfig{EnableRBAC: tc.yamlVal}}
 			applyAuthAndTenantDefaults(cfg)
 			if got := cfg.Tenant.IsRBACEnforced(); got != tc.want {
@@ -223,13 +250,12 @@ func TestApplyAuthAndTenantDefaults_EnableRBACFailsClosedOnTruthyOrInvalidEnv(t 
 		})
 	}
 
-	t.Run("DISABLE_REGISTRATION=1 coerces to invite_only", func(t *testing.T) {
-		t.Setenv("DISABLE_REGISTRATION", "1")
-		t.Setenv("GENYEE_TENANT_ENABLE_RBAC", "")
-		cfg := &Config{Auth: &AuthConfig{RegistrationMode: AuthRegistrationModeSelfServe}}
+	t.Run("FRONTEND_BASE_URL populates cfg.FrontendBaseURL", func(t *testing.T) {
+		t.Setenv("FRONTEND_BASE_URL", "https://portal.genyee.example")
+		cfg := &Config{}
 		applyAuthAndTenantDefaults(cfg)
-		if cfg.Auth.RegistrationMode != AuthRegistrationModeInviteOnly {
-			t.Fatalf("registration_mode = %q, want %q", cfg.Auth.RegistrationMode, AuthRegistrationModeInviteOnly)
+		if cfg.FrontendBaseURL != "https://portal.genyee.example" {
+			t.Fatalf("FrontendBaseURL = %q, want https://portal.genyee.example", cfg.FrontendBaseURL)
 		}
 	})
 }

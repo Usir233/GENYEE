@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 const (
 	desktopPrefsFileName  = "desktop-prefs.json"
 	desktopAppSupportName = "GENYEE Lite"
+	maxDesktopPrefsBytes  = 1 << 20 // 1 MiB ceiling on desktop-prefs.json
 )
 
 type desktopPrefs struct {
@@ -67,8 +69,13 @@ func loadDesktopPrefs() desktopPrefs {
 	if err != nil {
 		return desktopPrefs{}
 	}
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
+		return desktopPrefs{}
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxDesktopPrefsBytes+1))
+	_ = f.Close()
+	if err != nil || len(data) > maxDesktopPrefsBytes {
 		return desktopPrefs{}
 	}
 	var p desktopPrefs
@@ -90,7 +97,32 @@ func saveDesktopPrefs(p desktopPrefs) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	dir := filepath.Dir(path)
+	tmpFile, err := os.CreateTemp(dir, ".desktop-prefs-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpFile.Name()
+	if err := tmpFile.Chmod(0o600); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	_, writeErr := tmpFile.Write(data)
+	closeErr := tmpFile.Close()
+	if writeErr != nil {
+		_ = os.Remove(tmpPath)
+		return writeErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return closeErr
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 // LoadDesktopPrefsHTTPPort returns http_port from prefs file, or 0 if unset / invalid (ephemeral port on each launch).

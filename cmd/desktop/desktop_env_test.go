@@ -91,3 +91,13 @@ func TestLoadDesktopEnvHonoursAnExplicitFile(t *testing.T) {
 	t.Setenv("ENV_FILE", filepath.Join(t.TempDir(), "missing.env"))
 	require.Error(t, loadDesktopEnv("", false), "a file asked for by name must exist")
 }
+
+func TestLoadDesktopEnvSurfacesCorruptExistingDotenvError(t *testing.T) {
+	root := t.TempDir()
+	// Make .env.lite a directory so reading it fails with a non-ErrNotExist I/O error.
+	require.NoError(t, os.Mkdir(filepath.Join(root, ".env.lite"), 0o755))
+	t.Setenv("ENV_FILE", "")
+
+	err := loadDesktopEnv(root, true)
+	require.Error(t, err, "non-ErrNotExist failure on .env.lite must not be silently swallowed")
+}

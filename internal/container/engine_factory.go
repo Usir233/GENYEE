@@ -188,7 +188,9 @@ func isESv7(version string) bool {
 	return strings.HasPrefix(version, "7.")
 }
 
-func createElasticsearchV8Engine(store types.VectorStore, cfg *config.Config) (interfaces.RetrieveEngineService, error) {
+func createElasticsearchV8Engine(
+	store types.VectorStore, cfg *config.Config,
+) (interfaces.RetrieveEngineService, error) {
 	cc := store.ConnectionConfig
 	if err := utils.ValidateURLForSSRF(cc.Addr); err != nil {
 		return nil, fmt.Errorf("elasticsearch address failed SSRF validation: %w", err)
@@ -208,7 +210,9 @@ func createElasticsearchV8Engine(store types.VectorStore, cfg *config.Config) (i
 	return retriever.NewKVHybridRetrieveEngine(repo, types.ElasticsearchRetrieverEngineType), nil
 }
 
-func createElasticsearchV7Engine(store types.VectorStore, cfg *config.Config) (interfaces.RetrieveEngineService, error) {
+func createElasticsearchV7Engine(
+	store types.VectorStore, cfg *config.Config,
+) (interfaces.RetrieveEngineService, error) {
 	cc := store.ConnectionConfig
 	if err := utils.ValidateURLForSSRF(cc.Addr); err != nil {
 		return nil, fmt.Errorf("elasticsearch address failed SSRF validation: %w", err)
@@ -251,7 +255,9 @@ func createQdrantEngine(store types.VectorStore) (interfaces.RetrieveEngineServi
 
 func createMilvusEngine(ctx context.Context, store types.VectorStore) (interfaces.RetrieveEngineService, error) {
 	milvusCfg := buildMilvusClientConfig(store.ConnectionConfig)
-	client, err := milvusclient.New(ctx, &milvusCfg)
+	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	client, err := milvusclient.New(dialCtx, &milvusCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create milvus client: %w", err)
 	}
@@ -268,7 +274,7 @@ func buildMilvusClientConfig(cc types.ConnectionConfig) milvusclient.ClientConfi
 	milvusCfg := milvusclient.ClientConfig{
 		Address: addr,
 		DialOptions: []grpc.DialOption{
-			grpc.WithTimeout(5 * time.Second),
+			grpc.WithConnectParams(grpc.ConnectParams{MinConnectTimeout: 5 * time.Second}),
 			grpc.WithContextDialer(utils.SSRFSafeGRPCDialer),
 		},
 	}

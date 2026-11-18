@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	maxUpdateChecksumBytes = 1 << 20   // 1 MiB checksum manifest limit
-	maxUpdateBinaryBytes   = 2 << 30   // 2 GiB installer binary limit
+	maxUpdateChecksumBytes = 1 << 20 // 1 MiB checksum manifest limit
+	maxUpdateBinaryBytes   = 2 << 30 // 2 GiB installer binary limit
 	windowsUpdateScript    = "@echo off\r\n" +
 		"setlocal DisableDelayedExpansion\r\n" +
 		"timeout /t 2 /nobreak >nul\r\n" +
@@ -52,7 +52,8 @@ on run argv
     set targetBundle to quoted form of (item 1 of argv)
     set sourceBundle to quoted form of (item 2 of argv)
     set destDir to quoted form of (item 3 of argv)
-    do shell script "rm -rf -- " & targetBundle & " && cp -a -- " & sourceBundle & " " & destDir with administrator privileges
+    set copyCmd to "rm -rf -- " & targetBundle & " && cp -a -- " & sourceBundle & " " & destDir
+    do shell script copyCmd with administrator privileges
 end run
 APPLESCRIPT
 fi
@@ -200,7 +201,9 @@ func checkSafeUpdateRedirect(req *http.Request, via []*http.Request) error {
 	if _, err := validateSafeUpdateURL(req.URL.String()); err != nil {
 		return fmt.Errorf("blocked unsafe update redirect: %w", err)
 	}
-	if len(via) > 0 && (!strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) || !strings.EqualFold(req.URL.Host, via[0].URL.Host)) {
+	if len(via) > 0 &&
+		(!strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) ||
+			!strings.EqualFold(req.URL.Host, via[0].URL.Host)) {
 		req.Header.Del("Authorization")
 	}
 	return nil
@@ -222,23 +225,43 @@ func withSafeUpdateRedirects(client *http.Client, fallbackTimeout time.Duration)
 	return &copied
 }
 
+func drainBoundedBody(body io.Reader) {
+	if body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(body, 64<<10))
+}
+
+func showDesktopDialog(ctx context.Context, opts wailsruntime.MessageDialogOptions) string {
+	choice, err := wailsruntime.MessageDialog(ctx, opts)
+	if err != nil {
+		logger.Warnf(context.Background(), "Desktop dialog %q failed: %v", opts.Title, err)
+		return ""
+	}
+	return choice
+}
+
+func decodeFixedSizeKeyOrSig(raw string, expectedLen int) ([]byte, bool) {
+	if decodedHex, hexErr := hex.DecodeString(raw); hexErr == nil && len(decodedHex) == expectedLen {
+		return decodedHex, true
+	}
+	if decodedB64, b64Err := base64.StdEncoding.DecodeString(raw); b64Err == nil && len(decodedB64) == expectedLen {
+		return decodedB64, true
+	}
+	return nil, false
+}
+
 func verifyManifestEd25519(manifest []byte, sigBytes []byte, pubKeyRaw string) error {
-	pubKeyStr := strings.TrimSpace(pubKeyRaw)
-	var pubBytes []byte
-	if decodedHex, hexErr := hex.DecodeString(pubKeyStr); hexErr == nil && len(decodedHex) == ed25519.PublicKeySize {
-		pubBytes = decodedHex
-	} else if decodedB64, b64Err := base64.StdEncoding.DecodeString(pubKeyStr); b64Err == nil && len(decodedB64) == ed25519.PublicKeySize {
-		pubBytes = decodedB64
-	} else {
-		return errors.New("invalid GENYEE_UPDATE_PUBLIC_KEY: must be a 32-byte Ed25519 public key in hex or standard base64")
+	pubBytes, ok := decodeFixedSizeKeyOrSig(strings.TrimSpace(pubKeyRaw), ed25519.PublicKeySize)
+	if !ok {
+		return errors.New(
+			"invalid GENYEE_UPDATE_PUBLIC_KEY: must be a 32-byte Ed25519 public key in hex or standard base64",
+		)
 	}
 
-	sigTrimmed := strings.TrimSpace(string(sigBytes))
 	sig := sigBytes
-	if decodedHex, hexErr := hex.DecodeString(sigTrimmed); hexErr == nil && len(decodedHex) == ed25519.SignatureSize {
-		sig = decodedHex
-	} else if decodedB64, b64Err := base64.StdEncoding.DecodeString(sigTrimmed); b64Err == nil && len(decodedB64) == ed25519.SignatureSize {
-		sig = decodedB64
+	if decodedSig, sigOK := decodeFixedSizeKeyOrSig(strings.TrimSpace(string(sigBytes)), ed25519.SignatureSize); sigOK {
+		sig = decodedSig
 	}
 	if len(sig) != ed25519.SignatureSize || !ed25519.Verify(ed25519.PublicKey(pubBytes), manifest, sig) {
 		return errors.New("update manifest Ed25519 signature verification failed")
@@ -247,11 +270,15 @@ func verifyManifestEd25519(manifest []byte, sigBytes []byte, pubKeyRaw string) e
 }
 
 func fetchSmallAssetBytes(client *http.Client, downloadURL string) ([]byte, error) {
+	return fetchSmallAssetBytesWithContext(context.Background(), client, downloadURL)
+}
+
+func fetchSmallAssetBytesWithContext(ctx context.Context, client *http.Client, downloadURL string) ([]byte, error) {
 	parsedURL, err := validateSafeUpdateURL(downloadURL)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +288,12 @@ func fetchSmallAssetBytes(client *http.Client, downloadURL string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		drainBoundedBody(resp.Body)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logger.Debugf(context.Background(), "Close HTTP response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("manifest download returned HTTP %d", resp.StatusCode)
 	}
@@ -277,7 +309,22 @@ func fetchSmallAssetBytes(client *http.Client, downloadURL string) ([]byte, erro
 
 // resolveExpectedAssetSHA256 resolves the expected SHA-256 digest for selected.
 // Fails closed if no digest is present or if signature verification fails.
-func resolveExpectedAssetSHA256(client *http.Client, assets []githubAsset, selected githubAsset, safeFilename string) (string, error) {
+func resolveExpectedAssetSHA256(
+	client *http.Client,
+	assets []githubAsset,
+	selected githubAsset,
+	safeFilename string,
+) (string, error) {
+	return resolveExpectedAssetSHA256WithContext(context.Background(), client, assets, selected, safeFilename)
+}
+
+func resolveExpectedAssetSHA256WithContext(
+	ctx context.Context,
+	client *http.Client,
+	assets []githubAsset,
+	selected githubAsset,
+	safeFilename string,
+) (string, error) {
 	pubKey := strings.TrimSpace(os.Getenv("GENYEE_UPDATE_PUBLIC_KEY"))
 	if pubKey == "" && strings.TrimSpace(selected.Digest) != "" {
 		return parseSHA256Digest(selected.Digest)
@@ -285,10 +332,10 @@ func resolveExpectedAssetSHA256(client *http.Client, assets []githubAsset, selec
 
 	checksumNames := map[string]bool{
 		strings.ToLower(safeFilename + ".sha256"): true,
-		"sha256sums":                              true,
-		"sha256sums.txt":                          true,
-		"checksums.txt":                           true,
-		"checksums.sha256":                        true,
+		"sha256sums":       true,
+		"sha256sums.txt":   true,
+		"checksums.txt":    true,
+		"checksums.sha256": true,
 	}
 	byLowerName := make(map[string]githubAsset, len(assets))
 	for _, a := range assets {
@@ -300,7 +347,7 @@ func resolveExpectedAssetSHA256(client *http.Client, assets []githubAsset, selec
 		if !checksumNames[lower] || strings.TrimSpace(a.BrowserDownloadURL) == "" {
 			continue
 		}
-		manifestBytes, err := fetchSmallAssetBytes(client, a.BrowserDownloadURL)
+		manifestBytes, err := fetchSmallAssetBytesWithContext(ctx, client, a.BrowserDownloadURL)
 		if err != nil {
 			continue
 		}
@@ -309,7 +356,7 @@ func resolveExpectedAssetSHA256(client *http.Client, assets []githubAsset, selec
 			if !ok || strings.TrimSpace(sigAsset.BrowserDownloadURL) == "" {
 				return "", errors.New("GENYEE_UPDATE_PUBLIC_KEY is set but manifest .sig asset is missing")
 			}
-			sigBytes, err := fetchSmallAssetBytes(client, sigAsset.BrowserDownloadURL)
+			sigBytes, err := fetchSmallAssetBytesWithContext(ctx, client, sigAsset.BrowserDownloadURL)
 			if err != nil {
 				return "", fmt.Errorf("failed to download manifest signature: %w", err)
 			}
@@ -338,7 +385,7 @@ func resolveExpectedAssetSHA256(client *http.Client, assets []githubAsset, selec
 
 // verifyFileSHA256 computes the SHA-256 of filePath and compares it in constant time
 // against expectedDigest. Fails closed if expectedDigest is empty or invalid.
-func verifyFileSHA256(filePath string, expectedDigest string) error {
+func verifyFileSHA256(filePath string, expectedDigest string) (err error) {
 	normalizedExpected, err := parseSHA256Digest(expectedDigest)
 	if err != nil {
 		return fmt.Errorf("missing or invalid expected sha256 digest: %w", err)
@@ -347,7 +394,11 @@ func verifyFileSHA256(filePath string, expectedDigest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, f); err != nil {
@@ -408,11 +459,19 @@ func isAutoUpdateEnabled() bool {
 }
 
 func buildUpdateReleaseRequest(releaseURL string, githubToken string) (*http.Request, error) {
+	return buildUpdateReleaseRequestWithContext(context.Background(), releaseURL, githubToken)
+}
+
+func buildUpdateReleaseRequestWithContext(
+	ctx context.Context,
+	releaseURL string,
+	githubToken string,
+) (*http.Request, error) {
 	parsedURL, err := validateSafeUpdateURL(releaseURL)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +489,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		releaseURL, configured := resolveUpdateReleaseURL()
 		if !configured {
 			if showUpToDate {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.InfoDialog,
 					Title:         "Check for Updates",
 					Message:       "Online update checks are currently disabled.",
@@ -443,7 +502,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 
 		if currentVersion == "unknown" || currentVersion == "" {
 			if showUpToDate {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.InfoDialog,
 					Title:         "Check for Updates",
 					Message:       "Unable to determine the current version. Cannot check for updates.",
@@ -459,7 +518,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		}
 
 		client := newUpdateHTTPClient(10 * time.Second)
-		req, err := buildUpdateReleaseRequest(releaseURL, os.Getenv("GITHUB_TOKEN"))
+		req, err := buildUpdateReleaseRequestWithContext(ctx, releaseURL, os.Getenv("GITHUB_TOKEN"))
 		if err != nil {
 			logger.Warnf(context.Background(), "Check update failed: %v", err)
 			return
@@ -469,7 +528,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		if err != nil {
 			logger.Warnf(context.Background(), "Check update failed: %v", err)
 			if showUpToDate {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Check Update Failed",
 					Message:       fmt.Sprintf("Failed to connect to update server:\n%v", err),
@@ -479,16 +538,21 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 			}
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			drainBoundedBody(resp.Body)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				logger.Debugf(context.Background(), "Close HTTP response body: %v", closeErr)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			logger.Warnf(context.Background(), "Update server returned status code: %d", resp.StatusCode)
 			if showUpToDate {
 				msg := fmt.Sprintf("Update server returned an unexpected status code: %d", resp.StatusCode)
-				if resp.StatusCode == 403 {
+				if resp.StatusCode == http.StatusForbidden {
 					msg = "Update server rate limit reached. Please try again later."
 				}
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Check Update Failed",
 					Message:       msg,
@@ -518,24 +582,40 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 					var nameErr, hashErr error
 					safeName, nameErr = sanitizeUpdateAssetFilename(selectedAsset.Name)
 					if nameErr != nil {
-						logger.Warnf(context.Background(), "Rejected unsafe update asset name %q: %v", selectedAsset.Name, nameErr)
+						logger.Warnf(
+							context.Background(),
+							"Rejected unsafe update asset name %q: %v",
+							selectedAsset.Name, nameErr,
+						)
 						foundAsset = false
 					} else {
-						expectedSHA256, hashErr = resolveExpectedAssetSHA256(client, release.Assets, selectedAsset, safeName)
+						expectedSHA256, hashErr = resolveExpectedAssetSHA256WithContext(
+							ctx, client, release.Assets, selectedAsset, safeName,
+						)
 						if hashErr != nil {
-							logger.Warnf(context.Background(), "Rejected unverified update asset %q: %v", safeName, hashErr)
+							logger.Warnf(
+								context.Background(),
+								"Rejected unverified update asset %q: %v",
+								safeName, hashErr,
+							)
 							foundAsset = false
 						}
 					}
 				}
 
 				if autoDownload && foundAsset && selectedAsset.BrowserDownloadURL != "" {
-					downloadAndInstall(ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, currentVersion, latestVersion, true)
+					downloadAndInstall(
+						ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, latestVersion, true,
+					)
 					return
 				}
 
-				msg := fmt.Sprintf("A new version of GENYEE Lite is available!\n\nCurrent version: %s\nLatest version: %s\n\nWould you like to download it now?", currentVersion, latestVersion)
-				choice, _ := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				msg := fmt.Sprintf(
+					"A new version of GENYEE Lite is available!\n\n"+
+						"Current version: %s\nLatest version: %s\n\nWould you like to download it now?",
+					currentVersion, latestVersion,
+				)
+				choice := showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.InfoDialog,
 					Title:         "Update Available",
 					Message:       msg,
@@ -544,12 +624,18 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 				})
 				if choice == "Download" {
 					if foundAsset && selectedAsset.BrowserDownloadURL != "" {
-						downloadAndInstall(ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, currentVersion, latestVersion, false)
+						downloadAndInstall(
+							ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, latestVersion, false,
+						)
 					} else if release.HTMLURL != "" {
 						if safeHTMLURL, urlErr := validateSafeUpdateURL(release.HTMLURL); urlErr == nil {
 							wailsruntime.BrowserOpenURL(ctx, safeHTMLURL.String())
 						} else {
-							logger.Warnf(context.Background(), "Blocked unsafe release HTML URL %q: %v", release.HTMLURL, urlErr)
+							logger.Warnf(
+								context.Background(),
+								"Blocked unsafe release HTML URL %q: %v",
+								release.HTMLURL, urlErr,
+							)
 						}
 					}
 				}
@@ -558,10 +644,14 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		}
 
 		if showUpToDate {
-			wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+			upToDateMsg := fmt.Sprintf(
+				"You are using the latest version of GENYEE Lite.\n\nCurrent version: %s",
+				currentVersion,
+			)
+			showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 				Type:          wailsruntime.InfoDialog,
 				Title:         "Up to Date",
-				Message:       fmt.Sprintf("You are using the latest version of GENYEE Lite.\n\nCurrent version: %s", currentVersion),
+				Message:       upToDateMsg,
 				Buttons:       []string{"OK"},
 				DefaultButton: "OK",
 			})
@@ -605,7 +695,10 @@ func findBestReleaseAsset(assets []githubAsset, goos, goarch string) (githubAsse
 			continue
 		}
 		name := strings.ToLower(asset.Name)
-		if strings.Contains(name, osKeyword) && (strings.Contains(name, archKeyword) || strings.Contains(name, "universal") || strings.Contains(name, "aarch64")) {
+		matchesArch := strings.Contains(name, archKeyword) ||
+			strings.Contains(name, "universal") ||
+			strings.Contains(name, "aarch64")
+		if strings.Contains(name, osKeyword) && matchesArch {
 			return asset, true
 		}
 	}
@@ -648,15 +741,14 @@ func findBestReleaseAsset(assets []githubAsset, goos, goarch string) (githubAsse
 	return githubAsset{}, false
 }
 
-func findBestAsset(assets []githubAsset, goos, goarch string) (string, string) {
-	asset, ok := findBestReleaseAsset(assets, goos, goarch)
-	if !ok {
-		return "", ""
-	}
-	return asset.BrowserDownloadURL, asset.Name
-}
-
-func downloadAndInstall(ctx context.Context, downloadURL string, filename string, expectedSHA256 string, currentVersion string, latestVersion string, silent bool) {
+func downloadAndInstall(
+	ctx context.Context,
+	downloadURL string,
+	filename string,
+	expectedSHA256 string,
+	latestVersion string,
+	silent bool,
+) {
 	safeDownloadURL, err := validateSafeUpdateURL(downloadURL)
 	if err != nil {
 		logger.Warnf(context.Background(), "Refusing download from unsafe URL %q: %v", downloadURL, err)
@@ -695,7 +787,7 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 
 		logger.Infof(context.Background(), "Starting download from %s to %s", safeDownloadURL.String(), savePath)
 		client := newUpdateHTTPClient(30 * time.Minute)
-		req, reqErr := http.NewRequest(http.MethodGet, safeDownloadURL.String(), nil)
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, safeDownloadURL.String(), nil)
 		if reqErr != nil {
 			logger.Warnf(context.Background(), "Download request build failed: %v", reqErr)
 			return
@@ -705,7 +797,7 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 		if err != nil {
 			logger.Warnf(context.Background(), "Download failed: %v", err)
 			if !silent {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Download Failed",
 					Message:       fmt.Sprintf("Failed to download the update:\n%v", err),
@@ -715,12 +807,17 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 			}
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			drainBoundedBody(resp.Body)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				logger.Debugf(context.Background(), "Close HTTP response body: %v", closeErr)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			logger.Warnf(context.Background(), "Download failed, server returned status: %d", resp.StatusCode)
 			if !silent {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Download Failed",
 					Message:       fmt.Sprintf("Server returned status: %d", resp.StatusCode),
@@ -731,11 +828,11 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 			return
 		}
 
-		out, err := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		out, err := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if err != nil {
 			logger.Warnf(context.Background(), "Failed to create file for download: %v", err)
 			if !silent {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Save Failed",
 					Message:       fmt.Sprintf("Failed to save the update file:\n%v", err),
@@ -749,9 +846,13 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 		written, copyErr := io.Copy(out, io.LimitReader(resp.Body, maxUpdateBinaryBytes+1))
 		closeErr := out.Close()
 		if copyErr != nil || closeErr != nil || written > maxUpdateBinaryBytes {
-			logger.Warnf(context.Background(), "Error occurred during download copying: copyErr=%v closeErr=%v size=%d", copyErr, closeErr, written)
+			logger.Warnf(
+				context.Background(),
+				"Error occurred during download copying: copyErr=%v closeErr=%v size=%d",
+				copyErr, closeErr, written,
+			)
 			if !silent {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Download Error",
 					Message:       "An error occurred while downloading the update.",
@@ -765,10 +866,10 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 		if err := verifyFileSHA256(savePath, normalizedSHA256); err != nil {
 			logger.Warnf(context.Background(), "Update integrity verification failed: %v", err)
 			if !silent {
-				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+				showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Update Verification Failed",
-					Message:       "The downloaded update failed SHA-256 integrity verification and has been discarded.",
+					Message:       "The downloaded update failed SHA-256 verification and was discarded.",
 					Buttons:       []string{"OK"},
 					DefaultButton: "OK",
 				})
@@ -778,10 +879,15 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 
 		logger.Infof(context.Background(), "Download and SHA-256 verification completed successfully: %s", savePath)
 
-		choice, _ := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+		readyMsg := fmt.Sprintf(
+			"GENYEE Lite %s has been downloaded and verified.\n\n"+
+				"Would you like to restart and install the new version now?",
+			latestVersion,
+		)
+		choice := showDesktopDialog(ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "Update Ready",
-			Message:       fmt.Sprintf("GENYEE Lite %s has been downloaded and verified.\n\nWould you like to restart and install the new version now?", latestVersion),
+			Message:       readyMsg,
 			Buttons:       []string{"Restart Now", "Later"},
 			DefaultButton: "Restart Now",
 		})
@@ -816,127 +922,173 @@ func desktopAboutVersion() string {
 
 // applyUpdateAndRestart applies the verified update and restarts the application.
 func applyUpdateAndRestart(ctx context.Context, savePath string, stageDir string) {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
+		applyWindowsUpdate(ctx, savePath, stageDir)
+	case "darwin":
+		applyDarwinUpdate(ctx, savePath, stageDir)
+	default:
+		if err := exec.Command("xdg-open", savePath).Start(); err != nil {
+			logger.Warnf(context.Background(), "Failed to launch xdg-open for %s: %v", savePath, err)
+			_ = os.RemoveAll(stageDir)
+			return
+		}
+		wailsruntime.Quit(ctx)
+	}
+}
+
+func applyWindowsUpdate(ctx context.Context, savePath string, stageDir string) {
+	execPath, err := os.Executable()
+	if err != nil {
+		logger.Warnf(context.Background(), "Failed to get executable path: %v", err)
+		_ = os.RemoveAll(stageDir)
+		return
+	}
+	if err := validateSafeWindowsUpdatePath(savePath); err != nil {
+		logger.Warnf(context.Background(), "Unsafe installer path: %v", err)
+		_ = os.RemoveAll(stageDir)
+		return
+	}
+	if err := validateSafeWindowsUpdatePath(execPath); err != nil {
+		logger.Warnf(context.Background(), "Unsafe executable path: %v", err)
+		_ = os.RemoveAll(stageDir)
+		return
+	}
+	scriptDir, err := os.MkdirTemp("", "genyee-win-upd-*")
+	if err != nil {
+		logger.Warnf(context.Background(), "Failed to create update script dir: %v", err)
+		_ = os.RemoveAll(stageDir)
+		return
+	}
+	scriptPath := filepath.Join(scriptDir, "genyee_update.bat")
+	if err := os.WriteFile(scriptPath, []byte(windowsUpdateScript), 0o700); err != nil {
+		logger.Warnf(context.Background(), "Failed to write update script: %v", err)
+		_ = os.RemoveAll(scriptDir)
+		_ = os.RemoveAll(stageDir)
+		return
+	}
+
+	cmd := exec.Command("cmd.exe", "/d", "/c", scriptPath)
+	cmd.Env = append(os.Environ(),
+		"GENYEE_UPDATER_INSTALLER="+savePath,
+		"GENYEE_UPDATER_TARGET_EXE="+execPath,
+	)
+	if err := cmd.Start(); err != nil {
+		logger.Warnf(context.Background(), "Failed to start Windows update script: %v", err)
+		_ = os.RemoveAll(scriptDir)
+		_ = os.RemoveAll(stageDir)
+		return
+	}
+	wailsruntime.Quit(ctx)
+}
+
+func applyDarwinUpdate(ctx context.Context, savePath string, stageDir string) {
+	if !strings.HasSuffix(strings.ToLower(savePath), ".dmg") {
+		if err := exec.Command("open", "--", savePath).Start(); err != nil {
+			logger.Warnf(context.Background(), "Failed to open macOS update artifact %s: %v", savePath, err)
+			_ = os.RemoveAll(stageDir)
+			return
+		}
+		wailsruntime.Quit(ctx)
+		return
+	}
+
+	go func() {
 		execPath, err := os.Executable()
 		if err != nil {
 			logger.Warnf(context.Background(), "Failed to get executable path: %v", err)
-			return
-		}
-		if err := validateSafeWindowsUpdatePath(savePath); err != nil {
-			logger.Warnf(context.Background(), "Unsafe installer path: %v", err)
-			return
-		}
-		if err := validateSafeWindowsUpdatePath(execPath); err != nil {
-			logger.Warnf(context.Background(), "Unsafe executable path: %v", err)
-			return
-		}
-		scriptDir, err := os.MkdirTemp("", "genyee-win-upd-*")
-		if err != nil {
-			logger.Warnf(context.Background(), "Failed to create update script dir: %v", err)
-			return
-		}
-		scriptPath := filepath.Join(scriptDir, "genyee_update.bat")
-		if err := os.WriteFile(scriptPath, []byte(windowsUpdateScript), 0700); err != nil {
-			logger.Warnf(context.Background(), "Failed to write update script: %v", err)
+			_ = os.RemoveAll(stageDir)
 			return
 		}
 
-		cmd := exec.Command("cmd.exe", "/d", "/c", scriptPath)
-		cmd.Env = append(os.Environ(),
-			"GENYEE_UPDATER_INSTALLER="+savePath,
-			"GENYEE_UPDATER_TARGET_EXE="+execPath,
-		)
-		_ = cmd.Start()
-		wailsruntime.Quit(ctx)
-
-	} else if runtime.GOOS == "darwin" {
-		if strings.HasSuffix(strings.ToLower(savePath), ".dmg") {
-			go func() {
-				execPath, err := os.Executable()
-				if err != nil {
-					logger.Warnf(context.Background(), "Failed to get executable path: %v", err)
-					return
-				}
-
-				appBundlePath := filepath.Dir(filepath.Dir(filepath.Dir(execPath)))
-				if !strings.HasSuffix(appBundlePath, ".app") {
-					_ = exec.Command("open", "--", savePath).Start()
-					wailsruntime.Quit(ctx)
-					return
-				}
-
-				mountPoint, err := os.MkdirTemp("", "genyee-dmg-mount-*")
-				if err != nil {
-					logger.Warnf(context.Background(), "Failed to create dmg mount point: %v", err)
-					return
-				}
-
-				cmdMount := exec.Command("hdiutil", "attach", savePath, "-mountpoint", mountPoint, "-nobrowse", "-readonly", "-quiet")
-				if err := cmdMount.Run(); err != nil {
-					logger.Warnf(context.Background(), "Failed to mount dmg: %v", err)
-					_ = os.Remove(mountPoint)
-					return
-				}
-
-				entries, err := os.ReadDir(mountPoint)
-				if err != nil {
-					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					_ = os.Remove(mountPoint)
-					return
-				}
-
-				var newAppPath string
-				for _, entry := range entries {
-					if entry.Type()&os.ModeSymlink != 0 {
-						continue
-					}
-					safeEntry, nameErr := sanitizeUpdateAssetFilename(entry.Name())
-					if nameErr == nil && strings.HasSuffix(safeEntry, ".app") {
-						newAppPath = filepath.Join(mountPoint, safeEntry)
-						break
-					}
-				}
-
-				if newAppPath == "" {
-					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					_ = os.Remove(mountPoint)
-					return
-				}
-
-				if err := exec.Command("codesign", "--verify", "--deep", "--strict", newAppPath).Run(); err != nil {
-					logger.Warnf(context.Background(), "Rejected unsigned or tampered macOS app bundle: %v", err)
-					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					_ = os.Remove(mountPoint)
-					return
-				}
-
-				appDir := filepath.Dir(appBundlePath)
-				scriptFile, err := os.CreateTemp("", "genyee-macos-upd-*.sh")
-				if err != nil {
-					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					_ = os.Remove(mountPoint)
-					return
-				}
-				scriptPath := scriptFile.Name()
-				if _, err := scriptFile.WriteString(darwinUpdateScript); err != nil {
-					_ = scriptFile.Close()
-					_ = os.Remove(scriptPath)
-					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					_ = os.Remove(mountPoint)
-					return
-				}
-				_ = scriptFile.Chmod(0700)
-				_ = scriptFile.Close()
-
-				_ = exec.Command("/bin/bash", scriptPath, appBundlePath, newAppPath, appDir, mountPoint, stageDir).Start()
-				wailsruntime.Quit(ctx)
-			}()
-		} else {
-			_ = exec.Command("open", "--", savePath).Start()
+		appBundlePath := filepath.Dir(filepath.Dir(filepath.Dir(execPath)))
+		if !strings.HasSuffix(appBundlePath, ".app") {
+			if startErr := exec.Command("open", "--", savePath).Start(); startErr != nil {
+				logger.Warnf(context.Background(), "Failed to open dmg %s: %v", savePath, startErr)
+				_ = os.RemoveAll(stageDir)
+				return
+			}
 			wailsruntime.Quit(ctx)
+			return
 		}
-	} else {
-		_ = exec.Command("xdg-open", savePath).Start()
+
+		mountPoint, err := os.MkdirTemp("", "genyee-dmg-mount-*")
+		if err != nil {
+			logger.Warnf(context.Background(), "Failed to create dmg mount point: %v", err)
+			_ = os.RemoveAll(stageDir)
+			return
+		}
+		detachAndCleanup := func() {
+			_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
+			_ = os.Remove(mountPoint)
+			_ = os.RemoveAll(stageDir)
+		}
+
+		cmdMount := exec.Command(
+			"hdiutil", "attach", savePath,
+			"-mountpoint", mountPoint, "-nobrowse", "-readonly", "-quiet",
+		)
+		if err := cmdMount.Run(); err != nil {
+			logger.Warnf(context.Background(), "Failed to mount dmg: %v", err)
+			_ = os.Remove(mountPoint)
+			_ = os.RemoveAll(stageDir)
+			return
+		}
+
+		entries, err := os.ReadDir(mountPoint)
+		if err != nil {
+			detachAndCleanup()
+			return
+		}
+
+		var newAppPath string
+		for _, entry := range entries {
+			if entry.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			safeEntry, nameErr := sanitizeUpdateAssetFilename(entry.Name())
+			if nameErr == nil && strings.HasSuffix(safeEntry, ".app") {
+				newAppPath = filepath.Join(mountPoint, safeEntry)
+				break
+			}
+		}
+
+		if newAppPath == "" {
+			detachAndCleanup()
+			return
+		}
+
+		if err := exec.Command("codesign", "--verify", "--deep", "--strict", newAppPath).Run(); err != nil {
+			logger.Warnf(context.Background(), "Rejected unsigned or tampered macOS app bundle: %v", err)
+			detachAndCleanup()
+			return
+		}
+
+		appDir := filepath.Dir(appBundlePath)
+		scriptFile, err := os.CreateTemp("", "genyee-macos-upd-*.sh")
+		if err != nil {
+			detachAndCleanup()
+			return
+		}
+		scriptPath := scriptFile.Name()
+		_, writeErr := scriptFile.WriteString(darwinUpdateScript)
+		chmodErr := scriptFile.Chmod(0o700)
+		closeErr := scriptFile.Close()
+		if writeErr != nil || chmodErr != nil || closeErr != nil {
+			_ = os.Remove(scriptPath)
+			detachAndCleanup()
+			return
+		}
+
+		startCmd := exec.Command(
+			"/bin/bash", scriptPath, appBundlePath, newAppPath, appDir, mountPoint, stageDir,
+		)
+		if err := startCmd.Start(); err != nil {
+			logger.Warnf(context.Background(), "Failed to start macOS update script: %v", err)
+			_ = os.Remove(scriptPath)
+			detachAndCleanup()
+			return
+		}
 		wailsruntime.Quit(ctx)
-	}
+	}()
 }

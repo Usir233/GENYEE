@@ -44,3 +44,42 @@ func TestLoadConfigParsesExpandedYAML(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfigExpandsDefaultPlaceholdersAndGenyeeHomeSearchPath(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	previousDir := resolvedConfigDir
+	t.Cleanup(func() { resolvedConfigDir = previousDir })
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("GENYEE_UNSET_HOST", "")
+	require.NoError(t, os.Unsetenv("GENYEE_UNSET_HOST"))
+	t.Setenv("GENYEE_UNSET_COLON_PORT", "")
+	require.NoError(t, os.Unsetenv("GENYEE_UNSET_COLON_PORT"))
+	t.Setenv("GENYEE_SET_CHUNKS", "768")
+	t.Setenv("SERVER_HOST", "")
+	t.Setenv("SERVER_PORT", "")
+
+	// Place config.yaml inside $HOME/.genyee and run from an empty temp cwd to
+	// verify the canonical ~/.genyee search path and ${VAR:-default}/${VAR:default}.
+	emptyCwd := t.TempDir()
+	t.Chdir(emptyCwd)
+	dotGenyee := filepath.Join(home, ".genyee")
+	require.NoError(t, os.MkdirAll(dotGenyee, 0o700))
+	contents := "server:\n" +
+		"  port: ${GENYEE_UNSET_COLON_PORT:9191}\n" +
+		"  host: ${GENYEE_UNSET_HOST:-127.0.0.5}\n" +
+		"frontend_base_url: ${GENYEE_UNSET_FE_URL:-}\n" +
+		"knowledge_base:\n" +
+		"  chunk_size: ${GENYEE_SET_CHUNKS:-512}\n" +
+		"  chunk_overlap: 80\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dotGenyee, "config.yaml"), []byte(contents), 0o600))
+
+	cfg, err := LoadConfig()
+	require.NoError(t, err)
+	require.Equal(t, "127.0.0.5", cfg.Server.Host)
+	require.Equal(t, 9191, cfg.Server.Port)
+	require.Equal(t, 768, cfg.KnowledgeBase.ChunkSize)
+	require.Empty(t, cfg.FrontendBaseURL)
+}

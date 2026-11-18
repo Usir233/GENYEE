@@ -23,6 +23,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -67,6 +69,12 @@ func formatServerAddr(host string, port int) string {
 	return net.JoinHostPort(cleanHost, strconv.Itoa(port))
 }
 
+func closeHTTPServerNow(server *http.Server) {
+	if err := server.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Warnf(context.Background(), "Force-close HTTP server failed: %v", err)
+	}
+}
+
 func runHTTPServerLifecycle(
 	server *http.Server,
 	listener net.Listener,
@@ -82,8 +90,30 @@ func runHTTPServerLifecycle(
 		startBackground(bgCtx)
 	}
 
+	drainBudget, cleanupBudget := runtime.ShutdownBudgets(shutdownTimeout)
+	var cleanupOnce sync.Once
+	runCleanup := func() {
+		cleanupOnce.Do(func() {
+			// Cancel background subscribers (Redis pubsub, catalog refreshers)
+			// BEFORE tearing down Redis/PostgreSQL pools in resourceCleaner.Cleanup.
+			bgCancel()
+
+			logger.Info(context.Background(), "Cleaning up resources...")
+			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
+			defer cleanupCancel()
+			if cleanup != nil {
+				if errs := cleanup(cleanupCtx); len(errs) > 0 {
+					logger.Errorf(context.Background(), "Errors occurred during resource cleanup: %v", errs)
+				}
+			}
+		})
+	}
+
 	stopSignalWatcher := make(chan struct{})
-	defer close(stopSignalWatcher)
+	var stopWatcherOnce sync.Once
+	closeWatcher := func() { stopWatcherOnce.Do(func() { close(stopSignalWatcher) }) }
+	defer closeWatcher()
+
 	shutdownDone := make(chan struct{})
 
 	go func() {
@@ -101,7 +131,6 @@ func runHTTPServerLifecycle(
 
 		logger.Infof(context.Background(), "Received signal: %v, starting server shutdown...", sig)
 
-		drainBudget, cleanupBudget := runtime.ShutdownBudgets(shutdownTimeout)
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), drainBudget)
 		defer shutdownCancel()
 
@@ -113,7 +142,7 @@ func runHTTPServerLifecycle(
 					return
 				}
 				logger.Warnf(context.Background(), "Received second signal: %v, forcing shutdown...", secondSig)
-				server.Close()
+				closeHTTPServerNow(server)
 			case <-shutdownDone:
 			case <-stopSignalWatcher:
 			}
@@ -126,29 +155,17 @@ func runHTTPServerLifecycle(
 		// listeners first, so the port is released before the drain.
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			logger.Errorf(context.Background(), "Server forced to shutdown: %v", err)
-			server.Close()
+			closeHTTPServerNow(server)
 		}
 
-		// Cancel background subscribers (Redis pubsub, catalog refreshers)
-		// BEFORE tearing down Redis/PostgreSQL pools in resourceCleaner.Cleanup.
-		bgCancel()
-
-		logger.Info(context.Background(), "Cleaning up resources...")
-		// Fresh context sized from the reserved slice of ShutdownTimeout.
-		// Drain must not hand cleanup an already-expired context, and the
-		// two slices must still add up to one supervisor grace period.
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
-		defer cleanupCancel()
-		if cleanup != nil {
-			if errs := cleanup(cleanupCtx); len(errs) > 0 {
-				logger.Errorf(context.Background(), "Errors occurred during resource cleanup: %v", errs)
-			}
-		}
+		runCleanup()
 		logger.Info(context.Background(), "Server has exited")
 	}()
 
-	if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("server error: %v", err)
+	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		closeWatcher()
+		runCleanup()
+		return fmt.Errorf("server error: %w", err)
 	}
 
 	<-shutdownDone
@@ -202,7 +219,13 @@ func main() {
 		addr := formatServerAddr(cfg.Server.Host, cfg.Server.Port)
 		listener, err := listenWithRetry(addr, 10, 300*time.Millisecond)
 		if err != nil {
-			return fmt.Errorf("failed to start server: %v", err)
+			_, cleanupBudget := runtime.ShutdownBudgets(cfg.Server.ShutdownTimeout)
+			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
+			defer cleanupCancel()
+			if errs := resourceCleaner.Cleanup(cleanupCtx); len(errs) > 0 {
+				logger.Errorf(context.Background(), "Errors occurred during startup failure cleanup: %v", errs)
+			}
+			return fmt.Errorf("failed to start server: %w", err)
 		}
 
 		signals := make(chan os.Signal, 1)

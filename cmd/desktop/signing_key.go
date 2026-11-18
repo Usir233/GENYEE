@@ -3,13 +3,70 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/utils"
 )
+
+const maxDesktopKeyFileBytes = 4096
+
+func readOrCreateSecretFile(path string) ([]byte, error) {
+	key, err := readBoundedSecretFile(path)
+	if os.IsNotExist(err) {
+		raw := make([]byte, 32)
+		if _, randErr := rand.Read(raw); randErr != nil {
+			return nil, randErr
+		}
+		key = []byte(base64.RawURLEncoding.EncodeToString(raw))
+		f, createErr := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		switch {
+		case os.IsExist(createErr):
+			key, err = readBoundedSecretFile(path)
+		case createErr != nil:
+			return nil, createErr
+		default:
+			_, writeErr := f.Write(key)
+			closeErr := f.Close()
+			if writeErr != nil {
+				_ = os.Remove(path)
+				return nil, writeErr
+			}
+			if closeErr != nil {
+				_ = os.Remove(path)
+				return nil, closeErr
+			}
+			err = nil
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+func readBoundedSecretFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	data, readErr := io.ReadAll(io.LimitReader(f, maxDesktopKeyFileBytes+1))
+	closeErr := f.Close()
+	if readErr != nil {
+		return nil, readErr
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	if len(data) > maxDesktopKeyFileBytes {
+		return nil, errors.New("desktop secret file exceeds maximum length")
+	}
+	return data, nil
+}
 
 // ensureDesktopSigningKey persists the desktop signing key and, when no
 // explicit secret is configured, a JWT secret. It never replaces an AES
@@ -36,26 +93,7 @@ func ensureDesktopSigningKeyInDir(dir string) error {
 		return ensureDesktopJWTSecret(dir, nil)
 	}
 	path := filepath.Join(dir, "signing.key")
-	key, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		bytes := make([]byte, 32)
-		if _, err := rand.Read(bytes); err != nil {
-			return err
-		}
-		key = []byte(base64.RawURLEncoding.EncodeToString(bytes))
-		f, createErr := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if os.IsExist(createErr) {
-			key, err = os.ReadFile(path)
-		} else if createErr != nil {
-			return createErr
-		} else {
-			_, err = f.Write(key)
-			closeErr := f.Close()
-			if err == nil {
-				err = closeErr
-			}
-		}
-	}
+	key, err := readOrCreateSecretFile(path)
 	if err != nil {
 		return err
 	}
@@ -90,26 +128,7 @@ func ensureDesktopJWTSecret(dir string, signingKey []byte) error {
 
 func desktopJWTSecret(dir string) (string, error) {
 	path := filepath.Join(dir, "jwt.key")
-	key, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		bytes := make([]byte, 32)
-		if _, err := rand.Read(bytes); err != nil {
-			return "", err
-		}
-		key = []byte(base64.RawURLEncoding.EncodeToString(bytes))
-		f, createErr := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if os.IsExist(createErr) {
-			key, err = os.ReadFile(path)
-		} else if createErr != nil {
-			return "", createErr
-		} else {
-			_, err = f.Write(key)
-			closeErr := f.Close()
-			if err == nil {
-				err = closeErr
-			}
-		}
-	}
+	key, err := readOrCreateSecretFile(path)
 	if err != nil {
 		return "", err
 	}

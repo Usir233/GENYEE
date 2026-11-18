@@ -98,7 +98,7 @@ func TestRegisterChatLocalImageResolverDefaultsBaseDirAndBoundsRead(t *testing.T
 	// Oversized stream must be bounded rather than read without limit into memory.
 	endless := &endlessZeroReader{}
 	fileSvc.open = func() (io.ReadCloser, error) {
-		return io.NopCloser(io.LimitReader(endless, (64<<20))), nil
+		return io.NopCloser(io.LimitReader(endless, (64 << 20))), nil
 	}
 	if data, ok := api.LocalImageResolver("resource://AbCdEfGhIjKlMnOpQrStUv"); ok || data != nil {
 		t.Fatalf("expected oversized image stream to be rejected, got ok=%v len=%d", ok, len(data))

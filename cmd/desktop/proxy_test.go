@@ -90,3 +90,24 @@ func TestApp_ConcurrentEndpointsAndStartupRaceFree(t *testing.T) {
 	wg.Wait()
 	require.Equal(t, "http://127.0.0.1:18080/api/v1", app.GetAPIBaseURL())
 }
+
+func TestDesktopAPIProxyNilOrEmptyTargetReturnsServiceUnavailable(t *testing.T) {
+	for _, target := range []*url.URL{nil, {}} {
+		front := httptest.NewServer(desktopAPIProxy(target))
+		resp, err := front.Client().Get(front.URL + "/api/v1/health")
+		require.NoError(t, err)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		require.NoError(t, resp.Body.Close())
+		front.Close()
+		require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	}
+}
+
+func TestDesktopListenWithRetry_RejectsNonPositiveRetries(t *testing.T) {
+	ln, err := listenWithRetry("127.0.0.1:0", 0, 0)
+	if ln != nil {
+		_ = ln.Close()
+	}
+	require.Error(t, err)
+	require.Nil(t, ln)
+}

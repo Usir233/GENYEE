@@ -92,7 +92,8 @@ func (c *ResourceCleaner) Promote(name string) {
 		}
 		rest = append(rest, entry)
 	}
-	c.cleanups = append(rest, matched...)
+	rest = append(rest, matched...)
+	c.cleanups = rest
 }
 
 // Cleanup executes all cleanup functions.

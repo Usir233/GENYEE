@@ -1,3 +1,4 @@
+// Package main pre-downloads signed DuckDB extensions during container image builds.
 package main
 
 import (
@@ -70,7 +71,8 @@ func installAndLoadExtensions(ctx context.Context, sqlDB *sql.DB, exts []string,
 
 	if validatedRepo != "" {
 		escaped := strings.ReplaceAll(validatedRepo, "'", "''")
-		if _, err := sqlDB.ExecContext(ctx, fmt.Sprintf("SET custom_extension_repository = '%s';", escaped)); err != nil {
+		stmt := fmt.Sprintf("SET custom_extension_repository = '%s';", escaped)
+		if _, err := sqlDB.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("failed to configure HTTPS duckdb extension repository: %w", err)
 		}
 	}
@@ -86,21 +88,27 @@ func installAndLoadExtensions(ctx context.Context, sqlDB *sql.DB, exts []string,
 	return nil
 }
 
-func downloadExtensions() {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultDownloadTimeout)
+func runDownloadExtensions(parent context.Context) (err error) {
+	ctx, cancel := context.WithTimeout(parent, defaultDownloadTimeout)
 	defer cancel()
 
 	sqlDB, err := sql.Open("duckdb", ":memory:")
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("open duckdb: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		if closeErr := sqlDB.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close duckdb: %w", closeErr)
+		}
+	}()
 
-	if err := installAndLoadExtensions(ctx, sqlDB, duckdbExtensions, os.Getenv("DUCKDB_CUSTOM_EXTENSION_REPOSITORY")); err != nil {
-		panic(err)
-	}
+	customRepo := os.Getenv("DUCKDB_CUSTOM_EXTENSION_REPOSITORY")
+	return installAndLoadExtensions(ctx, sqlDB, duckdbExtensions, customRepo)
 }
 
 func main() {
-	downloadExtensions()
+	if err := runDownloadExtensions(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "duckdb extension download failed: %v\n", err)
+		os.Exit(1)
+	}
 }

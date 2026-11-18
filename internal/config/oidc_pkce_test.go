@@ -35,4 +35,20 @@ func TestOIDCPKCEEnvOverride(t *testing.T) {
 			t.Fatal("OIDC_AUTH_ENABLE=1 should enable OIDC")
 		}
 	})
+
+	t.Run("OIDC_USER_INFO_MAPPING_USERNAME overrides username claim", func(t *testing.T) {
+		t.Setenv("OIDC_USER_INFO_MAPPING_USERNAME", "preferred_username")
+		t.Setenv("OIDC_USER_INFO_MAPPING_EMAIL", "upn")
+		cfg := &Config{OIDCAuth: &OIDCAuthConfig{}}
+		applyOIDCEnvOverrides(cfg)
+		if cfg.OIDCAuth.UserInfoMapping == nil {
+			t.Fatal("expected UserInfoMapping to be initialized")
+		}
+		if cfg.OIDCAuth.UserInfoMapping.Username != "preferred_username" {
+			t.Fatalf("username mapping = %q, want preferred_username", cfg.OIDCAuth.UserInfoMapping.Username)
+		}
+		if cfg.OIDCAuth.UserInfoMapping.Email != "upn" {
+			t.Fatalf("email mapping = %q, want upn", cfg.OIDCAuth.UserInfoMapping.Email)
+		}
+	})
 }

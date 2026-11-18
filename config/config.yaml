@@ -18,7 +18,6 @@ conversation:
   fallback_prompt_id: "default_fallback_prompt"  # from prompt_templates/fallback.yaml (mode: "model")
   enable_rewrite: true
   enable_query_expansion: true
-  enable_rerank: true
   rewrite_prompt_id: "default_rewrite"  # from prompt_templates/rewrite.yaml (content + user fields)
   generate_summary_prompt_id: "default_summary"  # from prompt_templates/generate_summary.yaml
   generate_kb_description_prompt_id: "default_kb_description"  # from prompt_templates/generate_kb_description.yaml
@@ -44,10 +43,7 @@ conversation:
 knowledge_base:
   chunk_size: 512
   chunk_overlap: 50
-  split_markers: ["\n\n", "\n", "。"]
   document_process_timeout: 2h
-  image_processing:
-    enable_multimodal: true
 
 extract:
   extract_graph:

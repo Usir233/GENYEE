@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -90,4 +91,46 @@ func TestDefaultRewritePreservesActionAndOutputConstraints(t *testing.T) {
 		"Preserve source restrictions, requested actions, output format, language requirements")
 	require.NotContains(t, prompt.Content, "must also be a question")
 	require.NotContains(t, prompt.Content, "within 30 words")
+}
+
+func TestApplyAgentEnvOverrides_PromptSuspendParseBoolAndWaitExpire(t *testing.T) {
+	t.Run("GENYEE_AGENT_PROMPT_SUSPEND=1 enables suspend via ParseBool", func(t *testing.T) {
+		off := false
+		cfg := &Config{Agent: &AgentConfig{PromptSuspendEnabled: &off}}
+		t.Setenv("GENYEE_AGENT_PROMPT_SUSPEND", "1")
+		t.Setenv("GENYEE_AGENT_PROMPT_HOT_WAIT", "")
+		t.Setenv("GENYEE_AGENT_PROMPT_EXPIRE", "")
+		applyAgentEnvOverrides(cfg)
+		require.True(t, cfg.Agent.PromptSuspend())
+	})
+
+	t.Run("GENYEE_AGENT_PROMPT_SUSPEND=0 disables suspend", func(t *testing.T) {
+		cfg := &Config{Agent: &AgentConfig{}}
+		t.Setenv("GENYEE_AGENT_PROMPT_SUSPEND", "0")
+		applyAgentEnvOverrides(cfg)
+		require.False(t, cfg.Agent.PromptSuspend())
+	})
+
+	t.Run("malformed GENYEE_AGENT_PROMPT_SUSPEND preserves existing setting", func(t *testing.T) {
+		cfg := &Config{Agent: &AgentConfig{}}
+		t.Setenv("GENYEE_AGENT_PROMPT_SUSPEND", "ture")
+		applyAgentEnvOverrides(cfg)
+		require.True(t, cfg.Agent.PromptSuspend())
+	})
+
+	t.Run("GENYEE_AGENT_PROMPT_HOT_WAIT and EXPIRE parse duration and seconds", func(t *testing.T) {
+		cfg := &Config{Agent: &AgentConfig{}}
+		t.Setenv("GENYEE_AGENT_PROMPT_SUSPEND", "")
+		t.Setenv("GENYEE_AGENT_PROMPT_HOT_WAIT", "3m")
+		t.Setenv("GENYEE_AGENT_PROMPT_EXPIRE", "24h")
+		applyAgentEnvOverrides(cfg)
+		require.Equal(t, 3*time.Minute, cfg.Agent.PromptHotWait())
+		require.Equal(t, 24*time.Hour, cfg.Agent.PromptExpiry())
+
+		t.Setenv("GENYEE_AGENT_PROMPT_HOT_WAIT", "45")
+		t.Setenv("GENYEE_AGENT_PROMPT_EXPIRE", "-1")
+		applyAgentEnvOverrides(cfg)
+		require.Equal(t, 45*time.Second, cfg.Agent.PromptHotWait())
+		require.Equal(t, time.Duration(0), cfg.Agent.PromptExpiry(), "-1 means never expires")
+	})
 }

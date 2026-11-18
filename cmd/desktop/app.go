@@ -1,3 +1,4 @@
+// Package main implements the GENYEE Lite Wails desktop application.
 package main
 
 import (
@@ -58,7 +59,7 @@ func (a *App) startup(ctx context.Context) {
 	a.mu.Unlock()
 }
 
-func (a *App) shutdown(ctx context.Context) {
+func (a *App) shutdown(_ context.Context) {
 	select {
 	case a.shutdownCh <- struct{}{}:
 	default:
@@ -81,7 +82,8 @@ func (a *App) GetDesktopHTTPPortSetting() int {
 	return LoadDesktopPrefsHTTPPort()
 }
 
-// SetDesktopHTTPPortSetting saves the preferred local API port to application support. Restart the app for it to take effect unless it matches the current listener.
+// SetDesktopHTTPPortSetting saves the preferred local API port to application support.
+// Restart the app for it to take effect unless it matches the current listener.
 func (a *App) SetDesktopHTTPPortSetting(port int) error {
 	return SaveDesktopHTTPPortPreference(port)
 }
@@ -96,13 +98,15 @@ func (a *App) SetDesktopHTTPBindPublicSetting(v bool) error {
 	return SaveDesktopHTTPBindPublicPreference(v)
 }
 
-// GetAPILanBaseURL returns a suggested base URL for other devices on the LAN (…/api/v1), or empty if not in bind-public mode or IP detection failed.
+// GetAPILanBaseURL returns a suggested base URL for other devices on the LAN (.../api/v1),
+// or empty if not in bind-public mode or IP detection failed.
 func (a *App) GetAPILanBaseURL() string {
 	_, apiLanBaseURL, _ := a.getBackendEndpoints()
 	return apiLanBaseURL
 }
 
-// GetDesktopListenPublicActive is true when this session’s API server is listening on all interfaces (runtime), not the saved preference.
+// GetDesktopListenPublicActive reports whether this session's API server is
+// listening on all interfaces at runtime (as opposed to the saved preference).
 func (a *App) GetDesktopListenPublicActive() bool {
 	_, _, listenPublic := a.getBackendEndpoints()
 	return listenPublic

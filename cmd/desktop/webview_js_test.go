@@ -96,7 +96,7 @@ console.log(JSON.stringify({
 
 	t.Run("logged-in user dark preference", func(t *testing.T) {
 		res := runSync(t, map[string]string{
-			"genyee_user":    `{"id":"u-42"}`,
+			"genyee_user":       `{"id":"u-42"}`,
 			"GENYEE_u-42_theme": "dark",
 		}, false)
 		if res.ThemeMode != "dark" || res.Bg != "#181818" || res.Runtime != "dark" {

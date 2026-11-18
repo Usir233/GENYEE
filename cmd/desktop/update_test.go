@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -34,7 +35,7 @@ func TestVerifyFileSHA256FailsClosedOnMissingOrMismatchedDigest(t *testing.T) {
 	dir := t.TempDir()
 	binPath := filepath.Join(dir, "GENYEE-Update.dmg")
 	content := []byte("verified-release-binary-payload")
-	if err := os.WriteFile(binPath, content, 0600); err != nil {
+	if err := os.WriteFile(binPath, content, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(content)
@@ -80,7 +81,10 @@ func TestResolveExpectedAssetSHA256AndEd25519Manifest(t *testing.T) {
 
 	// Missing both digest and checksum manifest must fail closed.
 	t.Setenv("GENYEE_UPDATE_PUBLIC_KEY", "")
-	if _, err := resolveExpectedAssetSHA256(srv.Client(), []githubAsset{selected}, selected, selected.Name); err == nil {
+	_, err = resolveExpectedAssetSHA256(
+		srv.Client(), []githubAsset{selected}, selected, selected.Name,
+	)
+	if err == nil {
 		t.Fatal("expected asset without digest or SHA256SUMS to be rejected")
 	}
 
@@ -148,14 +152,18 @@ func TestResolveUpdateReleaseURL_RejectsCleartextRemoteAndRepoTraversal(t *testi
 
 	t.Setenv("GENYEE_UPDATE_URL", "")
 	t.Setenv("GENYEE_UPDATE_REPO", "genyee/genyee-lite")
-	if got, ok := resolveUpdateReleaseURL(); !ok || got != "https://api.github.com/repos/genyee/genyee-lite/releases/latest" {
+	const wantGitHubURL = "https://api.github.com/repos/genyee/genyee-lite/releases/latest"
+	if got, ok := resolveUpdateReleaseURL(); !ok || got != wantGitHubURL {
 		t.Fatalf("expected valid owner/repo to resolve, got (%q, %v)", got, ok)
 	}
 }
 
 func TestUpdateSecurity_GitHubTokenScopeRedirectValidationAndManifestError(t *testing.T) {
 	// 1. GITHUB_TOKEN must ONLY be sent to https://api.github.com, never custom update servers.
-	customReq, err := buildUpdateReleaseRequest("https://updates.enterprise.example/releases/latest", "ghp_secret_token")
+	customReq, err := buildUpdateReleaseRequest(
+		"https://updates.enterprise.example/releases/latest",
+		"ghp_secret_token",
+	)
 	if err != nil {
 		t.Fatalf("buildUpdateReleaseRequest custom: %v", err)
 	}
@@ -163,7 +171,10 @@ func TestUpdateSecurity_GitHubTokenScopeRedirectValidationAndManifestError(t *te
 		t.Fatalf("leaked GITHUB_TOKEN to non-GitHub update host: %q", auth)
 	}
 
-	ghReq, err := buildUpdateReleaseRequest("https://api.github.com/repos/genyee/genyee-lite/releases/latest", "ghp_secret_token")
+	ghReq, err := buildUpdateReleaseRequest(
+		"https://api.github.com/repos/genyee/genyee-lite/releases/latest",
+		"ghp_secret_token",
+	)
 	if err != nil {
 		t.Fatalf("buildUpdateReleaseRequest github: %v", err)
 	}
@@ -188,5 +199,13 @@ func TestUpdateSecurity_GitHubTokenScopeRedirectValidationAndManifestError(t *te
 	err = verifyManifestEd25519([]byte("manifest"), []byte("sig"), "not-a-valid-key")
 	if err == nil || strings.Contains(err.Error(), "<nil>") {
 		t.Fatalf("expected descriptive invalid key error without <nil>, got %v", err)
+	}
+
+	// 4. Context cancellation aborts manifest fetch deterministically.
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = fetchSmallAssetBytesWithContext(canceledCtx, redirSrv.Client(), redirSrv.URL+"/SHA256SUMS")
+	if err == nil {
+		t.Fatal("expected canceled context to abort fetchSmallAssetBytesWithContext")
 	}
 }

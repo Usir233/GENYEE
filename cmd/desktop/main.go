@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -175,7 +176,25 @@ window.open=function(url){
 })();`
 
 // wailsThemeSyncJS：与 index.html 首屏及 preferenceStorage.ts 一致，在 DomReady 再跑一遍，覆盖 Ctrl+R 后 runtime 就绪时机
-const wailsThemeSyncJS = `(function(){try{var uid='anon';try{var raw=localStorage.getItem('genyee_user');if(raw){var u=JSON.parse(raw);if(u&&u.id)uid=String(u.id);}}catch(_){}var t=localStorage.getItem('GENYEE_'+uid+'_theme')||localStorage.getItem('GENYEE_anon_theme')||'light';if(t!=='light'&&t!=='dark'&&t!=='system')t='light';if(t==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var bg=t==='dark'?'#181818':'#eee';document.documentElement.setAttribute('theme-mode',t);document.documentElement.style.background=bg;document.documentElement.style.minHeight='100%';document.documentElement.style.colorScheme=t==='dark'?'dark':'light';if(document.body){document.body.style.background=bg;document.body.style.minHeight='100%';}var w=window.runtime;if(!w)return;if(t==='dark'){if(w.WindowSetDarkTheme)w.WindowSetDarkTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(24,24,24,255);}else{if(w.WindowSetLightTheme)w.WindowSetLightTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(238,238,238,255);}}catch(e){}})()`
+const wailsThemeSyncJS = `(function(){try{var uid='anon';` +
+	`try{var raw=localStorage.getItem('genyee_user');` +
+	`if(raw){var u=JSON.parse(raw);if(u&&u.id)uid=String(u.id);}}catch(_){}` +
+	`var t=localStorage.getItem('GENYEE_'+uid+'_theme')` +
+	`||localStorage.getItem('GENYEE_anon_theme')||'light';` +
+	`if(t!=='light'&&t!=='dark'&&t!=='system')t='light';` +
+	`if(t==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';` +
+	`var bg=t==='dark'?'#181818':'#eee';` +
+	`document.documentElement.setAttribute('theme-mode',t);` +
+	`document.documentElement.style.background=bg;` +
+	`document.documentElement.style.minHeight='100%';` +
+	`document.documentElement.style.colorScheme=t==='dark'?'dark':'light';` +
+	`if(document.body){document.body.style.background=bg;document.body.style.minHeight='100%';}` +
+	`var w=window.runtime;if(!w)return;` +
+	`if(t==='dark'){if(w.WindowSetDarkTheme)w.WindowSetDarkTheme();` +
+	`if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(24,24,24,255);}` +
+	`else{if(w.WindowSetLightTheme)w.WindowSetLightTheme();` +
+	`if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(238,238,238,255);}` +
+	`}catch(e){}})()`
 
 // ensureDesktopLiteEdition marks this process as Lite. cmd/desktop is the
 // Lite app; packaged builds also inject this via ldflags. wails dev often
@@ -196,7 +215,9 @@ func main() {
 		configRoot, hasConfigRoot = desktopConfigRoot(execPath)
 	}
 	if hasConfigRoot {
-		_ = os.Chdir(configRoot)
+		if chdirErr := os.Chdir(configRoot); chdirErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to chdir to %s: %v\n", configRoot, chdirErr)
+		}
 	}
 
 	// Load .env explicitly for the desktop app so DB_DRIVER gets loaded.
@@ -208,7 +229,9 @@ func main() {
 	// startup. Lite has no Redis; keep the in-memory stream manager.
 	if strings.TrimSpace(os.Getenv("REDIS_ADDR")) == "" &&
 		strings.EqualFold(strings.TrimSpace(os.Getenv("STREAM_MANAGER_TYPE")), stream.TypeRedis) {
-		_ = os.Setenv("STREAM_MANAGER_TYPE", stream.TypeMemory)
+		if setErr := os.Setenv("STREAM_MANAGER_TYPE", stream.TypeMemory); setErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: set STREAM_MANAGER_TYPE: %v\n", setErr)
+		}
 	}
 	configureDesktopStorage(execPath)
 	configureDesktopFileStorage(execPath)
@@ -266,6 +289,18 @@ func main() {
 			router *gin.Engine,
 			resourceCleaner interfaces.ResourceCleaner,
 		) error {
+			drainBudget, cleanupBudget := runtime.ShutdownBudgets(cfg.Server.ShutdownTimeout)
+			var cleanupOnce sync.Once
+			runCleanup := func() {
+				cleanupOnce.Do(func() {
+					cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
+					defer cleanupCancel()
+					if errs := resourceCleaner.Cleanup(cleanupCtx); len(errs) > 0 {
+						logger.Errorf(context.Background(), "Errors occurred during resource cleanup: %v", errs)
+					}
+				})
+			}
+
 			server := newDesktopHTTPServer(router)
 
 			runtime.LogGinRouteCount(context.Background())
@@ -275,7 +310,8 @@ func main() {
 
 			listener, err := listenWithRetry(addr, 10, 300*time.Millisecond)
 			if err != nil {
-				return fmt.Errorf("failed to start server: %v", err)
+				runCleanup()
+				return fmt.Errorf("failed to start server: %w", err)
 			}
 
 			tcpAddr := listener.Addr().(*net.TCPAddr)
@@ -297,23 +333,29 @@ func main() {
 			// "use of closed network connection" instead of ErrServerClosed,
 			// and the error path calls logger.Fatalf → os.Exit(1) before cleanup.
 			serverStopped := make(chan struct{})
+			stopShutdownWatcher := make(chan struct{})
+			var stopWatcherOnce sync.Once
+			closeShutdownWatcher := func() { stopWatcherOnce.Do(func() { close(stopShutdownWatcher) }) }
+			defer closeShutdownWatcher()
+
 			go func() {
 				defer close(serverStopped)
-				<-app.shutdownCh
+				select {
+				case <-app.shutdownCh:
+				case <-stopShutdownWatcher:
+					return
+				}
 				logger.Infof(context.Background(), "Wails shutting down, stopping Go backend...")
 
-				drainBudget, cleanupBudget := runtime.ShutdownBudgets(cfg.Server.ShutdownTimeout)
 				shutdownCtx, cancel := context.WithTimeout(context.Background(), drainBudget)
 				defer cancel()
 
 				if err := server.Shutdown(shutdownCtx); err != nil {
-					server.Close()
+					if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+						logger.Warnf(context.Background(), "Force-close desktop HTTP server failed: %v", closeErr)
+					}
 				}
-				cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
-				defer cleanupCancel()
-				if errs := resourceCleaner.Cleanup(cleanupCtx); len(errs) > 0 {
-					logger.Errorf(context.Background(), "Errors occurred during resource cleanup: %v", errs)
-				}
+				runCleanup()
 			}()
 
 			// Also listen for OS signals just in case
@@ -335,8 +377,10 @@ func main() {
 			}()
 
 			logger.Infof(context.Background(), "Server is running at %s (proxy -> %s)", tcpAddr.String(), backendURL)
-			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
-				return fmt.Errorf("server error: %v", err)
+			if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				closeShutdownWatcher()
+				runCleanup()
+				return fmt.Errorf("server error: %w", err)
 			}
 			<-serverStopped
 			return nil
@@ -348,11 +392,13 @@ func main() {
 	}()
 
 	// Wait deterministically for the embedded backend listener to bind its port.
+	readyTimer := time.NewTimer(15 * time.Second)
 	select {
 	case <-backendReadyCh:
-	case <-time.After(15 * time.Second):
+	case <-readyTimer.C:
 		logger.Warnf(context.Background(), "Timed out waiting for embedded backend port assignment")
 	}
+	readyTimer.Stop()
 
 	// Create application with options
 	// macOS app menu
@@ -363,10 +409,16 @@ func main() {
 		if ctx == nil {
 			return
 		}
+		aboutMsg := fmt.Sprintf(
+			"GENYEE Lite — Desktop Edition\n\n"+
+				"A RAG framework for document understanding and semantic Q&A "+
+				"over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE.",
+			desktopAboutVersion(),
+		)
 		_, err := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "GENYEE Lite",
-			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE.", desktopAboutVersion()),
+			Message:       aboutMsg,
 			Buttons:       []string{"OK"},
 			DefaultButton: "OK",
 		})
@@ -401,7 +453,15 @@ func main() {
 
 	// Build reverse proxy targeting the synchronized loopback backend URL
 	backendURL, _, _ := app.getBackendEndpoints()
-	targetURL, _ := url.Parse(backendURL)
+	var targetURL *url.URL
+	if trimmedBackend := strings.TrimSpace(backendURL); trimmedBackend != "" {
+		parsed, parseErr := url.Parse(trimmedBackend)
+		if parseErr != nil {
+			logger.Warnf(context.Background(), "Invalid desktop backend URL %q: %v", trimmedBackend, parseErr)
+		} else {
+			targetURL = parsed
+		}
+	}
 	proxy := desktopAPIProxy(targetURL)
 
 	// Start Wails application
@@ -470,14 +530,16 @@ func configureDesktopStorage(execPath string) {
 		logger.Warnf(context.Background(), "Failed to create desktop DB directory %s: %v", filepath.Dir(dbPath), err)
 	}
 
-	_ = os.Setenv("DB_PATH", dbPath)
+	if err := os.Setenv("DB_PATH", dbPath); err != nil {
+		logger.Warnf(context.Background(), "Failed to set DB_PATH: %v", err)
+	}
 }
 
 // configureDesktopFileStorage points Lite file uploads at ~/.genyee/data/files.
 // wails dev is not always inside a packaged .app, so this runs for every
 // desktop process. An explicit absolute directory is kept; the Docker default
 // /data/files is not writable on macOS and is replaced.
-func configureDesktopFileStorage(execPath string) {
+func configureDesktopFileStorage(_ string) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		logger.Warnf(context.Background(), "Failed to resolve home dir for file storage: %v", err)
@@ -492,7 +554,9 @@ func configureDesktopFileStorage(execPath string) {
 		logger.Warnf(context.Background(), "Failed to create desktop files directory %s: %v", filesPath, err)
 		return
 	}
-	_ = os.Setenv("LOCAL_STORAGE_BASE_DIR", filesPath)
+	if err := os.Setenv("LOCAL_STORAGE_BASE_DIR", filesPath); err != nil {
+		logger.Warnf(context.Background(), "Failed to set LOCAL_STORAGE_BASE_DIR: %v", err)
+	}
 }
 
 func desktopLocalFilesDir(home string) string {
@@ -546,7 +610,12 @@ func resolveDesktopDataPath(rawPath, defaultRelativePath, appSupportDir string) 
 // needs the API listener as Host so the link cannot be aimed at another
 // machine. Other routes keep the page Host (wails.localhost), which OIDC
 // callbacks and embed origin checks still compare against.
-func desktopAPIProxy(target *url.URL) *httputil.ReverseProxy {
+func desktopAPIProxy(target *url.URL) http.Handler {
+	if target == nil || strings.TrimSpace(target.Scheme) == "" || strings.TrimSpace(target.Host) == "" {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "desktop backend unavailable", http.StatusServiceUnavailable)
+		})
+	}
 	return &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(target)
@@ -636,7 +705,7 @@ func desktopPreferredLANIPv4() net.IP {
 	if err != nil {
 		return nil
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	la, ok := conn.LocalAddr().(*net.UDPAddr)
 	if !ok || la.IP == nil {
 		return nil
@@ -645,6 +714,9 @@ func desktopPreferredLANIPv4() net.IP {
 }
 
 func listenWithRetry(addr string, maxRetries int, baseDelay time.Duration) (net.Listener, error) {
+	if maxRetries <= 0 {
+		return nil, errors.New("listenWithRetry: maxRetries must be > 0")
+	}
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {
 		listener, err := net.Listen("tcp", addr)
@@ -653,7 +725,8 @@ func listenWithRetry(addr string, maxRetries int, baseDelay time.Duration) (net.
 		}
 		lastErr = err
 		if i < maxRetries-1 {
-			delay := baseDelay * time.Duration(1<<uint(i))
+			shift := min(i, 30)
+			delay := baseDelay * time.Duration(1<<uint(shift))
 			if delay > 3*time.Second {
 				delay = 3 * time.Second
 			}

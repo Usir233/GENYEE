@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,6 +41,23 @@ func hasDesktopConfig(dir string) bool {
 	return err == nil
 }
 
+func loadOptionalDotenv(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat dotenv %q: %w", path, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("dotenv path %q is a directory", path)
+	}
+	if err := godotenv.Load(path); err != nil {
+		return fmt.Errorf("load dotenv %q: %w", path, err)
+	}
+	return nil
+}
+
 // loadDesktopEnv reads ENV_FILE when set, then root's .env.lite and .env.
 // .env.lite is Lite's own overlay and wins on shared keys: godotenv does not
 // overwrite a variable that is already set, so the repo's Docker/remote .env
@@ -54,7 +72,11 @@ func loadDesktopEnv(root string, found bool) error {
 	if !found {
 		return nil
 	}
-	_ = godotenv.Load(filepath.Join(root, ".env.lite"))
-	_ = godotenv.Load(filepath.Join(root, ".env"))
+	if err := loadOptionalDotenv(filepath.Join(root, ".env.lite")); err != nil {
+		return err
+	}
+	if err := loadOptionalDotenv(filepath.Join(root, ".env")); err != nil {
+		return err
+	}
 	return nil
 }

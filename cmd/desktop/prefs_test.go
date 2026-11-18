@@ -180,7 +180,11 @@ func TestDesktopAppSupportDirDoesNotAdoptOtherApplicationData(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", baseLegacy)
 	legacyDir := filepath.Join(baseLegacy, "Other Product Lite")
 	require.NoError(t, os.MkdirAll(legacyDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(legacyDir, desktopPrefsFileName), []byte(`{"http_port":18080}`), 0o600))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(legacyDir, desktopPrefsFileName),
+		[]byte(`{"http_port":18080}`),
+		0o600,
+	))
 	require.Equal(t, 0, LoadDesktopPrefsHTTPPort())
 	require.Equal(t, filepath.Join(baseLegacy, "GENYEE Lite"), resolveDesktopAppSupportDir(baseLegacy))
 }
@@ -208,4 +212,20 @@ func TestUpdateEndpointAndAutoUpdateDefaults(t *testing.T) {
 	url, ok = resolveUpdateReleaseURL()
 	require.True(t, ok)
 	require.Equal(t, "https://updates.example.com/releases/latest", url)
+}
+
+func TestLoadDesktopPrefsRejectsOversizedPrefsFile(t *testing.T) {
+	base := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", base)
+	path, err := desktopPrefsFilePath()
+	require.NoError(t, err)
+	// Write > 1 MiB JSON payload to verify bounded reading rejects oversized files.
+	oversized := append([]byte(`{"http_port":19090,"session_root":"`), make([]byte, (1<<20)+64)...)
+	for i := len(`{"http_port":19090,"session_root":"`); i < len(oversized); i++ {
+		oversized[i] = 'a'
+	}
+	oversized = append(oversized, []byte(`"}`)...)
+	require.NoError(t, os.WriteFile(path, oversized, 0o600))
+
+	require.Equal(t, 0, LoadDesktopPrefsHTTPPort(), "oversized prefs file must be rejected safely")
 }
