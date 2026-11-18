@@ -27,6 +27,7 @@ jobs:
   # ── 1. Build frontend once, share as artifact (for Web CLI) ──
   build-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -70,6 +71,7 @@ jobs:
             goos: darwin
             goarch: arm64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     env:
       CGO_ENABLED: 1
       GOOS: ${{ matrix.goos }}
@@ -171,6 +173,7 @@ jobs:
             arch_label: windows_amd64
             artifact_name: desktop-windows-amd64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     env:
       CGO_ENABLED: 1
     steps:
@@ -357,6 +360,7 @@ jobs:
   release:
     needs: [build-binary, build-desktop-app]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -452,10 +456,11 @@ jobs:
 
   # ── 4. Update Homebrew Formula ──
   update-homebrew:
-    # Compliance-branch releases must never mutate the pure-rebrand main branch.
+    # Only update the Homebrew formula on main when dispatched from refs/heads/main.
     if: github.ref == 'refs/heads/main'
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:

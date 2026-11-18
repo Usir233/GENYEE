@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docreader/**"
+      - "docker/odl-hybrid/**"
       - "go.mod"
       - "go.sum"
       - "testdata/**"
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - "docreader/**"
+      - "docker/odl-hybrid/**"
       - "go.mod"
       - "go.sum"
       - "testdata/**"
@@ -33,10 +35,11 @@ env:
   PYTHON_VERSION: "3.12.16"
   GO_VERSION: "1.27.3"
   GOPROXY: https://proxy.golang.org,direct
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   verify:
-    name: Python tests and Go client tests
+    name: Lint, type-check, Python tests, and Go client tests
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -58,6 +61,16 @@ jobs:
       - name: Compile Python sources
         run: uv run --project docreader --python "$PYTHON_VERSION" python -m compileall -q docreader
 
+      - name: Lint and format check (ruff)
+        run: |
+          uv run --project docreader --python "$PYTHON_VERSION" --with ruff ruff check --no-cache docreader docker/odl-hybrid
+          uv run --project docreader --python "$PYTHON_VERSION" --with ruff ruff format --check --no-cache docreader docker/odl-hybrid
+
+      - name: Type-check (mypy)
+        run: |
+          uv run --project docreader --python "$PYTHON_VERSION" --with mypy \
+            mypy --no-incremental --cache-dir=/dev/null --config-file docreader/pyproject.toml --explicit-package-bases docreader
+
       # Both the Python proxy integration tests and Go TestReadURL launch
       # WebKit, so install the browser and system libraries before either suite.
       - name: Cache Playwright browsers
@@ -71,7 +84,7 @@ jobs:
 
       - name: Run Python tests
         # Collect both unittest classes and pytest function regressions.
-        run: uv run --project docreader --python "$PYTHON_VERSION" --with pytest python -m pytest docreader/tests -v
+        run: uv run --project docreader --python "$PYTHON_VERSION" --with pytest python -m pytest -p no:cacheprovider docreader/tests -v
 
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:

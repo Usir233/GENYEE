@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-push checks aligned with CI (.github/workflows/app.yml, frontend.yml, cli.yml).
+# Pre-push zero-exemption gates aligned with CI (.github/workflows/*.yml & BRANCH_GUIDE.md).
 
 set -euo pipefail
 
@@ -14,6 +14,11 @@ fi
 cd "$ROOT"
 
 remote="${1:-origin}"
+if [[ "$remote" == "upstream" ]]; then
+  log_fail "pushing to the read-only 'upstream' remote is prohibited (see BRANCH_GUIDE.md §二.1)"
+  exit 1
+fi
+
 while read -r _local_ref local_sha remote_ref remote_sha; do
   if [[ "$local_sha" =~ ^0+$ ]]; then
     continue
@@ -25,10 +30,9 @@ while read -r _local_ref local_sha remote_ref remote_sha; do
   pr_ref="$(pr_diff_base_ref)"
   pr_tip="$local_sha"
   pr_diff="${pr_ref}...${pr_tip}"
-  lint_from_rev="$pr_ref"
 
   if [[ "$remote_sha" =~ ^0+$ ]]; then
-    push_start="$(git -C "$ROOT" merge-base "$pr_ref" "$local_sha")"
+    push_start="$(git -C "$ROOT" merge-base "$pr_ref" "$local_sha" 2>/dev/null || git -C "$ROOT" rev-parse "${local_sha}~1")"
     push_range="${push_start}..${local_sha}"
     log_step "new branch; PR diff ${pr_ref}...${local_sha:0:12}"
   else
@@ -42,40 +46,77 @@ while read -r _local_ref local_sha remote_ref remote_sha; do
 
   check_whitespace "$push_range"
 
+  pr_ref_sha="$(git -C "$ROOT" rev-parse --verify "${pr_ref}^{commit}" 2>/dev/null || true)"
+  if [[ -n "$pr_ref_sha" && "$pr_ref_sha" != "$local_sha" ]]; then
+    diff_spec="$pr_diff"
+  else
+    diff_spec="$push_range"
+  fi
+
   pr_changed=()
   while IFS= read -r line; do
     [[ -n "$line" ]] && pr_changed+=("$line")
-  done < <(git diff --name-only --diff-filter=ACMR "$pr_diff" || true)
+  done < <(git diff --name-only --diff-filter=ACMR "$diff_spec" || true)
 
   if [[ ${#pr_changed[@]} -eq 0 ]]; then
     log_ok "pre-push: no PR diff changes"
     continue
   fi
 
-  pr_changed_go=()
-  while IFS= read -r line; do
-    [[ -n "$line" ]] && pr_changed_go+=("$line")
-  done < <(git diff --name-only --diff-filter=ACMR "$pr_diff" -- '*.go' ':!cli/**' || true)
+  touched_modules=()
+  while IFS= read -r mod; do
+    [[ -n "$mod" ]] && touched_modules+=("$mod")
+  done < <(detect_touched_go_modules "${pr_changed[@]}")
 
-  if [[ ${#pr_changed_go[@]} -gt 0 ]]; then
-    go_files=()
-    for f in "${pr_changed_go[@]}"; do
-      go_files+=("$ROOT/$f")
+  if [[ ${#touched_modules[@]} -gt 0 ]]; then
+    tracked_go=()
+    while IFS= read -r -d '' f; do
+      [[ -n "$f" ]] && tracked_go+=("$ROOT/$f")
+    done < <(git -C "$ROOT" ls-files -z '*.go')
+    check_gofmt_files check "${tracked_go[@]}"
+
+    for mod in "${touched_modules[@]}"; do
+      run_golangci_if_available "$mod"
     done
-    check_gofmt_files check "${go_files[@]}"
-
-    run_golangci_if_available "$lint_from_rev"
-
-    run_app_vet_test
-
-    log_step "go build ./cmd/server"
-    go build ./cmd/server
-    log_ok "go build ./cmd/server"
   fi
+
+  for mod in "${touched_modules[@]}"; do
+    if [[ "$mod" == "." ]]; then
+      run_app_vet_test
+      log_step "go build ./cmd/server"
+      go build ./cmd/server
+      log_ok "go build ./cmd/server"
+      break
+    fi
+  done
 
   if paths_match_prefix "cli/" "${pr_changed[@]}"; then
     run_cli_checks
   fi
+  if paths_match_prefix "client/" "${pr_changed[@]}"; then
+    run_client_checks
+  fi
+
+  changed_sh=()
+  changed_py=()
+  for f in "${pr_changed[@]}"; do
+    case "$f" in
+      *.sh|scripts/git-hooks/pre-commit|scripts/git-hooks/pre-push)
+        changed_sh+=("$ROOT/$f")
+        ;;
+      *.py)
+        changed_py+=("$ROOT/$f")
+        ;;
+    esac
+  done
+
+  if [[ ${#changed_sh[@]} -gt 0 ]]; then
+    run_shellcheck_if_available "${changed_sh[@]}"
+  fi
+  if [[ ${#changed_py[@]} -gt 0 ]]; then
+    run_ruff_if_available "${changed_py[@]}"
+  fi
+
   if paths_match_prefix "frontend/" "${pr_changed[@]}"; then
     run_frontend_checks
   fi

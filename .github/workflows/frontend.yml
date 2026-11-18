@@ -29,9 +29,9 @@ env:
 
 jobs:
   verify:
-    name: Test, type-check, and build
+    name: Lint, test, type-check, and build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -46,6 +46,62 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-fund
+
+      # Install ESLint v9 and Vue/TypeScript flat-config plugins in an isolated
+      # /tmp/fe-lint prefix so frontend/package.json and package-lock.json (and
+      # distributed npm license bundles) remain untouched.
+      - name: Lint (isolated ESLint v9)
+        shell: bash
+        run: |
+          rm -rf /tmp/fe-lint
+          trap 'rm -rf /tmp/fe-lint' EXIT
+          mkdir -p /tmp/fe-lint
+          cat > /tmp/fe-lint/package.json <<'EOF'
+          {
+            "name": "genyee-ci-fe-lint",
+            "private": true,
+            "type": "module"
+          }
+          EOF
+          npm --prefix /tmp/fe-lint install --no-save --no-audit --no-fund \
+            "eslint@^9" \
+            "@eslint/js@^9" \
+            "typescript-eslint@^8" \
+            "eslint-plugin-vue@^10" \
+            "vue-eslint-parser@^10" \
+            "globals@^17"
+          cat > /tmp/fe-lint/loader-hooks.mjs <<'EOF'
+          const FALLBACK_PARENT_URL = 'file:///tmp/fe-lint/package.json';
+          export async function resolve(specifier, context, nextResolve) {
+            try {
+              return await nextResolve(specifier, context);
+            } catch (err) {
+              if (
+                err &&
+                err.code === 'ERR_MODULE_NOT_FOUND' &&
+                !specifier.startsWith('.') &&
+                !specifier.startsWith('/') &&
+                !specifier.startsWith('file:') &&
+                !specifier.startsWith('node:') &&
+                !specifier.startsWith('data:')
+              ) {
+                return nextResolve(specifier, {
+                  ...context,
+                  parentURL: FALLBACK_PARENT_URL,
+                });
+              }
+              throw err;
+            }
+          }
+          EOF
+          cat > /tmp/fe-lint/register-loader.mjs <<'EOF'
+          import { register } from 'node:module';
+          register('./loader-hooks.mjs', import.meta.url);
+          EOF
+          NODE_PATH="/tmp/fe-lint/node_modules" \
+          NODE_OPTIONS="--import /tmp/fe-lint/register-loader.mjs" \
+          PATH="/tmp/fe-lint/node_modules/.bin:$PATH" \
+            eslint -c eslint.config.mjs --max-warnings=0 .
 
       - name: Run tests
         run: npm test

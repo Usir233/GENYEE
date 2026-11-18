@@ -1,4 +1,4 @@
-.PHONY: help build run test clean docker-build-app docker-build-docreader docker-build-frontend docker-build-all docker-run migrate-up migrate-down docker-restart docker-stop start-all stop-all start-ollama stop-ollama build-images build-images-app build-images-docreader build-images-frontend clean-images check-env list-containers pull-images show-platform dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend docs install-swagger build-lite run-lite package-lite anydoc-lib build-anydoc
+.PHONY: help build run test clean fmt lint lint-go lint-python lint-shell lint-frontend deps docker-build-app docker-build-docreader docker-build-frontend docker-build-all docker-run migrate-up migrate-down docker-restart docker-stop start-all stop-all start-ollama stop-ollama build-images build-images-app build-images-docreader build-images-frontend clean-images check-env list-containers pull-images show-platform dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend docs install-swagger build-lite run-lite package-lite package-mac-app anydoc-lib build-anydoc
 
 # Show help
 help:
@@ -39,7 +39,11 @@ help:
 	@echo ""
 	@echo "开发工具:"
 	@echo "  fmt               格式化代码"
-	@echo "  lint              代码检查"
+	@echo "  lint              全栈零豁免代码检查 (Go + Python + Shell + Frontend)"
+	@echo "  lint-go           Go 全模块格式化与 golangci-lint 检查"
+	@echo "  lint-python       Python ruff 与 mypy 类型检查"
+	@echo "  lint-shell        Shell 脚本 shellcheck 检查"
+	@echo "  lint-frontend     前端 ESLint v9 与 i18n 门禁检查"
 	@echo "  deps              安装依赖"
 	@echo "  docs              生成 Swagger API 文档"
 	@echo "  install-swagger   安装 swag 工具"
@@ -272,11 +276,64 @@ install-swagger:
 
 # Format code
 fmt:
-	go fmt ./...
+	git ls-files -z '*.go' | xargs -0 -r gofmt -w
 
-# Lint code
-lint:
-	golangci-lint run
+# Full-stack zero-exemption static analysis gates (Go + Python + Shell + Frontend)
+lint: lint-go lint-python lint-shell lint-frontend
+
+lint-go:
+	@echo ">> [lint-go] Checking gofmt across all tracked .go files..."
+	@unformatted="$$(git ls-files -z '*.go' | xargs -0 -r gofmt -l)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "The following Go files are not gofmt-formatted:" >&2; \
+		echo "$$unformatted" >&2; \
+		exit 1; \
+	fi
+	@root_cfg="$$(pwd)/.golangci.yml"; \
+	for mod in . cli client third_party/anydoc-go docs/poc/docker-sandbox; do \
+		echo ">> [lint-go] golangci-lint ($$mod)..."; \
+		(cd "$$mod" && GOMAXPROCS=$${GOMAXPROCS:-2} golangci-lint run --config="$$root_cfg" ./...) || exit 1; \
+	done
+
+lint-python:
+	@echo ">> [lint-python] Running ruff check & format --check..."
+	@py_dirs="docreader mcp-server docker/odl-hybrid scripts"; \
+	if [ -f pyproject.toml ] || [ -f ruff.toml ]; then \
+		py_dirs="$$py_dirs dataset tests"; \
+	fi; \
+	if command -v ruff >/dev/null 2>&1; then \
+		PYTHONDONTWRITEBYTECODE=1 ruff check --no-cache $$py_dirs && \
+		PYTHONDONTWRITEBYTECODE=1 ruff format --check --no-cache $$py_dirs; \
+	else \
+		PYTHONDONTWRITEBYTECODE=1 uv run --project docreader --with ruff ruff check --no-cache $$py_dirs && \
+		PYTHONDONTWRITEBYTECODE=1 uv run --project docreader --with ruff ruff format --check --no-cache $$py_dirs; \
+	fi
+	@echo ">> [lint-python] Running mypy (docreader & mcp-server)..."
+	@if command -v uv >/dev/null 2>&1; then \
+		PYTHONDONTWRITEBYTECODE=1 uv run --project docreader --with mypy \
+			mypy --no-incremental --cache-dir=/dev/null --config-file docreader/pyproject.toml --explicit-package-bases docreader && \
+		(cd mcp-server && PYTHONDONTWRITEBYTECODE=1 uv run --frozen --extra test --with mypy \
+			mypy --ignore-missing-imports --no-incremental --cache-dir=/dev/null .); \
+	else \
+		PYTHONDONTWRITEBYTECODE=1 mypy --no-incremental --cache-dir=/dev/null --config-file docreader/pyproject.toml --explicit-package-bases docreader && \
+		(cd mcp-server && PYTHONDONTWRITEBYTECODE=1 mypy --ignore-missing-imports --no-incremental --cache-dir=/dev/null .); \
+	fi
+
+lint-shell:
+	@echo ">> [lint-shell] Running shellcheck across tracked shell scripts and git hooks..."
+	@git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push | xargs -0 -r shellcheck
+
+lint-frontend:
+	@echo ">> [lint-frontend] Running ESLint v9 and 6-locale / bare-CJK guards..."
+	@if command -v genyee-eslint >/dev/null 2>&1; then \
+		(cd frontend && genyee-eslint -c eslint.config.mjs --max-warnings=0 .); \
+	elif [ -x frontend/node_modules/.bin/eslint ]; then \
+		(cd frontend && ./node_modules/.bin/eslint -c eslint.config.mjs --max-warnings=0 .); \
+	else \
+		echo "Error: neither genyee-eslint nor frontend/node_modules/.bin/eslint is installed" >&2; \
+		exit 1; \
+	fi
+	@(cd frontend && npx tsx --test src/i18n/localeKeyAudit.test.ts src/i18n/bareCjkAudit.test.ts)
 
 # Install dependencies
 deps:

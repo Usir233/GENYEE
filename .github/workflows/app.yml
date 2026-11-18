@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - "**/*.go"
+      - "**/*.sh"
       - "!cli/**"
       - "!client/**"
       - "!docreader/**"
@@ -16,6 +17,8 @@ on:
       - "go.sum"
       - "Makefile"
       - "config/**"
+      - "docs/**"
+      - "!docs/poc/**"
       - "migrations/**"
       - "skills/preloaded/**"
       - "testdata/**"
@@ -40,6 +43,7 @@ on:
   pull_request:
     paths:
       - "**/*.go"
+      - "**/*.sh"
       - "!cli/**"
       - "!client/**"
       - "!docreader/**"
@@ -48,6 +52,8 @@ on:
       - "go.sum"
       - "Makefile"
       - "config/**"
+      - "docs/**"
+      - "!docs/poc/**"
       - "migrations/**"
       - "skills/preloaded/**"
       - "testdata/**"
@@ -83,11 +89,10 @@ env:
   GOPROXY: https://proxy.golang.org,direct
   # Keep tests independent of a developer machine's custom log template.
   GENYEE_LOG_FORMAT: ""
-  BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
 
 jobs:
   verify:
-    name: Format, vet, test, and build
+    name: Format, shellcheck, vet, test, and build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -106,40 +111,36 @@ jobs:
 
       - name: Test Docker entrypoint permissions
         run: bash scripts/docker-entrypoint_test.sh
+
       - name: Verify third-party notices and source bundle
         run: |
           bash ./scripts/check-license-bundle.sh
           bash ./scripts/test-license-bundle.sh
 
-      - name: Check formatting
+      - name: Check Go formatting (all tracked .go files)
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Compare base..head, not the PR merge commit, so files changed only
-            # on main after the branch point are not attributed to this PR.
-            diff_range="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
-          else
-            base="$BASE_SHA"
-            if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
-              base=$(git rev-parse HEAD^)
-            fi
-            diff_range="$base..$GITHUB_SHA"
-          fi
-          unformatted=$(
-            git diff --name-only --diff-filter=ACMR -z "$diff_range" -- '*.go' ':!cli/**' |
-              xargs -0 -r gofmt -l
-          )
+          unformatted="$(git ls-files -z '*.go' | xargs -0 -r gofmt -l)"
           if [ -n "$unformatted" ]; then
-            echo "The following Go files are not gofmt-formatted:"
+            echo "The following tracked Go files are not gofmt-formatted:"
             echo "$unformatted"
             exit 1
           fi
+
+      - name: Lint shell scripts (shellcheck)
+        shell: bash
+        run: |
+          git ls-files -z '*.sh' scripts/git-hooks/pre-commit scripts/git-hooks/pre-push |
+            xargs -0 -r shellcheck
 
       - name: Verify generated model catalog
         run: python3 scripts/model-catalog/generate.py --check
 
       - name: Verify Git hook test coverage
         run: bash ./scripts/test-git-hooks.sh
+
+      - name: Verify Clean Architecture and OpenAPI contracts
+        run: go test -count=1 ./internal ./docs/...
 
       - name: Vet and test
         shell: bash

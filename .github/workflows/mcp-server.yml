@@ -1,26 +1,38 @@
 name: Build & Publish (mcp-server)
 
-# Build, test, and publish the Python MCP server (mcp-server/) to PyPI.
-# Publishing uses PyPI Trusted Publishing (OIDC) — no API token required,
-# only the GitHub→PyPI OIDC trust configured on the repo.
-#
-# This commercial branch runs tests/builds only on manual dispatch. Publishing
-# stays disabled below; enabling it requires a separate release decision.
-# The dormant pre-publish check uses the package name/version from pyproject.toml.
+# Lint, type-check, test, and build the Python MCP server (`mcp-server/`) on
+# `main` pushes, pull requests, and manual dispatch.
+# Publishing uses PyPI Trusted Publishing (OIDC) and stays explicitly disabled
+# (`if: false`) until authorized by a dedicated release decision.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp-server/**"
+      - ".github/workflows/mcp-server.yml"
+  pull_request:
+    paths:
+      - "mcp-server/**"
+      - ".github/workflows/mcp-server.yml"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
   UV_PYTHON_DOWNLOADS: never
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   test:
-    name: Test (Python ${{ matrix.python-version }})
+    name: Lint, type-check, and test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -29,7 +41,7 @@ jobs:
       run:
         working-directory: mcp-server
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
@@ -45,21 +57,30 @@ jobs:
       - name: Install dependencies (test extras)
         run: uv sync --locked --python '${{ steps.python.outputs.python-path }}' --extra test
 
+      - name: Lint and format check (ruff)
+        run: |
+          uv run --frozen --python '${{ steps.python.outputs.python-path }}' --with ruff ruff check --no-cache .
+          uv run --frozen --python '${{ steps.python.outputs.python-path }}' --with ruff ruff format --check --no-cache .
+
+      - name: Type-check (mypy)
+        run: |
+          uv run --frozen --python '${{ steps.python.outputs.python-path }}' --with mypy \
+            mypy --ignore-missing-imports --no-incremental --cache-dir=/dev/null .
+
       - name: Run tests
         # Include both unittest cases and pytest functions (auth/CLI regressions).
-        run: uv run --frozen --python '${{ steps.python.outputs.python-path }}' python -m pytest
+        run: uv run --frozen --python '${{ steps.python.outputs.python-path }}' python -m pytest -p no:cacheprovider
 
   build:
     name: Build sdist + wheel
     needs: test
     runs-on: ubuntu-latest
-    # Keep the existing non-PR build gate; dispatch remains the only trigger.
-    if: github.event_name != 'pull_request'
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: mcp-server
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
@@ -84,6 +105,7 @@ jobs:
           echo "upload_paths.py present in wheel ✓"
 
       - name: Upload artifacts
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
@@ -93,6 +115,7 @@ jobs:
     name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: false
     permissions:
       id-token: write
@@ -100,7 +123,7 @@ jobs:
       name: pypi
       url: https://pypi.org/project/genyee-mcp/
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Check if version is already published
         id: check_pypi

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for GENYEE git hooks (mirrors .github/workflows and PR checklist).
+# Shared helpers for GENYEE git hooks (aligned with .github/workflows and ENGINEERING_STANDARDS.md).
 
 set -euo pipefail
 
@@ -21,15 +21,24 @@ log_fail() {
   printf '✗ %s\n' "$*" >&2
 }
 
-# File types we expect hand-edited in PRs (skip sample-data / generated blobs).
+# File types we expect hand-edited in commits/PRs (skip sample-data / generated blobs).
 WHITESPACE_PATHSPECS=(
-  '*.go'
+  '*.go' '*.py'
   '*.ts' '*.tsx' '*.vue' '*.js' '*.mjs'
   '*.yaml' '*.yml' '*.json'
   '*.sh' '*.sql'
   'Makefile'
   'frontend/package.json'
   'frontend/package-lock.json'
+)
+
+# All Go modules tracked in the repository.
+GO_MODULES=(
+  "."
+  "cli"
+  "client"
+  "third_party/anydoc-go"
+  "docs/poc/docker-sandbox"
 )
 
 # Best-effort fetch so merge-base matches CI (origin/main).
@@ -131,18 +140,78 @@ check_gofmt_files() {
   log_ok "gofmt"
 }
 
+# Full-module zero-exemption golangci-lint check (see ENGINEERING_STANDARDS.md §3).
 run_golangci_if_available() {
-  local from_rev="$1"
+  local module_dir="${1:-.}"
   if ! command -v golangci-lint >/dev/null 2>&1; then
     log_step "golangci-lint not installed; skip (install: https://golangci-lint.run)"
     return 0
   fi
-  log_step "golangci-lint run --new-from-rev=$from_rev ./..."
+  local -a cfg_args=()
+  if [[ -f "$ROOT/.golangci.yml" && "$module_dir" != "." ]]; then
+    cfg_args=("--config=$ROOT/.golangci.yml")
+  fi
+  log_step "golangci-lint run ./... ($module_dir)"
   (
-    cd "$ROOT"
-    golangci-lint run --new-from-rev="$from_rev" ./...
+    cd "$ROOT/$module_dir"
+    GOMAXPROCS="${GOMAXPROCS:-2}" golangci-lint run "${cfg_args[@]}" ./...
   )
-  log_ok "golangci-lint"
+  log_ok "golangci-lint ($module_dir)"
+}
+
+run_shellcheck_if_available() {
+  local -a files=("$@")
+  local -a existing=()
+  local f rel
+  for f in "${files[@]}"; do
+    if [[ -f "$f" ]]; then
+      existing+=("$f")
+      continue
+    fi
+    rel="${f#"$ROOT"/}"
+    if [[ -f "$ROOT/$rel" ]]; then
+      existing+=("$ROOT/$rel")
+    fi
+  done
+  [[ ${#existing[@]} -gt 0 ]] || return 0
+
+  if ! command -v shellcheck >/dev/null 2>&1; then
+    log_step "shellcheck not installed; skip (install: https://www.shellcheck.net)"
+    return 0
+  fi
+  log_step "shellcheck (${#existing[@]} script(s))"
+  shellcheck "${existing[@]}"
+  log_ok "shellcheck"
+}
+
+run_ruff_if_available() {
+  local -a files=("$@")
+  local -a existing=()
+  local f rel base
+  for f in "${files[@]}"; do
+    base="$(basename "$f")"
+    case "$base" in
+      *_pb2.py|*_pb2.pyi|*_pb2_grpc.py) continue ;;
+    esac
+    if [[ -f "$f" ]]; then
+      existing+=("$f")
+      continue
+    fi
+    rel="${f#"$ROOT"/}"
+    if [[ -f "$ROOT/$rel" ]]; then
+      existing+=("$ROOT/$rel")
+    fi
+  done
+  [[ ${#existing[@]} -gt 0 ]] || return 0
+
+  if ! command -v ruff >/dev/null 2>&1; then
+    log_step "ruff not installed; skip (install: https://docs.astral.sh/ruff)"
+    return 0
+  fi
+  log_step "ruff check & format --check (${#existing[@]} Python file(s))"
+  PYTHONDONTWRITEBYTECODE=1 ruff check --no-cache "${existing[@]}"
+  PYTHONDONTWRITEBYTECODE=1 ruff format --check --no-cache "${existing[@]}"
+  log_ok "ruff"
 }
 
 run_app_vet_test() {
@@ -201,6 +270,20 @@ run_cli_checks() {
   log_ok "cli checks"
 }
 
+run_client_checks() {
+  log_step "client: go vet && go test"
+  (
+    cd "$ROOT/client"
+    go vet ./...
+    if [[ "${HOOK_SKIP_TEST:-}" == "1" ]]; then
+      log_step "HOOK_SKIP_TEST=1; skip client go test"
+    else
+      go test -count=1 ./...
+    fi
+  )
+  log_ok "client checks"
+}
+
 run_frontend_checks() {
   log_step "frontend: verify (test, type-check, build)"
   "$ROOT/scripts/verify_frontend_pr.sh"
@@ -215,4 +298,46 @@ paths_match_prefix() {
     [[ "$p" == "$prefix"* ]] && return 0
   done
   return 1
+}
+
+# Print the Go modules (from GO_MODULES) touched by the given repo-relative paths.
+detect_touched_go_modules() {
+  local -a changed=("$@")
+  local root_touched=0
+  local cli_touched=0
+  local client_touched=0
+  local anydoc_touched=0
+  local poc_touched=0
+  local p
+
+  for p in "${changed[@]}"; do
+    if [[ "$p" == ".golangci.yml" ]]; then
+      printf '%s\n' "${GO_MODULES[@]}"
+      return 0
+    fi
+    case "$p" in
+      cli/*)
+        [[ "$p" == *.go || "$p" == "cli/go.mod" || "$p" == "cli/go.sum" ]] && cli_touched=1
+        ;;
+      client/*)
+        [[ "$p" == *.go || "$p" == "client/go.mod" || "$p" == "client/go.sum" ]] && client_touched=1
+        ;;
+      third_party/anydoc-go/*)
+        [[ "$p" == *.go || "$p" == "third_party/anydoc-go/go.mod" ]] && anydoc_touched=1
+        ;;
+      docs/poc/docker-sandbox/*)
+        [[ "$p" == *.go || "$p" == "docs/poc/docker-sandbox/go.mod" || "$p" == "docs/poc/docker-sandbox/go.sum" ]] && poc_touched=1
+        ;;
+      *.go|go.mod|go.sum)
+        root_touched=1
+        ;;
+    esac
+  done
+
+  [[ "$root_touched" -eq 1 ]] && printf '%s\n' "."
+  [[ "$cli_touched" -eq 1 ]] && printf '%s\n' "cli"
+  [[ "$client_touched" -eq 1 ]] && printf '%s\n' "client"
+  [[ "$anydoc_touched" -eq 1 ]] && printf '%s\n' "third_party/anydoc-go"
+  [[ "$poc_touched" -eq 1 ]] && printf '%s\n' "docs/poc/docker-sandbox"
+  return 0
 }

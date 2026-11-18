@@ -1,20 +1,20 @@
 name: Go Lint
 
-# The repository carries a large backlog of pre-existing golangci-lint findings,
-# so pull requests are only judged on the code they introduce. The filter needs
-# a pull request diff, which is why this workflow has no other trigger; the
-# companion go-lint-cache.yml keeps the caches this job restores from warm on
-# main.
-#
-# The filter is golangci-lint's own `--new-from-merge-base` rather than the
-# action's `only-new-issues`, because that option asks the GitHub API for the
-# pull request patch and the API refuses any diff over 20000 lines
-# ("code": "too_large"). On a large pull request the action silently falls back
-# to linting everything, which reports the entire backlog and can never pass.
-# Computing the merge base from git has no size limit, and `fetch-depth: 0`
-# below is what makes the base commit available to do it.
+# Permanent v3 zero-backlog static analysis gate (see ENGINEERING_STANDARDS.md §3).
+# Every Go module in the repository (`.`, `cli`, `client`, `third_party/anydoc-go`,
+# and `docs/poc/docker-sandbox`) maintains zero golangci-lint findings across 100%
+# of tracked files — incremental diff exemptions are prohibited on both `main`
+# pushes and pull requests.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - ".golangci.yml"
+      - ".github/workflows/go-lint.yml"
   pull_request:
     paths:
       - "**/*.go"
@@ -22,6 +22,7 @@ on:
       - "**/go.sum"
       - ".golangci.yml"
       - ".github/workflows/go-lint.yml"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -36,14 +37,14 @@ env:
   GOPROXY: https://proxy.golang.org,direct
 
 jobs:
-  # Path filters above start this workflow for any Go change; the matrix still
-  # used to lint all three modules. Detect which modules the PR actually
-  # touches so a root-only change (migrations test, handler, …) does not queue
-  # cli/ and client/ runners. Changing .golangci.yml or this workflow still
-  # lints every module, since they share the root config.
+  # Detect which Go modules the push or PR touches so isolated changes only
+  # schedule runners for affected modules, while linting 100% of every selected
+  # module with zero exemptions. Modifying `.golangci.yml`, this workflow, or
+  # dispatching manually lints all five Go modules.
   changes:
     name: detect lint modules
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       modules: ${{ steps.detect.outputs.modules }}
     steps:
@@ -54,23 +55,51 @@ jobs:
         id: detect
         shell: bash
         run: |
-          diff_range="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+          all_modules=("." "cli" "client" "third_party/anydoc-go" "docs/poc/docker-sandbox")
           modules=()
-          if git diff --name-only --diff-filter=ACMR "$diff_range" -- \
-               .golangci.yml .github/workflows/go-lint.yml | grep -q .; then
-            modules=("." "cli" "client")
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            modules=("${all_modules[@]}")
           else
-            if git diff --name-only --diff-filter=ACMR "$diff_range" -- \
-                 '*.go' ':!cli/**' ':!client/**' go.mod go.sum | grep -q .; then
-              modules+=(".")
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              diff_range="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+            else
+              base="${{ github.event.before }}"
+              if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+                diff_range=""
+              else
+                diff_range="${base}..${GITHUB_SHA}"
+              fi
             fi
-            if git diff --name-only --diff-filter=ACMR "$diff_range" -- 'cli/**' | grep -q .; then
-              modules+=("cli")
-            fi
-            if git diff --name-only --diff-filter=ACMR "$diff_range" -- 'client/**' | grep -q .; then
-              modules+=("client")
+
+            if [ -z "$diff_range" ] || git diff --name-only "$diff_range" -- \
+                 .golangci.yml .github/workflows/go-lint.yml | grep -q .; then
+              modules=("${all_modules[@]}")
+            else
+              if git diff --name-only "$diff_range" -- \
+                   '*.go' \
+                   ':!cli/**' \
+                   ':!client/**' \
+                   ':!third_party/anydoc-go/**' \
+                   ':!docs/poc/docker-sandbox/**' \
+                   go.mod go.sum | grep -q .; then
+                modules+=(".")
+              fi
+              if git diff --name-only "$diff_range" -- 'cli/**' | grep -q .; then
+                modules+=("cli")
+              fi
+              if git diff --name-only "$diff_range" -- 'client/**' | grep -q .; then
+                modules+=("client")
+              fi
+              if git diff --name-only "$diff_range" -- 'third_party/anydoc-go/**' | grep -q .; then
+                modules+=("third_party/anydoc-go")
+              fi
+              if git diff --name-only "$diff_range" -- 'docs/poc/docker-sandbox/**' | grep -q .; then
+                modules+=("docs/poc/docker-sandbox")
+              fi
             fi
           fi
+
           json="["
           first=1
           for m in "${modules[@]}"; do
@@ -97,19 +126,17 @@ jobs:
         module: ${{ fromJSON(needs.changes.outputs.modules) }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: ${{ matrix.module }}/go.sum
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.mod
+            ${{ matrix.module }}/go.sum
 
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           working-directory: ${{ matrix.module }}
-          # Deliberately off: see the note at the top of this file. The same
-          # filtering is done below, from git.
           only-new-issues: false
-          args: --new-from-merge-base=${{ github.event.pull_request.base.sha }}
+          args: --config=${{ github.workspace }}/.golangci.yml --timeout=10m

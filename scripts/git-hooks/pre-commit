@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast checks on staged files (PR checklist + gofmt). Mirrors app.yml formatting gate.
+# Fast zero-exemption checks on staged files (whitespace, gofmt, golangci-lint, shellcheck, ruff).
 
 set -euo pipefail
 
@@ -17,22 +17,49 @@ log_step "pre-commit"
 
 check_whitespace --cached
 
-staged_go=()
+staged_all=()
 while IFS= read -r line; do
-  [[ -n "$line" ]] && staged_go+=("$line")
-done < <(git diff --cached --name-only --diff-filter=ACMR -- '*.go' ':!cli/**' || true)
+  [[ -n "$line" ]] && staged_all+=("$line")
+done < <(git diff --cached --name-only --diff-filter=ACMR || true)
+
+staged_go=()
+staged_sh=()
+staged_py=()
+for f in "${staged_all[@]}"; do
+  case "$f" in
+    *.go)
+      staged_go+=("$ROOT/$f")
+      ;;
+    *.sh|scripts/git-hooks/pre-commit|scripts/git-hooks/pre-push)
+      staged_sh+=("$ROOT/$f")
+      ;;
+    *.py)
+      staged_py+=("$ROOT/$f")
+      ;;
+  esac
+done
 
 if [[ ${#staged_go[@]} -gt 0 ]]; then
-  go_files=()
-  for f in "${staged_go[@]}"; do
-    go_files+=("$ROOT/$f")
-  done
-  check_gofmt_files write "${go_files[@]}"
+  check_gofmt_files write "${staged_go[@]}"
+fi
 
-  if command -v golangci-lint >/dev/null 2>&1; then
-    # Lint only what differs from HEAD (staged + unstaged in those packages).
-    run_golangci_if_available HEAD
-  fi
+if [[ ${#staged_all[@]} -gt 0 ]]; then
+  touched_modules=()
+  while IFS= read -r mod; do
+    [[ -n "$mod" ]] && touched_modules+=("$mod")
+  done < <(detect_touched_go_modules "${staged_all[@]}")
+
+  for mod in "${touched_modules[@]}"; do
+    run_golangci_if_available "$mod"
+  done
+fi
+
+if [[ ${#staged_sh[@]} -gt 0 ]]; then
+  run_shellcheck_if_available "${staged_sh[@]}"
+fi
+
+if [[ ${#staged_py[@]} -gt 0 ]]; then
+  run_ruff_if_available "${staged_py[@]}"
 fi
 
 log_ok "pre-commit passed"
