@@ -11,13 +11,14 @@ Enforces:
 
 from __future__ import annotations
 
+import contextlib
 import importlib.resources as resources
 import os
 import signal
 import subprocess
 import sys
 import time
-from typing import List, Optional
+from typing import Any
 
 _JAR_NAME = "opendataloader-pdf-cli.jar"
 DEFAULT_TIMEOUT_SECONDS = 120
@@ -53,49 +54,41 @@ def _build_clean_java_env() -> dict[str, str]:
     return env
 
 
-def _terminate_process_group(process: subprocess.Popen, pgid: Optional[int]) -> None:
+def _terminate_process_group(process: subprocess.Popen[Any], pgid: int | None) -> None:
     if pgid is None:
-        try:
+        with contextlib.suppress(OSError):
             process.kill()
-        except OSError:
-            pass
     else:
         for sig, grace in ((signal.SIGTERM, 0.5), (signal.SIGKILL, 0.0)):
-            try:
+            with contextlib.suppress(OSError):
                 os.killpg(pgid, sig)
-            except OSError:
-                pass
             if grace > 0:
                 deadline = time.monotonic() + grace
-                try:
+                with contextlib.suppress(subprocess.TimeoutExpired):
                     process.wait(timeout=grace)
                     rem = deadline - time.monotonic()
                     if rem > 0:
                         time.sleep(rem)
-                except subprocess.TimeoutExpired:
-                    pass
     try:
         process.wait(timeout=1.0)
     except subprocess.TimeoutExpired:
-        try:
+        with contextlib.suppress(OSError):
             process.kill()
-        except OSError:
-            pass
+        with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+            process.wait(timeout=1.0)
     finally:
         for pipe in (process.stdout, process.stderr):
             if pipe is not None:
-                try:
+                with contextlib.suppress(OSError):
                     pipe.close()
-                except OSError:
-                    pass
 
 
 def build_java_command(
     jar_path: str,
-    args: List[str],
+    args: list[str],
     *,
-    max_heap_mb: Optional[int] = None,
-) -> List[str]:
+    max_heap_mb: int | None = None,
+) -> list[str]:
     heap_mb = max(
         128,
         int(
@@ -120,11 +113,11 @@ def build_java_command(
 
 
 def run_jar(
-    args: List[str],
+    args: list[str],
     quiet: bool = False,
     *,
-    timeout_seconds: Optional[int] = None,
-    max_heap_mb: Optional[int] = None,
+    timeout_seconds: int | None = None,
+    max_heap_mb: int | None = None,
 ) -> str:
     """Run the opendataloader-pdf JAR with bounded heap, clean env, and hard timeout."""
     effective_timeout = max(

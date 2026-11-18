@@ -8,18 +8,16 @@ from xml.etree.ElementTree import Element
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
-
 from docreader.models.document import Document
 from docreader.parser.archive import (
-    ArchiveLimitError,
     MAX_ARCHIVE_ENTRIES,
     MAX_COMPRESSION_RATIO,
     ZIP_STREAM_CHUNK_BYTES,
+    ArchiveLimitError,
     safe_read_zip_member,
     validate_zip_archive,
 )
 from docreader.parser.base_parser import BaseParser
-
 
 MAX_CONTENT_BYTES = 32 * 1024 * 1024
 MAX_TOPIC_DEPTH = 256
@@ -146,9 +144,7 @@ def _parse_xml_sheets(payload: bytes) -> list[_Sheet]:
         sheets.append(
             _Sheet(
                 title=_element_text(_first_child(sheet, "title")),
-                root_topic=(
-                    _topic_from_xml(root_topic) if root_topic is not None else None
-                ),
+                root_topic=(_topic_from_xml(root_topic) if root_topic is not None else None),
             )
         )
     return sheets
@@ -187,9 +183,7 @@ def _read_content_entry(content: bytes) -> tuple[str, bytes]:
             except ArchiveLimitError as exc:
                 if "compression ratio" in str(exc).lower():
                     raise
-                raise ArchiveLimitError(
-                    "XMind content entry exceeds the 32 MiB limit"
-                ) from exc
+                raise ArchiveLimitError("XMind content entry exceeds the 32 MiB limit") from exc
             return content_format, payload
     except zipfile.BadZipFile as exc:
         raise ValueError("invalid XMind archive") from exc
@@ -264,9 +258,7 @@ class XMindParser(BaseParser):
         else:
             sheets = _parse_xml_sheets(payload)
 
-        markdown, sheet_count, topic_count, note_count = _render_sheets(
-            sheets
-        )
+        markdown, sheet_count, topic_count, note_count = _render_sheets(sheets)
         if not markdown:
             raise ValueError("XMind archive contains no renderable topics")
         return Document(

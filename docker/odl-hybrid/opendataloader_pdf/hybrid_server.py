@@ -16,6 +16,7 @@ Security controls over upstream opendataloader_pdf.hybrid_server:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hmac
 import importlib.util
 import ipaddress
@@ -23,15 +24,20 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 5002
 DEFAULT_MAX_FILE_SIZE_MB = 100
-MAX_FILE_SIZE = DEFAULT_MAX_FILE_SIZE_MB
+DEFAULT_MAX_FILE_SIZE_BYTES = DEFAULT_MAX_FILE_SIZE_MB * 1024 * 1024
+MAX_FILE_SIZE = DEFAULT_MAX_FILE_SIZE_BYTES
+
+ASGIReceive = Callable[[], Awaitable[dict[str, Any]]]
+ASGISend = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -52,6 +58,17 @@ def _env_positive_int(name: str, default: int) -> int:
         return default
 
 
+def _env_port(name: str, default: int = DEFAULT_PORT) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = int(raw.strip())
+        return parsed if 1 <= parsed <= 65535 else default
+    except ValueError:
+        return default
+
+
 def is_loopback_bind_host(host: str) -> bool:
     """Return True if host strictly binds to local loopback."""
     cleaned = (host or "").strip().strip("[]").lower()
@@ -63,7 +80,7 @@ def is_loopback_bind_host(host: str) -> bool:
         return False
 
 
-def resolve_max_file_size_bytes(max_file_size_bytes: Optional[int] = None) -> int:
+def resolve_max_file_size_bytes(max_file_size_bytes: int | None = None) -> int:
     """Resolve positive hard upload cap in bytes (default 100 MiB)."""
     default_mb = _env_positive_int("ODL_HYBRID_MAX_FILE_SIZE_MB", DEFAULT_MAX_FILE_SIZE_MB)
     default_bytes = default_mb * 1024 * 1024
@@ -74,8 +91,8 @@ def resolve_max_file_size_bytes(max_file_size_bytes: Optional[int] = None) -> in
 
 def validate_startup_security(
     host: str,
-    auth_token: Optional[str] = None,
-    allow_unauthenticated: Optional[bool] = None,
+    auth_token: str | None = None,
+    allow_unauthenticated: bool | None = None,
 ) -> None:
     """Refuse unauthenticated startup on non-loopback interfaces."""
     effective_token = (
@@ -95,9 +112,7 @@ def validate_startup_security(
 
     if is_loopback_bind_host(host) or effective_allow_unauth:
         if not effective_token:
-            logger.warning(
-                "ODL hybrid running without ODL_HYBRID_AUTH_TOKEN on host=%s", host
-            )
+            logger.warning("ODL hybrid running without ODL_HYBRID_AUTH_TOKEN on host=%s", host)
         return
 
     raise RuntimeError(
@@ -108,31 +123,27 @@ def validate_startup_security(
 
 @dataclass(frozen=True)
 class HybridSecurityConfig:
-    auth_token: Optional[bytes]
+    auth_token: bytes | None
     bind_host: str = DEFAULT_HOST
     allow_unauthenticated: bool = False
-    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_MB * 1024 * 1024
+    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES
     enable_profile_endpoint: bool = False
 
     @classmethod
     def from_env(
         cls,
         *,
-        auth_token: Optional[str] = None,
-        bind_host: Optional[str] = None,
-        allow_unauthenticated: Optional[bool] = None,
-        max_file_size_bytes: Optional[int] = None,
-        enable_profile_endpoint: Optional[bool] = None,
-    ) -> "HybridSecurityConfig":
+        auth_token: str | None = None,
+        bind_host: str | None = None,
+        allow_unauthenticated: bool | None = None,
+        max_file_size_bytes: int | None = None,
+        enable_profile_endpoint: bool | None = None,
+    ) -> HybridSecurityConfig:
         raw_token = (
-            os.getenv("ODL_HYBRID_AUTH_TOKEN", "")
-            if auth_token is None
-            else auth_token
+            os.getenv("ODL_HYBRID_AUTH_TOKEN", "") if auth_token is None else auth_token
         ).strip()
         effective_host = (
-            os.getenv("ODL_HYBRID_HOST", DEFAULT_HOST)
-            if bind_host is None
-            else bind_host
+            os.getenv("ODL_HYBRID_HOST", DEFAULT_HOST) if bind_host is None else bind_host
         ).strip() or DEFAULT_HOST
         effective_allow = (
             _env_bool("ODL_HYBRID_ALLOW_UNAUTHENTICATED", False)
@@ -158,10 +169,10 @@ class _PayloadTooLargeError(Exception):
 
 
 async def _send_json(
-    send: Callable[..., Any],
+    send: ASGISend,
     status_code: int,
     payload: dict[str, Any],
-    extra_headers: Optional[list[tuple[bytes, bytes]]] = None,
+    extra_headers: list[tuple[bytes, bytes]] | None = None,
 ) -> None:
     body = json.dumps(payload).encode("utf-8")
     headers = [
@@ -211,11 +222,14 @@ class HybridSecurityASGIWrapper:
             if not candidate:
                 return False
             return hmac.compare_digest(candidate, self.config.auth_token)
-        if is_loopback_bind_host(self.config.bind_host) or self.config.allow_unauthenticated:
-            return True
-        return False
+        return is_loopback_bind_host(self.config.bind_host) or self.config.allow_unauthenticated
 
-    async def __call__(self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]) -> None:
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: ASGIReceive,
+        send: ASGISend,
+    ) -> None:
         if scope.get("type") != "http":
             await self.app(scope, receive, send)
             return
@@ -239,7 +253,10 @@ class HybridSecurityASGIWrapper:
             await _send_json(
                 send,
                 401,
-                {"status": "failure", "errors": ["Unauthorized: invalid or missing authentication token"]},
+                {
+                    "status": "failure",
+                    "errors": ["Unauthorized: invalid or missing authentication token"],
+                },
                 extra_headers=[(b"www-authenticate", b"Bearer")],
             )
             return
@@ -272,7 +289,8 @@ class HybridSecurityASGIWrapper:
                             {
                                 "status": "failure",
                                 "errors": [
-                                    f"File size exceeds maximum allowed ({max_bytes // (1024 * 1024)}MB)"
+                                    f"File size exceeds maximum allowed "
+                                    f"({max_bytes // (1024 * 1024)}MB)"
                                 ],
                             },
                         )
@@ -280,40 +298,46 @@ class HybridSecurityASGIWrapper:
 
         received_bytes = 0
         response_started = False
+        payload_too_large = False
 
         async def guarded_receive() -> dict[str, Any]:
-            nonlocal received_bytes
-            message = await receive()
+            nonlocal received_bytes, payload_too_large
+            message: dict[str, Any] = await receive()
             if message.get("type") == "http.request":
                 chunk = message.get("body", b"") or b""
                 received_bytes += len(chunk)
                 if max_bytes > 0 and received_bytes > max_bytes:
+                    payload_too_large = True
                     raise _PayloadTooLargeError()
             return message
 
         async def tracked_send(message: dict[str, Any]) -> None:
             nonlocal response_started
+            if payload_too_large and not response_started:
+                # Suppress inner ServerErrorMiddleware / ExceptionMiddleware 500
+                # responses triggered when guarded_receive rejects oversized bodies.
+                return
             if message.get("type") == "http.response.start":
                 response_started = True
             await send(message)
 
-        try:
+        with contextlib.suppress(_PayloadTooLargeError):
             await self.app(scope, guarded_receive, tracked_send)
-        except _PayloadTooLargeError:
-            if not response_started:
-                await _send_json(
-                    send,
-                    413,
-                    {
-                        "status": "failure",
-                        "errors": [
-                            f"File size exceeds maximum allowed ({max_bytes // (1024 * 1024)}MB)"
-                        ],
-                    },
-                )
+
+        if payload_too_large and not response_started:
+            await _send_json(
+                send,
+                413,
+                {
+                    "status": "failure",
+                    "errors": [
+                        f"File size exceeds maximum allowed ({max_bytes // (1024 * 1024)}MB)"
+                    ],
+                },
+            )
 
 
-def _load_upstream_hybrid_module():
+def _load_upstream_hybrid_module() -> Any:
     """Load the site-packages opendataloader_pdf/hybrid_server.py implementation."""
     this_file = os.path.realpath(__file__)
     import opendataloader_pdf
@@ -334,30 +358,30 @@ def _load_upstream_hybrid_module():
 def _strip_profile_route(app: Any) -> None:
     """Remove /v1/profile/file from FastAPI/Starlette route table if present."""
     router = getattr(app, "router", None)
+    if router is None:
+        return
     routes = getattr(router, "routes", None)
     if isinstance(routes, list):
-        router.routes[:] = [
-            r for r in routes if getattr(r, "path", None) != "/v1/profile/file"
-        ]
+        routes[:] = [r for r in routes if getattr(r, "path", None) != "/v1/profile/file"]
 
 
 def create_app(
     force_ocr: bool = False,
     disable_ocr: bool = False,
     ocr_engine: str = "easyocr",
-    psm: Optional[int] = None,
-    ocr_lang: Optional[list[str]] = None,
+    psm: int | None = None,
+    ocr_lang: list[str] | None = None,
     enrich_formula: bool = False,
     enrich_picture_description: bool = False,
-    picture_description_prompt: Optional[str] = None,
-    max_file_size: int = DEFAULT_MAX_FILE_SIZE_MB * 1024 * 1024,
+    picture_description_prompt: str | None = None,
+    max_file_size: int | None = None,
     device: str = "auto",
     *,
-    auth_token: Optional[str] = None,
-    bind_host: Optional[str] = None,
-    allow_unauthenticated: Optional[bool] = None,
-    enable_profile_endpoint: Optional[bool] = None,
-    _inner_app: Optional[Callable[..., Any]] = None,
+    auth_token: str | None = None,
+    bind_host: str | None = None,
+    allow_unauthenticated: bool | None = None,
+    enable_profile_endpoint: bool | None = None,
+    _inner_app: Callable[..., Any] | None = None,
 ) -> HybridSecurityASGIWrapper:
     """Create hardened hybrid server ASGI application."""
     security_cfg = HybridSecurityConfig.from_env(
@@ -392,13 +416,26 @@ def create_app(
 
 
 def _positive_mb_arg(value: str) -> int:
-    parsed = int(value)
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid int value: {value!r}") from exc
     if parsed <= 0:
         raise argparse.ArgumentTypeError("--max-file-size must be > 0 (MB)")
     return parsed
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def _port_arg(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid int value: {value!r}") from exc
+    if not (1 <= parsed <= 65535):
+        raise argparse.ArgumentTypeError("--port must be between 1 and 65535")
+    return parsed
+
+
+def main(argv: list[str] | None = None) -> None:
     """Run the hardened ODL hybrid server."""
     parser = argparse.ArgumentParser(description="Hardened Docling Hybrid Server")
     parser.add_argument(
@@ -408,8 +445,8 @@ def main(argv: Optional[list[str]] = None) -> None:
     )
     parser.add_argument(
         "--port",
-        type=int,
-        default=_env_positive_int("ODL_HYBRID_PORT", DEFAULT_PORT),
+        type=_port_arg,
+        default=_env_port("ODL_HYBRID_PORT", DEFAULT_PORT),
         help=f"Port to bind to (default: {DEFAULT_PORT})",
     )
     parser.add_argument(

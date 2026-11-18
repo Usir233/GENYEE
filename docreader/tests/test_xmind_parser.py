@@ -46,9 +46,7 @@ class XMindParserModernTests(unittest.TestCase):
                     "id": "main",
                     "title": "Main branch",
                     "notes": {"plain": {"content": "Main note"}},
-                    "children": {
-                        "attached": [{"id": "main-task", "title": "Main task"}]
-                    },
+                    "children": {"attached": [{"id": "main-task", "title": "Main task"}]},
                 }
             ],
             "detached": [
@@ -56,11 +54,7 @@ class XMindParserModernTests(unittest.TestCase):
                     "id": "idea",
                     "title": "Independent idea",
                     "notes": {"plain": {"content": "Detached note"}},
-                    "children": {
-                        "summary": [
-                            {"id": "decision", "title": "Detached decision"}
-                        ]
-                    },
+                    "children": {"summary": [{"id": "decision", "title": "Detached decision"}]},
                 }
             ],
             "summary": [
@@ -68,9 +62,7 @@ class XMindParserModernTests(unittest.TestCase):
                     "id": "summary",
                     "title": "Overall decision",
                     "notes": {"plain": {"content": "Summary note"}},
-                    "children": {
-                        "callout": [{"id": "detail", "title": "Summary detail"}]
-                    },
+                    "children": {"callout": [{"id": "detail", "title": "Summary detail"}]},
                 }
             ],
             "callout": [
@@ -78,9 +70,7 @@ class XMindParserModernTests(unittest.TestCase):
                     "id": "reminder",
                     "title": "Reminder",
                     "notes": {"plain": {"content": "Callout note"}},
-                    "children": {
-                        "detached": [{"id": "related", "title": "Related detail"}]
-                    },
+                    "children": {"detached": [{"id": "related", "title": "Related detail"}]},
                 }
             ],
         }
@@ -143,9 +133,7 @@ class XMindParserModernTests(unittest.TestCase):
             with self.subTest(source_format=source_format):
                 document = XMindParser(file_name="plan.xmind").parse(payload)
                 self.assertEqual(expected, document.content)
-                self.assertEqual(
-                    source_format, document.metadata["xmind_content_format"]
-                )
+                self.assertEqual(source_format, document.metadata["xmind_content_format"])
                 self.assertEqual(1, document.metadata["sheet_count"])
                 self.assertEqual(9, document.metadata["topic_count"])
                 self.assertEqual(5, document.metadata["note_count"])
@@ -166,13 +154,9 @@ class XMindParserModernTests(unittest.TestCase):
                                         {
                                             "id": "visible",
                                             "title": "Visible",
-                                            "notes": {
-                                                "plain": {"content": "Retained note"}
-                                            },
+                                            "notes": {"plain": {"content": "Retained note"}},
                                             "children": {
-                                                "attached": [
-                                                    {"id": "nested", "title": "Nested"}
-                                                ]
+                                                "attached": [{"id": "nested", "title": "Nested"}]
                                             },
                                         }
                                     ]
@@ -193,9 +177,7 @@ class XMindParserModernTests(unittest.TestCase):
         payload = _xmind_zip(
             {
                 "attachments/preview.png": b"preview",
-                "content.json": json.dumps(
-                    [{"title": "Outline", "rootTopic": {"title": "Root"}}]
-                ),
+                "content.json": json.dumps([{"title": "Outline", "rootTopic": {"title": "Root"}}]),
             }
         )
 
@@ -220,9 +202,7 @@ class XMindParserModernTests(unittest.TestCase):
                             "attached": [
                                 {
                                     "title": "Backend",
-                                    "children": {
-                                        "attached": [{"title": "API freeze"}]
-                                    },
+                                    "children": {"attached": [{"title": "API freeze"}]},
                                 }
                             ]
                         },
@@ -234,11 +214,7 @@ class XMindParserModernTests(unittest.TestCase):
         document = XMindParser(file_name="launch.xmind").parse_into_text(payload)
 
         self.assertEqual(
-            "# Launch Plan\n\n"
-            "- Release\n"
-            "  > Coordinate teams\n"
-            "  - Backend\n"
-            "    - API freeze",
+            "# Launch Plan\n\n- Release\n  > Coordinate teams\n  - Backend\n    - API freeze",
             document.content,
         )
         self.assertEqual(document.metadata["source_format"], "xmind")
@@ -276,9 +252,7 @@ class XMindParserModernTests(unittest.TestCase):
                             "attached": [
                                 {
                                     "title": "Visible",
-                                    "children": {
-                                        "attached": [{"title": "Nested"}]
-                                    },
+                                    "children": {"attached": [{"title": "Nested"}]},
                                 }
                             ]
                         },
@@ -299,9 +273,7 @@ class XMindParserModernTests(unittest.TestCase):
                     "title": "Notes",
                     "rootTopic": {
                         "title": "Root",
-                        "notes": {
-                            "plain": {"content": " First line \n\n Second line "}
-                        },
+                        "notes": {"plain": {"content": " First line \n\n Second line "}},
                     },
                 }
             ]
@@ -350,12 +322,8 @@ class XMindParserClassicTests(unittest.TestCase):
     def test_prefers_content_json_when_both_entries_exist(self):
         xml = """<xmap-content><sheet><title>XML</title>
 <topic><title>XML topic</title></topic></sheet></xmap-content>"""
-        json_content = json.dumps(
-            [{"title": "JSON", "rootTopic": {"title": "JSON topic"}}]
-        )
-        payload = _xmind_zip(
-            {"content.xml": xml, "content.json": json_content}
-        )
+        json_content = json.dumps([{"title": "JSON", "rootTopic": {"title": "JSON topic"}}])
+        payload = _xmind_zip({"content.xml": xml, "content.json": json_content})
 
         document = XMindParser().parse_into_text(payload)
 
@@ -398,9 +366,7 @@ class XMindParserValidationTests(unittest.TestCase):
         self.assertEqual(str(context.exception), "invalid XMind content.xml")
 
     def test_rejects_archive_without_renderable_topics(self):
-        payload = _modern_xmind_bytes(
-            [{"title": "Empty", "rootTopic": {"title": " "}}]
-        )
+        payload = _modern_xmind_bytes([{"title": "Empty", "rootTopic": {"title": " "}}])
 
         with self.assertRaises(ValueError) as context:
             XMindParser().parse_into_text(payload)
@@ -413,9 +379,11 @@ class XMindParserValidationTests(unittest.TestCase):
     def test_rejects_content_entry_over_limit(self):
         payload = _xmind_zip({"content.json": "12345"})
 
-        with patch("docreader.parser.xmind_parser.MAX_CONTENT_BYTES", 4):
-            with self.assertRaises(ValueError) as context:
-                XMindParser().parse_into_text(payload)
+        with (
+            patch("docreader.parser.xmind_parser.MAX_CONTENT_BYTES", 4),
+            self.assertRaises(ValueError) as context,
+        ):
+            XMindParser().parse_into_text(payload)
 
         self.assertEqual(
             str(context.exception),
@@ -423,9 +391,7 @@ class XMindParserValidationTests(unittest.TestCase):
         )
 
     def test_rejects_encrypted_content_entry(self):
-        payload = _mark_entry_encrypted(
-            _xmind_zip({"content.json": "[]"})
-        )
+        payload = _mark_entry_encrypted(_xmind_zip({"content.json": "[]"}))
 
         with self.assertRaises(ValueError) as context:
             XMindParser().parse_into_text(payload)

@@ -18,7 +18,6 @@ from unittest.mock import patch
 
 import openpyxl
 import pandas as pd
-
 from docreader.parser import xlsx_repair
 from docreader.parser.excel_parser import _prepare_xlsx_bytes
 from docreader.parser.markitdown_parser import StdMarkitdownParser
@@ -50,15 +49,14 @@ def _workbook_bytes() -> bytes:
 
 def _with_first_fill_replaced(workbook: bytes, fragment: bytes) -> bytes:
     out = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(workbook)) as zin, zipfile.ZipFile(
-        out, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with (
+        zipfile.ZipFile(io.BytesIO(workbook)) as zin,
+        zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout,
+    ):
         for item in zin.infolist():
             data = zin.read(item.filename)
             if item.filename == "xl/styles.xml":
-                data = re.sub(
-                    b"<fill>.*?</fill>", fragment, data, count=1, flags=re.S
-                )
+                data = re.sub(b"<fill>.*?</fill>", fragment, data, count=1, flags=re.S)
             zout.writestr(item, data)
     return out.getvalue()
 
@@ -67,9 +65,10 @@ def _with_rich_styles_part(workbook: bytes) -> bytes:
     """Add the xl/richData/richStyles.xml part Excel 365 writes for in-cell
     images / data types; its name also ends in ``styles.xml``."""
     out = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(workbook)) as zin, zipfile.ZipFile(
-        out, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with (
+        zipfile.ZipFile(io.BytesIO(workbook)) as zin,
+        zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout,
+    ):
         for item in zin.infolist():
             zout.writestr(item, zin.read(item.filename))
         zout.writestr(
@@ -88,9 +87,7 @@ class TestSanitizeXlsxStyles(unittest.TestCase):
         self.assertIsNone(sanitize_xlsx_styles(b"not a zip"))
 
     def test_repair_is_logged_with_count(self):
-        fixture = _with_first_fill_replaced(
-            _workbook_bytes(), CRASHING_FILLS["empty-self-closing"]
-        )
+        fixture = _with_first_fill_replaced(_workbook_bytes(), CRASHING_FILLS["empty-self-closing"])
         with self.assertLogs("docreader.parser.xlsx_repair", level="INFO") as logs:
             sanitize_xlsx_styles(fixture)
         self.assertTrue(
@@ -99,14 +96,12 @@ class TestSanitizeXlsxStyles(unittest.TestCase):
         )
 
     def test_internal_failure_returns_none_instead_of_raising(self):
-        fixture = _with_first_fill_replaced(
-            _workbook_bytes(), CRASHING_FILLS["empty-self-closing"]
-        )
-        with patch(
-            "docreader.parser.xlsx_repair._rewrite_zip", side_effect=OSError("boom")
+        fixture = _with_first_fill_replaced(_workbook_bytes(), CRASHING_FILLS["empty-self-closing"])
+        with (
+            patch("docreader.parser.xlsx_repair._rewrite_zip", side_effect=OSError("boom")),
+            self.assertLogs("docreader.parser.xlsx_repair", level="WARNING"),
         ):
-            with self.assertLogs("docreader.parser.xlsx_repair", level="WARNING"):
-                result = sanitize_xlsx_styles(fixture)
+            result = sanitize_xlsx_styles(fixture)
         self.assertIsNone(result)
 
     def test_each_malformed_form_is_repaired_in_place(self):
@@ -116,6 +111,7 @@ class TestSanitizeXlsxStyles(unittest.TestCase):
 
                 sanitized = sanitize_xlsx_styles(fixture)
                 self.assertIsNotNone(sanitized)
+                assert sanitized is not None
 
                 wb = openpyxl.load_workbook(io.BytesIO(sanitized), data_only=True)
                 ws = wb.active
@@ -127,25 +123,23 @@ class TestSanitizeXlsxStyles(unittest.TestCase):
                 count = re.search(rb'<fills count="(\d+)"', styles)
                 num_fills = len(re.findall(rb"<fill[ />]", styles))
                 self.assertIsNotNone(count)
+                assert count is not None
                 self.assertEqual(int(count.group(1)), num_fills)
 
     def test_workbook_stylesheet_is_picked_over_rich_styles_part(self):
         fixture = _with_rich_styles_part(
-            _with_first_fill_replaced(
-                _workbook_bytes(), CRASHING_FILLS["empty-self-closing"]
-            )
+            _with_first_fill_replaced(_workbook_bytes(), CRASHING_FILLS["empty-self-closing"])
         )
         sanitized = sanitize_xlsx_styles(fixture)
         self.assertIsNotNone(sanitized)
+        assert sanitized is not None
         openpyxl.load_workbook(io.BytesIO(sanitized), data_only=True)
 
     def test_stylesheet_choice_does_not_depend_on_hash_seed(self):
         # Zip member names are str, so any set-ordered lookup changes with
         # PYTHONHASHSEED; run the sanitizer under several seeds.
         fixture = _with_rich_styles_part(
-            _with_first_fill_replaced(
-                _workbook_bytes(), CRASHING_FILLS["empty-self-closing"]
-            )
+            _with_first_fill_replaced(_workbook_bytes(), CRASHING_FILLS["empty-self-closing"])
         )
         repo_root = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(xlsx_repair.__file__)))
@@ -169,9 +163,7 @@ class TestSanitizeXlsxStyles(unittest.TestCase):
                             filter(None, [repo_root, os.environ.get("PYTHONPATH")])
                         ),
                     }
-                    result = subprocess.run(
-                        [sys.executable, "-c", script, path], env=env
-                    )
+                    result = subprocess.run([sys.executable, "-c", script, path], env=env)
                     self.assertEqual(result.returncode, 0)
 
     def test_crashing_forms_raise_without_the_fix(self):

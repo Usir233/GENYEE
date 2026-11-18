@@ -1,10 +1,10 @@
 """Percentage display rounding through the actual XLSX import path."""
+
 import io
 import unittest
 from unittest.mock import patch
 
 import openpyxl
-
 from docreader.parser.excel_parser import ExcelParser
 
 

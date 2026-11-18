@@ -1,17 +1,15 @@
 """DOC fallback behavior without requiring installed document converters."""
 
 import io
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import patch
-
-from docx import Document as WordDocument
 
 from docreader.models.document import Document
 from docreader.parser.archive import ArchiveLimitError
 from docreader.parser.concurrency import ParserCancelled
 from docreader.parser.doc_parser import DocParser
-
+from docx import Document as WordDocument
 
 LEGACY_DOC = (
     Path(__file__).resolve().parents[2]
@@ -60,7 +58,8 @@ class DocFallbackTest(unittest.TestCase):
         parser = DocParser(file_name="text.doc", file_type="doc")
         with (
             patch.object(
-                parser, "_try_convert_doc_to_docx",
+                parser,
+                "_try_convert_doc_to_docx",
                 return_value=converted_docx("Converted document text"),
             ),
             patch.object(parser, "_parse_with_antiword") as fallback,
@@ -89,10 +88,69 @@ class DocFallbackTest(unittest.TestCase):
                 with (
                     patch.object(parser, "_parse_with_docx", side_effect=error),
                     patch.object(parser, "_parse_with_antiword") as fallback,
+                    self.assertRaises(type(error)),
                 ):
-                    with self.assertRaises(type(error)):
-                        parser.parse(LEGACY_DOC.read_bytes())
+                    parser.parse(LEGACY_DOC.read_bytes())
                 fallback.assert_not_called()
+
+    def test_executable_lookup_avoids_mutable_defaults_and_uses_shutil_which(self):
+        import inspect
+        import os
+        import tempfile
+
+        sig = inspect.signature(DocParser._try_find_executable_path)
+        for param_name in ("possible_path", "environment_variable"):
+            self.assertIsNone(sig.parameters[param_name].default)
+
+        parser = DocParser(file_name="text.doc", file_type="doc")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            non_exec = Path(tmpdir) / "fake_soffice"
+            non_exec.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            non_exec.chmod(0o644)
+
+            with (
+                patch.dict(os.environ, {"TEST_EXEC_ENV": tmpdir}, clear=False),
+                patch("docreader.parser.doc_parser.shutil.which", return_value="/bin/soffice") as w,
+                patch("docreader.parser.doc_parser.subprocess.run") as subproc_run,
+            ):
+                found = parser._try_find_executable_path(
+                    "soffice",
+                    possible_path=[str(non_exec)],
+                    environment_variable=["TEST_EXEC_ENV"],
+                )
+            self.assertEqual(found, "/bin/soffice")
+            w.assert_called_once_with("soffice")
+            subproc_run.assert_not_called()
+
+            non_exec.chmod(0o755)
+            with patch("docreader.parser.doc_parser.shutil.which", return_value=None):
+                found_exec = parser._try_find_executable_path(
+                    "soffice",
+                    possible_path=[str(non_exec)],
+                )
+            self.assertEqual(found_exec, str(non_exec))
+
+    def test_try_convert_doc_to_docx_checks_cancellation_between_retries(self):
+        class _CancelOnRetryCtx:
+            def __init__(self) -> None:
+                self.active = True
+
+            def is_active(self) -> bool:
+                return self.active
+
+        ctx = _CancelOnRetryCtx()
+        parser = DocParser(file_name="text.doc", file_type="doc", context=ctx)
+
+        def fail_and_cancel(*_args, **_kwargs):
+            ctx.active = False
+            return b"", b"lock busy", 1
+
+        with (
+            patch.object(parser, "_try_find_soffice", return_value="/usr/bin/soffice"),
+            patch("docreader.parser.doc_parser.run_soffice_convert", side_effect=fail_and_cancel),
+            self.assertRaises(ParserCancelled),
+        ):
+            parser._try_convert_doc_to_docx("/tmp/nonexistent.doc")
 
 
 if __name__ == "__main__":

@@ -1,19 +1,21 @@
-"""Extract and rasterize images embedded in PPTX (e.g. WMF) when MarkItDown cannot inline them."""
+"""Extract and rasterize images embedded in PPTX when MarkItDown cannot inline them."""
 
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
 import logging
 import os
 import re
+import shutil
 import signal
 import subprocess
 import tempfile
 import uuid
 import zipfile
 from collections import deque
-from typing import Dict, List, Tuple
+from typing import Any
 
 try:
     from PIL import Image as _PILImage
@@ -23,10 +25,11 @@ except ImportError:  # pragma: no cover
     pass
 
 from docreader.parser.archive import (
-    ArchiveLimitError,
     MAX_COMPRESSION_RATIO,
     MAX_UNCOMPRESSED_ARCHIVE_BYTES,
     safe_read_zip_member,
+)
+from docreader.parser.archive import (
     validate_zip_archive as _validate_zip_archive,
 )
 
@@ -40,23 +43,22 @@ _VECTOR_EXT = {".wmf", ".emf", ".svg", ".eps"}
 
 def _find_convert() -> str | None:
     for path in ("/usr/bin/convert", "/usr/local/bin/convert"):
-        if os.path.isfile(path):
+        if os.path.isfile(path) and os.access(path, os.X_OK):
             return path
-    try:
-        result = subprocess.run(
-            ["which", "convert"], capture_output=True, text=True, check=False
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except OSError:
-        pass
-    return None
+    return shutil.which("convert")
 
 
 # MED-15: Exclude vector/delegate formats (eps/svg/wmf/emf) to block ImageMagick
 # Ghostscript / rsvg / libwmf delegate RCE, LFI, and memory-corruption vectors.
 ALLOWED_CONVERT_FORMATS = {
-    "tif", "tiff", "png", "jpg", "jpeg", "bmp", "gif", "webp"
+    "tif",
+    "tiff",
+    "png",
+    "jpg",
+    "jpeg",
+    "bmp",
+    "gif",
+    "webp",
 }
 
 
@@ -84,7 +86,7 @@ def _rasterize_with_imagemagick(data: bytes, suffix: str) -> bytes | None:
         dst = os.path.join(temp_dir, "output.png")
         with open(src, "wb") as handle:
             handle.write(data)
-        proc = None
+        proc: subprocess.Popen[bytes] | None = None
         try:
             # Prefix format explicitly to prevent delegate execution exploits
             proc = subprocess.Popen(
@@ -100,13 +102,21 @@ def _rasterize_with_imagemagick(data: bytes, suffix: str) -> bytes | None:
                 try:
                     os.killpg(proc.pid, signal.SIGKILL)
                 except OSError:
-                    proc.kill()
-                proc.wait()
+                    with contextlib.suppress(OSError):
+                        proc.kill()
+                with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                    proc.wait(timeout=1.0)
             logger.warning("ImageMagick convert timed out: %s", exc)
             return None
         except (OSError, subprocess.SubprocessError) as exc:
             logger.warning("ImageMagick convert failed: %s", exc)
             return None
+        finally:
+            if proc is not None:
+                for pipe in (proc.stdout, proc.stderr):
+                    if pipe is not None:
+                        with contextlib.suppress(OSError):
+                            pipe.close()
         if proc.returncode != 0 or not os.path.isfile(dst):
             stderr = (stderr_bytes or b"").decode("utf-8", errors="ignore")
             logger.warning("ImageMagick convert exit %s: %s", proc.returncode, stderr)
@@ -122,20 +132,25 @@ def _rasterize_with_pillow(data: bytes) -> bytes | None:
         return None
     Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
     try:
-        img = Image.open(io.BytesIO(data))
-        if img.width * img.height > MAX_IMAGE_PIXELS:
-            logger.warning(
-                "Image pixel count (%d) exceeds MAX_IMAGE_PIXELS (%d)",
-                img.width * img.height,
-                MAX_IMAGE_PIXELS,
-            )
-            return None
-        # These PNG-compatible modes retain alpha channels or palette transparency.
-        if img.mode not in ("RGB", "RGBA", "L", "LA", "P"):
-            img = img.convert("RGB")
-        out = io.BytesIO()
-        img.save(out, format="PNG")
-        return out.getvalue()
+        with Image.open(io.BytesIO(data)) as opened_img:
+            if opened_img.width * opened_img.height > MAX_IMAGE_PIXELS:
+                logger.warning(
+                    "Image pixel count (%d) exceeds MAX_IMAGE_PIXELS (%d)",
+                    opened_img.width * opened_img.height,
+                    MAX_IMAGE_PIXELS,
+                )
+                return None
+            out = io.BytesIO()
+            # These PNG-compatible modes retain alpha channels or palette transparency.
+            if opened_img.mode not in ("RGB", "RGBA", "L", "LA", "P"):
+                converted_img = opened_img.convert("RGB")
+                try:
+                    converted_img.save(out, format="PNG")
+                finally:
+                    converted_img.close()
+            else:
+                opened_img.save(out, format="PNG")
+            return out.getvalue()
     except Exception as exc:
         logger.debug("Pillow could not open media bytes: %s", exc)
         return None
@@ -158,9 +173,9 @@ def rasterize_media_bytes(name: str, data: bytes) -> bytes | None:
     return _rasterize_with_pillow(data)
 
 
-def list_pptx_media(pptx_bytes: bytes) -> List[Tuple[str, bytes]]:
+def list_pptx_media(pptx_bytes: bytes) -> list[tuple[str, bytes]]:
     """Return (zip path, raw bytes) for each file under ppt/media/, in archive order."""
-    items: List[Tuple[str, bytes]] = []
+    items: list[tuple[str, bytes]] = []
     with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as archive:
         _validate_zip_archive(archive)
         for info in archive.infolist():
@@ -181,16 +196,14 @@ def list_pptx_media(pptx_bytes: bytes) -> List[Tuple[str, bytes]]:
     return items
 
 
-def extract_pptx_media_rasterized(pptx_bytes: bytes) -> List[bytes]:
+def extract_pptx_media_rasterized(pptx_bytes: bytes) -> list[bytes]:
     """Rasterize all ppt/media assets to PNG bytes, skipping failures."""
-    rasterized: List[bytes] = []
+    rasterized: list[bytes] = []
     for path, raw in list_pptx_media(pptx_bytes):
         png = rasterize_media_bytes(os.path.basename(path), raw)
         if png:
             rasterized.append(png)
-            logger.info(
-                "Rasterized pptx media %s (%d -> %d bytes)", path, len(raw), len(png)
-            )
+            logger.info("Rasterized pptx media %s (%d -> %d bytes)", path, len(raw), len(png))
         else:
             logger.warning("Failed to rasterize pptx media %s", path)
     return rasterized
@@ -199,9 +212,7 @@ def extract_pptx_media_rasterized(pptx_bytes: bytes) -> List[bytes]:
 def _is_unresolved_image_ref(url: str) -> bool:
     if not url or url.startswith("data:") or url.startswith("images/"):
         return False
-    if url.startswith(("http://", "https://")):
-        return False
-    return True
+    return not url.startswith(("http://", "https://"))
 
 
 def _picture_sources(pptx_bytes: bytes) -> dict[str, deque[tuple[str, bytes] | None]]:
@@ -212,7 +223,7 @@ def _picture_sources(pptx_bytes: bytes) -> dict[str, deque[tuple[str, bytes] | N
 
     sources: dict[str, deque[tuple[str, bytes] | None]] = {}
 
-    def visit(shapes) -> None:
+    def visit(shapes: Any) -> None:
         # Match MarkItDown, which emits shapes (and group members) sorted by
         # position rather than in z-order.
         for shape in sorted(
@@ -226,8 +237,7 @@ def _picture_sources(pptx_bytes: bytes) -> dict[str, deque[tuple[str, bytes] | N
                 visit(shape.shapes)
                 continue
             is_picture = shape.shape_type == MSO_SHAPE_TYPE.PICTURE or (
-                shape.shape_type == MSO_SHAPE_TYPE.PLACEHOLDER
-                and hasattr(shape, "image")
+                shape.shape_type == MSO_SHAPE_TYPE.PLACEHOLDER and hasattr(shape, "image")
             )
             if not is_picture:
                 continue
@@ -250,9 +260,7 @@ def _picture_sources(pptx_bytes: bytes) -> dict[str, deque[tuple[str, bytes] | N
                 # or a media part dropped at load time must only lose this
                 # picture, not the whole document. None keeps the queue
                 # position.
-                logger.warning(
-                    "Skipping unresolvable pptx picture %s: %s", shape.name, exc
-                )
+                logger.warning("Skipping unresolvable pptx picture %s: %s", shape.name, exc)
             sources.setdefault(placeholder, deque()).append(source)
 
     presentation = Presentation(io.BytesIO(pptx_bytes))
@@ -261,15 +269,13 @@ def _picture_sources(pptx_bytes: bytes) -> dict[str, deque[tuple[str, bytes] | N
     return sources
 
 
-def attach_pptx_media_to_markdown(
-    markdown: str, pptx_bytes: bytes
-) -> Tuple[str, Dict[str, str]]:
+def attach_pptx_media_to_markdown(markdown: str, pptx_bytes: bytes) -> tuple[str, dict[str, str]]:
     """Attach the media referenced by MarkItDown's fallback picture placeholders."""
     sources = _picture_sources(pptx_bytes)
     if not sources:
         return markdown, {}
 
-    images: Dict[str, str] = {}
+    images: dict[str, str] = {}
     converted: dict[str, bytes | None] = {}
 
     def repl(match: re.Match[str]) -> str:
@@ -298,6 +304,4 @@ def attach_pptx_media_to_markdown(
 
 
 def markdown_needs_pptx_media_attach(markdown: str) -> bool:
-    return any(
-        _is_unresolved_image_ref(m.group(2)) for m in _MARKDOWN_IMAGE.finditer(markdown)
-    )
+    return any(_is_unresolved_image_ref(m.group(2)) for m in _MARKDOWN_IMAGE.finditer(markdown))

@@ -5,12 +5,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from docx import Document as WordDocument
-from lxml import etree
-
 from docreader.parser.docx2_parser import Docx2Parser
 from docreader.parser.docx_merge import fill_vertical_merged_cells_docx
 from docreader.parser.markitdown_parser import StdMarkitdownParser
+from docx import Document as WordDocument
+from lxml import etree
 
 FIXTURE = Path(__file__).with_name("fixtures") / "issue_2634_vertical_merge.docx"
 METHOD_PREFIX = "检测方法：提取外周血基因组 DNA"
@@ -19,6 +18,8 @@ WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
 class DocxVerticalMergeFillTest(unittest.TestCase):
+    fixture_bytes: bytes
+
     @classmethod
     def setUpClass(cls):
         cls.fixture_bytes = FIXTURE.read_bytes()
@@ -29,9 +30,7 @@ class DocxVerticalMergeFillTest(unittest.TestCase):
             self.assertIsNone(archive.testzip())
             root = etree.fromstring(archive.read("word/document.xml"))
 
-        vertical_merges = root.xpath(
-            ".//w:tbl[1]//w:vMerge", namespaces={"w": WORD_NAMESPACE}
-        )
+        vertical_merges = root.xpath(".//w:tbl[1]//w:vMerge", namespaces={"w": WORD_NAMESPACE})
         merge_values = [
             node.get(f"{{{WORD_NAMESPACE}}}val", "continue") for node in vertical_merges
         ]
@@ -131,40 +130,38 @@ class DocxMarkitdownDispatchTest(unittest.TestCase):
 
     def test_xlsx_conversion_failure_is_not_retried_with_data_uris(self):
         parser = StdMarkitdownParser(file_type="xlsx")
-        with patch.object(parser, "_convert_markitdown", return_value=None) as convert:
-            with self.assertRaisesRegex(RuntimeError, "MarkItDown conversion failed"):
-                parser.parse_into_text(b"payload")
+        with (
+            patch.object(parser, "_convert_markitdown", return_value=None) as convert,
+            self.assertRaisesRegex(RuntimeError, "MarkItDown conversion failed"),
+        ):
+            parser.parse_into_text(b"payload")
 
         convert.assert_called_once_with(b"payload", ".xlsx", keep_data_uris=False)
 
     def test_xlsx_conversion_exception_is_wrapped_without_retry(self):
         parser = StdMarkitdownParser(file_type="xlsx")
-        with patch.object(
-            parser,
-            "_convert_markitdown",
-            side_effect=ValueError("synthetic parser failure"),
-        ) as convert:
-            with self.assertRaisesRegex(RuntimeError, "MarkItDown conversion failed"):
-                parser.parse_into_text(b"payload")
+        with (
+            patch.object(
+                parser,
+                "_convert_markitdown",
+                side_effect=ValueError("synthetic parser failure"),
+            ) as convert,
+            self.assertRaisesRegex(RuntimeError, "MarkItDown conversion failed"),
+        ):
+            parser.parse_into_text(b"payload")
 
         convert.assert_called_once_with(b"payload", ".xlsx", keep_data_uris=False)
 
     def test_non_xlsx_parser_has_one_bounded_fallback(self):
         parser = StdMarkitdownParser(file_type="docx")
         result = SimpleNamespace(text_content="parsed")
-        with patch.object(
-            parser, "_convert_markitdown", side_effect=[None, result]
-        ) as convert:
+        with patch.object(parser, "_convert_markitdown", side_effect=[None, result]) as convert:
             document = parser.parse_into_text(b"payload")
 
         self.assertEqual(document.content, "parsed")
         self.assertEqual(convert.call_count, 2)
-        self.assertEqual(
-            convert.call_args_list[0].kwargs["keep_data_uris"], True
-        )
-        self.assertEqual(
-            convert.call_args_list[1].kwargs["keep_data_uris"], False
-        )
+        self.assertEqual(convert.call_args_list[0].kwargs["keep_data_uris"], True)
+        self.assertEqual(convert.call_args_list[1].kwargs["keep_data_uris"], False)
 
     def test_non_docx_types_do_not_run_docx_preprocessor(self):
         for file_type in ("doc", "txt", "md"):
@@ -201,9 +198,9 @@ class DocxMarkitdownDispatchTest(unittest.TestCase):
 
 class Issue2634ParserRegressionTest(unittest.TestCase):
     def test_markitdown_output_repeats_merged_value_for_every_data_row(self):
-        document = StdMarkitdownParser(
-            file_name=FIXTURE.name, file_type="docx"
-        ).parse_into_text(FIXTURE.read_bytes())
+        document = StdMarkitdownParser(file_name=FIXTURE.name, file_type="docx").parse_into_text(
+            FIXTURE.read_bytes()
+        )
 
         data_lines = {
             project_code: next(
@@ -217,14 +214,12 @@ class Issue2634ParserRegressionTest(unittest.TestCase):
         self.assertIn("| 相同值 | 相同值 | 独立值 |", document.content)
 
     def test_full_docx_entry_keeps_context_on_all_four_rows(self):
-        document = Docx2Parser(
-            file_name=FIXTURE.name, file_type="docx"
-        ).parse_into_text(FIXTURE.read_bytes())
+        document = Docx2Parser(file_name=FIXTURE.name, file_type="docx").parse_into_text(
+            FIXTURE.read_bytes()
+        )
 
         for project_code in PROJECT_CODES:
-            data_line = next(
-                line for line in document.content.splitlines() if project_code in line
-            )
+            data_line = next(line for line in document.content.splitlines() if project_code in line)
             self.assertIn(METHOD_PREFIX, data_line)
         self.assertEqual(document.content.count(METHOD_PREFIX), len(PROJECT_CODES))
 

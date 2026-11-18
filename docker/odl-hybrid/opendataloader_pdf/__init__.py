@@ -7,7 +7,7 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 from .runner import run_jar
 
 try:
-    from .wrapper import convert, run  # type: ignore[attr-defined]
+    from .wrapper import convert, run
 
     __all__ = ["run", "convert", "run_jar"]
 except Exception:

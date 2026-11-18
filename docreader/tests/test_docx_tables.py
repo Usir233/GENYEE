@@ -36,6 +36,7 @@ def _load_docx_parser():
     spec = importlib.util.spec_from_file_location(
         "docreader.parser.docx_parser", root / "docreader" / "parser" / "docx_parser.py"
     )
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules["docreader.parser.docx_parser"] = module
     spec.loader.exec_module(module)
@@ -93,9 +94,7 @@ class DocxTableContentTest(unittest.TestCase):
         return _docx_bytes(build)
 
     def test_table_content_is_kept_in_parsed_text(self):
-        content = self._docx_with_table(
-            [["City", "Population"], ["Beijing", "21.5M"]]
-        )
+        content = self._docx_with_table([["City", "Population"], ["Beijing", "21.5M"]])
         document = _parse(content)
         self.assertIn("Introduction paragraph", document.content)
         for cell in ("City", "Population", "Beijing", "21.5M"):
@@ -171,7 +170,7 @@ class DocxTableContentTest(unittest.TestCase):
     def test_omitted_leading_cell_keeps_values_under_their_headers(self):
         def build(doc):
             table = doc.add_table(rows=2, cols=3)
-            for cell, value in zip(table.rows[0].cells, ("Item", "Price", "Status")):
+            for cell, value in zip(table.rows[0].cells, ("Item", "Price", "Status"), strict=True):
                 cell.text = value
             table.cell(1, 1).text = "25"
             table.cell(1, 2).text = "Ready"
@@ -199,7 +198,7 @@ class DocxTableContentTest(unittest.TestCase):
     def test_omitted_cell_before_horizontal_merge_keeps_grid_positions(self):
         def build(doc):
             table = doc.add_table(rows=2, cols=4)
-            for cell, value in zip(table.rows[0].cells, ("A", "B", "C", "D")):
+            for cell, value in zip(table.rows[0].cells, ("A", "B", "C", "D"), strict=True):
                 cell.text = value
             table.cell(1, 1).merge(table.cell(1, 2)).text = "Merged"
             table.cell(1, 3).text = "Right"
@@ -249,7 +248,6 @@ class DocxTableContentTest(unittest.TestCase):
             rows = []
 
         self.assertEqual(table_to_gfm_markdown(_Empty()), "")
-
 
 
 def _xml(fragment):
@@ -302,10 +300,16 @@ class DocxContentControlAndRevisionTest(unittest.TestCase):
                 _xml("<w:sdt><w:sdtContent><w:r><w:t>Jane Doe</w:t></w:r></w:sdtContent></w:sdt>")
             )
             paragraph._p.append(
-                _xml("<w:ins w:id='1' w:author='a'><w:r><w:t xml:space='preserve'> on Monday</w:t></w:r></w:ins>")
+                _xml(
+                    "<w:ins w:id='1' w:author='a'><w:r>"
+                    "<w:t xml:space='preserve'> on Monday</w:t></w:r></w:ins>"
+                )
             )
             paragraph._p.append(
-                _xml("<w:del w:id='2' w:author='a'><w:r><w:delText> on Friday</w:delText></w:r></w:del>")
+                _xml(
+                    "<w:del w:id='2' w:author='a'><w:r>"
+                    "<w:delText> on Friday</w:delText></w:r></w:del>"
+                )
             )
 
         document = _parse(_docx_bytes(build))
@@ -349,7 +353,8 @@ class DocxContentControlAndRevisionTest(unittest.TestCase):
                     "<w:sdt><w:sdtContent><w:tbl><w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid>"
                     "<w:tr><w:tc><w:p><w:r><w:t>Term</w:t></w:r></w:p></w:tc>"
                     "<w:tc><w:p><w:r><w:t>Value</w:t></w:r></w:p></w:tc></w:tr>"
-                    "<w:tr><w:tc><w:p><w:ins w:id='3' w:author='a'><w:r><w:t>Rate</w:t></w:r></w:ins></w:p></w:tc>"
+                    "<w:tr><w:tc><w:p><w:ins w:id='3' w:author='a'><w:r>"
+                    "<w:t>Rate</w:t></w:r></w:ins></w:p></w:tc>"
                     "<w:tc><w:sdt><w:sdtContent><w:p><w:r><w:t>5%</w:t></w:r></w:p></w:sdtContent></w:sdt></w:tc>"
                     "</w:tr></w:tbl></w:sdtContent></w:sdt>"
                 ),
@@ -501,9 +506,7 @@ class DocxImageOrderTest(unittest.TestCase):
     def test_table_only_image_document_is_not_empty(self):
         def build(doc):
             table = doc.add_table(rows=1, cols=1)
-            table.cell(0, 0).paragraphs[0].add_run().add_picture(
-                self._png_bytes((255, 0, 0))
-            )
+            table.cell(0, 0).paragraphs[0].add_run().add_picture(self._png_bytes((255, 0, 0)))
 
         document = _parse(_docx_bytes(build))
         self.assertEqual(len(document.images), 1)
@@ -547,8 +550,8 @@ class DocxImageOrderTest(unittest.TestCase):
                 os.unlink(img_path)
 
     def test_multithreaded_multipage_parsing_avoids_unsafe_fork_and_manager(self):
-        from docreader.parser.docx_parser import DocxParser as CanonicalDocxParser
         import docreader.parser.docx_parser as canonical_docx_module
+        from docreader.parser.docx_parser import DocxParser as CanonicalDocxParser
 
         self.assertFalse(hasattr(docx_parser, "Manager"))
         self.assertFalse(hasattr(canonical_docx_module, "Manager"))
@@ -582,11 +585,7 @@ class DocxImageOrderTest(unittest.TestCase):
             stop_event.set()
             bg.join(timeout=5)
 
-        fork_warnings = [
-            str(w.message)
-            for w in caught
-            if "fork()" in str(w.message)
-        ]
+        fork_warnings = [str(w.message) for w in caught if "fork()" in str(w.message)]
         self.assertEqual(fork_warnings, [])
         self.assertEqual(len(document.images), 3)
         by_rgb = self._refs_by_rgb(document)
@@ -620,6 +619,49 @@ class DocxImageOrderTest(unittest.TestCase):
         document = _parse(_docx_bytes(lambda doc: self._picture(doc, (255, 0, 0))))
         self.assertEqual(len(document.images), 1)
         self.assertIn(next(iter(document.images)), document.content)
+
+    def test_docx_image_extraction_closes_opened_pillow_handles(self):
+        payload = _docx_bytes(lambda doc: self._picture(doc, (255, 0, 0)))
+        real_open = Image.open
+        closed_count = 0
+
+        class _TrackingImageWrapper:
+            def __init__(self, inner):
+                self._inner = inner
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                nonlocal closed_count
+                closed_count += 1
+                self._inner.close()
+                return False
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+        with patch.object(
+            docx_parser.Image,
+            "open",
+            side_effect=lambda fp: _TrackingImageWrapper(real_open(fp)),
+        ):
+            wdoc = WordDocument(io.BytesIO(payload))
+            imgs = docx_parser.Docx(enable_multimodal=True).get_pictures(wdoc, wdoc.paragraphs[0])
+            self.assertEqual(len(imgs), 1)
+            self.assertEqual(closed_count, 1)
+
+            in_proc_imgs = docx_parser._extract_images_in_process(
+                docx_parser.logger, wdoc, wdoc.paragraphs[0], 0, 0, 1920
+            )
+            self.assertEqual(len(in_proc_imgs), 1)
+            self.assertEqual(closed_count, 2)
+
+    def test_docx_call_with_none_binary_returns_empty_cleanly(self):
+        with self.assertNoLogs(docx_parser.logger, level="ERROR"):
+            lines, text = docx_parser.Docx()(binary=None)
+        self.assertEqual(lines, [])
+        self.assertEqual(text, "")
 
 
 if __name__ == "__main__":

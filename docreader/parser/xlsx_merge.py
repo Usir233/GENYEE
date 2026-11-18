@@ -6,11 +6,10 @@ import logging
 import os
 import re
 import zipfile
-from decimal import Decimal, ROUND_HALF_UP, localcontext
+from decimal import ROUND_HALF_UP, Decimal, localcontext
 from io import BytesIO
 
 from defusedxml import ElementTree as DefusedET
-
 from docreader.parser.archive import (
     ArchiveLimitError,
     ZipReadBudget,
@@ -191,9 +190,7 @@ def _local_tag(tag: str) -> str:
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
 
-def _preclip_xlsx_merge_ranges_xml(
-    content: bytes, max_merge_cells: int
-) -> tuple[bytes, bool]:
+def _preclip_xlsx_merge_ranges_xml(content: bytes, max_merge_cells: int) -> tuple[bytes, bool]:
     """Clip unpopulated tail merge ranges and enforce cell budget BEFORE openpyxl loads.
 
     openpyxl's ``bind_merged_cells`` allocates a ``MergedCell`` object for every
@@ -202,8 +199,8 @@ def _preclip_xlsx_merge_ranges_xml(
     ``load_workbook`` unless bounded at the XML layer first.
     """
     from openpyxl.utils.cell import (
-        coordinate_from_string,
         column_index_from_string,
+        coordinate_from_string,
         get_column_letter,
         range_boundaries,
     )
@@ -216,9 +213,7 @@ def _preclip_xlsx_merge_ranges_xml(
 
         for info in zf.infolist():
             norm_name = info.filename.replace("\\", "/")
-            if not (
-                norm_name.startswith("xl/worksheets/") and norm_name.endswith(".xml")
-            ):
+            if not (norm_name.startswith("xl/worksheets/") and norm_name.endswith(".xml")):
                 continue
             raw_xml = safe_read_zip_member(zf, info, budget=read_budget)
             cached_parts[info.filename] = raw_xml
@@ -256,9 +251,7 @@ def _preclip_xlsx_merge_ranges_xml(
 
             sheet_changed = False
             sheet_budget = 0
-            for merge_parent in [
-                el for el in root.iter() if _local_tag(el.tag) == "mergeCells"
-            ]:
+            for merge_parent in [el for el in root.iter() if _local_tag(el.tag) == "mergeCells"]:
                 for merge_el in list(merge_parent):
                     if _local_tag(merge_el.tag) != "mergeCell":
                         continue
@@ -268,9 +261,7 @@ def _preclip_xlsx_merge_ranges_xml(
                         sheet_changed = True
                         continue
                     try:
-                        min_col, min_row, rng_max_col, rng_max_row = range_boundaries(
-                            ref
-                        )
+                        min_col, min_row, rng_max_col, rng_max_row = range_boundaries(ref)
                     except ValueError:
                         merge_parent.remove(merge_el)
                         sheet_changed = True
@@ -281,28 +272,20 @@ def _preclip_xlsx_merge_ranges_xml(
                         sheet_changed = True
                         continue
 
-                    raw_span = (rng_max_row - min_row + 1) * (
-                        rng_max_col - min_col + 1
-                    )
+                    raw_span = (rng_max_row - min_row + 1) * (rng_max_col - min_col + 1)
                     unbounded_tail = (
                         (rng_max_row - max_row) > 64
                         or (rng_max_col - max_col) > 32
                         or raw_span > max_merge_cells
                     )
-                    clip_max_row = (
-                        min(rng_max_row, max_row) if unbounded_tail else rng_max_row
-                    )
-                    clip_max_col = (
-                        min(rng_max_col, max_col) if unbounded_tail else rng_max_col
-                    )
+                    clip_max_row = min(rng_max_row, max_row) if unbounded_tail else rng_max_row
+                    clip_max_col = min(rng_max_col, max_col) if unbounded_tail else rng_max_col
                     if clip_max_row < min_row or clip_max_col < min_col:
                         merge_parent.remove(merge_el)
                         sheet_changed = True
                         continue
 
-                    span_cells = (clip_max_row - min_row + 1) * (
-                        clip_max_col - min_col + 1
-                    )
+                    span_cells = (clip_max_row - min_row + 1) * (clip_max_col - min_col + 1)
                     sheet_budget += span_cells
                     if sheet_budget > max_merge_cells:
                         raise ArchiveLimitError(
@@ -321,9 +304,7 @@ def _preclip_xlsx_merge_ranges_xml(
                             merge_el.set("ref", new_ref)
                         sheet_changed = True
 
-                remaining = [
-                    c for c in merge_parent if _local_tag(c.tag) == "mergeCell"
-                ]
+                remaining = [c for c in merge_parent if _local_tag(c.tag) == "mergeCell"]
                 if sheet_changed:
                     merge_parent.set("count", str(len(remaining)))
 
@@ -354,7 +335,7 @@ def _worksheet_populated_bounds(ws) -> tuple[int, int]:
         return 0, 0
     max_row = 0
     max_col = 0
-    for row_idx, col_idx in cells.keys():
+    for row_idx, col_idx in cells:
         if row_idx > max_row:
             max_row = row_idx
         if col_idx > max_col:
@@ -393,9 +374,7 @@ def fill_merged_cells_xlsx(
     changed = preclipped
     materialized_cells = 0
     hinted_cells = 0
-    row_hint_min = (
-        _env_int(ROW_HINT_MIN_ENV, _DEFAULT_ROW_HINT_MIN) if percent_as_text else 0
-    )
+    row_hint_min = _env_int(ROW_HINT_MIN_ENV, _DEFAULT_ROW_HINT_MIN) if percent_as_text else 0
 
     for ws in wb.worksheets:
         if percent_as_text:

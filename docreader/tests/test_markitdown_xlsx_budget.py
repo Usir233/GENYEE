@@ -2,29 +2,27 @@
 
 import io
 import os
+import unittest
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from types import SimpleNamespace
-import unittest
 from unittest.mock import patch
-import zipfile
 
-from docx import Document as WordDocument
 import grpc
 import openpyxl
 import pandas as pd
 import pptx
-
 from docreader import config
 from docreader.main import DocReaderServicer
-from docreader.parser import Parser, markitdown_parser
+from docreader.parser import Parser, markitdown_parser, xlsx_rows
 from docreader.parser.archive import ArchiveLimitError, detect_ooxml_package_type
 from docreader.parser.concurrency import ParserCancelled
 from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownParser
-from docreader.parser import xlsx_rows
-from docreader.proto import docreader_pb2 as pb, docreader_pb2_grpc as rpc
+from docreader.proto import docreader_pb2 as pb
+from docreader.proto import docreader_pb2_grpc as rpc
 from docreader.tests.test_docreader_stream import _NoopPreprocessRunner
-
+from docx import Document as WordDocument
 
 KEY = "DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS"
 FIELD = "markitdown_xlsx_max_table_cells"
@@ -53,14 +51,20 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
         return Parser().parse_file("generated.xlsx", "xlsx", content, parser_engine="markitdown")
 
     def test_over_limit_rejected_before_dense_read(self):
-        with budget(8), patch.object(pd, "read_excel", side_effect=AssertionError("dense allocation reached")):
-            with self.assertRaisesRegex(ArchiveLimitError, r"9.*8.*builtin"):
-                self.parse(workbook_bytes())
+        with (
+            budget(8),
+            patch.object(pd, "read_excel", side_effect=AssertionError("dense allocation reached")),
+            self.assertRaisesRegex(ArchiveLimitError, r"9.*8.*builtin"),
+        ):
+            self.parse(workbook_bytes())
 
     def test_default_budget_protects_extreme_sparse_coordinates(self):
-        with budget(200000), patch.object(pd, "read_excel", side_effect=AssertionError("dense allocation reached")):
-            with self.assertRaisesRegex(ArchiveLimitError, "builtin"):
-                self.parse(workbook_bytes(row=1048576, col=16384))
+        with (
+            budget(200000),
+            patch.object(pd, "read_excel", side_effect=AssertionError("dense allocation reached")),
+            self.assertRaisesRegex(ArchiveLimitError, "builtin"),
+        ):
+            self.parse(workbook_bytes(row=1048576, col=16384))
 
     def test_exact_budget_keeps_original_markitdown_table(self):
         content = workbook_bytes()
@@ -103,7 +107,10 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
     def test_request_override_cannot_raise_deployment_limit(self):
         with budget(8), self.assertRaises(ArchiveLimitError):
             Parser().parse_file(
-                "generated.xlsx", "xlsx", workbook_bytes(), parser_engine="markitdown",
+                "generated.xlsx",
+                "xlsx",
+                workbook_bytes(),
+                parser_engine="markitdown",
                 engine_overrides={FIELD: "999999999", KEY: "999999999"},
             )
 
@@ -129,14 +136,20 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
             self.assertRaises(ParserCancelled),
         ):
             Parser().parse_file(
-                "generated.xlsx", "xlsx", workbook_bytes(),
-                parser_engine="markitdown", context=context,
+                "generated.xlsx",
+                "xlsx",
+                workbook_bytes(),
+                parser_engine="markitdown",
+                context=context,
             )
         read.assert_not_called()
 
     def test_untrusted_dimension_does_not_expand_real_bounds(self):
         data = io.BytesIO()
-        with zipfile.ZipFile(io.BytesIO(workbook_bytes())) as source, zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as target:
+        with (
+            zipfile.ZipFile(io.BytesIO(workbook_bytes())) as source,
+            zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as target,
+        ):
             for item in source.infolist():
                 content = source.read(item.filename)
                 if item.filename == "xl/worksheets/sheet1.xml":
@@ -152,7 +165,12 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
         rpc.add_DocReaderServicer_to_server(service, server)
         port = server.add_insecure_port("127.0.0.1:0")
         server.start()
-        request = pb.ReadRequest(file_name="generated.xlsx", file_type="xlsx", file_content=workbook_bytes(), config=pb.ReadConfig(parser_engine="markitdown"))
+        request = pb.ReadRequest(
+            file_name="generated.xlsx",
+            file_type="xlsx",
+            file_content=workbook_bytes(),
+            config=pb.ReadConfig(parser_engine="markitdown"),
+        )
         try:
             with budget(8), grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
                 client = rpc.DocReaderStub(channel)
@@ -172,9 +190,8 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
         sparse_bomb = workbook_bytes(row=1048576, col=16384)
         for ext in ("docx", "pptx", "pdf", "csv"):
             for engine in ("", "builtin", "markitdown"):
-                if ext in ("pdf", "csv") and engine in ("", "builtin"):
-                    if ext == "pdf":
-                        continue
+                if ext == "pdf" and engine in ("", "builtin"):
+                    continue
                 with (
                     self.subTest(ext=ext, engine=engine),
                     budget(200000),
@@ -183,11 +200,9 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
                         "read_excel",
                         side_effect=AssertionError("dense allocation reached"),
                     ),
+                    self.assertRaisesRegex(ArchiveLimitError, "builtin"),
                 ):
-                    with self.assertRaisesRegex(ArchiveLimitError, "builtin"):
-                        Parser().parse_file(
-                            f"evil.{ext}", ext, sparse_bomb, parser_engine=engine
-                        )
+                    Parser().parse_file(f"evil.{ext}", ext, sparse_bomb, parser_engine=engine)
 
     def test_mismatched_small_xlsx_disguised_as_docx_or_pptx_never_cross_sniffs(self):
         small_xlsx = workbook_bytes(row=2, col=2)
@@ -195,11 +210,10 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
             pd, "read_excel", side_effect=AssertionError("cross-sniffed into read_excel")
         ):
             for ext in ("docx", "pptx"):
-                with self.subTest(ext=ext):
-                    with self.assertRaises(ValueError):
-                        StdMarkitdownParser(
-                            file_name=f"disguised.{ext}", file_type=ext
-                        ).parse_into_text(small_xlsx)
+                with self.subTest(ext=ext), self.assertRaises(ValueError):
+                    StdMarkitdownParser(
+                        file_name=f"disguised.{ext}", file_type=ext
+                    ).parse_into_text(small_xlsx)
 
     def test_nested_zip_archives_never_expand_inner_xlsx_or_bomb(self):
         sparse_bomb = workbook_bytes(row=1048576, col=16384)
@@ -210,9 +224,7 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
         nested_zip = nested_buf.getvalue()
 
         parser = StdMarkitdownParser(file_type="pptx")
-        converter_names = {
-            type(reg.converter).__name__ for reg in parser.markitdown._converters
-        }
+        converter_names = {type(reg.converter).__name__ for reg in parser.markitdown._converters}
         self.assertNotIn("ZipConverter", converter_names)
         self.assertNotIn("EpubConverter", converter_names)
 
@@ -286,7 +298,13 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
 
 class MarkitdownXLSXConfigTest(unittest.TestCase):
     def test_positive_deployment_budget_and_invalid_values(self):
-        for value, expected in (("7", 7), ("0", 200000), ("-1", 200000), ("invalid", 200000), ("", 200000)):
+        for value, expected in (
+            ("7", 7),
+            ("0", 200000),
+            ("-1", 200000),
+            ("invalid", 200000),
+            ("", 200000),
+        ):
             with self.subTest(value=value), patch.dict(os.environ, {KEY: value}, clear=True):
                 cfg = config.load_config()
                 self.assertEqual(getattr(cfg, FIELD, None), expected)

@@ -20,8 +20,9 @@ import os
 import re
 import shutil
 import subprocess
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +87,9 @@ def sanitize_temp_suffix(suffix: str, default: str = ".bin") -> str:
 
 
 def build_minimal_sandbox_env(
-    proxy: Optional[str] = None,
-    profile_dir: Optional[str] = None,
-    base_env: Optional[Mapping[str, str]] = None,
+    proxy: str | None = None,
+    profile_dir: str | None = None,
+    base_env: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Build a minimal clean environment stripped of application secrets."""
     src = os.environ if base_env is None else base_env
@@ -148,8 +149,8 @@ def build_bwrap_command(
     *,
     bwrap_path: str,
     work_dir: str,
-    profile_dir: Optional[str] = None,
-    input_path: Optional[str] = None,
+    profile_dir: str | None = None,
+    input_path: str | None = None,
 ) -> list[str]:
     """Wrap a command in bubblewrap with --unshare-net and minimal RO mounts.
 
@@ -245,8 +246,8 @@ def maybe_wrap_with_bwrap(
     cmd: Sequence[str],
     *,
     work_dir: str,
-    profile_dir: Optional[str] = None,
-    input_path: Optional[str] = None,
+    profile_dir: str | None = None,
+    input_path: str | None = None,
 ) -> list[str]:
     """Wrap cmd with bwrap (--unshare-net + minimal RO mounts) when available."""
     if os.name != "posix":
@@ -298,8 +299,11 @@ def run_soffice_convert(
     profile_dir: str,
     executor: Any = None,
     timeout: int = 120,
+    context: Any = None,
 ) -> tuple[bytes, bytes, int]:
     """Run headless LibreOffice conversion inside bwrap + SandboxExecutor."""
+    from docreader.parser.doc_parser import SandboxExecutor
+
     cmd = build_soffice_convert_cmd(
         soffice_path,
         convert_to=convert_to,
@@ -314,7 +318,9 @@ def run_soffice_convert(
         input_path=input_path,
     )
     if executor is None:
-        from docreader.parser.doc_parser import SandboxExecutor
-
-        executor = SandboxExecutor(default_timeout=timeout)
-    return executor.execute_in_sandbox(sandboxed_cmd)
+        default_executor = SandboxExecutor(default_timeout=timeout, context=context)
+        return default_executor.execute_in_sandbox(sandboxed_cmd)
+    if isinstance(executor, SandboxExecutor):
+        return executor.execute_in_sandbox(sandboxed_cmd, timeout=timeout, context=context)
+    out, err, code = executor.execute_in_sandbox(sandboxed_cmd)
+    return bytes(out), bytes(err), int(code)

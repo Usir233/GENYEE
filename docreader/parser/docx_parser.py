@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import re
@@ -7,12 +8,32 @@ import time
 import traceback
 from concurrent.futures import (
     ProcessPoolExecutor as _RealProcessPoolExecutor,
+)
+from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed,
 )
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
+from docreader.config import CONFIG
+from docreader.models.document import Document as DocumentModel
+from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.base_parser import BaseParser
+from docreader.parser.concurrency import ParserCancelled
+from docreader.utils import endecode
+from docx import Document
+from docx.image.exceptions import (
+    InvalidImageStreamError,
+    UnexpectedEndOfFileError,
+    UnrecognizedImageError,
+)
+from docx.opc.oxml import parse_xml
+from docx.opc.pkgreader import _SerializedRelationship, _SerializedRelationships
+from docx.oxml.ns import qn
+from docx.table import Table
+from PIL import Image
 
 ProcessPoolExecutor = _RealProcessPoolExecutor
 
@@ -35,9 +56,6 @@ def _select_mp_context():
 
 
 # patch from https://github.com/python-openxml/python-docx/issues/1105#issuecomment-1298075246
-from docx.opc.pkgreader import _SerializedRelationships, _SerializedRelationship
-from docx.opc.oxml import parse_xml
-
 def load_from_xml_v2(baseURI, rels_item_xml):
     """
     Return |_SerializedRelationships| instance loaded with the
@@ -48,32 +66,16 @@ def load_from_xml_v2(baseURI, rels_item_xml):
     if rels_item_xml is not None:
         rels_elm = parse_xml(rels_item_xml)
         for rel_elm in rels_elm.Relationship_lst:
-            if rel_elm.target_ref in ('../NULL', 'NULL'):
+            if rel_elm.target_ref in ("../NULL", "NULL"):
                 continue
             srels._srels.append(_SerializedRelationship(baseURI, rel_elm))
     return srels
 
-_SerializedRelationships.load_from_xml = load_from_xml_v2
 
-from docx import Document
-from docx.image.exceptions import (
-    InvalidImageStreamError,
-    UnexpectedEndOfFileError,
-    UnrecognizedImageError,
+_SerializedRelationships.load_from_xml = staticmethod(  # type: ignore[method-assign]
+    load_from_xml_v2
 )
-from docx.oxml.ns import qn
-from docx.table import Table
-from docx.text.run import Run
-from PIL import Image
-
 Image.MAX_IMAGE_PIXELS = 40_000_000
-
-from docreader.config import CONFIG
-from docreader.models.document import Document as DocumentModel
-from docreader.parser.archive import ArchiveLimitError
-from docreader.parser.base_parser import BaseParser
-from docreader.parser.concurrency import ParserCancelled
-from docreader.utils import endecode
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,7 @@ _INLINE_TEXT_CONTAINERS = frozenset(
 )
 
 
-def _sdt_content(sdt: Any) -> Optional[Any]:
+def _sdt_content(sdt: Any) -> Any | None:
     """The w:sdtContent of a content control that holds document text, or None.
 
     A control still showing its placeholder ("Click or tap here to enter
@@ -124,12 +126,14 @@ def _sdt_content(sdt: Any) -> Optional[Any]:
 
 def _paragraph_text(p_element: Any) -> str:
     """The text of a w:p as Word shows it, wrapped runs included."""
-    parts: List[str] = []
+    parts: list[str] = []
 
     def walk(parent: Any) -> None:
         for child in parent:
             if child.tag == _W_R:
-                parts.append(Run(child, None).text)
+                run_text = getattr(child, "text", None)
+                if isinstance(run_text, str):
+                    parts.append(run_text)
             elif child.tag == _W_SDT:
                 content = _sdt_content(child)
                 if content is not None:
@@ -164,15 +168,15 @@ def _block_children(container: Any):
 
 def _collect_document_paragraphs(
     doc: Any,
-) -> Tuple[List[Tuple[Any, bool]], List[Any]]:
+) -> tuple[list[tuple[Any, bool]], list[Any]]:
     """Collect all paragraphs in reading order across body, SDTs, and tables.
 
     Returns ``(paragraphs, retained_elements)`` where each entry in
     ``paragraphs`` is ``(p_element, is_body_level)`` and ``retained_elements``
     keeps XML element proxies alive for stable lookup while composing output.
     """
-    paragraphs: List[Tuple[Any, bool]] = []
-    retained: List[Any] = []
+    paragraphs: list[tuple[Any, bool]] = []
+    retained: list[Any] = []
     seen_tc: set = set()
 
     def walk_container(container: Any, parent: Any, is_body_level: bool) -> None:
@@ -198,41 +202,32 @@ def _collect_document_paragraphs(
 def _paragraph_has_page_break(p_element: Any) -> bool:
     """Return True when a paragraph XML element carries a page or section break."""
     xml = p_element.xml
-    if (
-        "lastRenderedPageBreak" not in xml
-        and 'type="page"' not in xml
-        and "sectPr" not in xml
-    ):
+    if "lastRenderedPageBreak" not in xml and 'type="page"' not in xml and "sectPr" not in xml:
         return False
     return bool(
-        p_element.xpath(
-            ".//w:lastRenderedPageBreak | .//w:br[@w:type='page'] | .//w:sectPr"
-        )
+        p_element.xpath(".//w:lastRenderedPageBreak | .//w:br[@w:type='page'] | .//w:sectPr")
     )
 
 
 def _cell_text(
     cell: Any,
-    para_index_by_elem: Optional[Dict[Any, int]] = None,
-    images_by_paragraph: Optional[Dict[int, List[str]]] = None,
-    allowed_paragraphs: Optional[set] = None,
-    emitted_image_paras: Optional[set] = None,
+    para_index_by_elem: dict[Any, int] | None = None,
+    images_by_paragraph: dict[int, list[str]] | None = None,
+    allowed_paragraphs: set | None = None,
+    emitted_image_paras: set | None = None,
 ) -> str:
     """Keep cell paragraphs, cell images, and nested table text in document order."""
-    parts: List[str] = []
+    parts: list[str] = []
     for element, _ in _block_children(cell._tc):
         if element.tag == _W_P:
             p_text = _paragraph_text(element)
-            img_refs: List[str] = []
+            img_refs: list[str] = []
             if para_index_by_elem is not None and images_by_paragraph:
                 p_idx = para_index_by_elem.get(element)
                 if (
                     p_idx is not None
                     and (allowed_paragraphs is None or p_idx in allowed_paragraphs)
-                    and (
-                        emitted_image_paras is None
-                        or p_idx not in emitted_image_paras
-                    )
+                    and (emitted_image_paras is None or p_idx not in emitted_image_paras)
                 ):
                     img_refs = images_by_paragraph.get(p_idx, [])
                     if img_refs and emitted_image_paras is not None:
@@ -260,17 +255,17 @@ def _cell_text(
     return "\n".join(parts)
 
 
-def _gfm_cell_text(text: Optional[str]) -> str:
+def _gfm_cell_text(text: str | None) -> str:
     """Collapse whitespace and escape pipes so a cell stays one GFM column."""
     return re.sub(r"\s+", " ", text or "").strip().replace("|", "\\|")
 
 
 def table_to_gfm_markdown(
     table: Any,
-    para_index_by_elem: Optional[Dict[Any, int]] = None,
-    images_by_paragraph: Optional[Dict[int, List[str]]] = None,
-    allowed_paragraphs: Optional[set] = None,
-    emitted_image_paras: Optional[set] = None,
+    para_index_by_elem: dict[Any, int] | None = None,
+    images_by_paragraph: dict[int, list[str]] | None = None,
+    allowed_paragraphs: set | None = None,
+    emitted_image_paras: set | None = None,
 ) -> str:
     """Render a python-docx Table as GFM Markdown.
 
@@ -278,7 +273,7 @@ def table_to_gfm_markdown(
     (repeating the same Cell object). Emitting every slot keeps column
     alignment; comparing cell text would collapse adjacent equal/empty cells.
     """
-    rows: List[List[str]] = []
+    rows: list[list[str]] = []
     for row in table.rows:
         cells = [
             _gfm_cell_text(
@@ -295,9 +290,7 @@ def table_to_gfm_markdown(
         if cells:
             # Omitted edge cells occupy grid positions but are absent from
             # row.cells; retain them so values stay under the right headers.
-            rows.append(
-                [""] * row.grid_cols_before + cells + [""] * row.grid_cols_after
-            )
+            rows.append([""] * row.grid_cols_before + cells + [""] * row.grid_cols_after)
     if not rows:
         return ""
     width = max(len(row) for row in rows)
@@ -317,7 +310,7 @@ class ImageData:
     """Represents a processed image of document content"""
 
     local_path: str = ""
-    object: Optional[Image.Image] = None
+    object: Image.Image | None = None
     url: str = ""
     paragraph_index: int = -1
 
@@ -327,12 +320,10 @@ class LineData:
     """Represents a processed line of document content with associated images"""
 
     text: str = ""  # Extracted text content
-    images: List[ImageData] = field(
-        default_factory=list
-    )  # List of images or image paths
+    images: list[ImageData] = field(default_factory=list)  # List of images or image paths
     extra_info: str = ""  # Placeholder for additional info (currently unused)
     page_num: int = 0  # Page number
-    content_sequence: List[Tuple[str, Any]] = field(
+    content_sequence: list[tuple[str, Any]] = field(
         default_factory=list
     )  # Sequence of content items (text/images)
 
@@ -342,7 +333,7 @@ class DocxParser(BaseParser):
 
     def __init__(
         self,
-        max_pages: Optional[int] = None,  # Maximum number of pages to process
+        max_pages: int | None = None,  # Maximum number of pages to process
         **kwargs,
     ):
         """Initialize DOCX document parser
@@ -373,6 +364,7 @@ class DocxParser(BaseParser):
 
         if content.startswith(b"PK"):
             import zipfile
+
             from docreader.parser.docx_merge import _validate_zip_archive
 
             try:
@@ -389,7 +381,7 @@ class DocxParser(BaseParser):
         logger.info(f"Setting max_workers to {max_workers} for document processing")
 
         try:
-            inline_images: Dict[str, str] = {}
+            inline_images: dict[str, str] = {}
 
             def _inline_upload(local_path: str) -> str:
                 """Read temp image file, base64-encode, and return a ref path.
@@ -432,7 +424,7 @@ class DocxParser(BaseParser):
             section_start_time = time.time()
 
             text_parts = []
-            image_parts: Dict[str, str] = {}
+            image_parts: dict[str, str] = {}
 
             for sec_idx, line in enumerate(all_lines):
                 try:
@@ -458,9 +450,7 @@ class DocxParser(BaseParser):
 
             # Combine text
             section_processing_time = time.time() - section_start_time
-            logger.info(
-                f"Section processing completed in {section_processing_time:.2f}s"
-            )
+            logger.info(f"Section processing completed in {section_processing_time:.2f}s")
             logger.info("Combining all text parts")
             # Prefer body-order markdown (paragraphs interleaved with tables).
             # Fall back to page-section text if composition produced nothing.
@@ -564,9 +554,7 @@ class DocxParser(BaseParser):
             return DocumentModel(content=result_text)
         except Exception as backup_error:
             processing_time = time.time() - start_time
-            logger.error(
-                f"Simplified parsing failed {processing_time:.2f}s: {backup_error}"
-            )
+            logger.error(f"Simplified parsing failed {processing_time:.2f}s: {backup_error}")
             logger.error(f"Detailed traceback: {traceback.format_exc()}")
             return DocumentModel()
 
@@ -579,17 +567,17 @@ class Docx:
         self.picture_cache = {}
         self.enable_multimodal = enable_multimodal
         self.upload_file = upload_file
-        self._doc_paragraphs: List[Tuple[Any, bool]] = []
-        self._retained_xml_refs: List[Any] = []
+        self._doc_paragraphs: list[tuple[Any, bool]] = []
+        self._retained_xml_refs: list[Any] = []
 
-    def get_pictures(self, document, paragraph) -> List[Image.Image]:
+    def get_pictures(self, document, paragraph) -> list[Image.Image]:
         logger.info("Extracting images from paragraph")
         p_element = getattr(paragraph, "_element", paragraph)
         pics = p_element.xpath(".//pic:pic")
         if not pics:
             logger.info("No image found in paragraph")
             return []
-        extracted: List[Image.Image] = []
+        extracted: list[Image.Image] = []
         for pic in pics:
             try:
                 embeds = pic.xpath(".//a:blip/@r:embed")
@@ -608,7 +596,8 @@ class Docx:
                     continue
                 except UnexpectedEndOfFileError:
                     logger.warning(
-                        "EOF was unexpectedly encountered while reading an image stream. Skipping image."
+                        "EOF was unexpectedly encountered while reading an image stream. "
+                        "Skipping image."
                     )
                     continue
                 except InvalidImageStreamError:
@@ -619,10 +608,9 @@ class Docx:
 
                 try:
                     logger.info("Converting image blob to PIL Image")
-                    image = Image.open(BytesIO(image_blob)).convert("RGBA")
-                    logger.info(
-                        f"Successfully extracted image, size: {image.width}x{image.height}"
-                    )
+                    with Image.open(BytesIO(image_blob)) as opened_img:
+                        image = opened_img.convert("RGBA")
+                    logger.info(f"Successfully extracted image, size: {image.width}x{image.height}")
                     extracted.append(image)
                 except Exception as e:
                     logger.error(f"Failed to open image: {str(e)}")
@@ -632,7 +620,7 @@ class Docx:
                 continue
         return extracted
 
-    def get_picture(self, document, paragraph) -> Optional[Image.Image]:
+    def get_picture(self, document, paragraph) -> Image.Image | None:
         images = self.get_pictures(document, paragraph)
         return images[0] if images else None
 
@@ -647,15 +635,13 @@ class Docx:
         """
         start_time = time.time()
         logger.info(f"Identifying page to paragraph mapping (max_page={max_page})")
-        page_to_paragraphs = {}
+        page_to_paragraphs: dict[int, list[int]] = {}
         current_page = 0
 
         # Initialize page 0
         page_to_paragraphs[current_page] = []
 
-        self._doc_paragraphs, self._retained_xml_refs = _collect_document_paragraphs(
-            self.doc
-        )
+        self._doc_paragraphs, self._retained_xml_refs = _collect_document_paragraphs(self.doc)
         # Record the total number of paragraphs processed
         total_paragraphs = len(self._doc_paragraphs)
         logger.info(f"Total paragraphs to map: {total_paragraphs}")
@@ -664,16 +650,15 @@ class Docx:
         # For large documents, using a heuristic can reduce XML parsing overhead
         if total_paragraphs > 1000:
             logger.info("Large document detected, using heuristic paragraph mapping")
-            estimated_paras_per_page = (
-                25  # Estimate approximately 25 paragraphs per page
-            )
+            estimated_paras_per_page = 25  # Estimate approximately 25 paragraphs per page
 
             # Create an estimated page mapping
             for p_idx in range(total_paragraphs):
                 est_page = p_idx // estimated_paras_per_page
                 if est_page > max_page:
                     logger.info(
-                        f"Reached max page limit ({max_page}) at paragraph {p_idx}, stopping paragraph mapping"
+                        f"Reached max page limit ({max_page}) at paragraph {p_idx}, "
+                        "stopping paragraph mapping"
                     )
                     break
 
@@ -689,7 +674,8 @@ class Docx:
 
             mapping_time = time.time() - start_time
             logger.info(
-                f"Created heuristic mapping with {len(page_to_paragraphs)} pages in {mapping_time:.2f}s"
+                f"Created heuristic mapping with {len(page_to_paragraphs)} pages "
+                f"in {mapping_time:.2f}s"
             )
             return page_to_paragraphs
 
@@ -702,9 +688,7 @@ class Docx:
 
             # Log every 100 paragraphs
             if p_idx > 0 and p_idx % 100 == 0:
-                logger.info(
-                    f"Processed {p_idx}/{total_paragraphs} paragraphs in page mapping"
-                )
+                logger.info(f"Processed {p_idx}/{total_paragraphs} paragraphs in page mapping")
 
             # Check for page breaks on body-level paragraphs
             page_break_found = is_body_level and _paragraph_has_page_break(p_elem)
@@ -714,9 +698,7 @@ class Docx:
                 page_breaks_found += 1
                 current_page += 1
                 if current_page > max_page:
-                    logger.info(
-                        f"Reached max page limit ({max_page}), stopping page mapping"
-                    )
+                    logger.info(f"Reached max page limit ({max_page}), stopping page mapping")
                     break
 
                 # Initialize the paragraph list for the new page
@@ -725,7 +707,8 @@ class Docx:
 
                 if page_breaks_found % 10 == 0:
                     logger.info(
-                        f"Found {page_breaks_found} page breaks so far, current page: {current_page}"
+                        f"Found {page_breaks_found} page breaks so far, "
+                        f"current page: {current_page}"
                     )
 
         # Handle potential empty page mappings
@@ -761,11 +744,11 @@ class Docx:
 
     def __call__(
         self,
-        binary: Optional[bytes] = None,
+        binary: bytes | None = None,
         from_page: int = 0,
         to_page: int = 100000,
-        max_workers: Optional[int] = None,
-    ) -> Tuple[List[LineData], str]:
+        max_workers: int | None = None,
+    ) -> tuple[list[LineData], str]:
         """
         Process DOCX document, supporting concurrent processing of each page
 
@@ -780,6 +763,8 @@ class Docx:
             body-order markdown with tables interleaved)
         """
         logger.info("Processing DOCX document")
+        if not binary:
+            return [], ""
 
         # Check CPU core count to determine parallel strategy
         cpu_count = os.cpu_count() or 2
@@ -792,14 +777,10 @@ class Docx:
 
         # Identify page structure
         self.para_page_mapping = self._identify_page_paragraph_mapping(to_page)
-        logger.info(
-            f"Identified page to paragraph mapping for {len(self.para_page_mapping)} pages"
-        )
+        logger.info(f"Identified page to paragraph mapping for {len(self.para_page_mapping)} pages")
 
         # Apply page limits
-        pages_to_process = self._apply_page_limit(
-            self.para_page_mapping, from_page, to_page
-        )
+        pages_to_process = self._apply_page_limit(self.para_page_mapping, from_page, to_page)
         if not pages_to_process:
             logger.warning("No pages to process after applying page limits!")
             return [], ""
@@ -839,6 +820,8 @@ class Docx:
         Returns:
             Document: Document object, or None (if loading fails)
         """
+        if not binary:
+            return None
         try:
             doc = Document(BytesIO(binary))
             logger.info("Successfully loaded document from binary content")
@@ -898,9 +881,10 @@ class Docx:
 
         # Output the actual number of pages processed for debugging
         if pages_to_process:
+            end_page = min(to_page, pages_to_process[-1])
             logger.info(
                 f"Will process {len(pages_to_process)} pages "
-                f"from page {from_page} to page {min(to_page, pages_to_process[-1] if pages_to_process else from_page)}"
+                f"from page {from_page} to page {end_page}"
             )
 
             if len(pages_to_process) < len(all_pages):
@@ -913,7 +897,8 @@ class Docx:
                 logger.info(f"Pages to process: {pages_to_process}")
             else:
                 logger.info(
-                    f"First 5 pages to process: {pages_to_process[:5]}, last 5: {pages_to_process[-5:]}"
+                    f"First 5 pages to process: {pages_to_process[:5]}, "
+                    f"last 5: {pages_to_process[-5:]}"
                 )
 
         return pages_to_process
@@ -971,18 +956,14 @@ class Docx:
             bool: Whether the document contains images
         """
         if hasattr(self.doc, "inline_shapes") and len(self.doc.inline_shapes) > 0:
-            logger.info(
-                f"Document contains {len(self.doc.inline_shapes)} inline images"
-            )
+            logger.info(f"Document contains {len(self.doc.inline_shapes)} inline images")
             return True
         if self.doc is not None and bool(self.doc.element.body.xpath(".//pic:pic")):
             logger.info("Document contains embedded pic:pic image elements")
             return True
         return False
 
-    def _calculate_optimal_workers(
-        self, doc_contains_images, pages_to_process, cpu_count
-    ):
+    def _calculate_optimal_workers(self, doc_contains_images, pages_to_process, cpu_count):
         """Calculate the optimal number of workers
 
         Args:
@@ -1011,16 +992,14 @@ class Docx:
             str: Temporary file path, or None if not using
         """
 
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file = tempfile.NamedTemporaryFile(delete=False)  # noqa: SIM115
         temp_file_path = temp_file.name
         try:
             temp_file.write(binary)
             temp_file.close()
         except BaseException:
-            try:
+            with contextlib.suppress(OSError):
                 temp_file.close()
-            except OSError:
-                pass
             self._cleanup_temp_file(temp_file_path)
             raise
         return temp_file_path
@@ -1079,10 +1058,8 @@ class Docx:
         # Single-page documents (or single-worker calls) run directly in-process
         # to avoid subprocess startup overhead and semaphore usage.
         if len(args_list) <= 1 or effective_workers <= 1:
-            logger.info(
-                f"Processing {len(args_list)} page(s) synchronously in-process"
-            )
-            results: List[LineData] = []
+            logger.info(f"Processing {len(args_list)} page(s) synchronously in-process")
+            results: list[LineData] = []
             temp_img_paths = set()
             try:
                 for args in args_list:
@@ -1106,37 +1083,28 @@ class Docx:
                 self._cleanup_temp_image_files(temp_img_paths)
             return
 
-        logger.info(
-            f"Processing {len(args_list)} pages using {effective_workers} workers"
-        )
+        logger.info(f"Processing {len(args_list)} pages using {effective_workers} workers")
 
         def _submit_and_collect(executor):
             future_to_idx = {
                 executor.submit(process_page_multiprocess, *args): i
                 for i, args in enumerate(args_list)
             }
-            logger.info(
-                f"Submitted {len(future_to_idx)} processing tasks to executor"
-            )
-            self._collect_process_results(
-                future_to_idx, args_list, batch_start_time
-            )
+            logger.info(f"Submitted {len(future_to_idx)} processing tasks to executor")
+            self._collect_process_results(future_to_idx, args_list, batch_start_time)
 
         import sys as _sys
 
         executor_cls = ProcessPoolExecutor
         module_obj = _sys.modules.get(__name__)
         is_picklable_target = (
-            getattr(module_obj, "process_page_multiprocess", None)
-            is process_page_multiprocess
+            getattr(module_obj, "process_page_multiprocess", None) is process_page_multiprocess
         )
         if executor_cls is _RealProcessPoolExecutor:
             ctx = _select_mp_context() if is_picklable_target else None
             if ctx is not None:
                 try:
-                    with executor_cls(
-                        max_workers=effective_workers, mp_context=ctx
-                    ) as executor:
+                    with executor_cls(max_workers=effective_workers, mp_context=ctx) as executor:
                         logger.info(
                             f"Started ProcessPoolExecutor ({ctx.get_start_method()}) "
                             f"with {effective_workers} workers"
@@ -1148,8 +1116,8 @@ class Docx:
                         "ProcessPoolExecutor unavailable (%s); falling back to ThreadPoolExecutor",
                         exc,
                     )
-            with ThreadPoolExecutor(max_workers=effective_workers) as executor:
-                _submit_and_collect(executor)
+            with ThreadPoolExecutor(max_workers=effective_workers) as thread_executor:
+                _submit_and_collect(thread_executor)
         else:
             with executor_cls(max_workers=effective_workers) as executor:
                 _submit_and_collect(executor)
@@ -1172,7 +1140,9 @@ class Docx:
                     or temp_dir.startswith("/tmp/docx_img_")
                 )
             except OSError:
-                return parent == base_dir or parent == "/tmp" or temp_dir.startswith("/tmp/docx_img_")
+                return (
+                    parent == base_dir or parent == "/tmp" or temp_dir.startswith("/tmp/docx_img_")
+                )
         except Exception:
             return "docx_img_" in path
 
@@ -1236,7 +1206,7 @@ class Docx:
             # Clean up temporary image files
             self._cleanup_temp_image_files(temp_img_paths)
 
-    def _process_multiprocess_results(self, results: List[LineData]):
+    def _process_multiprocess_results(self, results: list[LineData]):
         """Process multiprocess results
 
         Args:
@@ -1256,9 +1226,7 @@ class Docx:
             # Check if there are images
             if line_data.images and len(line_data.images) > 0:
                 images_to_process.append(i)
-                logger.info(
-                    f"Found line {i} with {len(line_data.images)} images to process"
-                )
+                logger.info(f"Found line {i} with {len(line_data.images)} images to process")
 
         # Process images if needed
         image_url_map = {}  # Map from image path to URL
@@ -1289,9 +1257,7 @@ class Docx:
                                     image_data.url = image_url
                                     # Add image URL as Markdown format
                                     markdown_image = f"![]({image_url})"
-                                    image_url_map[image_data.local_path] = (
-                                        markdown_image
-                                    )
+                                    image_url_map[image_data.local_path] = markdown_image
                                     logger.info(
                                         f"Added image URL for {image_data.local_path}: {image_url}"
                                     )
@@ -1304,12 +1270,11 @@ class Docx:
                                 markdown_image = f"![]({image_data.url})"
                                 image_url_map[image_data.local_path] = markdown_image
                                 logger.info(
-                                    f"Using existing URL for image {image_data.local_path}: {image_data.url}"
+                                    f"Using existing URL for image {image_data.local_path}: "
+                                    f"{image_data.url}"
                                 )
                         except Exception as e:
-                            logger.error(
-                                f"Error processing image from page {page_num}: {str(e)}"
-                            )
+                            logger.error(f"Error processing image from page {page_num}: {str(e)}")
 
             image_upload_elapsed = time.time() - image_upload_start
             logger.info(
@@ -1338,9 +1303,7 @@ class Docx:
                 else:
                     final_text = line_data.text or ""
                 processed_lines.append(
-                    LineData(
-                        text=final_text, page_num=page_num, images=line_data.images
-                    )
+                    LineData(text=final_text, page_num=page_num, images=line_data.images)
                 )
         else:
             processed_lines = lines
@@ -1374,9 +1337,7 @@ class Docx:
                     # Delete temporary directory (if empty)
                     try:
                         temp_dir = os.path.dirname(path)
-                        if self._is_docx_temp_img_path(path) and os.path.exists(
-                            temp_dir
-                        ):
+                        if self._is_docx_temp_img_path(path) and os.path.exists(temp_dir):
                             os.rmdir(temp_dir)
                     except OSError:
                         # If directory is not empty, ignore error
@@ -1385,9 +1346,7 @@ class Docx:
                 logger.error(f"Failed to delete temp file {path}: {str(e)}")
                 error_count += 1
 
-        logger.info(
-            f"Temporary file cleanup: deleted {deleted_count}, errors {error_count}"
-        )
+        logger.info(f"Temporary file cleanup: deleted {deleted_count}, errors {error_count}")
 
     def _cleanup_temp_file(self, temp_file_path):
         """Clean up temporary file
@@ -1402,7 +1361,7 @@ class Docx:
             except Exception as e:
                 logger.error(f"Failed to remove temporary file: {str(e)}")
 
-    def _compose_ordered_markdown(self, pages_to_process: List[int]) -> str:
+    def _compose_ordered_markdown(self, pages_to_process: list[int]) -> str:
         """Walk body paragraphs and tables in document order and emit GFM.
 
         Paragraph processing is page-limited; tables are included only when their
@@ -1417,16 +1376,14 @@ class Docx:
 
         doc_paragraphs = self._doc_paragraphs
         if not doc_paragraphs and self.doc is not None:
-            doc_paragraphs, self._retained_xml_refs = _collect_document_paragraphs(
-                self.doc
-            )
+            doc_paragraphs, self._retained_xml_refs = _collect_document_paragraphs(self.doc)
             self._doc_paragraphs = doc_paragraphs
 
-        para_index_by_elem: Dict[Any, int] = {
+        para_index_by_elem: dict[Any, int] = {
             p_elem: idx for idx, (p_elem, _) in enumerate(doc_paragraphs)
         }
 
-        images_by_paragraph: Dict[int, List[str]] = {}
+        images_by_paragraph: dict[int, list[str]] = {}
         for line in self.all_lines:
             for image in line.images:
                 if image.url and image.paragraph_index in allowed:
@@ -1435,14 +1392,14 @@ class Docx:
                     )
 
         emitted_image_paras: set = set()
-        parts: List[str] = []
+        parts: list[str] = []
         last_seen_idx = 0
 
         def in_page_range() -> bool:
             return not allowed or min_allowed <= last_seen_idx <= max_allowed + 1
 
-        def _collect_table_para_indices(table_obj: Any, seen_tc: set) -> List[int]:
-            indices: List[int] = []
+        def _collect_table_para_indices(table_obj: Any, seen_tc: set) -> list[int]:
+            indices: list[int] = []
             for row in table_obj.rows:
                 for cell in row.cells:
                     tc = cell._tc
@@ -1455,11 +1412,7 @@ class Docx:
                             if idx is not None:
                                 indices.append(idx)
                         elif elem.tag == _W_TBL:
-                            indices.extend(
-                                _collect_table_para_indices(
-                                    Table(elem, cell), seen_tc
-                                )
-                            )
+                            indices.extend(_collect_table_para_indices(Table(elem, cell), seen_tc))
             return indices
 
         for child, _direct in _block_children(self.doc.element.body):
@@ -1474,10 +1427,7 @@ class Docx:
                     text = _paragraph_text(child).strip()
                     if text:
                         parts.append(text)
-                    if (
-                        para_idx is not None
-                        and para_idx not in emitted_image_paras
-                    ):
+                    if para_idx is not None and para_idx not in emitted_image_paras:
                         img_refs = images_by_paragraph.get(para_idx, [])
                         if img_refs:
                             emitted_image_paras.add(para_idx)
@@ -1490,9 +1440,7 @@ class Docx:
             table_indices = _collect_table_para_indices(table, set())
             if table_indices:
                 last_seen_idx = max(table_indices) + 1
-                include_table = not allowed or any(
-                    idx in allowed for idx in table_indices
-                )
+                include_table = not allowed or any(idx in allowed for idx in table_indices)
             else:
                 include_table = in_page_range()
             if include_table:
@@ -1534,7 +1482,9 @@ class Docx:
             total_height = sum(img.height for img in images if hasattr(img, "height"))
 
             if total_width <= 0 or total_height <= 0 or (total_width * total_height) > 40_000_000:
-                logger.warning("Invalid or oversized concatenated image dimensions, returning the first image")
+                logger.warning(
+                    "Invalid or oversized concatenated image dimensions, returning the first image"
+                )
                 return images[0]
 
             # Create a new image
@@ -1587,36 +1537,30 @@ def _save_image_to_temp(logger, image, page_num, img_idx):
 
         # Save the image
         image.save(temp_file_path, format="PNG")
-        logger.info(
-            f"[PID:{os.getpid()}] Saved image to temporary file: {temp_file_path}"
-        )
+        logger.info(f"[PID:{os.getpid()}] Saved image to temporary file: {temp_file_path}")
 
         return temp_file_path
     except Exception as e:
         if temp_file_path and os.path.exists(temp_file_path):
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(temp_file_path)
-            except OSError:
-                pass
         if temp_dir and os.path.exists(temp_dir):
-            try:
+            with contextlib.suppress(OSError):
                 os.rmdir(temp_dir)
-            except OSError:
-                pass
         logger.error(f"[PID:{os.getpid()}] Failed to save image to temp file: {str(e)}")
         return None
 
 
 def process_page_multiprocess(
     page_num: int,
-    paragraphs: List[int],
+    paragraphs: list[int],
     from_page: int,
     to_page: int,
     doc_contains_images: bool,
     max_image_size: int,
-    temp_file_path: Optional[str],
+    temp_file_path: str | None,
     enable_multimodal: bool,
-) -> List[LineData]:
+) -> list[LineData]:
     """Page processing function specifically designed for multiprocessing
 
     Args:
@@ -1633,7 +1577,7 @@ def process_page_multiprocess(
     Returns:
         list: List of processed result lines
     """
-    saved_temp_paths: List[str] = []
+    saved_temp_paths: list[str] = []
     try:
         # Set process-level logging
         process_logger = logging.getLogger(__name__)
@@ -1658,21 +1602,17 @@ def process_page_multiprocess(
 
         # If paragraph indices are empty, return empty result
         if not paragraphs:
-            process_logger.info(
-                f"[PID:{os.getpid()}] No paragraphs to process for page {page_num}"
-            )
+            process_logger.info(f"[PID:{os.getpid()}] No paragraphs to process for page {page_num}")
             return []
 
         # Extract page content
-        combined_text, image_objects, content_sequence = (
-            _extract_page_content_in_process(
-                process_logger,
-                doc,
-                page_num,
-                paragraphs,
-                enable_multimodal,
-                max_image_size,
-            )
+        combined_text, image_objects, content_sequence = _extract_page_content_in_process(
+            process_logger,
+            doc,
+            page_num,
+            paragraphs,
+            enable_multimodal,
+            max_image_size,
         )
 
         # Process content sequence to maintain order between processes
@@ -1683,9 +1623,7 @@ def process_page_multiprocess(
         if enable_multimodal:
             # First pass: save all images to temporary files
             for i, (paragraph_index, image_object) in enumerate(image_objects):
-                img_path = _save_image_to_temp(
-                    process_logger, image_object, page_num, i
-                )
+                img_path = _save_image_to_temp(process_logger, image_object, page_num, i)
                 if img_path:
                     saved_temp_paths.append(img_path)
                     # Create ImageData object
@@ -1696,7 +1634,8 @@ def process_page_multiprocess(
                     image_data_list.append(image_data)
 
             process_logger.info(
-                f"[PID:{os.getpid()}] Saved {len(image_data_list)} images to temp files for page {page_num}"
+                f"[PID:{os.getpid()}] Saved {len(image_data_list)} images "
+                f"to temp files for page {page_num}"
             )
 
             # Second pass: reconstruct the content sequence with image data objects
@@ -1705,9 +1644,7 @@ def process_page_multiprocess(
                     processed_content.append(("text", content))
                 else:  # image
                     if temp_image_index < len(image_data_list):
-                        processed_content.append(
-                            ("image", image_data_list[temp_image_index])
-                        )
+                        processed_content.append(("image", image_data_list[temp_image_index]))
                         temp_image_index += 1
 
         # Create result line with the ordered content sequence
@@ -1737,9 +1674,7 @@ def process_page_multiprocess(
             except OSError:
                 pass
         process_logger = logging.getLogger(__name__)
-        process_logger.error(
-            f"[PID:{os.getpid()}] Error processing page {page_num}: {str(e)}"
-        )
+        process_logger.error(f"[PID:{os.getpid()}] Error processing page {page_num}: {str(e)}")
         process_logger.error(f"[PID:{os.getpid()}] Traceback: {traceback.format_exc()}")
         return []
 
@@ -1760,9 +1695,7 @@ def _load_document_in_process(logger, page_num, temp_file_path):
         # Load document from temporary file
         if temp_file_path is not None and os.path.exists(temp_file_path):
             doc = Document(temp_file_path)
-            logger.info(
-                f"[PID:{os.getpid()}] Loaded document from temp file: {temp_file_path}"
-            )
+            logger.info(f"[PID:{os.getpid()}] Loaded document from temp file: {temp_file_path}")
         else:
             logger.error(f"[PID:{os.getpid()}] No document source provided")
             return None
@@ -1778,10 +1711,10 @@ def _extract_page_content_in_process(
     logger,
     doc,
     page_num: int,
-    paragraphs: List[int],
+    paragraphs: list[int],
     enable_multimodal: bool,
     max_image_size: int,
-) -> Tuple[str, List[Tuple[int, Any]], List[Tuple[str, Any]]]:
+) -> tuple[str, list[tuple[int, Any]], list[tuple[str, Any]]]:
     """Extract page content in a process
 
     Args:
@@ -1803,7 +1736,7 @@ def _extract_page_content_in_process(
     doc_paragraphs, _retained = _collect_document_paragraphs(doc)
 
     # Instead of separate collections, track content in paragraph sequence
-    content_sequence = []
+    content_sequence: list[tuple[str, Any]] = []
     current_text = ""
 
     processed_paragraphs = 0
@@ -1812,9 +1745,7 @@ def _extract_page_content_in_process(
 
     for para_idx in paragraphs:
         if para_idx < 0 or para_idx >= len(doc_paragraphs):
-            logger.warning(
-                f"[PID:{os.getpid()}] Paragraph index {para_idx} out of range"
-            )
+            logger.warning(f"[PID:{os.getpid()}] Paragraph index {para_idx} out of range")
             continue
 
         p_element, _is_body = doc_paragraphs[para_idx]
@@ -1862,13 +1793,13 @@ def _extract_page_content_in_process(
     )
 
     # Extract text and images in their original sequence
-    text_parts = []
-    images = []
+    text_parts: list[str] = []
+    images: list[tuple[int, Any]] = []
 
     # Split content sequence into text and images
     for content_type, content in content_sequence:
         if content_type == "text":
-            text_parts.append(content)
+            text_parts.append(str(content))
         else:  # image
             images.append(content)
 
@@ -1879,7 +1810,7 @@ def _extract_page_content_in_process(
 
 def _extract_images_in_process(
     logger, doc, paragraph, page_num, para_idx, max_image_size
-) -> List[Image.Image]:
+) -> list[Image.Image]:
     """Extract all valid images from a paragraph (or w:p element) in order."""
     p_element = getattr(paragraph, "_element", paragraph)
     try:
@@ -1892,7 +1823,7 @@ def _extract_images_in_process(
     if not pic_elements:
         return []
 
-    extracted_images: List[Image.Image] = []
+    extracted_images: list[Image.Image] = []
     for pic in pic_elements:
         logger.info(
             f"[PID:{os.getpid()}] Page {page_num}: Found pic element in paragraph {para_idx}"
@@ -1908,19 +1839,19 @@ def _extract_images_in_process(
             embed_id = embed[0]
             if embed_id not in doc.part.related_parts:
                 logger.warning(
-                    f"[PID:{os.getpid()}] Page {page_num}: Embed ID {embed_id} not found in related parts"
+                    f"[PID:{os.getpid()}] Page {page_num}: "
+                    f"Embed ID {embed_id} not found in related parts"
                 )
                 continue
 
             related_part = doc.part.related_parts[embed_id]
-            logger.info(
-                f"[PID:{os.getpid()}] Found embedded image with ID: {embed_id}"
-            )
+            logger.info(f"[PID:{os.getpid()}] Found embedded image with ID: {embed_id}")
 
             try:
                 image_blob = related_part.image.blob
                 logger.info(
-                    f"[PID:{os.getpid()}] Successfully extracted image blob, size: {len(image_blob)} bytes"
+                    f"[PID:{os.getpid()}] Successfully extracted image blob, "
+                    f"size: {len(image_blob)} bytes"
                 )
             except Exception as blob_error:
                 logger.warning(
@@ -1929,7 +1860,8 @@ def _extract_images_in_process(
                 continue
 
             try:
-                image = Image.open(BytesIO(image_blob)).convert("RGBA")
+                with Image.open(BytesIO(image_blob)) as opened_img:
+                    image = opened_img.convert("RGBA")
 
                 if hasattr(image, "width") and hasattr(image, "height"):
                     logger.info(
@@ -1943,6 +1875,7 @@ def _extract_images_in_process(
                             f"[PID:{os.getpid()}] "
                             f"Skipping small image ({image.width}x{image.height})"
                         )
+                        image.close()
                         continue
 
                     # Scale large images
@@ -1953,38 +1886,28 @@ def _extract_images_in_process(
                         )
                         new_width = int(image.width * scale)
                         new_height = int(image.height * scale)
-                        image = image.resize((new_width, new_height))
+                        resized = image.resize((new_width, new_height))
+                        image.close()
+                        image = resized
                         logger.info(
                             f"[PID:{os.getpid()}] Resized image to {new_width}x{new_height}"
                         )
 
-                logger.info(
-                    f"[PID:{os.getpid()}] Found image in paragraph {para_idx}"
-                )
+                logger.info(f"[PID:{os.getpid()}] Found image in paragraph {para_idx}")
                 extracted_images.append(image)
             except Exception as e:
-                logger.error(
-                    f"[PID:{os.getpid()}] Failed to create image from blob: {str(e)}"
-                )
-                logger.error(
-                    f"[PID:{os.getpid()}] Error traceback: {traceback.format_exc()}"
-                )
+                logger.error(f"[PID:{os.getpid()}] Failed to create image from blob: {str(e)}")
+                logger.error(f"[PID:{os.getpid()}] Error traceback: {traceback.format_exc()}")
                 continue
         except Exception as e:
             logger.error(f"[PID:{os.getpid()}] Error extracting image: {str(e)}")
-            logger.error(
-                f"[PID:{os.getpid()}] Error traceback: {traceback.format_exc()}"
-            )
+            logger.error(f"[PID:{os.getpid()}] Error traceback: {traceback.format_exc()}")
             continue
 
     return extracted_images
 
 
-def _extract_image_in_process(
-    logger, doc, paragraph, page_num, para_idx, max_image_size
-):
+def _extract_image_in_process(logger, doc, paragraph, page_num, para_idx, max_image_size):
     """Backward-compatible helper returning the first extracted image, if any."""
-    images = _extract_images_in_process(
-        logger, doc, paragraph, page_num, para_idx, max_image_size
-    )
+    images = _extract_images_in_process(logger, doc, paragraph, page_num, para_idx, max_image_size)
     return images[0] if images else None

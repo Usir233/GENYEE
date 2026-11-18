@@ -6,9 +6,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 import openpyxl
-
 from docreader.parser.xlsx_repair import repair_xlsx_bytes
-
 
 _SML = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _CONTENT_TYPES = "http://schemas.openxmlformats.org/package/2006/content-types"
@@ -54,8 +52,7 @@ def _workbook_files(part_path, declared_path=None, shared_cells=True):
         b"</Types>", override.encode() + b"</Types>"
     )
     relationship = (
-        f'<Relationship Id="rIdSharedStrings" Type="{_SST_REL}" '
-        f'Target="/{declared_path}"/>'
+        f'<Relationship Id="rIdSharedStrings" Type="{_SST_REL}" Target="/{declared_path}"/>'
     )
     rels = "xl/_rels/workbook.xml.rels"
     files[rels] = files[rels].replace(
@@ -78,9 +75,7 @@ class TestSharedStringsRepair(unittest.TestCase):
         self.assertEqual(_read_values(original), _VALUES)
         repaired = repair_xlsx_bytes(original)
         # Verify the reader result first so a broken path reports its KeyError.
-        self.assertEqual(
-            _read_values(repaired if repaired is not None else original), _VALUES
-        )
+        self.assertEqual(_read_values(repaired if repaired is not None else original), _VALUES)
         self.assertIsNone(repaired)
 
     def test_canonical_part_is_unchanged(self):
@@ -104,9 +99,7 @@ class TestSharedStringsRepair(unittest.TestCase):
         self._assert_readable_unchanged(_workbook_files("xl/strings/text.xml"))
 
     def test_misnamed_part_still_repairs_a_dangling_canonical_reference(self):
-        original = _archive_bytes(
-            _workbook_files("xl/SharedStrings.xml", "xl/sharedStrings.xml")
-        )
+        original = _archive_bytes(_workbook_files("xl/SharedStrings.xml", "xl/sharedStrings.xml"))
         with self.assertRaises(KeyError):
             _read_values(original)
         repaired = repair_xlsx_bytes(original)

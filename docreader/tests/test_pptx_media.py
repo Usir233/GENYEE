@@ -1,11 +1,12 @@
 import base64
 import io
 import re
-import shutil
 import unittest
 import zipfile
 from unittest.mock import patch
 
+from docreader.parser import pptx_media
+from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownParser
 from lxml import etree
 from markitdown import MarkItDown
 from PIL import Image
@@ -13,9 +14,6 @@ from pptx import Presentation
 from pptx.opc.constants import RELATIONSHIP_TYPE
 from pptx.oxml.ns import qn
 from pptx.util import Inches
-
-from docreader.parser import pptx_media
-from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownParser
 
 RED = (220, 30, 40)
 BLUE = (30, 80, 220)
@@ -79,7 +77,7 @@ def fallback(data):
 
 
 def image_colors(markdown, images):
-    colors = []
+    colors: list[tuple[int, ...] | int | float | None] = []
     for target in IMAGE.findall(markdown):
         if target not in images:
             colors.append(None)
@@ -139,13 +137,9 @@ class TestPptxMediaAssociation(unittest.TestCase):
             with self.subTest(grouped=grouped):
                 presentation = Presentation()
                 slide = presentation.slides.add_slide(presentation.slide_layouts[6])
-                shapes = (
-                    slide.shapes.add_group_shape().shapes if grouped else slide.shapes
-                )
+                shapes = slide.shapes.add_group_shape().shapes if grouped else slide.shapes
                 for color, top in ((RED, 4), (BLUE, 1)):
-                    picture = shapes.add_picture(
-                        io.BytesIO(png(color)), Inches(1), Inches(top)
-                    )
+                    picture = shapes.add_picture(io.BytesIO(png(color)), Inches(1), Inches(top))
                     picture.name = "Picture 1"
                 output = io.BytesIO()
                 presentation.save(output)
@@ -187,9 +181,7 @@ class TestPptxMediaAssociation(unittest.TestCase):
             "![inline](data:image/png;base64,eA==)\n"
             "![unknown](not-a-picture.jpg)\n"
         )
-        markdown, images = pptx_media.attach_pptx_media_to_markdown(
-            prefix + original, data
-        )
+        markdown, images = pptx_media.attach_pptx_media_to_markdown(prefix + original, data)
         self.assertTrue(markdown.startswith(prefix))
         self.assertEqual(image_colors(markdown, images)[-1], RED)
 
@@ -265,19 +257,14 @@ class TestPptxMediaBrokenPictureRelationships(unittest.TestCase):
                     file_name="deck.pptx", file_type="pptx"
                 ).parse_into_text(data)
                 self.assertIn("SLIDE TEXT OK", document.content)
-                self.assertEqual(
-                    image_colors(document.content, document.images), [RED, None]
-                )
+                self.assertEqual(image_colors(document.content, document.images), [RED, None])
                 self.assertIn("(bad.jpg)", document.content)
 
-                parsed = MarkitdownParser(
-                    file_name="deck.pptx", file_type="pptx"
-                ).parse(data)
+                parsed = MarkitdownParser(file_name="deck.pptx", file_type="pptx").parse(data)
                 self.assertIn("SLIDE TEXT OK", parsed.content)
 
 
 class TestPptxMediaRealFallback(unittest.TestCase):
-    @unittest.skipUnless(shutil.which("convert"), "ImageMagick is not installed")
     def test_svg_fallback_preserves_picture_order(self):
         # SVG is valid Office media, but Pillow cannot identify it. That makes
         # pinned MarkItDown 0.1.3 naturally enter the actual fallback path.
@@ -323,11 +310,10 @@ class TestPptxRasterTransparency(unittest.TestCase):
             expected = original.convert("RGBA").tobytes()
             size = original.size
         suffix = ".jpg" if image_format == "JPEG" else ".png"
-        with patch.object(
-            pptx_media, "_rasterize_with_imagemagick", side_effect=AssertionError
-        ):
+        with patch.object(pptx_media, "_rasterize_with_imagemagick", side_effect=AssertionError):
             result = pptx_media.rasterize_media_bytes("picture" + suffix, raw)
         self.assertIsNotNone(result)
+        assert result is not None
         with Image.open(io.BytesIO(result)) as converted:
             self.assertEqual(converted.format, "PNG")
             self.assertEqual(converted.size, size)
@@ -366,6 +352,50 @@ class TestPptxRasterTransparency(unittest.TestCase):
         self.assert_png_pixels_preserved(
             Image.new("CMYK", (3, 1), (0, 255, 255, 0)), image_format="JPEG"
         )
+
+    def test_rasterize_with_pillow_closes_opened_image_handle(self):
+        raw = png(RED)
+        real_open = Image.open
+        closed_flags: list[bool] = []
+
+        class _TrackingImageWrapper:
+            def __init__(self, inner):
+                self._inner = inner
+                self.closed = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.close()
+                return False
+
+            def close(self):
+                self.closed = True
+                closed_flags.append(True)
+                self._inner.close()
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+        with patch.object(
+            Image, "open", side_effect=lambda fp: _TrackingImageWrapper(real_open(fp))
+        ):
+            out = pptx_media._rasterize_with_pillow(raw)
+        self.assertIsNotNone(out)
+        self.assertEqual(closed_flags, [True])
+
+    def test_find_convert_uses_shutil_which_without_subprocess(self):
+        with (
+            patch("docreader.parser.pptx_media.os.path.isfile", return_value=False),
+            patch(
+                "docreader.parser.pptx_media.shutil.which", return_value="/custom/convert"
+            ) as mock_which,
+            patch("docreader.parser.pptx_media.subprocess.run") as mock_run,
+        ):
+            self.assertEqual(pptx_media._find_convert(), "/custom/convert")
+            mock_which.assert_called_once_with("convert")
+            mock_run.assert_not_called()
 
 
 if __name__ == "__main__":

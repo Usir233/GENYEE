@@ -11,9 +11,7 @@ OUTPUT = Path(__file__).with_name("issue_2634_vertical_merge.docx")
 def main() -> None:
     document = Document()
     document.add_heading("遗传病检测项目表", level=1)
-    document.add_paragraph(
-        "回归场景：检测方法纵向合并，但每条检测项目在转换后都必须保留该方法。"
-    )
+    document.add_paragraph("回归场景：检测方法纵向合并，但每条检测项目在转换后都必须保留该方法。")
 
     rows = [
         ("Q0101", "遗传性乳腺癌", "BRCA1", "15个工作日"),
@@ -48,7 +46,7 @@ def main() -> None:
     for column, value in enumerate(("相同值", "相同值", "独立值")):
         control.cell(1, column).text = value
 
-    document.save(OUTPUT)
+    document.save(str(OUTPUT))
     print(f"generated={OUTPUT}")
     print(f"size={OUTPUT.stat().st_size}")
 

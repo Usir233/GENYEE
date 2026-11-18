@@ -22,12 +22,11 @@ import zipfile
 from unittest.mock import patch
 
 import openpyxl
-from openpyxl.worksheet.worksheet import Worksheet
-
 from docreader.parser import xlsx_merge
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.parser import Parser
-from docreader.parser.xlsx_merge import fill_merged_cells_xlsx, _format_percentage
+from docreader.parser.xlsx_merge import _format_percentage, fill_merged_cells_xlsx
+from openpyxl.worksheet.worksheet import Worksheet
 
 PERCENT_ENV = "DOCREADER_XLSX_PERCENT_AS_TEXT"
 ROW_HINT_ENV = "DOCREADER_XLSX_PCT_ROW_HINT_MIN"
@@ -166,9 +165,7 @@ class PercentMaterializationOffTests(unittest.TestCase):
     def test_default_keeps_the_raw_fraction(self):
         content = _workbook_with_percentages()
 
-        self.assertEqual(
-            fill_merged_cells_xlsx(content), _upstream_fill_merged_cells_xlsx(content)
-        )
+        self.assertEqual(fill_merged_cells_xlsx(content), _upstream_fill_merged_cells_xlsx(content))
 
         values = _read_cells(fill_merged_cells_xlsx(content), "B2", "C2", "B3", "B4")
         self.assertEqual(values, [0.61123366, 0.5512345, 0.0833, 0.0833])
@@ -186,24 +183,25 @@ class PercentMaterializationOffTests(unittest.TestCase):
             _workbook_with_unformatted_cell_in_percentage_row,
         ):
             content = build()
-            with self.subTest(fixture=build.__name__):
+            with (
+                self.subTest(fixture=build.__name__),
+                patch.dict(os.environ, {PERCENT_ENV: "0"}),
+            ):
                 # Explicitly off, so a stray env var in the calling shell
                 # cannot turn this into an accidental behavior test.
-                with patch.dict(os.environ, {PERCENT_ENV: "0"}):
-                    self.assertEqual(
-                        fill_merged_cells_xlsx(content),
-                        _upstream_fill_merged_cells_xlsx(content),
-                    )
+                self.assertEqual(
+                    fill_merged_cells_xlsx(content),
+                    _upstream_fill_merged_cells_xlsx(content),
+                )
 
     def test_env_var_off_forms_keep_the_raw_fraction(self):
         content = _workbook_with_percentages()
         for raw in ("0", "false", "FALSE", "no", "off", ""):
-            with self.subTest(value=raw):
-                with patch.dict(os.environ, {PERCENT_ENV: raw}):
-                    self.assertEqual(
-                        _read_cells(fill_merged_cells_xlsx(content), "B2"),
-                        [0.61123366],
-                    )
+            with self.subTest(value=raw), patch.dict(os.environ, {PERCENT_ENV: raw}):
+                self.assertEqual(
+                    _read_cells(fill_merged_cells_xlsx(content), "B2"),
+                    [0.61123366],
+                )
 
 
 class PercentMaterializationOnTests(unittest.TestCase):
@@ -271,29 +269,21 @@ class PercentMaterializationOnTests(unittest.TestCase):
         wb.save(bio)
 
         with patch.dict(os.environ, {PERCENT_ENV: "true"}):
-            values = _read_cells(
-                fill_merged_cells_xlsx(bio.getvalue()), "B2", "C2", "D2", "E2"
-            )
+            values = _read_cells(fill_merged_cells_xlsx(bio.getvalue()), "B2", "C2", "D2", "E2")
 
         self.assertEqual(values, ["61%", "61.1%", "61.12%", "61.12%"])
 
     def test_unformatted_cell_in_a_percentage_row_needs_the_opt_in_fallback(self):
         content = _workbook_with_unformatted_cell_in_percentage_row()
         with patch.dict(os.environ, {PERCENT_ENV: "true"}):
-            self.assertEqual(
-                _read_cells(fill_merged_cells_xlsx(content), "D2"), [0.5]
-            )
-        with patch.dict(
-            os.environ, {PERCENT_ENV: "true", ROW_HINT_ENV: "3"}
-        ):
-            self.assertEqual(
-                _read_cells(fill_merged_cells_xlsx(content), "D2"), ["50.00%"]
-            )
+            self.assertEqual(_read_cells(fill_merged_cells_xlsx(content), "D2"), [0.5])
+        with patch.dict(os.environ, {PERCENT_ENV: "true", ROW_HINT_ENV: "3"}):
+            self.assertEqual(_read_cells(fill_merged_cells_xlsx(content), "D2"), ["50.00%"])
 
 
 class PercentageFormatSyntaxTests(unittest.TestCase):
     def test_literal_and_conditional_percent_formats_are_not_scaled(self):
-        for fmt in (r"0.00\%", '0.00"%"', '[>1]0%;0.00%', '0.00%" growth"'):
+        for fmt in (r"0.00\%", '0.00"%"', "[>1]0%;0.00%", '0.00%" growth"'):
             with self.subTest(fmt=fmt):
                 self.assertIsNone(_format_percentage(0.5, fmt))
 
@@ -332,12 +322,11 @@ class PercentMaterializationSwitchTests(unittest.TestCase):
     def test_env_var_true_forms_enable_materialization(self):
         content = _workbook_with_percentages()
         for raw in ("1", "true", "TRUE", "yes", "y", "on"):
-            with self.subTest(value=raw):
-                with patch.dict(os.environ, {PERCENT_ENV: raw}):
-                    self.assertEqual(
-                        _read_cells(fill_merged_cells_xlsx(content), "B2"),
-                        ["61.12%"],
-                    )
+            with self.subTest(value=raw), patch.dict(os.environ, {PERCENT_ENV: raw}):
+                self.assertEqual(
+                    _read_cells(fill_merged_cells_xlsx(content), "B2"),
+                    ["61.12%"],
+                )
 
     def test_excel_parser_accepts_the_override_key(self):
         document = ExcelParser(xlsx_percent_as_text="true").parse_into_text(
@@ -389,12 +378,12 @@ class SparsePercentageWorksheetTests(unittest.TestCase):
 
         for hint_min in ("0", "1"):
             with self.subTest(hint_min=hint_min):
-                counts = []
+                counts: list[tuple[int, int]] = []
 
-                def observe(sheet, row_hint_min):
+                def observe(sheet, row_hint_min, _counts=counts):
                     before = len(sheet._cells)
                     result = materialize(sheet, row_hint_min)
-                    counts.append((before, len(sheet._cells)))
+                    _counts.append((before, len(sheet._cells)))
                     return result
 
                 with (
@@ -416,7 +405,9 @@ class SparsePercentageWorksheetTests(unittest.TestCase):
         wb.save(data)
         # Fail before an unsafe rectangle allocation: this test must never
         # attempt to visit all 17 billion coordinates, even before the fix.
-        with patch.object(Worksheet, "iter_rows", side_effect=AssertionError("blank rectangle scan")):
+        with patch.object(
+            Worksheet, "iter_rows", side_effect=AssertionError("blank rectangle scan")
+        ):
             output = fill_merged_cells_xlsx(data.getvalue(), percent_as_text=True)
         parsed = openpyxl.load_workbook(io.BytesIO(output), data_only=True).active
         self.assertEqual(len(parsed._cells), 2)
@@ -434,7 +425,10 @@ class SparsePercentageWorksheetTests(unittest.TestCase):
         raw = io.BytesIO()
         wb.save(raw)
         data = io.BytesIO()
-        with zipfile.ZipFile(io.BytesIO(raw.getvalue())) as src, zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as dst:
+        with (
+            zipfile.ZipFile(io.BytesIO(raw.getvalue())) as src,
+            zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as dst,
+        ):
             for item in src.infolist():
                 content = src.read(item.filename)
                 if item.filename == "xl/worksheets/sheet1.xml":
@@ -442,7 +436,9 @@ class SparsePercentageWorksheetTests(unittest.TestCase):
                     content = content.replace(b"<f>1/4</f><v></v>", b"<f>1/4</f><v>0.25</v>")
                 dst.writestr(item, content)
         converted = fill_merged_cells_xlsx(data.getvalue(), percent_as_text=True)
-        self.assertEqual(_read_cells(converted, "A2", "B2", "C2", "D2"), ["25%", "#DIV/0!", "00123", "12.5%"])
+        self.assertEqual(
+            _read_cells(converted, "A2", "B2", "C2", "D2"), ["25%", "#DIV/0!", "00123", "12.5%"]
+        )
 
 
 if __name__ == "__main__":

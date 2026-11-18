@@ -1,14 +1,13 @@
 """Read decoded XLSX cells without expanding gaps into a dense worksheet."""
 
-from io import BytesIO
 import zipfile
+from io import BytesIO
 
+from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.concurrency import check_cancellation
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet._reader import WorkSheetParser
-
-from docreader.parser.concurrency import check_cancellation
-from docreader.parser.archive import ArchiveLimitError
 
 
 def _cell_value(cell):
@@ -80,9 +79,7 @@ def validate_table_expansion(content, max_cells, context=None):
         book.close()
 
 
-def iter_worksheet_rows(
-    sheet, image_cells, first_row_as_header, header_labeler, context=None
-):
+def iter_worksheet_rows(sheet, image_cells, first_row_as_header, header_labeler, context=None):
     """Yield (zero-based source row, [(source column, label, value), ...]).
 
     Two passes retain the old last-data-row/column and header semantics without
@@ -102,19 +99,19 @@ def iter_worksheet_rows(
     use_header = first_row_as_header and max_row >= 2
     labels = (
         header_labeler([header.get(col, "") for col in range(1, max_col + 1)])
-        if use_header else None
+        if use_header
+        else None
     )
-    image_columns = {}
+    image_columns: dict[int, set[int]] = {}
     for row_number, col_letter in image_cells:
-        if 1 <= row_number <= max_row:
-            if not (use_header and row_number == 1):
-                columns = image_columns.setdefault(row_number, set())
-                try:
-                    col = column_index_from_string(col_letter)
-                except ValueError:
-                    continue
-                if 1 <= col <= max_col:
-                    columns.add(col)
+        if 1 <= row_number <= max_row and not (use_header and row_number == 1):
+            columns = image_columns.setdefault(row_number, set())
+            try:
+                col = column_index_from_string(col_letter)
+            except ValueError:
+                continue
+            if 1 <= col <= max_col:
+                columns.add(col)
     image_rows = iter(sorted(image_columns))
     next_image_row = next(image_rows, None)
 

@@ -5,17 +5,17 @@ This module provides functionality to parse Excel files (.xlsx, .xls) into
 structured Document objects with text content and chunks. It supports multiple
 sheets and handles various Excel formats using pandas.
 """
+
 import base64
 import logging
 import re
 import threading
 import zipfile
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from defusedxml import ElementTree as ET
 import pandas as pd
-
+from defusedxml import ElementTree as ET
 from docreader.models.document import Chunk, Document
 from docreader.parser.archive import (
     ArchiveLimitError,
@@ -33,12 +33,12 @@ from docreader.parser.excel_convert import (
     normalize_excel_bytes,
 )
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
-from docreader.parser.xlsx_rows import iter_worksheet_rows
 from docreader.parser.xlsx_repair import (
     repair_xlsx_bytes,
     sanitize_xlsx_styles,
     strip_unreadable_ranges_xlsx,
 )
+from docreader.parser.xlsx_rows import iter_worksheet_rows
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,7 @@ logger = logging.getLogger(__name__)
 # when opened by other tools the formula may appear as plain text prefixed with
 # "_xlfn." or "=".  Office 365 uses =_xlfn.IMAGE(url, ...) similarly.
 # The _xlfn. prefix is optional — WPS may omit it (e.g. =DISPIMG("ID",1)).
-_IMAGE_FUNC_RE = re.compile(
-    r"^=?(_xlfn\.)?(DISPIMG|IMAGE)\(", re.IGNORECASE
-)
+_IMAGE_FUNC_RE = re.compile(r"^=?(_xlfn\.)?(DISPIMG|IMAGE)\(", re.IGNORECASE)
 
 _ocr_local = threading.local()
 
@@ -87,8 +85,9 @@ def _is_empty_or_formula_error(val: Any) -> bool:
 def _get_ocr_engine() -> Any:
     """Acquire a thread-local RapidOCR instance with safe error handling."""
     try:
-        from rapidocr import RapidOCR
         from unittest.mock import Mock
+
+        from rapidocr import RapidOCR
 
         # If RapidOCR has been mocked in tests, instantiate and return the mock
         if isinstance(RapidOCR, Mock):
@@ -171,42 +170,42 @@ def _recognize_image_text(img_bytes: bytes, ref_path: str = "") -> str:
 
 def _extract_image_bytes(
     image_extractor: Any,
-    doc_images: Dict[str, str],
+    doc_images: dict[str, str],
     ref_path: str,
-) -> Optional[bytes]:
+) -> bytes | None:
     """Retrieve raw image bytes for OCR, checking extractor cache or decoding base64."""
     if image_extractor is not None:
         bytes_map = getattr(image_extractor, "extracted_bytes", None) or getattr(
             image_extractor, "image_bytes_by_ref", None
         )
         if isinstance(bytes_map, dict) and ref_path in bytes_map:
-            return bytes_map[ref_path]
+            cached = bytes_map[ref_path]
+            if isinstance(cached, bytes):
+                return cached
 
     b64_str = doc_images.get(ref_path)
     if b64_str:
         try:
             return base64.b64decode(b64_str)
         except Exception as exc:
-            logger.warning(
-                "Failed to decode base64 data for image %s: %s", ref_path, exc
-            )
+            logger.warning("Failed to decode base64 data for image %s: %s", ref_path, exc)
             return None
     return None
 
 
 class ExcelParser(BaseParser):
     """Parser for Excel files (.xlsx, .xls).
-    
+
     This parser extracts text content from Excel files by processing all sheets
     and converting each row into a structured text format. Each row becomes a
     separate chunk with key-value pairs.
-    
+
     Features:
         - Supports multiple sheets in a single Excel file
         - Automatically removes completely empty rows
         - Converts each row to "column: value" format
         - Creates individual chunks for each row for better granularity
-        
+
     Example:
         >>> parser = ExcelParser()
         >>> with open("data.xlsx", "rb") as f:
@@ -236,24 +235,24 @@ class ExcelParser(BaseParser):
 
     def parse_into_text(self, content: bytes) -> Document:
         """Parse Excel file bytes into a Document object with embedded images and OCR.
-        
+
         Args:
             content: Raw bytes of the Excel file
-            
+
         Returns:
             Document: Parsed document containing text, chunks, source_blocks, and images.
         """
         validate_zip_content(content)
         from openpyxl.utils import get_column_letter
 
-        chunks: List[Chunk] = []
-        text: List[str] = []
-        source_blocks: List[dict] = []
+        chunks: list[Chunk] = []
+        text: list[str] = []
+        source_blocks: list[dict] = []
         start, end = 0, 0
 
         # Step 1: Extract images from raw bytes BEFORE openpyxl modifies or strips them
-        cell_images_by_sheet: Dict[str, Dict[Tuple[int, str], Any]] = {}
-        doc_images: Dict[str, str] = {}
+        cell_images_by_sheet: dict[str, dict[tuple[int, str], Any]] = {}
+        doc_images: dict[str, str] = {}
         image_extractor: Any = None
 
         if _is_zip_archive(content):
@@ -269,7 +268,7 @@ class ExcelParser(BaseParser):
                 cell_images_by_sheet, doc_images = {}, {}
 
         # Cache OCR results per ref_path across all rows to avoid redundant OCR computation
-        ocr_cache: Dict[str, str] = {}
+        ocr_cache: dict[str, str] = {}
 
         # Step 2: Open excel file via standard pipeline
         try:
@@ -293,7 +292,7 @@ class ExcelParser(BaseParser):
         for excel_sheet_name in excel_file.sheet_names:
             check_cancellation(self.context)
             sheet_images = cell_images_by_sheet.get(str(excel_sheet_name), {})
-            consumed_cells: set[Tuple[int, str]] = set()
+            consumed_cells: set[tuple[int, str]] = set()
 
             rows = _iter_sheet_rows(
                 excel_file,
@@ -304,7 +303,7 @@ class ExcelParser(BaseParser):
             )
 
             for row_index, row in rows:
-                page_content: List[str] = []
+                page_content: list[str] = []
 
                 try:
                     excel_row = int(row_index) + 1
@@ -317,12 +316,10 @@ class ExcelParser(BaseParser):
                     cell_key = (excel_row, col_letter)
                     raw_imgs = sheet_images.get(cell_key)
 
-                    img_tags: List[str] = []
+                    img_tags: list[str] = []
                     if raw_imgs:
                         consumed_cells.add(cell_key)
-                        img_list = (
-                            raw_imgs if isinstance(raw_imgs, list) else [raw_imgs]
-                        )
+                        img_list = raw_imgs if isinstance(raw_imgs, list) else [raw_imgs]
                         for ref_path, alt_text in img_list:
                             # Inline OCR with caching and graceful degradation
                             ocr_text = ""
@@ -333,27 +330,20 @@ class ExcelParser(BaseParser):
                                     img_bytes = _extract_image_bytes(
                                         image_extractor, doc_images, ref_path
                                     )
-                                    ocr_text = _recognize_image_text(
-                                        img_bytes, ref_path=ref_path
+                                    ocr_text = (
+                                        _recognize_image_text(img_bytes, ref_path=ref_path)
+                                        if img_bytes
+                                        else ""
                                     )
                                     ocr_cache[ref_path] = ocr_text
 
-                            alt = (
-                                alt_text.strip()
-                                if alt_text and alt_text.strip()
-                                else "图片"
-                            )
+                            alt = alt_text.strip() if alt_text and alt_text.strip() else "图片"
                             if ocr_text:
-                                img_tags.append(
-                                    f"![{alt}]({ref_path}) (识别结果: {ocr_text})"
-                                )
+                                img_tags.append(f"![{alt}]({ref_path}) (识别结果: {ocr_text})")
                             else:
                                 img_tags.append(f"![{alt}]({ref_path})")
 
-                    has_text = (
-                        not _is_empty_or_formula_error(val)
-                        and not _is_image_function(val)
-                    )
+                    has_text = not _is_empty_or_formula_error(val) and not _is_image_function(val)
 
                     if img_tags:
                         images_str = " ".join(img_tags)
@@ -369,9 +359,7 @@ class ExcelParser(BaseParser):
                     for (r, c), raw_imgs in sheet_images.items():
                         if r == excel_row and (r, c) not in consumed_cells:
                             consumed_cells.add((r, c))
-                            img_list = (
-                                raw_imgs if isinstance(raw_imgs, list) else [raw_imgs]
-                            )
+                            img_list = raw_imgs if isinstance(raw_imgs, list) else [raw_imgs]
                             for ref_path, alt_text in img_list:
                                 ocr_text = ""
                                 if self.xlsx_ocr_enabled and ref_path in doc_images:
@@ -381,15 +369,13 @@ class ExcelParser(BaseParser):
                                         img_bytes = _extract_image_bytes(
                                             image_extractor, doc_images, ref_path
                                         )
-                                        ocr_text = _recognize_image_text(
-                                            img_bytes, ref_path=ref_path
+                                        ocr_text = (
+                                            _recognize_image_text(img_bytes, ref_path=ref_path)
+                                            if img_bytes
+                                            else ""
                                         )
                                         ocr_cache[ref_path] = ocr_text
-                                alt = (
-                                    alt_text.strip()
-                                    if alt_text and alt_text.strip()
-                                    else "图片"
-                                )
+                                alt = alt_text.strip() if alt_text and alt_text.strip() else "图片"
                                 if ocr_text:
                                     page_content.append(
                                         f"图片: ![{alt}]({ref_path}) (识别结果: {ocr_text})"
@@ -405,9 +391,7 @@ class ExcelParser(BaseParser):
                 end += len(content_row)
                 text.append(content_row)
 
-                chunks.append(
-                    Chunk(content=content_row, seq=len(chunks), start=start, end=end)
-                )
+                chunks.append(Chunk(content=content_row, seq=len(chunks), start=start, end=end))
 
                 if excel_row > 0:
                     source_blocks.append(
@@ -425,20 +409,16 @@ class ExcelParser(BaseParser):
                 start = end
 
             # Emit any remaining images outside the worksheet's data bounds.
-            remaining_keys = sorted(
-                k for k in sheet_images.keys() if k not in consumed_cells
-            )
+            remaining_keys = sorted(k for k in sheet_images if k not in consumed_cells)
             if remaining_keys:
                 from itertools import groupby
 
                 for r_num, group in groupby(remaining_keys, key=lambda k: k[0]):
-                    orphan_content: List[str] = []
+                    orphan_content: list[str] = []
                     for cell_key in group:
                         consumed_cells.add(cell_key)
                         raw_imgs = sheet_images[cell_key]
-                        img_list = (
-                            raw_imgs if isinstance(raw_imgs, list) else [raw_imgs]
-                        )
+                        img_list = raw_imgs if isinstance(raw_imgs, list) else [raw_imgs]
                         for ref_path, alt_text in img_list:
                             ocr_text = ""
                             if self.xlsx_ocr_enabled and ref_path in doc_images:
@@ -448,15 +428,13 @@ class ExcelParser(BaseParser):
                                     img_bytes = _extract_image_bytes(
                                         image_extractor, doc_images, ref_path
                                     )
-                                    ocr_text = _recognize_image_text(
-                                        img_bytes, ref_path=ref_path
+                                    ocr_text = (
+                                        _recognize_image_text(img_bytes, ref_path=ref_path)
+                                        if img_bytes
+                                        else ""
                                     )
                                     ocr_cache[ref_path] = ocr_text
-                            alt = (
-                                alt_text.strip()
-                                if alt_text and alt_text.strip()
-                                else "图片"
-                            )
+                            alt = alt_text.strip() if alt_text and alt_text.strip() else "图片"
                             col_tag = cell_key[1]
                             if ocr_text:
                                 orphan_content.append(
@@ -505,8 +483,11 @@ def _iter_sheet_rows(
 ):
     if excel_file.engine == "openpyxl":
         yield from iter_worksheet_rows(
-            excel_file.book[sheet_name], image_cells, xlsx_first_row_as_header,
-            _stable_header_labels, context,
+            excel_file.book[sheet_name],
+            image_cells,
+            xlsx_first_row_as_header,
+            _stable_header_labels,
+            context,
         )
         return
     # Keep the existing legacy XLS engine and its scalar/header behavior.
@@ -534,9 +515,7 @@ def _read_sheet_dataframe(
     # Preserve the cell types supplied by the engine. Column inference otherwise
     # turns text identifiers ("00123", "1e5") into numbers; iterrows can then
     # coerce a numeric row to floats and lose precision in long identifiers.
-    df = excel_file.parse(
-        sheet_name=sheet_name, header=None, keep_default_na=False, dtype=object
-    )
+    df = excel_file.parse(sheet_name=sheet_name, header=None, keep_default_na=False, dtype=object)
     if xlsx_first_row_as_header and len(df.index) >= 2:
         df.columns = _stable_header_labels(df.iloc[0].tolist())
         return df.iloc[1:].copy()
@@ -545,11 +524,11 @@ def _read_sheet_dataframe(
     return df
 
 
-def _stable_header_labels(values: List[object]) -> List[str]:
+def _stable_header_labels(values: list[object]) -> list[str]:
     """Build non-empty, unique labels from an explicitly selected header row."""
     from openpyxl.utils import get_column_letter
 
-    labels: List[str] = []
+    labels: list[str] = []
     used_labels: set[str] = set()
     counts: dict[str, int] = {}
     for index, value in enumerate(values, start=1):
@@ -593,7 +572,7 @@ def _parse_optional_bool(value: Any) -> bool | None:
 
 
 def _sanitize_corrupted_drawings_xlsx(data: bytes) -> bytes:
-    """If any drawing*.xml is malformed XML, replace it with an empty valid drawing to prevent openpyxl crash."""
+    """Replace malformed drawing*.xml parts with an empty drawing so openpyxl does not crash."""
     if not _is_zip_archive(data):
         return data
     try:
@@ -604,7 +583,7 @@ def _sanitize_corrupted_drawings_xlsx(data: bytes) -> bytes:
         with zipfile.ZipFile(bio, "r") as zf:
             validate_zip_archive(zf)
             read_budget = ZipReadBudget()
-            cached_drawings: Dict[str, bytes] = {}
+            cached_drawings: dict[str, bytes] = {}
             names = zf.namelist()
             corrupt_drawings = set()
             for name in names:
@@ -701,9 +680,7 @@ def _open_excel_file(
         try:
             return pd.ExcelFile(BytesIO(data), engine=engine)
         except ImportError as exc:
-            raise ValueError(
-                f"Excel engine {engine!r} is not available for .{ext} files"
-            ) from exc
+            raise ValueError(f"Excel engine {engine!r} is not available for .{ext} files") from exc
         except KeyError as exc:
             if "sharedStrings.xml" not in str(exc) or engine != "openpyxl":
                 raise
@@ -731,12 +708,12 @@ if __name__ == "__main__":
     # Specify the path to your Excel file
     your_file = "/path/to/your/file.xlsx"
     parser = ExcelParser()
-    
+
     # Read and parse the Excel file
     with open(your_file, "rb") as f:
         content = f.read()
         document = parser.parse_into_text(content)
-        
+
         # Display the full document content
         logger.error(document.content)
 

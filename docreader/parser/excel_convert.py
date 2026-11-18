@@ -5,12 +5,11 @@ from __future__ import annotations
 import codecs
 import logging
 import os
-import subprocess
+import shutil
 import tempfile
 import time
-from typing import Optional
 
-from docreader.parser.archive import ArchiveLimitError, MAX_UNCOMPRESSED_ARCHIVE_BYTES
+from docreader.parser.archive import MAX_UNCOMPRESSED_ARCHIVE_BYTES, ArchiveLimitError
 from docreader.parser.soffice_sandbox import (
     run_soffice_convert,
     sanitize_temp_suffix,
@@ -30,7 +29,7 @@ def detect_excel_format(content: bytes) -> str | None:
     from pandas.io.excel._base import inspect_excel_format
 
     ext = inspect_excel_format(content_or_path=content)
-    if ext in ("xlsx", "xls", "xlsb", "ods"):
+    if isinstance(ext, str) and ext in ("xlsx", "xls", "xlsb", "ods"):
         return ext
     if ext == "zip":
         return "xlsx"
@@ -61,7 +60,10 @@ def convert_excel_to_xlsx_bytes(content: bytes, suffix: str = ".xlsx") -> bytes 
     safe_suffix = sanitize_temp_suffix(suffix, default=".xlsx")
     max_attempts = 3
     for attempt in range(1, max_attempts + 1):
-        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as profile_dir:
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            tempfile.TemporaryDirectory() as profile_dir,
+        ):
             src_dir = os.path.join(temp_dir, "in")
             out_dir = os.path.join(temp_dir, "out")
             os.makedirs(src_dir, exist_ok=True)
@@ -104,7 +106,8 @@ def convert_excel_to_xlsx_bytes(content: bytes, suffix: str = ".xlsx") -> bytes 
                     out_size = os.path.getsize(out_path)
                     if out_size > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
                         raise ArchiveLimitError(
-                            f"Converted XLSX size ({out_size}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
+                            f"Converted XLSX size ({out_size}) exceeds limit "
+                            f"({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
                         )
                     with open(out_path, "rb") as handle:
                         converted = handle.read()
@@ -131,8 +134,10 @@ def normalize_excel_bytes(content: bytes, file_type: str | None = None) -> bytes
     # to that fallback; known binary XLS/XLSX formats were handled above.
     sample = content[:8192]
     for bom, encoding in (
-        (codecs.BOM_UTF32_LE, "utf-32"), (codecs.BOM_UTF32_BE, "utf-32"),
-        (codecs.BOM_UTF16_LE, "utf-16"), (codecs.BOM_UTF16_BE, "utf-16"),
+        (codecs.BOM_UTF32_LE, "utf-32"),
+        (codecs.BOM_UTF32_BE, "utf-32"),
+        (codecs.BOM_UTF16_LE, "utf-16"),
+        (codecs.BOM_UTF16_BE, "utf-16"),
     ):
         if content.startswith(bom):
             try:
@@ -158,13 +163,14 @@ def normalize_excel_bytes(content: bytes, file_type: str | None = None) -> bytes
             return converted
 
     raise ValueError(
-        "Unrecognized Excel file format; the file may be corrupt, encrypted, "
-        "or not a spreadsheet"
+        "Unrecognized Excel file format; the file may be corrupt, encrypted, or not a spreadsheet"
     )
 
 
-def find_soffice() -> Optional[str]:
+def find_soffice() -> str | None:
+    env_override = os.environ.get("LIBREOFFICE_PATH", "").strip()
     possible_paths = [
+        env_override,
         "/usr/bin/soffice",
         "/usr/lib/libreoffice/program/soffice",
         "/opt/libreoffice25.2/program/soffice",
@@ -173,10 +179,7 @@ def find_soffice() -> Optional[str]:
         "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
     ]
     for path in possible_paths:
-        if path and os.path.exists(path):
+        if path and os.path.isfile(path) and os.access(path, os.X_OK):
             return path
 
-    result = subprocess.run(["which", "soffice"], capture_output=True, text=True)
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-    return None
+    return shutil.which("soffice")

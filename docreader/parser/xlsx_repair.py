@@ -6,26 +6,23 @@ import io
 import logging
 import re
 import zipfile
-from typing import Callable, Dict, Iterable, Set
+from collections.abc import Callable, Iterable
 
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
-
 from docreader.parser.archive import (
     ArchiveLimitError,
-    MAX_COMPRESSION_RATIO,
-    MAX_UNCOMPRESSED_ARCHIVE_BYTES,
     ZipReadBudget,
     safe_read_zip_member,
+)
+from docreader.parser.archive import (
     validate_zip_archive as _validate_zip_archive,
 )
 
 logger = logging.getLogger(__name__)
 
 SST_PART = "xl/sharedStrings.xml"
-_SST_CONTENT_TYPE = (
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"
-)
+_SST_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"
 _SST_OVERRIDE_RE = re.compile(
     r'<Override[^>]*PartName="[^"]*sharedStrings\.xml"[^>]*/>',
     re.IGNORECASE,
@@ -54,9 +51,7 @@ def repair_xlsx_bytes(content: bytes) -> bytes | None:
         if sst_path:
             if sst_path == SST_PART or _has_existing_shared_strings_part(zin):
                 return None
-            return _rewrite_zip(
-                zin, lambda files: _rename_shared_strings_part(files, sst_path)
-            )
+            return _rewrite_zip(zin, lambda files: _rename_shared_strings_part(files, sst_path))
         if not _package_references_shared_strings(zin, names):
             return None
         if _worksheets_use_shared_string_cells(zin, names):
@@ -100,7 +95,7 @@ def strip_unreadable_ranges_xlsx(content: bytes) -> bytes | None:
             for name in _normalized_names(zin.namelist())
             if name.startswith("xl/worksheets/") and name.endswith(".xml")
         )
-        dropped: Dict[str, int] = {}
+        dropped: dict[str, int] = {}
         for name in sheets:
             sheet = safe_read_zip_member(zin, name).decode("utf-8", errors="replace")
             count = sum(1 for m in _SQREF_ELEMENT_RE.finditer(sheet) if _unreadable(m.group(0)))
@@ -130,7 +125,7 @@ def _unreadable(element: str) -> bool:
     return False
 
 
-def _strip_unreadable_ranges(files: Dict[str, bytes], sheets: Dict[str, int]) -> Dict[str, bytes]:
+def _strip_unreadable_ranges(files: dict[str, bytes], sheets: dict[str, int]) -> dict[str, bytes]:
     updated = dict(files)
     for name in sheets:
         sheet = updated[name].decode("utf-8")
@@ -139,6 +134,7 @@ def _strip_unreadable_ranges(files: Dict[str, bytes], sheets: Dict[str, int]) ->
         )
         updated[name] = sheet.encode("utf-8")
     return updated
+
 
 def _has_existing_shared_strings_part(zin: zipfile.ZipFile) -> bool:
     """Respect the manifest's part name instead of renaming a valid table."""
@@ -162,20 +158,18 @@ def _has_existing_shared_strings_part(zin: zipfile.ZipFile) -> bool:
     return False
 
 
-def _normalized_names(namelist: Iterable[str]) -> Set[str]:
+def _normalized_names(namelist: Iterable[str]) -> set[str]:
     return {name.replace("\\", "/") for name in namelist}
 
 
-def _find_shared_strings_path(names: Set[str]) -> str | None:
+def _find_shared_strings_path(names: set[str]) -> str | None:
     for name in names:
         if name.lower().endswith("sharedstrings.xml"):
             return name
     return None
 
 
-def _package_references_shared_strings(
-    zin: zipfile.ZipFile, names: Set[str]
-) -> bool:
+def _package_references_shared_strings(zin: zipfile.ZipFile, names: set[str]) -> bool:
     content_types = "[Content_Types].xml"
     if content_types in names:
         ct = safe_read_zip_member(zin, content_types).decode("utf-8", errors="replace")
@@ -190,9 +184,7 @@ def _package_references_shared_strings(
     return False
 
 
-def _worksheets_use_shared_string_cells(
-    zin: zipfile.ZipFile, names: Set[str]
-) -> bool:
+def _worksheets_use_shared_string_cells(zin: zipfile.ZipFile, names: set[str]) -> bool:
     for name in names:
         if not name.startswith("xl/worksheets/") or not name.endswith(".xml"):
             continue
@@ -202,15 +194,13 @@ def _worksheets_use_shared_string_cells(
     return False
 
 
-def _rename_shared_strings_part(
-    files: Dict[str, bytes], source_path: str
-) -> Dict[str, bytes]:
+def _rename_shared_strings_part(files: dict[str, bytes], source_path: str) -> dict[str, bytes]:
     updated = dict(files)
     updated[SST_PART] = updated.pop(source_path)
     return updated
 
 
-def _strip_shared_strings_manifest(files: Dict[str, bytes]) -> Dict[str, bytes]:
+def _strip_shared_strings_manifest(files: dict[str, bytes]) -> dict[str, bytes]:
     updated = dict(files)
     ct_path = "[Content_Types].xml"
     if ct_path in updated:
@@ -228,10 +218,10 @@ def _strip_shared_strings_manifest(files: Dict[str, bytes]) -> Dict[str, bytes]:
 
 def _rewrite_zip(
     zin: zipfile.ZipFile,
-    transform: Callable[[Dict[str, bytes]], Dict[str, bytes]],
+    transform: Callable[[dict[str, bytes]], dict[str, bytes]],
 ) -> bytes:
     _validate_zip_archive(zin)
-    files: Dict[str, bytes] = {}
+    files: dict[str, bytes] = {}
     rewrite_budget = ZipReadBudget()
     for info in zin.infolist():
         name = info.filename.replace("\\", "/")
@@ -322,7 +312,7 @@ def _sanitize_xlsx_styles(content: bytes) -> bytes | None:
 
         fixed_count = 0
 
-        def _fix(match: "re.Match[bytes]") -> bytes:
+        def _fix(match: re.Match[bytes]) -> bytes:
             nonlocal fixed_count
             if _WELL_FORMED_FILL_RE.match(match.group(0)):
                 return match.group(0)
@@ -340,5 +330,5 @@ def _sanitize_xlsx_styles(content: bytes) -> bytes | None:
             fixed_count,
         )
 
-        patched = styles[: block.start()] + patched_block + styles[block.end():]
+        patched = styles[: block.start()] + patched_block + styles[block.end() :]
         return _rewrite_zip(zin, lambda files: {**files, STYLES_PART: patched})

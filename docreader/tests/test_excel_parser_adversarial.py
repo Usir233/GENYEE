@@ -3,8 +3,10 @@ Adversarial stress testing suite for docreader/parser/excel_parser.py
 and docreader/parser/xlsx_media.py.
 
 Covers:
-1. Malformed/corrupted zip files, zip bombs, and XML bombs (Billion Laughs, quadratic expansion, malformed tags).
-2. Multi-sheet workbooks with mixed image types (WPS DISPIMG + floating drawings + Office 365 richData).
+1. Malformed/corrupted zip files, zip bombs, and XML bombs (Billion Laughs,
+   quadratic expansion, malformed tags).
+2. Multi-sheet workbooks with mixed image types (WPS DISPIMG + floating
+   drawings + Office 365 richData).
 3. Overlapping coordinates, boundary anchors, formula errors, and large workbook scaling.
 """
 
@@ -18,7 +20,6 @@ import zipfile
 from unittest.mock import Mock, patch
 
 import openpyxl
-
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.xlsx_media import XLSXImageExtractor
 
@@ -103,7 +104,9 @@ def _build_multisheet_mixed_xlsx(
         </etc:cellImage>
         """)
         wps_rels_xml.append(
-            f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{target_name}"/>'
+            f'<Relationship Id="{r_id}" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+            f'Target="{target_name}"/>'
         )
 
     cellimages_content = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -127,7 +130,9 @@ def _build_multisheet_mixed_xlsx(
         target = f"../media/draw_img_{idx}.png"
         media_map[f"xl/media/draw_img_{idx}.png"] = anc.get("data", DUMMY_PNG_BYTES)
         drawing_rels.append(
-            f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{target}"/>'
+            f'<Relationship Id="{r_id}" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+            f'Target="{target}"/>'
         )
 
         c = anc["col"]
@@ -185,10 +190,14 @@ def _build_multisheet_mixed_xlsx(
       {"".join(drawing_rels)}
     </Relationships>"""
 
-    ws2_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-      <Relationship Id="rIdDrawing1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
-    </Relationships>"""
+    ws2_rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
+        '      <Relationship Id="rIdDrawing1" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" '
+        'Target="../drawings/drawing1.xml"/>\n'
+        "    </Relationships>"
+    )
 
     # --- 3. Office 365 richData setup for Sheet 3 ---
     rd_rv_items = []
@@ -204,7 +213,9 @@ def _build_multisheet_mixed_xlsx(
         media_map[f"xl/media/rich_img_{idx}.png"] = img_data
 
         rd_rels_items.append(
-            f'<Relationship Id="{r_id}" Type="http://schemas.microsoft.com/office/2017/06/relationships/image" Target="{target}"/>'
+            f'<Relationship Id="{r_id}" '
+            'Type="http://schemas.microsoft.com/office/2017/06/relationships/image" '
+            f'Target="{target}"/>'
         )
         rd_rel_items.append(f'<rel r:id="{r_id}"/>')
         rd_rv_items.append(f'<rv s="0"><v>{rel_idx}</v><v>5</v><v>{alt_text}</v></rv>')
@@ -236,9 +247,7 @@ def _build_multisheet_mixed_xlsx(
 
     # Assemble package
     out = io.BytesIO()
-    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
-        out, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             content = zin.read(item.filename)
             if item.filename == "xl/worksheets/sheet2.xml":
@@ -313,7 +322,7 @@ class AdversarialZipAndXmlBombsTest(unittest.TestCase):
         self.assertIsInstance(doc.images, dict)
 
     def test_zip_bomb_huge_entry_rejected(self):
-        """A zip archive with an entry exceeding 100MB uncompressed limit is rejected by extractor."""
+        """A zip archive with an entry exceeding 100MB uncompressed limit is rejected."""
         bio = io.BytesIO()
         with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("xl/media/huge.png", b"\x00" * (105 * 1024 * 1024))
@@ -429,7 +438,7 @@ class AdversarialMultiSheetMixedImagesTest(unittest.TestCase):
     """Stress testing multi-sheet workbooks with mixed image vectors (WPS + drawings + richData)."""
 
     def test_multisheet_all_three_image_types_extracted_simultaneously(self):
-        """Simultaneous extraction of WPS DISPIMG on Sheet 1, drawings on Sheet 2, and richData on Sheet 3."""
+        """Simultaneously extract WPS DISPIMG, floating drawings, and Office 365 richData."""
         sheet1_rows = [
             ["SKU", "Image", "Qty"],
             ["WPS-101", '=_xlfn.DISPIMG("WPS_IMG_1", 1)', "50"],
@@ -455,9 +464,7 @@ class AdversarialMultiSheetMixedImagesTest(unittest.TestCase):
             ["SKU", "Spec", "RichPhoto"],
             ["RCH-303", "100Ah", ""],
         ]
-        rich_images = [
-            (1, "C2", "RichData Cell Photo", DUMMY_GIF_BYTES)
-        ]
+        rich_images = [(1, "C2", "RichData Cell Photo", DUMMY_GIF_BYTES)]
 
         xlsx_data = _build_multisheet_mixed_xlsx(
             sheet1_rows,
@@ -501,7 +508,7 @@ class AdversarialMultiSheetMixedImagesTest(unittest.TestCase):
         self.assertIn("SheetRichData", sheets_in_blocks)
 
     def test_multisheet_cross_sheet_media_deduplication(self):
-        """When identical image binaries are used in Sheet 1 (WPS) and Sheet 2 (Drawings), they deduplicate."""
+        """Identical image binaries across Sheet 1 (WPS) and Sheet 2 (Drawings) deduplicate."""
         shared_image = DUMMY_PNG_BYTES
         sheet1_rows = [["Item", "Img"], ["A1", '=_xlfn.DISPIMG("WPS_SHARED", 1)']]
         wps_cellimages = [("WPS_SHARED", "Shared Image WPS", shared_image)]
@@ -527,9 +534,7 @@ class AdversarialMultiSheetMixedImagesTest(unittest.TestCase):
             [],
         )
 
-        parser = ExcelParser(
-            file_name="shared.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="shared.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(xlsx_data)
 
         # Exactly 1 deduplicated image entry in doc.images
@@ -541,7 +546,7 @@ class AdversarialMultiSheetMixedImagesTest(unittest.TestCase):
         self.assertIn(f"({single_ref})", doc.chunks[3].content)
 
     def test_multisheet_chinese_and_special_names_no_collision(self):
-        """Sheet names with Unicode Chinese characters and symbols do not collide or corrupt locators."""
+        """Sheet names with CJK characters and symbols do not collide or corrupt locators."""
         sheet_names = ("储能设备_明细", "光伏逆变器 (2026)", "备品备件&电池")
         sheet1_rows = [["序号", "图片"], ["1", '=_xlfn.DISPIMG("WPS_CN", 1)']]
         wps_cellimages = [("WPS_CN", "储能系统外观图", DUMMY_PNG_BYTES)]
@@ -624,9 +629,7 @@ class AdversarialOverlappingAndEdgeCoordinatesTest(unittest.TestCase):
             [],
         )
 
-        parser = ExcelParser(
-            file_name="overlapping.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="overlapping.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(xlsx_data)
 
         # All distinct media binaries must be safely kept in doc.images
@@ -657,24 +660,18 @@ class AdversarialOverlappingAndEdgeCoordinatesTest(unittest.TestCase):
             [],
         )
 
-        parser = ExcelParser(
-            file_name="orphan.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="orphan.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(xlsx_data)
 
         # Orphan image must NOT be dropped
         self.assertEqual(len(doc.images), 1)
 
         # An orphan chunk must be emitted for SheetDrawings
-        found_orphan_chunk = any(
-            "Detached Footer Diagram" in ch.content for ch in doc.chunks
-        )
+        found_orphan_chunk = any("Detached Footer Diagram" in ch.content for ch in doc.chunks)
         self.assertTrue(found_orphan_chunk, "Orphan floating image not found in chunks")
 
         # And source block locator must reflect row 50
-        orphan_blocks = [
-            b for b in doc.source_blocks if b["locator"]["row_start"] == 50
-        ]
+        orphan_blocks = [b for b in doc.source_blocks if b["locator"]["row_start"] == 50]
         self.assertEqual(len(orphan_blocks), 1)
 
     def test_floating_anchor_out_of_bounds_and_negative_coords(self):
@@ -708,9 +705,7 @@ class AdversarialOverlappingAndEdgeCoordinatesTest(unittest.TestCase):
             [],
         )
 
-        parser = ExcelParser(
-            file_name="bad_coords.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="bad_coords.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(xlsx_data)
 
         # Valid text rows parsed successfully
@@ -718,7 +713,7 @@ class AdversarialOverlappingAndEdgeCoordinatesTest(unittest.TestCase):
         self.assertIn("V1", doc.content)
 
     def test_formula_errors_suppressed_when_images_present(self):
-        """Cells with formula errors (#VALUE!, #REF!, #N/A, #DIV/0!) don't leak error strings into image tags."""
+        """Formula errors (#VALUE!, #REF!, #N/A, #DIV/0!) do not leak into image tags."""
         sheet1_rows = [
             ["SKU", "ImageCell", "Status"],
             ["ERR-01", "#VALUE!", "OK"],
@@ -733,12 +728,22 @@ class AdversarialOverlappingAndEdgeCoordinatesTest(unittest.TestCase):
         wb.save(bio)
 
         pics_xml = [
-            '<etc:cellImage><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="IMG1" descr="Clean Image 1"/><xdr:cNvSpPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/></xdr:blipFill></xdr:pic></etc:cellImage>',
-            '<etc:cellImage><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="IMG2" descr="Clean Image 2"/><xdr:cNvSpPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId2"/></xdr:blipFill></xdr:pic></etc:cellImage>',
+            "<etc:cellImage><xdr:pic><xdr:nvPicPr>"
+            '<xdr:cNvPr id="1" name="IMG1" descr="Clean Image 1"/><xdr:cNvSpPr/>'
+            '</xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/></xdr:blipFill>'
+            "</xdr:pic></etc:cellImage>",
+            "<etc:cellImage><xdr:pic><xdr:nvPicPr>"
+            '<xdr:cNvPr id="2" name="IMG2" descr="Clean Image 2"/><xdr:cNvSpPr/>'
+            '</xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId2"/></xdr:blipFill>'
+            "</xdr:pic></etc:cellImage>",
         ]
         rels_xml = [
-            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
-            '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image2.png"/>',
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+            'Target="media/image1.png"/>',
+            '<Relationship Id="rId2" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+            'Target="media/image2.png"/>',
         ]
         cellimages_content = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <etc:cellImages xmlns:etc="http://www.wps.cn/officeDocument/2017/etCustomData"
@@ -774,9 +779,7 @@ class AdversarialOverlappingAndEdgeCoordinatesTest(unittest.TestCase):
             zout.writestr("xl/media/image1.png", DUMMY_PNG_BYTES)
             zout.writestr("xl/media/image2.png", DUMMY_PNG_BYTES + b"_distinct_2")
 
-        parser = ExcelParser(
-            file_name="errors.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="errors.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(out.getvalue())
 
         # Formula errors must NOT appear alongside image markdown in B2
@@ -828,7 +831,7 @@ class AdversarialScaleAndConcurrencyTest(unittest.TestCase):
         self.assertEqual(len(doc.source_blocks), 1001)
 
     def test_ocr_mock_exception_isolation_under_load(self):
-        """When RapidOCR raises unexpected exceptions on certain images, parsing completes without failure."""
+        """RapidOCR exceptions on individual images must not fail workbook parsing."""
         mock_ocr = Mock()
         call_count = 0
 

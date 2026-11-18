@@ -11,13 +11,12 @@ from unittest.mock import MagicMock, patch
 
 import openpyxl
 import pandas as pd
-from openpyxl.chart import BarChart, Reference
-
 from docreader.parser.excel_convert import detect_excel_format, engine_for_format
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.markitdown_parser import StdMarkitdownParser
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
 from docreader.parser.xlsx_repair import repair_xlsx_bytes, strip_unreadable_ranges_xlsx
+from openpyxl.chart import BarChart, Reference
 
 
 def _xlsx_with_phantom_shared_strings() -> bytes:
@@ -54,7 +53,6 @@ def _xlsx_with_phantom_shared_strings() -> bytes:
         return out.getvalue()
 
 
-
 def _xlsx_with_sheet_fragment(fragment: str) -> bytes:
     """A two-row workbook with ``fragment`` spliced into sheet1 before pageMargins,
     which is where OOXML puts data validations and scenarios."""
@@ -66,9 +64,10 @@ def _xlsx_with_sheet_fragment(fragment: str) -> bytes:
     wb.save(bio)
 
     out = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(bio.getvalue()), "r") as zin, zipfile.ZipFile(
-        out, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with (
+        zipfile.ZipFile(io.BytesIO(bio.getvalue()), "r") as zin,
+        zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout,
+    ):
         for info in zin.infolist():
             data = zin.read(info.filename)
             if info.filename == "xl/worksheets/sheet1.xml":
@@ -85,6 +84,7 @@ def _validation(sqref: str, formula: str = '"a,b"') -> str:
         f"<formula1>{formula}</formula1></dataValidation>"
     )
 
+
 class ExcelFormatDetectionTest(unittest.TestCase):
     def test_detect_xlsx_and_engine(self):
         wb = openpyxl.Workbook()
@@ -100,39 +100,50 @@ class ExcelFormatDetectionTest(unittest.TestCase):
         self.assertEqual(engine_for_format("xls"), "xlrd")
 
     def test_open_legacy_xls_bytes_with_xlsx_extension(self):
-        if not shutil.which("soffice"):
-            self.skipTest("LibreOffice not available")
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws["A1"] = "legacy"
-        xlsx_bio = io.BytesIO()
-        wb.save(xlsx_bio)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            src = os.path.join(tmpdir, "sheet.xlsx")
-            with open(src, "wb") as handle:
-                handle.write(xlsx_bio.getvalue())
-            subprocess.run(
-                [
-                    "soffice",
-                    "--headless",
-                    "--convert-to",
-                    "xls",
-                    "--outdir",
-                    tmpdir,
-                    src,
-                ],
-                check=True,
-                capture_output=True,
+        if shutil.which("soffice"):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws["A1"] = "legacy"
+            xlsx_bio = io.BytesIO()
+            wb.save(xlsx_bio)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                src = os.path.join(tmpdir, "sheet.xlsx")
+                with open(src, "wb") as handle:
+                    handle.write(xlsx_bio.getvalue())
+                subprocess.run(
+                    [
+                        "soffice",
+                        "--headless",
+                        "--convert-to",
+                        "xls",
+                        "--outdir",
+                        tmpdir,
+                        src,
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+                xls_path = os.path.join(tmpdir, "sheet.xls")
+                with open(xls_path, "rb") as handle:
+                    xls_bytes = handle.read()
+            expected_token = "legacy"
+        else:
+            fixture_xls = os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "internal",
+                "agent",
+                "tools",
+                "testdata",
+                "legacy.xls",
             )
-            xls_path = os.path.join(tmpdir, "sheet.xls")
-            with open(xls_path, "rb") as handle:
+            with open(fixture_xls, "rb") as handle:
                 xls_bytes = handle.read()
+            expected_token = "苹果"
 
-        document = ExcelParser(file_name="fake.xlsx", file_type="xlsx").parse_into_text(
-            xls_bytes
-        )
-        self.assertIn("legacy", document.content)
-
+        document = ExcelParser(file_name="fake.xlsx", file_type="xlsx").parse_into_text(xls_bytes)
+        self.assertIn(expected_token, document.content)
 
 
 class XlsxUnreadableRangesTest(unittest.TestCase):
@@ -157,6 +168,7 @@ class XlsxUnreadableRangesTest(unittest.TestCase):
                 )
                 fixed = strip_unreadable_ranges_xlsx(broken)
                 self.assertIsNotNone(fixed)
+                assert fixed is not None
                 df = pd.read_excel(io.BytesIO(fixed), header=None, engine="openpyxl")
                 self.assertEqual(df.values.tolist(), [["name", "qty"], ["apple", 3]])
 
@@ -170,20 +182,20 @@ class XlsxUnreadableRangesTest(unittest.TestCase):
             openpyxl.load_workbook(io.BytesIO(broken), data_only=True)
         fixed = strip_unreadable_ranges_xlsx(broken)
         self.assertIsNotNone(fixed)
+        assert fixed is not None
         openpyxl.load_workbook(io.BytesIO(fixed), data_only=True)
 
     def test_keeps_a_readable_validation_next_to_an_unreadable_one(self):
         broken = _xlsx_with_sheet_fragment(
             '<dataValidations count="2">'
-            f'{_validation("C:C")}{_validation("D2:D10", chr(34) + "keep" + chr(34))}'
+            f"{_validation('C:C')}{_validation('D2:D10', chr(34) + 'keep' + chr(34))}"
             "</dataValidations>"
         )
         fixed = strip_unreadable_ranges_xlsx(broken)
         self.assertIsNotNone(fixed)
+        assert fixed is not None
         ws = openpyxl.load_workbook(io.BytesIO(fixed)).active
-        self.assertEqual(
-            [str(dv.sqref) for dv in ws.data_validations.dataValidation], ["D2:D10"]
-        )
+        self.assertEqual([str(dv.sqref) for dv in ws.data_validations.dataValidation], ["D2:D10"])
 
     def test_leaves_a_readable_workbook_untouched(self):
         fine = _xlsx_with_sheet_fragment(
@@ -196,18 +208,16 @@ class XlsxUnreadableRangesTest(unittest.TestCase):
         broken = _xlsx_with_sheet_fragment(
             f'<dataValidations count="1">{_validation("C:C")}</dataValidations>'
         )
-        document = ExcelParser(file_name="feishu.xlsx", file_type="xlsx").parse_into_text(
-            broken
-        )
+        document = ExcelParser(file_name="feishu.xlsx", file_type="xlsx").parse_into_text(broken)
         self.assertIn("apple", document.content)
 
     def test_markitdown_parser_reads_a_workbook_with_a_whole_column_validation(self):
         broken = _xlsx_with_sheet_fragment(
             f'<dataValidations count="1">{_validation("C:C")}</dataValidations>'
         )
-        document = StdMarkitdownParser(
-            file_name="feishu.xlsx", file_type="xlsx"
-        ).parse_into_text(broken)
+        document = StdMarkitdownParser(file_name="feishu.xlsx", file_type="xlsx").parse_into_text(
+            broken
+        )
         self.assertIn("apple", document.content)
 
 
@@ -219,6 +229,7 @@ class XlsxRepairTest(unittest.TestCase):
 
         repaired = repair_xlsx_bytes(broken)
         self.assertIsNotNone(repaired)
+        assert repaired is not None
         df = pd.read_excel(io.BytesIO(repaired), header=None)
         self.assertEqual(df.values.tolist(), [["hello", 42]])
 
@@ -307,9 +318,7 @@ class XlsxMergeFillTest(unittest.TestCase):
         self.assertEqual(out_ws._charts, [])
 
     def test_excel_parser_reads_merged_workbook_with_chart(self):
-        document = ExcelParser().parse_into_text(
-            self._workbook_with_merged_cells_and_chart()
-        )
+        document = ExcelParser().parse_into_text(self._workbook_with_merged_cells_and_chart())
 
         self.assertIn("A: title,B: title", document.content)
         self.assertIn("A: one,B: 1", document.content)
@@ -383,10 +392,28 @@ class XlsxMergeFillTest(unittest.TestCase):
             "xlsx",
             "en_mergecell.xlsx",
         )
-        if not os.path.isfile(path):
-            self.skipTest("en_mergecell.xlsx fixture not available")
-        with open(path, "rb") as handle:
-            document = ExcelParser().parse_into_text(handle.read())
+        if os.path.isfile(path):
+            with open(path, "rb") as handle:
+                payload = handle.read()
+        else:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws["A1"] = "A1"
+            ws["A2"] = "A2"
+            ws["B3"] = "B3"
+            ws["C4"] = "C4"
+            ws["C5"] = "C5"
+            ws["C6"] = "C6"
+            ws["A7"] = "A7"
+            ws.merge_cells("A7:A8")
+            ws["C9"] = "C9"
+            ws["D10"] = "D10"
+            ws["C11"] = "C11"
+            ws["C12"] = "C12"
+            bio = io.BytesIO()
+            wb.save(bio)
+            payload = bio.getvalue()
+        document = ExcelParser().parse_into_text(payload)
 
         chunks = [chunk.content.strip() for chunk in document.chunks]
         self.assertEqual(len(chunks), 12)
@@ -508,9 +535,7 @@ class ExcelParserTest(unittest.TestCase):
             ["00123", "1e5", "+001", "202600012345678901"],
             ["00456", "2e5", "+002", "202600012345678902"],
         ]
-        document = ExcelParser(file_name="codes.xlsx").parse_into_text(
-            self._workbook_bytes(rows)
-        )
+        document = ExcelParser(file_name="codes.xlsx").parse_into_text(self._workbook_bytes(rows))
         self.assertEqual(
             [chunk.content.strip() for chunk in document.chunks],
             [
@@ -523,7 +548,7 @@ class ExcelParserTest(unittest.TestCase):
             [1, 2],
         )
         for chunk in document.chunks:
-            self.assertEqual(document.content[chunk.start:chunk.end], chunk.content)
+            self.assertEqual(document.content[chunk.start : chunk.end], chunk.content)
 
     def test_integer_cells_are_not_coerced_by_a_decimal_column(self):
         document = ExcelParser(file_name="quantities.xlsx").parse_into_text(
@@ -543,11 +568,8 @@ class ExcelParserTest(unittest.TestCase):
     def test_mixed_numeric_and_text_cells_keep_their_types(self):
         from datetime import datetime
 
-        rows = [[7, 1.25, True, datetime(2026, 1, 2), "001"],
-                [8, 2.5, False, None, "002"]]
-        document = ExcelParser(file_name="types.xlsx").parse_into_text(
-            self._workbook_bytes(rows)
-        )
+        rows = [[7, 1.25, True, datetime(2026, 1, 2), "001"], [8, 2.5, False, None, "002"]]
+        document = ExcelParser(file_name="types.xlsx").parse_into_text(self._workbook_bytes(rows))
         self.assertEqual(
             [chunk.content.strip() for chunk in document.chunks],
             [
@@ -589,9 +611,7 @@ class ExcelParserTest(unittest.TestCase):
             ]
         )
 
-        document = ExcelParser(file_name="people.xlsx", file_type="xlsx").parse_into_text(
-            content
-        )
+        document = ExcelParser(file_name="people.xlsx", file_type="xlsx").parse_into_text(content)
 
         chunks = [chunk.content.strip() for chunk in document.chunks]
         self.assertEqual(len(chunks), 2)
@@ -656,9 +676,7 @@ class ExcelParserTest(unittest.TestCase):
                     xlsx_first_row_as_header=True,
                 ).parse_into_text(content)
 
-                self.assertEqual(
-                    [chunk.content.strip() for chunk in document.chunks], [expected]
-                )
+                self.assertEqual([chunk.content.strip() for chunk in document.chunks], [expected])
                 workbook = openpyxl.load_workbook(io.BytesIO(content))
                 self.assertEqual(next(workbook.active.values), tuple(headers))
                 workbook.close()
@@ -729,9 +747,7 @@ class ExcelParserTest(unittest.TestCase):
             ]
         )
 
-        document = ExcelParser(file_name="stock.xlsx", file_type="xlsx").parse_into_text(
-            content
-        )
+        document = ExcelParser(file_name="stock.xlsx", file_type="xlsx").parse_into_text(content)
 
         self.assertEqual(
             [chunk.content.strip() for chunk in document.chunks],
@@ -758,10 +774,32 @@ class ExcelParserTest(unittest.TestCase):
             "xlsx",
             "en_calcchain.xlsx",
         )
-        if not os.path.isfile(path):
-            self.skipTest("en_calcchain.xlsx fixture not available")
-        with open(path, "rb") as f:
-            document = ExcelParser().parse_into_text(f.read())
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                payload = f.read()
+        else:
+            import xlsxwriter
+
+            bio = io.BytesIO()
+            wb = xlsxwriter.Workbook(bio, {"in_memory": True})
+            ws = wb.add_worksheet()
+            ws.write(0, 0, "calc")
+            ws.write_formula(0, 1, "=1+2", None, 3)
+            wb.close()
+            repacked = io.BytesIO()
+            with (
+                zipfile.ZipFile(io.BytesIO(bio.getvalue()), "r") as zin,
+                zipfile.ZipFile(repacked, "w", zipfile.ZIP_DEFLATED) as zout,
+            ):
+                for item in zin.infolist():
+                    target = (
+                        "xl/SharedStrings.xml"
+                        if item.filename == "xl/sharedStrings.xml"
+                        else item.filename
+                    )
+                    zout.writestr(target, zin.read(item.filename))
+            payload = repacked.getvalue()
+        document = ExcelParser().parse_into_text(payload)
         self.assertGreater(len(document.content), 0)
         self.assertGreater(len(document.chunks), 0)
 
@@ -773,9 +811,7 @@ DUMMY_PNG_BYTES = (
 )
 
 
-def _build_synthetic_dispimg_xlsx(
-    rows: list, cellimages: list[tuple[str, str, bytes]]
-) -> bytes:
+def _build_synthetic_dispimg_xlsx(rows: list, cellimages: list[tuple[str, str, bytes]]) -> bytes:
     """Build in-memory XLSX with WPS cellimages.xml and DISPIMG formulas.
 
     cellimages: list of (image_id, descr, image_bytes)
@@ -810,7 +846,9 @@ def _build_synthetic_dispimg_xlsx(
         </etc:cellImage>
         """)
         rels_xml.append(
-            f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{target_name}"/>'
+            f'<Relationship Id="{r_id}" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+            f'Target="{target_name}"/>'
         )
 
     cellimages_content = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -827,9 +865,7 @@ def _build_synthetic_dispimg_xlsx(
     </Relationships>"""
 
     out = io.BytesIO()
-    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
-        out, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             zout.writestr(item, zin.read(item.filename))
         zout.writestr("xl/cellimages.xml", cellimages_content)
@@ -856,11 +892,11 @@ def _build_synthetic_drawings_xlsx(rows: list, anchors: list[dict]) -> bytes:
     for idx, anc in enumerate(anchors, start=1):
         r_id = f"rIdD{idx}"
         target = f"../media/drawing_img_{idx}.png"
-        media_map[f"xl/media/drawing_img_{idx}.png"] = anc.get(
-            "data", DUMMY_PNG_BYTES
-        )
+        media_map[f"xl/media/drawing_img_{idx}.png"] = anc.get("data", DUMMY_PNG_BYTES)
         drawing_rels.append(
-            f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{target}"/>'
+            f'<Relationship Id="{r_id}" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+            f'Target="{target}"/>'
         )
 
         c = anc["col"]
@@ -906,10 +942,14 @@ def _build_synthetic_drawings_xlsx(rows: list, anchors: list[dict]) -> bytes:
               <xdr:clientData/>
             </xdr:twoCellAnchor>""")
 
-    ws_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-      <Relationship Id="rIdDrawing1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
-    </Relationships>"""
+    ws_rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
+        '      <Relationship Id="rIdDrawing1" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" '
+        'Target="../drawings/drawing1.xml"/>\n'
+        "    </Relationships>"
+    )
 
     drawing_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
@@ -924,9 +964,7 @@ def _build_synthetic_drawings_xlsx(rows: list, anchors: list[dict]) -> bytes:
     </Relationships>"""
 
     out = io.BytesIO()
-    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
-        out, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             zout.writestr(item, zin.read(item.filename))
         zout.writestr("xl/worksheets/_rels/sheet1.xml.rels", ws_rels)
@@ -944,18 +982,85 @@ class ExcelRealWorkloadImageTest(unittest.TestCase):
         "EXCEL_WORKLOAD_SAMPLE_PATH",
         "local-test-data/supplier_sample_with_images.xlsx",
     )
+    _synthetic_cache: bytes | None = None
+
+    @classmethod
+    def _build_supplier_workload_xlsx(cls) -> bytes:
+        if cls._synthetic_cache is not None:
+            return cls._synthetic_cache
+        jpeg_prefix = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xd9"
+        rows = [["产品图片", "产品", "组件图片"]]
+        for r_idx in range(1280):
+            img_a = f"SUP_IMG_{(r_idx % 18) + 1}"
+            img_c = f"SUP_IMG_{(r_idx % 18) + 19}"
+            prod = "随行储能 300W/256Wh" if r_idx == 0 else f"储能产品-{r_idx}"
+            rows.append([f'=_xlfn.DISPIMG("{img_a}",1)', prod, f'=_xlfn.DISPIMG("{img_c}",1)'])
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        for r_num, row_vals in enumerate(rows, start=1):
+            for c_num, val in enumerate(row_vals, start=1):
+                ws.cell(row=r_num, column=c_num, value=val)
+        bio = io.BytesIO()
+        wb.save(bio)
+
+        pics_xml: list[str] = []
+        rels_xml: list[str] = []
+        media_map: dict[str, bytes] = {}
+        for idx in range(1, 37):
+            r_id = f"rIdSup{idx}"
+            target_name = f"media/sup_{idx}.jpeg"
+            media_map[f"xl/{target_name}"] = jpeg_prefix + bytes([idx])
+            pics_xml.append(
+                f"<etc:cellImage><xdr:pic><xdr:nvPicPr>"
+                f'<xdr:cNvPr id="{idx}" name="SUP_IMG_{idx}" descr="图片"/>'
+                f"<xdr:cNvSpPr/></xdr:nvPicPr>"
+                f'<xdr:blipFill><a:blip r:embed="{r_id}"/></xdr:blipFill>'
+                f"</xdr:pic></etc:cellImage>"
+            )
+            rels_xml.append(
+                f'<Relationship Id="{r_id}" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+                f'Target="{target_name}"/>'
+            )
+
+        cellimages_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<etc:cellImages xmlns:etc="http://www.wps.cn/officeDocument/2017/etCustomData" '
+            'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" '
+            'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            f"{''.join(pics_xml)}</etc:cellImages>"
+        )
+        rels_content = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f"{''.join(rels_xml)}</Relationships>"
+        )
+        out = io.BytesIO()
+        with (
+            zipfile.ZipFile(bio, "r") as zin,
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout,
+        ):
+            for item in zin.infolist():
+                zout.writestr(item, zin.read(item.filename))
+            zout.writestr("xl/cellimages.xml", cellimages_xml)
+            zout.writestr("xl/_rels/cellimages.xml.rels", rels_content)
+            for m_path, m_bytes in media_map.items():
+                zout.writestr(m_path, m_bytes)
+        cls._synthetic_cache = out.getvalue()
+        return cls._synthetic_cache
 
     def setUp(self):
-        if not os.path.isfile(self.SAMPLE_PATH):
-            self.skipTest(f"Sample file not found at {self.SAMPLE_PATH}")
-        with open(self.SAMPLE_PATH, "rb") as f:
-            self.content = f.read()
+        if os.path.isfile(self.SAMPLE_PATH):
+            with open(self.SAMPLE_PATH, "rb") as f:
+                self.content = f.read()
+        else:
+            self.content = self._build_supplier_workload_xlsx()
 
     def test_real_xlsx_image_extraction_and_deduplication(self):
         """Extracts 36 unique deduplicated images from 2560 cell references."""
-        parser = ExcelParser(
-            file_name="supplier.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="supplier.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(self.content)
 
         # 1. Total deduplicated image count must match the 36 media files
@@ -975,15 +1080,11 @@ class ExcelRealWorkloadImageTest(unittest.TestCase):
             # Base64 data must decode to valid JPEG magic header
             decoded = base64.b64decode(b64_data)
             self.assertGreater(len(decoded), 0)
-            self.assertEqual(
-                decoded[:3], b"\xff\xd8\xff", f"Image {ref_path} is not valid JPEG"
-            )
+            self.assertEqual(decoded[:3], b"\xff\xd8\xff", f"Image {ref_path} is not valid JPEG")
 
     def test_real_xlsx_row_chunks_contain_markdown_refs(self):
         """Row chunks contain markdown image references linked to doc.images."""
-        parser = ExcelParser(
-            file_name="supplier.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
-        )
+        parser = ExcelParser(file_name="supplier.xlsx", file_type="xlsx", xlsx_ocr_enabled=False)
         doc = parser.parse_into_text(self.content)
 
         self.assertEqual(len(doc.chunks), 1281)
@@ -1033,9 +1134,7 @@ class ExcelWPSDispimgTest(unittest.TestCase):
         cellimages = [("ID_WPS_01", "5kW Inverter Photo", DUMMY_PNG_BYTES)]
         xlsx_bytes = _build_synthetic_dispimg_xlsx(rows, cellimages)
 
-        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(
-            xlsx_bytes
-        )
+        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(xlsx_bytes)
 
         self.assertEqual(len(doc.images), 1)
         self.assertNotIn("DISPIMG", doc.content)
@@ -1056,9 +1155,7 @@ class ExcelWPSDispimgTest(unittest.TestCase):
         cellimages = [("ID_WPS_SAME", "Standard Battery", DUMMY_PNG_BYTES)]
         xlsx_bytes = _build_synthetic_dispimg_xlsx(rows, cellimages)
 
-        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(
-            xlsx_bytes
-        )
+        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(xlsx_bytes)
 
         # Deduplicated to 1 image entry
         self.assertEqual(len(doc.images), 1)
@@ -1074,9 +1171,7 @@ class ExcelWPSDispimgTest(unittest.TestCase):
         ]
         xlsx_bytes = _build_synthetic_dispimg_xlsx(rows, [])
 
-        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(
-            xlsx_bytes
-        )
+        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(xlsx_bytes)
         self.assertEqual(len(doc.images), 0)
         self.assertIn("Mod X", doc.content)
         self.assertNotIn("DISPIMG", doc.content)
@@ -1102,9 +1197,7 @@ class ExcelFloatingDrawingsTest(unittest.TestCase):
         ]
         xlsx_bytes = _build_synthetic_drawings_xlsx(rows, anchors)
 
-        doc = ExcelParser(file_name="draw.xlsx", file_type="xlsx").parse_into_text(
-            xlsx_bytes
-        )
+        doc = ExcelParser(file_name="draw.xlsx", file_type="xlsx").parse_into_text(xlsx_bytes)
 
         self.assertEqual(len(doc.images), 1)
         chunk1 = doc.chunks[1].content
@@ -1128,9 +1221,7 @@ class ExcelFloatingDrawingsTest(unittest.TestCase):
         ]
         xlsx_bytes = _build_synthetic_drawings_xlsx(rows, anchors)
 
-        doc = ExcelParser(file_name="draw.xlsx", file_type="xlsx").parse_into_text(
-            xlsx_bytes
-        )
+        doc = ExcelParser(file_name="draw.xlsx", file_type="xlsx").parse_into_text(xlsx_bytes)
 
         self.assertEqual(len(doc.images), 1)
         chunk0 = doc.chunks[0].content
@@ -1169,9 +1260,7 @@ class ExcelPureTextNumericalTest(unittest.TestCase):
         bio = io.BytesIO()
         wb.save(bio)
 
-        doc = ExcelParser(file_name="pure.xlsx", file_type="xlsx").parse_into_text(
-            bio.getvalue()
-        )
+        doc = ExcelParser(file_name="pure.xlsx", file_type="xlsx").parse_into_text(bio.getvalue())
 
         self.assertEqual(len(doc.images), 0)
         self.assertNotIn("![", doc.content)
@@ -1217,9 +1306,7 @@ class ExcelPureTextNumericalTest(unittest.TestCase):
             self.skipTest("No legacy .xls fixture found")
         with open(found, "rb") as f:
             data = f.read()
-        doc = ExcelParser(file_name="test.xls", file_type="xls").parse_into_text(
-            data
-        )
+        doc = ExcelParser(file_name="test.xls", file_type="xls").parse_into_text(data)
         self.assertEqual(len(doc.images), 0)
         self.assertNotIn("images/", doc.content)
         self.assertGreater(len(doc.chunks), 0)
@@ -1231,9 +1318,7 @@ class ExcelCorruptResilienceTest(unittest.TestCase):
     def test_corrupt_zip_bytes_returns_gracefully(self):
         corrupt_data = b"PK\x03\x04random_corrupt_stream_not_a_valid_archive"
         # Must not raise unhandled BadZipFile or KeyError
-        doc = ExcelParser(
-            file_name="corrupt.xlsx", file_type="xlsx"
-        ).parse_into_text(corrupt_data)
+        doc = ExcelParser(file_name="corrupt.xlsx", file_type="xlsx").parse_into_text(corrupt_data)
         self.assertEqual(len(doc.images), 0)
 
     def test_truncated_xlsx_bytes_handled(self):
@@ -1244,9 +1329,7 @@ class ExcelCorruptResilienceTest(unittest.TestCase):
         wb.save(bio)
         truncated = bio.getvalue()[:150]
 
-        doc = ExcelParser(file_name="trunc.xlsx", file_type="xlsx").parse_into_text(
-            truncated
-        )
+        doc = ExcelParser(file_name="trunc.xlsx", file_type="xlsx").parse_into_text(truncated)
         self.assertEqual(len(doc.images), 0)
 
     def test_corrupted_drawing_xml_resilience(self):
@@ -1259,18 +1342,20 @@ class ExcelCorruptResilienceTest(unittest.TestCase):
         wb.save(bio)
 
         out = io.BytesIO()
-        with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
-            out, "w", zipfile.ZIP_DEFLATED
-        ) as zout:
+        with (
+            zipfile.ZipFile(bio, "r") as zin,
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout,
+        ):
             for item in zin.infolist():
                 zout.writestr(item, zin.read(item.filename))
             zout.writestr(
                 "xl/worksheets/_rels/sheet1.xml.rels",
-                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>',
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="'
+                'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" '
+                'Target="../drawings/drawing1.xml"/></Relationships>',
             )
-            zout.writestr(
-                "xl/drawings/drawing1.xml", "<xdr:wsDr><unclosed_malformed_xml"
-            )
+            zout.writestr("xl/drawings/drawing1.xml", "<xdr:wsDr><unclosed_malformed_xml")
 
         doc = ExcelParser().parse_into_text(out.getvalue())
         # Should gracefully ignore corrupted drawing and parse regular table rows
@@ -1287,14 +1372,13 @@ class ExcelCorruptResilienceTest(unittest.TestCase):
         wb.save(bio)
 
         out = io.BytesIO()
-        with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
-            out, "w", zipfile.ZIP_DEFLATED
-        ) as zout:
+        with (
+            zipfile.ZipFile(bio, "r") as zin,
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout,
+        ):
             for item in zin.infolist():
                 zout.writestr(item, zin.read(item.filename))
-            zout.writestr(
-                "xl/cellimages.xml", "<etc:cellImages><unclosed_malformed_xml"
-            )
+            zout.writestr("xl/cellimages.xml", "<etc:cellImages><unclosed_malformed_xml")
 
         doc = ExcelParser().parse_into_text(out.getvalue())
         self.assertEqual(len(doc.images), 0)
@@ -1341,9 +1425,7 @@ class ExcelOCRGracefulDegradationTest(unittest.TestCase):
         """When RapidOCR raises an exception, parser falls back to plain image link."""
         with patch("rapidocr.RapidOCR") as MockOCR:
             mock_instance = MockOCR.return_value
-            mock_instance.side_effect = RuntimeError(
-                "ONNX Runtime execution failed: GPU OOM"
-            )
+            mock_instance.side_effect = RuntimeError("ONNX Runtime execution failed: GPU OOM")
 
             doc = ExcelParser().parse_into_text(self.xlsx_bytes)
 
@@ -1357,9 +1439,7 @@ class ExcelOCRGracefulDegradationTest(unittest.TestCase):
         """When RapidOCR times out, parser falls back to plain image link."""
         with patch("rapidocr.RapidOCR") as MockOCR:
             mock_instance = MockOCR.return_value
-            mock_instance.side_effect = TimeoutError(
-                "OCR inference timed out after 5.0s"
-            )
+            mock_instance.side_effect = TimeoutError("OCR inference timed out after 5.0s")
 
             doc = ExcelParser().parse_into_text(self.xlsx_bytes)
 
@@ -1369,9 +1449,7 @@ class ExcelOCRGracefulDegradationTest(unittest.TestCase):
 
     def test_ocr_import_error_degrades_gracefully(self):
         """When rapidocr import fails, parser falls back to plain image link."""
-        with patch(
-            "docreader.parser.excel_parser._get_ocr_engine", return_value=None
-        ):
+        with patch("docreader.parser.excel_parser._get_ocr_engine", return_value=None):
             doc = ExcelParser().parse_into_text(self.xlsx_bytes)
             self.assertEqual(len(doc.images), 1)
             chunk1 = doc.chunks[1].content
@@ -1399,7 +1477,6 @@ class ExcelSourceBlocksTest(unittest.TestCase):
         import io
 
         import openpyxl
-
         from docreader.parser.excel_parser import ExcelParser
 
         wb = openpyxl.Workbook()
@@ -1410,16 +1487,24 @@ class ExcelSourceBlocksTest(unittest.TestCase):
         buf = io.BytesIO()
         wb.save(buf)
 
-        doc = ExcelParser(file_name="a.xlsx", file_type="xlsx").parse_into_text(
-            buf.getvalue()
-        )
-        rows = [
-            (b["locator"]["sheet"], b["locator"]["row_start"])
-            for b in doc.source_blocks
-        ]
+        doc = ExcelParser(file_name="a.xlsx", file_type="xlsx").parse_into_text(buf.getvalue())
+        rows = [(b["locator"]["sheet"], b["locator"]["row_start"]) for b in doc.source_blocks]
         self.assertEqual(rows, [("明细", 3), ("明细", 5)])
         first = doc.source_blocks[0]
         self.assertEqual(doc.content[first["start"] : first["end"]], "B: 螺栓\n")
+
+    def test_find_soffice_uses_shutil_which_and_executable_check(self):
+        from docreader.parser import excel_convert
+
+        with (
+            patch("docreader.parser.excel_convert.os.path.isfile", return_value=False),
+            patch(
+                "docreader.parser.excel_convert.shutil.which",
+                return_value="/usr/local/bin/soffice",
+            ) as mock_which,
+        ):
+            self.assertEqual(excel_convert.find_soffice(), "/usr/local/bin/soffice")
+            mock_which.assert_called_once_with("soffice")
 
 
 if __name__ == "__main__":
